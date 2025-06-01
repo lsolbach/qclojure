@@ -2,18 +2,14 @@
   "Input/Output adapters for quantum computing library"
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [clojure.java.io :as io]
-            [clojure.edn :as edn]
-            [clojure.data.json :as json]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-gate :as qg]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
 
 ;; Data format specifications
-(s/def ::file-format #{:edn :json :csv :qasm})
+(s/def ::file-format #{:edn :json :qasm})
 (s/def ::quantum-data (s/or :state ::qs/quantum-state
                             :circuit ::qc/quantum-circuit
                             :result map?))
@@ -100,95 +96,121 @@
   [data]
   (select-keys data [:gates :num-qubits :name :description :metadata]))
 
-;; File I/O operations
-(defn write-quantum-data
-  "Write quantum data to a file in specified format.
+(defn serialize-quantum-data
+  "Serialize quantum data to a portable format.
   
   Parameters:
-  - filename: Output file path
   - data: Quantum state, circuit, or algorithm result
-  - format: File format (:edn, :json, :csv)
+  
+  Returns:
+  Map with serializable data"
+  [data]
+  (cond
+    (s/valid? ::qs/quantum-state data) (serialize-quantum-state data)
+    (s/valid? ::qc/quantum-circuit data) (serialize-quantum-circuit data)
+    :else (throw (ex-info "Unsupported quantum data type" {:data data}))))
+
+(defn deserialize-quantum-data
+  "Deserialize quantum data from portable format.
+  
+  Parameters:
+  - data: Serialized quantum data
+  
+  Returns:
+  Quantum state, circuit, or algorithm result"
+  [data]
+  (cond
+    (contains? data :state-vector) (deserialize-quantum-state data)
+    (contains? data :gates) (deserialize-quantum-circuit data)
+    :else (throw (ex-info "Unsupported quantum data format" {:data data}))))
+
+(defn file-format
+  "Returns the file format to dispatch on."
+  [format & _rest] format)
+
+(defmulti export-quantum-circuit
+  "Write a quantum circuit to a specified format.
+  
+  Dispatches on format keyword.
+  
+  Parameters:
+  - format: Format to write the circuit in
+  - circuit: Quantum circuit data structure to write
+  - filename: Output file path
+  
+  Returns:
+  String containing the formatted quantum circuit"
+  file-format)
+
+(defmulti import-quantum-circuit
+  "Read a quantum circuit from a specified format.
+  
+  Dispatches on format keyword.
+  
+  Parameters:
+  - format: Format of the input circuit
+  - filename: Input file path
+
+  Returns:
+  Parsed quantum circuit data structure"
+  file-format)
+
+(defmulti export-quantum-state
+  "Write quantum state to a specified format.
+  
+  Dispatches on format keyword.
+  
+  Parameters:
+  - format: Format to write the state in
+  - state: Quantum state data structure to write
+  - filename: Output file path
   
   Returns:
   Boolean indicating success"
-  [filename data format]
-  {:pre [(s/valid? ::file-format format)]}
+  file-format)
+(defmulti import-quantum-state
+  "Read quantum state from a specified format.
   
-  (try
-    (case format
-      :edn (spit filename (pr-str data))
-      :json (spit filename (json/write-str data :indent true))
-      :csv (throw (ex-info "CSV format not yet implemented for quantum data" 
-                          {:format format})))
-    true
-    (catch Exception e
-      (println "Error writing file:" (.getMessage e))
-      false)))
-
-(defn read-quantum-data
-  "Read quantum data from a file.
+  Dispatches on format keyword.
   
   Parameters:
+  - format: Format of the input state
   - filename: Input file path
-  - format: Expected file format
+  
+  Returns:
+  Deserialized quantum state data structure"
+  file-format)
+
+  (defmulti export-quantum-data
+    "Write quantum data to a specified format.
+  
+  Dispatches on format keyword.
+  
+  Parameters:
+  - format: Format to write the data in
+  - data: Quantum state, circuit, or algorithm result
+  - filename: Output file path
+  
+  Returns:
+  Boolean indicating success"
+    file-format)
+
+  (defmulti import-quantum-data
+    "Read quantum data from a specified format.
+  
+  Dispatches on format keyword.
+  
+  Parameters:
+  - format: Format of the input data
+  - filename: Input file path
   
   Returns:
   Deserialized quantum data"
-  [filename format]
-  {:pre [(s/valid? ::file-format format)]}
-  
-  (try
-    (case format
-      :edn (edn/read-string (slurp filename))
-      :json (json/read-str (slurp filename) :key-fn keyword)
-      :csv (throw (ex-info "CSV format not yet implemented" {:format format})))
-    (catch Exception e
-      (println "Error reading file:" (.getMessage e))
-      nil)))
+    file-format)
 
-;; Export to quantum programming languages
-(defn circuit-to-qasm
-  "Convert a quantum circuit to OpenQASM format.
-  
-  OpenQASM is a standard quantum assembly language used by many
-  quantum computing platforms including IBM Qiskit and others.
-  
-  Parameters:
-  - circuit: Quantum circuit to convert
-  
-  Returns:
-  String containing QASM code"
-  [circuit]
-  (let [header (str "OPENQASM 2.0;\n"
-                   "include \"qelib1.inc\";\n"
-                   "qreg q[" (:num-qubits circuit) "];\n"
-                   "creg c[" (:num-qubits circuit) "];\n\n")
-        
-        gate-to-qasm (fn [gate]
-                       (let [gate-type (:gate-type gate)
-                             params (:gate-params gate)]
-                         (case gate-type
-                           :x (str "x q[" (:target params) "];")
-                           :y (str "y q[" (:target params) "];") 
-                           :z (str "z q[" (:target params) "];")
-                           :h (str "h q[" (:target params) "];")
-                           :s (str "s q[" (:target params) "];")
-                           :t (str "t q[" (:target params) "];")
-                           :cnot (str "cx q[" (:control params) "],q[" (:target params) "];")
-                           :rx (str "rx(" (:angle params) ") q[" (:target params) "];")
-                           :ry (str "ry(" (:angle params) ") q[" (:target params) "];")
-                           :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
-                           (str "// Unknown gate: " gate-type))))
-        
-        gates-qasm (str/join "\n" (map gate-to-qasm (:gates circuit)))
-        
-        footer "\nmeasure q -> c;"]
-    
-    (str header gates-qasm footer)))
-
-;; Result formatting and display
-(defn format-quantum-state
-  "Format quantum state for human-readable display.
+  ;; Result formatting and display
+  (defn format-quantum-state
+    "Format quantum state for human-readable display.
   
   Parameters:
   - state: Quantum state
@@ -199,51 +221,51 @@
   
   Returns:
   Formatted string representation"
-  [state & {:keys [precision threshold format]
-            :or {precision 3 threshold 0.001 format :cartesian}}]
-  
-  (let [amplitudes (:state-vector state)
-        n-qubits (:num-qubits state)
-        
-        format-complex (fn [z]
-                         (case format
-                           :cartesian (let [                                       r (fc/re z)
-                                       i (fc/im z)]
-                                       (cond
-                                         (and (< (abs r) threshold) (< (abs i) threshold)) "0"
-                                         (< (abs i) threshold) (str (qmath/round-precision r precision))
-                                         (< (abs r) threshold) (str (qmath/round-precision i precision) "i")
-                                         :else (str (qmath/round-precision r precision) 
-                                                   (if (>= i 0) "+" "")
-                                                   (qmath/round-precision i precision) "i")))
-                           :polar (let [mag (fc/abs z)
-                                       phase (fc/arg z)]
-                                   (if (< mag threshold)
-                                     "0"
-                                     (str (qmath/round-precision mag precision) 
-                                         "∠" (qmath/round-precision (m/degrees phase) 1) "°")))))
-        
-        basis-labels (for [i (range (bit-shift-left 1 n-qubits))]
-                       (str "|" (format (str "%0" n-qubits "d") 
-                                       (Long/parseLong (Integer/toBinaryString i) 2)) "⟩"))
-        
-        non-zero-terms (filter (fn [[amp label]] 
-                                (> (fc/abs amp) threshold))
-                              (map vector amplitudes basis-labels))]
-    
-    (if (empty? non-zero-terms)
-      "|0⟩"
-      (str/join " + " 
-                (map (fn [[amp label]]
-                       (let [formatted-amp (format-complex amp)]
-                         (cond
-                           (= formatted-amp "1") label
-                           (= formatted-amp "-1") (str "-" label)
-                           :else (str formatted-amp label))))
-                     non-zero-terms)))))
+    [state & {:keys [precision threshold format]
+              :or {precision 3 threshold 0.001 format :cartesian}}]
 
-(defn format-measurement-result
-  "Format quantum measurement results for display.
+    (let [amplitudes (:state-vector state)
+          n-qubits (:num-qubits state)
+
+          format-complex (fn [z]
+                           (case format
+                             :cartesian (let [r (fc/re z)
+                                              i (fc/im z)]
+                                          (cond
+                                            (and (< (abs r) threshold) (< (abs i) threshold)) "0"
+                                            (< (abs i) threshold) (str (qmath/round-precision r precision))
+                                            (< (abs r) threshold) (str (qmath/round-precision i precision) "i")
+                                            :else (str (qmath/round-precision r precision)
+                                                       (if (>= i 0) "+" "")
+                                                       (qmath/round-precision i precision) "i")))
+                             :polar (let [mag (fc/abs z)
+                                          phase (fc/arg z)]
+                                      (if (< mag threshold)
+                                        "0"
+                                        (str (qmath/round-precision mag precision)
+                                             "∠" (qmath/round-precision (m/degrees phase) 1) "°")))))
+
+          basis-labels (for [i (range (bit-shift-left 1 n-qubits))]
+                         (str "|" (format (str "%0" n-qubits "d")
+                                          (Long/parseLong (Integer/toBinaryString i) 2)) "⟩"))
+
+          non-zero-terms (filter (fn [[amp label]]
+                                   (> (fc/abs amp) threshold))
+                                 (map vector amplitudes basis-labels))]
+
+      (if (empty? non-zero-terms)
+        "|0⟩"
+        (str/join " + "
+                  (map (fn [[amp label]]
+                         (let [formatted-amp (format-complex amp)]
+                           (cond
+                             (= formatted-amp "1") label
+                             (= formatted-amp "-1") (str "-" label)
+                             :else (str formatted-amp label))))
+                       non-zero-terms)))))
+
+  (defn format-measurement-result
+    "Format quantum measurement results for display.
   
   Parameters:
   - measurements: Collection of measurement outcomes
@@ -251,120 +273,33 @@
   
   Returns:
   Formatted string with statistics"
-  [measurements & {:keys [show-histogram show-probabilities]
-                   :or {show-histogram true show-probabilities true}}]
-  
-  (let [freq-map (frequencies measurements)
-        total-measurements (count measurements)
-        sorted-outcomes (sort (keys freq-map))
-        
-        format-outcome (fn [outcome]
-                        (if (number? outcome)
-                          (str "|" outcome "⟩")
-                          (str outcome)))
-        
-        histogram-lines (when show-histogram
-                          (map (fn [outcome]
-                                 (let [count (freq-map outcome)
-                                       percentage (/ count total-measurements)
-                                       bar-length (int (* percentage 50))
-                                       bar (str/join (repeat bar-length "█"))]
-                                   (str (format-outcome outcome) ": " 
-                                       count " (" 
-                                       (qmath/round-precision (* percentage 100) 1) "%) " 
-                                       bar)))
-                               sorted-outcomes))
-        
-        probability-lines (when show-probabilities
-                            [(str "Total measurements: " total-measurements)
-                             (str "Distinct outcomes: " (count freq-map))])]
-    
-    (str/join "\n" (concat probability-lines [""] histogram-lines))))
+    [measurements & {:keys [show-histogram show-probabilities]
+                     :or {show-histogram true show-probabilities true}}]
 
-(defn export-algorithm-results
-  "Export quantum algorithm results to various formats.
-  
-  Parameters:
-  - results: Algorithm results map
-  - filename-base: Base filename without extension  
-  - formats: Collection of formats to export (:edn :json :txt)
-  
-  Returns:
-  Map of format -> success boolean"
-  [results filename-base formats]
-  
-  (let [export-format (fn [format]
-                        (let [filename (str filename-base "." (name format))
-                              success (case format
-                                        :edn (write-quantum-data filename results :edn)
-                                        :json (write-quantum-data filename results :json)
-                                        :txt (do
-                                               (spit filename (pr-str results))
-                                               true))]
-                          [format success]))]
-    
-    (into {} (map export-format formats))))
+    (let [freq-map (frequencies measurements)
+          total-measurements (count measurements)
+          sorted-outcomes (sort (keys freq-map))
 
-;; Logging and monitoring adapters
-(defn create-quantum-logger
-  "Create a logger for quantum computation events.
-  
-  Parameters:
-  - log-file: Optional log file path
-  - log-level: :debug :info :warn :error
-  
-  Returns:
-  Logger function"
-  [& {:keys [log-file log-level] :or {log-level :info}}]
-  
-  (let [levels {:debug 0 :info 1 :warn 2 :error 3}
-        current-level (levels log-level)
-        
-        write-log (if log-file
-                    (fn [message] 
-                      (spit log-file (str message "\n") :append true))
-                    println)]
-    
-    (fn [level message & args]
-      (when (>= (levels level) current-level)
-        (let [timestamp (.format (java.time.LocalDateTime/now)
-                                (java.time.format.DateTimeFormatter/ofPattern 
-                                 "yyyy-MM-dd HH:mm:ss"))
-              formatted-message (apply format message args)
-              log-entry (str "[" timestamp "] " 
-                           (str/upper-case (name level)) ": " 
-                           formatted-message)]
-          (write-log log-entry))))))
+          format-outcome (fn [outcome]
+                           (if (number? outcome)
+                             (str "|" outcome "⟩")
+                             (str outcome)))
 
-(comment
-  ;; REPL examples for I/O operations
-  
-  ;; Create and serialize a quantum state
-  (def bell-state (-> (qs/zero-state 2)
-                      (qg/h-gate 0)
-                      (qg/cnot)))
-  
-  (def serialized-state (serialize-quantum-state bell-state))
-  (def recovered-state (deserialize-quantum-state serialized-state))
-  
-  ;; Create and export a circuit
-  (def bell-circuit (qc/bell-state-circuit))
-  (def qasm-code (circuit-to-qasm bell-circuit))
-  (println qasm-code)
-  
-  ;; Write and read quantum data
-  (write-quantum-data "bell-state.edn" serialized-state :edn)
-  (write-quantum-data "bell-circuit.json" (serialize-quantum-circuit bell-circuit) :json)
-  
-  (def loaded-state (read-quantum-data "bell-state.edn" :edn))
-  (def loaded-circuit (read-quantum-data "bell-circuit.json" :json))
-  
-  ;; Format quantum states for display
-  (println (format-quantum-state bell-state))
-  (println (format-quantum-state bell-state :format :polar))
-  
-  ;; Create a logger
-  (def qlogger (create-quantum-logger :log-file "quantum.log" :log-level :debug))
-  (qlogger :info "Starting quantum computation")
-  (qlogger :debug "Applied Hadamard gate to qubit 0")
-  )
+          histogram-lines (when show-histogram
+                            (map (fn [outcome]
+                                   (let [count (freq-map outcome)
+                                         percentage (/ count total-measurements)
+                                         bar-length (int (* percentage 50))
+                                         bar (str/join (repeat bar-length "█"))]
+                                     (str (format-outcome outcome) ": "
+                                          count " ("
+                                          (qmath/round-precision (* percentage 100) 1) "%) "
+                                          bar)))
+                                 sorted-outcomes))
+
+          probability-lines (when show-probabilities
+                              [(str "Total measurements: " total-measurements)
+                               (str "Distinct outcomes: " (count freq-map))])]
+
+      (str/join "\n" (concat probability-lines [""] histogram-lines))))
+

@@ -12,20 +12,21 @@ A functional library for building and simulating quantum algorithms.
 ## Usage
 ```clojure
 (require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
+(require '[org.soulspace.qclojure.application.quantum-backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.quantum-simulator :as sim])
 
 ;; Create a simple circuit
 (def circuit (-> (qc/create-circuit 2)
-                 (qc/add-gate (qc/h-gate 0))
-                 (qc/add-gate (qc/cnot-gate 0 1))))
+                 (qc/h-gate 0)
+                 (qc/cnot-gate 0 1)))
 
 ;; Run the circuit on the simulator
 (def simulator (sim/create-simulator))
-(def result (qc/execute-circuit circuit simulator))
+(def result (qb/execute-circuit simulator circuit {:shot-count 1000}))
 
 ;; Examine the results
-(qc/get-state result)
-(qc/measure-all result)
+(:final-state result)
+(:measurement-results result)
 ```
 
 ## Build

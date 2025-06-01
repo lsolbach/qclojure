@@ -102,7 +102,8 @@
   Returns: Simulation results"
   [circuit options]
   (try
-    (let [num-qubits (:num-qubits circuit)
+    (let [start-time (System/currentTimeMillis)
+          num-qubits (:num-qubits circuit)
           shot-count (get options :shot-count 1024)
           
           ;; Create initial state and execute the circuit
@@ -118,8 +119,8 @@
       {:job-status :completed
        :measurement-results measurement-results
        :final-state final-state
-       :execution-time-ms (System/currentTimeMillis)})
-    
+       :execution-time-ms (- (System/currentTimeMillis) start-time)})
+
     (catch Exception e
       {:job-status :failed
        :error-message (.getMessage e)

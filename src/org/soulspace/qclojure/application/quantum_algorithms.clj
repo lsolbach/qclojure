@@ -6,6 +6,7 @@
             [org.soulspace.qclojure.domain.quantum-state :as qs]
             [org.soulspace.qclojure.domain.quantum-gate :as qg]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.modular-arithmetic :as qma]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
 ;; Specs for algorithm inputs and outputs
@@ -510,22 +511,8 @@
   (quantum-phase-estimation 0.125 3)   ; Phase = 1/8
   (quantum-phase-estimation 0.375 4)   ; Phase = 3/8
 
-  ;; Demonstrate algorithm composition
-  (defn run-algorithm-suite
-    [hidden-string search-target]
-    (println "=== Quantum Algorithm Suite ===")
-    (println "\n1. Deutsch Algorithm (constant function):")
-    (println (deutsch-algorithm (constantly true)))
-    (println "\n2. Deutsch Algorithm (balanced function):")
-    (println (deutsch-algorithm identity))
-    (println "\n3. Grover Search:")
-    (println (grover-algorithm 8 #(= % search-target)))
-    (println "\n4. Bernstein-Vazirani:")
-    (println (bernstein-vazirani-algorithm hidden-string))
-    (println "\n5. Simon's Algorithm:")
-    (println (simon-algorithm hidden-string (count hidden-string)))
-    (println "\n6. Quantum Phase Estimation:")
-    (println (quantum-phase-estimation 0.25 4)))
+  ;
+  )
 
 ;; Helper functions for Shor's algorithm
 (defn continued-fraction
@@ -546,6 +533,8 @@
   Vector of continued fraction terms"
   ([num den]
    (continued-fraction num den 100 1e-10))
+  ([num den max-depth]
+   (continued-fraction num den max-depth 1e-10))
   ([num den max-depth epsilon]
    (loop [n num
           d den
@@ -555,11 +544,11 @@
        ;; Stop if denominator is zero or very close to zero
        (or (zero? d) (< (Math/abs d) epsilon))
        cf
-       
+
        ;; Stop if we've reached max depth to prevent infinite loops
        (>= depth max-depth)
        cf
-       
+
        :else
        (let [q (quot n d)
              r (mod n d)]
@@ -594,7 +583,7 @@
           []
           cf))
 
-(defn enhanced-period-finding
+(defn quantum-period-finding
   "Find the period from a phase estimate using improved continued fraction expansion.
   
   This function implements a more robust version of period extraction from
@@ -632,7 +621,7 @@
     (when (seq sorted-candidates)
       (:period (first sorted-candidates)))))
 
-(defn quantum-period-finding
+(defn enhanced-period-finding
   "Quantum subroutine for finding the period of f(x) = a^x mod N.
   
   This is the quantum heart of Shor's algorithm. It uses quantum phase
@@ -652,9 +641,9 @@
   - :circuit - The quantum circuit used
   - :success - Whether a valid period was found
   - :confidence - Statistical confidence in the result (only with multiple measurements)"
-  ([a N n-qubits] (quantum-period-finding a N n-qubits false 1))
-  ([a N n-qubits hardware-compatible] (quantum-period-finding a N n-qubits hardware-compatible 1))
-  ([a N n-qubits hardware-compatible n-measurements]
+  ([a N n-qubits]
+   (quantum-period-finding a N n-qubits 1))
+  ([a N n-qubits n-measurements]
    {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
    
    ;; Calculate number of qubits needed for target register
@@ -671,16 +660,9 @@
                      ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
                      
                      ;; Step 2: Apply controlled modular exponentiation
-                     ;; Choose the appropriate implementation based on hardware compatibility
                      ((fn [c]
-                        ;; Import modular arithmetic functions
-                        (let [mod-exp-circuit-fn (requiring-resolve 
-                                              (if hardware-compatible
-                                                'org.soulspace.qclojure.domain.modular-arithmetic/hardware-compatible-modular-exponentiation-circuit
-                                                'org.soulspace.qclojure.domain.modular-arithmetic/controlled-modular-exponentiation-circuit))]
-                          
-                          ;; Create and compose the modular exponentiation circuit
-                          (qc/compose-circuits c (mod-exp-circuit-fn n-qubits n-target-qubits a N)))))
+                        ;; Create and compose the modular exponentiation circuit
+                        (qc/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
                      
                      ;; Step 3: Apply inverse QFT to the control register
                      ((fn [c]
@@ -742,7 +724,7 @@
       :success (boolean (seq best-periods))
       :confidence (when (seq best-periods)
                     (/ (reduce + (map :probability best-periods)) 
-                       (count best-periods)))}))
+                       (count best-periods)))})))
 
 (defn shor-algorithm
   "Shor's algorithm for integer factorization.
@@ -789,7 +771,6 @@
    (let [;; Extract options with defaults
          n-qubits (get options :n-qubits 
                         (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2))))))
-         hardware-compatible (get options :hardware-compatible false)
          n-measurements (get options :n-measurements 10)
          max-attempts (get options :max-attempts 10)]
    
@@ -861,10 +842,7 @@
                                 :n-measurements 0}})
                  
                  ;; Try quantum period finding with our improved implementation
-                 (let [period-options {:hardware-compatible hardware-compatible
-                                      :n-measurements n-measurements
-                                      :use-enhanced-period-finding true}
-                       period-result (quantum-period-finding a N n-qubits period-options)
+                 (let [period-result (enhanced-period-finding a N n-qubits)
                        period (:estimated-period period-result)]
                    
                    (swap! attempts conj (assoc period-result :a a))
@@ -873,9 +851,9 @@
                            (even? period)
                            (not= 1 (qmath/mod-exp a (/ period 2) N)))
                      ;; We have a valid period, try to extract factors
-                     (let [exp-a-r/2 (qmath/mod-exp a (/ period 2) N)
-                           factor1 (qmath/gcd (dec exp-a-r/2) N)
-                           factor2 (qmath/gcd (inc exp-a-r/2) N)]
+                     (let [exp-a-r-2 (qmath/mod-exp a (/ period 2) N)
+                           factor1 (qmath/gcd (dec exp-a-r-2) N)
+                           factor2 (qmath/gcd (inc exp-a-r-2) N)]
                        (cond
                          ;; First factor is valid
                          (and (> factor1 1) (< factor1 N))
@@ -910,7 +888,7 @@
                          (recur (inc attempt))))
                      
                      ;; Invalid period or quantum step failed, try again
-                     (recur (inc attempt)))))))))))))))
+                     (recur (inc attempt)))))))))))))
 
 (comment
   ;; Test Shor's algorithm
@@ -940,5 +918,23 @@
     (println "Speedup:   Exponential"))
 
   (algorithm-complexity-demo)
+
+  ;; Demonstrate algorithm composition
+  (defn algorithm-demo
+    [hidden-string search-target]
+    (println "=== Quantum Algorithm Suite ===")
+    (println "\n1. Deutsch Algorithm (constant function):")
+    (println (deutsch-algorithm (constantly true)))
+    (println "\n2. Deutsch Algorithm (balanced function):")
+    (println (deutsch-algorithm identity))
+    (println "\n3. Grover Search:")
+    (println (grover-algorithm 8 #(= % search-target)))
+    (println "\n4. Bernstein-Vazirani:")
+    (println (bernstein-vazirani-algorithm hidden-string))
+    (println "\n5. Simon's Algorithm:")
+    (println (simon-algorithm hidden-string (count hidden-string)))
+    (println "\n6. Quantum Phase Estimation:")
+    (println (quantum-phase-estimation 0.25 4)))
+
 
   )

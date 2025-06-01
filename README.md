@@ -1,13 +1,41 @@
 # QClojure
 A functional library for building and simulating quantum algorithms.
 
-**Very alpha, I expect the api to change a lot!** 
+**Alpha, I expect the api to change!** 
 
-## Features
-- Pure functional approach to quantum computing
-- Simulates quantum circuits with various gate operations
-- Supports common quantum algorithms (Deutsch, Grover's, Bernstein-Vazirani, Simon's)
-- Extensible backend system for different simulators
+## Main Features of QClojure
+1. **Pure Functional Quantum Circuit Construction**
+
+   Build quantum circuits using    immutable data structures and functional composition with convenience gate functions (H, X, Y, Z, CNOT, etc.)
+
+2. **Comprehensive Gate Library**
+
+   Support for 20+ quantum gates including single-qubit gates (Pauli, Hadamard, phase), controlled gates (CNOT, CZ, CY), rotation gates (RX, RY, RZ), and multi-qubit gates (Toffoli, Fredkin, SWAP)
+
+3. **Quantum Algorithm Implementations**
+
+   Built-in implementations of classic quantum algorithms including Deutsch, Grover's search, Bernstein-Vazirani, and Simon's algorithms
+
+4. **OpenQASM 2.0 Integration**
+
+   Bidirectional conversion between quantum circuits and OpenQASM format for interoperability with other quantum computing platforms
+
+5. **Extensible Backend System**
+
+   Protocol-based architecture allowing integration with different quantum simulators and hardware backends
+
+6. **Circuit Transformation & Optimization**
+
+   Automatic gate decomposition and circuit transformation to match backend-supported gate sets
+
+7. **Local Quantum Simulator Backend**
+
+   High-performance local simulator with job submission, status tracking, and statistical measurement results with configurable shot counts
+
+8. **Comprehensive Testing & Validation**
+
+   Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
+
 
 ## Usage
 ```clojure
@@ -30,7 +58,18 @@ A functional library for building and simulating quantum algorithms.
 ```
 
 ## Build
-QClojure currently has a Leiningen build.
+QClojure is currently build with [Leiningen](https://leiningen.org/).
+
+Compile the code with:
+```
+lein compile
+```
+
+Run the test suite with:
+
+```
+lein test
+```
 
 ## Copyright
 © 2025 Ludger Solbach

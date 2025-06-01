@@ -575,36 +575,54 @@
   [a N n-qubits]
   {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N)]}
   
-  ;; Create quantum circuit for period finding
-  ;; This is a simplified implementation - a full implementation would need
-  ;; controlled modular exponentiation operators
-  (let [circuit (-> (qc/create-circuit n-qubits "Period Finding" 
+  ;; Calculate number of qubits needed for target register
+  ;; We need enough qubits to represent N
+  (let [n-target-qubits (int (Math/ceil (/ (Math/log N) (Math/log 2))))
+        
+        ;; Create the complete circuit with both control and target registers
+        total-qubits (+ n-qubits n-target-qubits)
+        circuit (-> (qc/create-circuit total-qubits 
+                                      "Period Finding"
                                       "Quantum period finding for Shor's algorithm")
-                    ;; Put all qubits in superposition
+                    
+                    ;; Step 1: Put control register in superposition
                     ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
-                    ;; Apply controlled U^(2^j) operations (simplified)
-                    ;; In practice, this would implement controlled modular exponentiation
-                    ;; For now, we'll add some rotation gates as a placeholder
-                    ((fn [c] 
-                       (reduce (fn [circuit j]
-                                 (qc/rz-gate circuit j (/ (* 2 Math/PI j) (Math/pow 2 n-qubits))))
-                               c
-                               (range n-qubits))))
-                    ;; Apply inverse QFT
-                    ((fn [c] 
-                       ;; This would normally be the inverse QFT, but for simplicity
-                       ;; we'll use some rotation gates
-                       (reduce #(qc/h-gate %1 %2) c (range n-qubits)))))
+                    
+                    ;; Step 2: Apply controlled modular exponentiation
+                    ((fn [c]
+                       ;; Import modular arithmetic functions
+                       (let [mod-exp-circuit (requiring-resolve 
+                                            'org.soulspace.qclojure.domain.modular-arithmetic/controlled-modular-exponentiation-circuit)]
+                         
+                         ;; Create and compose the modular exponentiation circuit
+                         (qc/compose-circuits c (mod-exp-circuit n-qubits n-target-qubits a N)))))
+                    
+                    ;; Step 3: Apply inverse QFT to the control register
+                    ((fn [c]
+                       ;; Create inverse QFT circuit for the control qubits only
+                       (let [iqft-circuit (qc/inverse-quantum-fourier-transform-circuit n-qubits)]
+                         ;; Apply the inverse QFT to control qubits
+                         (qc/compose-circuits c iqft-circuit)))))
         
         ;; Execute circuit and simulate measurement
-        initial-state (qs/zero-state n-qubits)
+        initial-state (qs/zero-state total-qubits)
         final-state (qc/execute-circuit circuit initial-state)
         
-        ;; Simulate measurement (in practice, this would be probabilistic)
-        ;; For demonstration, we'll calculate a representative measurement
-        measured-value (rand-int (Math/pow 2 n-qubits))
+        ;; Measure only the control register qubits
+        ;; In a proper implementation, we would trace out the target register
+        ;; and perform a proper measurement on the control register
+        phase-register-state (-> final-state
+                                ;; Trace out target register - simplified approach
+                                (qs/partial-trace (range n-qubits total-qubits)))
         
-        ;; Use continued fractions to estimate the period
+        ;; Perform measurements to get phase value
+        measurement (qs/measure-state phase-register-state)
+        measured-value (:outcome measurement)
+        
+        ;; Calculate the phase as a fraction
+        measured-phase (/ measured-value (Math/pow 2 n-qubits))
+        
+        ;; Use continued fractions to estimate the period from the phase
         cf (continued-fraction measured-value (Math/pow 2 n-qubits))
         convs (convergents cf)
         

@@ -2,7 +2,7 @@
   "HTML page templates and styling for quantum visualizations"
   (:require [hiccup2.core :as h]
             [org.soulspace.qclojure.util.io :as qio]
-            [org.soulspace.qclojure.adapter.visualization.visualization :as viz]
+            [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.common :as common]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
 

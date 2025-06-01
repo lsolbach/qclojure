@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.visualization.visualization
+(ns org.soulspace.qclojure.adapter.visualization
   "Core visualization API - unified interface to quantum visualization tools.
   
   This namespace provides a single entry point for all quantum visualization

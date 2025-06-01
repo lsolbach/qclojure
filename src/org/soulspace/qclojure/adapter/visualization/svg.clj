@@ -10,7 +10,7 @@
             [org.soulspace.qclojure.domain.quantum-state :as qs]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.adapter.visualization.visualization :as viz]
+            [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
 

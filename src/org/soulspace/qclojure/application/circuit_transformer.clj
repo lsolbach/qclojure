@@ -5,6 +5,7 @@
    to specific hardware backends by transforming gates not supported
    by the backend into equivalent sequences of supported gates."
   (:require [clojure.spec.alpha :as s]
+            [clojure.set :as set]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]
             [org.soulspace.qclojure.domain.gate-registry :as gr]
             [org.soulspace.qclojure.application.quantum-backend :as qb]))
@@ -293,25 +294,238 @@
          "- Gates transformed: " transformed "\n"
          "- Unsupported gates: " (if (empty? unsupported) "None" (pr-str unsupported)))))
 
-(comment
-  ;; Example usage
-  ;; Note: quantum-circuit is already required at the namespace level
-  (require '[org.soulspace.qclojure.adapter.backend.quantum-simulator :as sim])
+;; Circuit Optimization Functions
+
+(defn- extract-qubit-ids
+  "Extract all qubit IDs used by a gate.
   
-  ;; Create a circuit and a backend
-  (def my-circuit (-> (qc/create-circuit 2)
-                      (qc/h-gate 0)
-                      (qc/y-gate 1)
-                      (qc/cnot-gate 0 1)))
-                      
-  (def simulator (sim/create-simulator {:supported-gates #{:h :x :cnot}}))
+  Parameters:
+  - gate: Gate map with gate-type and gate-params
   
-  ;; Transform the circuit
-  (def result (transform-circuit my-circuit simulator))
+  Returns:
+  Set of qubit IDs used by this gate"
+  [gate]
+  (let [params (:gate-params gate)
+        ;; Common qubit parameter names - only these should be treated as qubit IDs
+        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}]
+    (into #{}
+          (comp (filter (fn [[k v]] 
+                          (and (contains? qubit-param-keys k)
+                               (number? v))))
+                (map second))
+          params)))
+
+(defn analyze-qubit-usage
+  "Analyze which qubits are actually used in a circuit.
   
-  ;; Show transformation summary
-  (println (get-transformation-summary result))
+  Parameters:
+  - circuit: Quantum circuit to analyze
   
-  ;; Access the transformed circuit
-  (def transformed-circuit (:quantum-circuit result))
-)
+  Returns:
+  Map containing:
+  - :used-qubits - Set of qubit IDs that are actually used
+  - :total-qubits - Total number of qubits declared in circuit
+  - :unused-qubits - Set of qubit IDs that are declared but unused
+  - :max-qubit-id - Highest qubit ID used
+  - :qubit-usage-efficiency - Ratio of used qubits to total qubits"
+  [circuit]
+  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  
+  (let [gates (:gates circuit)
+        total-qubits (:num-qubits circuit)
+        
+        ;; Extract all qubit IDs used in gates
+        used-qubits (reduce (fn [acc gate]
+                              (into acc (extract-qubit-ids gate)))
+                            #{}
+                            gates)
+        
+        ;; Calculate unused qubits
+        all-qubits (set (range total-qubits))
+        unused-qubits (set/difference all-qubits used-qubits)
+        
+        ;; Find the maximum qubit ID actually used
+        max-qubit-id (if (empty? used-qubits) -1 (apply max used-qubits))
+        
+        ;; Calculate efficiency
+        efficiency (if (zero? total-qubits)
+                     0.0
+                     (/ (count used-qubits) (double total-qubits)))]
+    
+    {:used-qubits used-qubits
+     :total-qubits total-qubits
+     :unused-qubits unused-qubits
+     :max-qubit-id max-qubit-id
+     :qubit-usage-efficiency efficiency}))
+
+(defn- create-qubit-mapping
+  "Create a mapping from old qubit IDs to new compact qubit IDs.
+  
+  Parameters:
+  - used-qubits: Set of qubit IDs that are actually used
+  
+  Returns:
+  Map from old qubit ID to new qubit ID"
+  [used-qubits]
+  (let [sorted-qubits (sort used-qubits)]
+    (into {}
+          (map-indexed (fn [new-id old-id]
+                         [old-id new-id])
+                       sorted-qubits))))
+
+(defn- remap-gate-qubits
+  "Remap qubit IDs in a gate according to a qubit mapping.
+  
+  Parameters:
+  - gate: Gate map to remap
+  - qubit-mapping: Map from old qubit ID to new qubit ID
+  
+  Returns:
+  Gate map with remapped qubit IDs"
+  [gate qubit-mapping]
+  (let [params (:gate-params gate)
+        ;; Only remap parameters that are qubit IDs
+        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}
+        remapped-params (into {}
+                              (map (fn [[param-key param-value]]
+                                     [param-key
+                                      (if (and (contains? qubit-param-keys param-key)
+                                               (number? param-value))
+                                        (get qubit-mapping param-value param-value)
+                                        param-value)])
+                                   params))]
+    (assoc gate :gate-params remapped-params)))
+
+(defn optimize-qubit-usage
+  "Optimize a circuit to use the minimum number of qubits.
+  
+  This function compacts qubit IDs to eliminate gaps and unused qubits,
+  reducing the total number of qubits required for the circuit.
+  
+  Parameters:
+  - circuit: Quantum circuit to optimize
+  
+  Returns:
+  Map containing:
+  - :quantum-circuit - Circuit with optimized qubit usage
+  - :qubit-mapping - Map from old qubit IDs to new qubit IDs
+  - :qubits-saved - Number of qubits saved by optimization
+  - :original-qubits - Original number of qubits
+  - :optimized-qubits - Final number of qubits after optimization
+  
+  Example:
+  ;; Circuit using qubits [0, 2, 5] out of 6 total qubits
+  ;; After optimization: uses qubits [0, 1, 2] out of 3 total qubits
+  (optimize-qubit-usage circuit)
+  ;=> {:quantum-circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 5 2}, 
+  ;    :qubits-saved 3, :original-qubits 6, :optimized-qubits 3}"
+  [circuit]
+  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  
+  (let [usage-analysis (analyze-qubit-usage circuit)
+        used-qubits (:used-qubits usage-analysis)
+        original-qubits (:num-qubits circuit)
+        
+        ;; Create mapping from old qubit IDs to compact new IDs
+        qubit-mapping (create-qubit-mapping used-qubits)
+        optimized-qubits (count used-qubits)
+        
+        ;; Remap all gates to use the new qubit IDs
+        optimized-gates (mapv #(remap-gate-qubits % qubit-mapping)
+                              (:gates circuit))
+        
+        ;; Create optimized circuit
+        optimized-circuit (assoc circuit
+                                 :num-qubits optimized-qubits
+                                 :gates optimized-gates)
+        
+        qubits-saved (- original-qubits optimized-qubits)]
+    
+    {:quantum-circuit optimized-circuit
+     :qubit-mapping qubit-mapping
+     :qubits-saved qubits-saved
+     :original-qubits original-qubits
+     :optimized-qubits optimized-qubits}))
+
+(defn optimize-for-backend
+  "Comprehensive circuit optimization for a specific backend.
+  
+  This function combines multiple optimization strategies:
+  1. Transform gates to backend-supported equivalents
+  2. Optimize qubit usage to minimize qubit count
+  3. Optionally apply gate sequence optimizations
+  
+  Parameters:
+  - circuit: Quantum circuit to optimize
+  - backend: Target backend for optimization
+  - options: Optional map with optimization options:
+      :optimize-qubits? - Whether to optimize qubit usage (default: true)
+      :transform-gates? - Whether to transform unsupported gates (default: true)
+      :max-iterations - Maximum decomposition iterations (default: 100)
+  
+  Returns:
+  Map containing:
+  - :quantum-circuit - The fully optimized circuit
+  - :transformation-result - Result from gate transformation
+  - :qubit-optimization-result - Result from qubit optimization (if enabled)
+  - :optimization-summary - Human-readable summary of all optimizations
+  
+  Example:
+  (optimize-for-backend my-circuit backend {:optimize-qubits? true})
+  ;=> {:quantum-circuit <optimized-circuit>, 
+  ;    :transformation-result {...}, 
+  ;    :qubit-optimization-result {...},
+  ;    :optimization-summary \"...\"}"
+  ([circuit backend]
+   (optimize-for-backend circuit backend {}))
+  
+  ([circuit backend options]
+   {:pre [(s/valid? ::qc/quantum-circuit circuit)
+          (satisfies? org.soulspace.qclojure.application.quantum-backend/QuantumBackend backend)]}
+   
+   (let [optimize-qubits? (get options :optimize-qubits? true)
+         transform-gates? (get options :transform-gates? true)
+         
+         ;; Step 1: Transform gates to backend-supported equivalents
+         transformation-result (if transform-gates?
+                                 (transform-circuit circuit backend options)
+                                 ;; Even if not transforming, we should identify unsupported gates
+                                 (let [supported-gates (qb/get-supported-gates backend)
+                                       gate-types (map :gate-type (:gates circuit))
+                                       unsupported (filterv #(not (contains? supported-gates %)) gate-types)
+                                       unique-unsupported (vec (distinct unsupported))]
+                                   {:quantum-circuit circuit
+                                    :transformed-gates 0
+                                    :unsupported-gates unique-unsupported}))
+         
+         transformed-circuit (:quantum-circuit transformation-result)
+         
+         ;; Step 2: Optimize qubit usage
+         qubit-optimization-result (if optimize-qubits?
+                                     (optimize-qubit-usage transformed-circuit)
+                                     {:quantum-circuit transformed-circuit
+                                      :qubit-mapping {}
+                                      :qubits-saved 0
+                                      :original-qubits (:num-qubits transformed-circuit)
+                                      :optimized-qubits (:num-qubits transformed-circuit)})
+         
+         final-circuit (:quantum-circuit qubit-optimization-result)
+         
+         ;; Generate comprehensive summary
+         summary (str "Circuit optimization summary:\n"
+                      "- Original qubits: " (:num-qubits circuit) "\n"
+                      "- Final qubits: " (:num-qubits final-circuit) "\n"
+                      "- Qubits saved: " (:qubits-saved qubit-optimization-result) "\n"
+                      "- Original gates: " (count (:gates circuit)) "\n"
+                      "- Final gates: " (count (:gates final-circuit)) "\n"
+                      "- Gates transformed: " (:transformed-gates transformation-result) "\n"
+                      "- Unsupported gates: " (if (empty? (:unsupported-gates transformation-result))
+                                                "None"
+                                                (pr-str (:unsupported-gates transformation-result))))]
+     
+     {:quantum-circuit final-circuit
+      :transformation-result transformation-result
+      :qubit-optimization-result qubit-optimization-result
+      :optimization-summary summary})))
+
+;; Existing transform-circuit and related functions continue below...

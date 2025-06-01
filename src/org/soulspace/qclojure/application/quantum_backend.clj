@@ -346,22 +346,7 @@
   :ret map?)
 
 (comment
-  ;; Example usage patterns:
-  ;; 
-  ;; These examples show how to use the protocol once you have backend implementations
-  ;; from the adapter layer (quantum-simulator, quantum-cloud)
+  ;; Example usage of the quantum backend protocol
   
-  ;; Synchronous execution with a backend
-  #_(let [backend (create-backend)  ; from adapter layer
-        circuit (-> (qc/create-circuit 2)
-                   (qc/add-gate :hadamard {:qubit-target 0})
-                   (qc/add-gate :cnot {:qubit-control 0 :qubit-target 1}))
-        result (execute-circuit backend circuit {:shots 1000})]
-    (analyze-measurement-results (:measurement-results result)))
-  
-  ;; Asynchronous execution pattern
-  #_(let [backend (create-backend)
-        circuit (qc/create-circuit 1)
-        job-id (execute-circuit-async backend circuit)]
-    (wait-for-job backend job-id))
+  ;
   )

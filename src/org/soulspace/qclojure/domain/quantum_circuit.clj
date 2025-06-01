@@ -847,6 +847,23 @@
                   (:qubit1 params)
                   (:qubit2 params)])))
 
+(defn inverse-quantum-fourier-transform-circuit
+  "Create an Inverse Quantum Fourier Transform (IQFT) circuit.
+  
+  The IQFT undoes the QFT and is critical for quantum phase estimation
+  in Shor's algorithm and other quantum algorithms.
+  
+  Parameters:
+  - n: Number of qubits
+  
+  Returns:
+  Quantum circuit implementing the complete IQFT
+  
+  Example:
+  (def iqft-circuit (inverse-quantum-fourier-transform-circuit 3))"
+  [n]
+  (inverse-circuit (quantum-fourier-transform-circuit n)))
+
 (defn- gate-display
   "Create a string representation of a gate for display purposes."
   [gate-type params]

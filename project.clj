@@ -1,8 +1,12 @@
 (defproject org.soulspace/qclojure "0.1.0"
-  :description "A library to implement quantum and hybrid algorithms in idiomatic Clojure" 
+  :description "A library to implement quantum and hybrid algorithms in idiomatic Clojure"
   :dependencies [[org.clojure/clojure "1.12.0"]
-                 [org.clojure/spec.alpha "0.3.218"]
+                 [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
                  [generateme/fastmath "2.4.0"]
                  [hiccup "2.0.0-RC5"]]
-)
+
+  :scm {:name "git" :url "https://github.com/lsolbach/QClojure"} 
+  :deploy-repositories [["clojars" {:sign-releases false :url "https://clojars.org/repo"}]]
+  ;
+  )

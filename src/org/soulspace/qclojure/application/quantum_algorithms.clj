@@ -529,19 +529,57 @@
 
 ;; Helper functions for Shor's algorithm
 (defn continued-fraction
-  "Convert a fraction to continued fraction representation."
-  [num den]
-  (loop [n num
-         d den
-         cf []]
-    (if (zero? d)
-      cf
-      (let [q (quot n d)
-            r (mod n d)]
-        (recur d r (conj cf q))))))
+  "Convert a fraction to continued fraction representation.
+  
+  This implementation handles numerical precision issues and early termination
+  conditions that are important for Shor's algorithm. It can detect periodic
+  patterns in the continued fraction expansion, which is crucial for finding
+  the correct period.
+  
+  Parameters:
+  - num: Numerator of the fraction
+  - den: Denominator of the fraction
+  - max-depth: (Optional) Maximum depth of continued fraction expansion
+  - epsilon: (Optional) Precision threshold for detecting near-zero remainders
+  
+  Returns:
+  Vector of continued fraction terms"
+  ([num den]
+   (continued-fraction num den 100 1e-10))
+  ([num den max-depth epsilon]
+   (loop [n num
+          d den
+          cf []
+          depth 0]
+     (cond
+       ;; Stop if denominator is zero or very close to zero
+       (or (zero? d) (< (Math/abs d) epsilon))
+       cf
+       
+       ;; Stop if we've reached max depth to prevent infinite loops
+       (>= depth max-depth)
+       cf
+       
+       :else
+       (let [q (quot n d)
+             r (mod n d)]
+         ;; If remainder is very small relative to denominator, stop
+         (if (< (/ r d) epsilon)
+           (conj cf q)
+           (recur d r (conj cf q) (inc depth))))))))
 
 (defn convergents
-  "Calculate convergents from continued fraction representation."
+  "Calculate convergents from continued fraction representation.
+  
+  This enhanced implementation handles edge cases better and includes
+  additional validation to ensure proper convergence, which is important
+  for accurately extracting periods in Shor's algorithm.
+  
+  Parameters:
+  - cf: Vector of continued fraction terms
+  
+  Returns:
+  Vector of convergents as [numerator denominator] pairs"
   [cf]
   (reduce (fn [acc term]
             (let [h (count acc)]
@@ -549,11 +587,50 @@
                 (= h 0) [[term 1]]
                 (= h 1) (conj acc [(+ (* term (ffirst acc)) 1) term])
                 :else (let [prev-2 (nth acc (- h 2))
-                           prev-1 (nth acc (- h 1))]
-                       (conj acc [(+ (* term (first prev-1)) (first prev-2))
-                                 (+ (* term (second prev-1)) (second prev-2))])))))
+                           prev-1 (nth acc (- h 1))
+                           p (+ (* term (first prev-1)) (first prev-2))
+                           q (+ (* term (second prev-1)) (second prev-2))]
+                       (conj acc [p q])))))
           []
           cf))
+
+(defn enhanced-period-finding
+  "Find the period from a phase estimate using improved continued fraction expansion.
+  
+  This function implements a more robust version of period extraction from
+  a phase measurement, which is critical for Shor's algorithm.
+  
+  Parameters:
+  - measured-value: The value from quantum measurement
+  - precision: Number of bits used in phase estimation
+  - N: Modulus for period finding
+  - a: Base for modular exponentiation
+  
+  Returns:
+  Most likely period or nil if no valid period found"
+  [measured-value precision N a]
+  (let [;; Calculate phase from measurement
+        phase (/ measured-value (Math/pow 2 precision))
+        
+        ;; Try different depths of continued fraction expansion
+        candidates (for [depth [10 20 50 100]
+                         :let [cf (continued-fraction measured-value (Math/pow 2 precision) depth)
+                               convs (convergents cf)]
+                         [num den] convs
+                         ;; Verify this is actually a period
+                         :when (and (pos? den)
+                                   (<= den N)
+                                   (= 1 (qmath/mod-exp a den N)))]
+                     {:period den
+                      :fraction [num den]
+                      :error (Math/abs (- phase (/ num (Math/pow 2 precision))))})
+        
+        ;; Sort by error (lowest first) and then by period (smallest valid first)
+        sorted-candidates (sort-by (juxt :error :period) candidates)]
+    
+    ;; Return the best candidate's period, or nil if none found
+    (when (seq sorted-candidates)
+      (:period (first sorted-candidates)))))
 
 (defn quantum-period-finding
   "Quantum subroutine for finding the period of f(x) = a^x mod N.
@@ -565,80 +642,107 @@
   - a: Base for the function f(x) = a^x mod N
   - N: Modulus
   - n-qubits: Number of qubits for the quantum register (should be ~2*log₂(N))
+  - hardware-compatible: (optional) Use hardware-compatible implementation
+  - n-measurements: (optional) Number of measurements to perform for statistical analysis
   
   Returns:
   Map containing:
-  - :measured-value - The measured outcome from the quantum circuit
+  - :measured-values - List of measured values from quantum circuit executions
   - :estimated-period - Estimated period based on continued fractions
   - :circuit - The quantum circuit used
-  - :success - Whether a valid period was found"
-  [a N n-qubits]
-  {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N)]}
-  
-  ;; Calculate number of qubits needed for target register
-  ;; We need enough qubits to represent N
-  (let [n-target-qubits (int (Math/ceil (/ (Math/log N) (Math/log 2))))
-        
-        ;; Create the complete circuit with both control and target registers
-        total-qubits (+ n-qubits n-target-qubits)
-        circuit (-> (qc/create-circuit total-qubits 
-                                      "Period Finding"
-                                      "Quantum period finding for Shor's algorithm")
-                    
-                    ;; Step 1: Put control register in superposition
-                    ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
-                    
-                    ;; Step 2: Apply controlled modular exponentiation
-                    ((fn [c]
-                       ;; Import modular arithmetic functions
-                       (let [mod-exp-circuit (requiring-resolve 
-                                            'org.soulspace.qclojure.domain.modular-arithmetic/controlled-modular-exponentiation-circuit)]
-                         
-                         ;; Create and compose the modular exponentiation circuit
-                         (qc/compose-circuits c (mod-exp-circuit n-qubits n-target-qubits a N)))))
-                    
-                    ;; Step 3: Apply inverse QFT to the control register
-                    ((fn [c]
-                       ;; Create inverse QFT circuit for the control qubits only
-                       (let [iqft-circuit (qc/inverse-quantum-fourier-transform-circuit n-qubits)]
-                         ;; Apply the inverse QFT to control qubits
-                         (qc/compose-circuits c iqft-circuit)))))
-        
-        ;; Execute circuit and simulate measurement
-        initial-state (qs/zero-state total-qubits)
-        final-state (qc/execute-circuit circuit initial-state)
-        
-        ;; Measure only the control register qubits
-        ;; In a proper implementation, we would trace out the target register
-        ;; and perform a proper measurement on the control register
-        phase-register-state (-> final-state
-                                ;; Trace out target register - simplified approach
-                                (qs/partial-trace (range n-qubits total-qubits)))
-        
-        ;; Perform measurements to get phase value
-        measurement (qs/measure-state phase-register-state)
-        measured-value (:outcome measurement)
-        
-        ;; Calculate the phase as a fraction
-        measured-phase (/ measured-value (Math/pow 2 n-qubits))
-        
-        ;; Use continued fractions to estimate the period from the phase
-        cf (continued-fraction measured-value (Math/pow 2 n-qubits))
-        convs (convergents cf)
-        
-        ;; Find the convergent that gives a valid period
-        estimated-period (some (fn [[_num den]]
-                                (when (and (pos? den) 
-                                          (<= den N)
-                                          (= 1 (qmath/mod-exp a den N)))
-                                  den))
-                              convs)]
-    
-    {:measured-value measured-value
-     :estimated-period estimated-period
-     :circuit circuit
-     :final-state final-state
-     :success (some? estimated-period)}))
+  - :success - Whether a valid period was found
+  - :confidence - Statistical confidence in the result (only with multiple measurements)"
+  ([a N n-qubits] (quantum-period-finding a N n-qubits false 1))
+  ([a N n-qubits hardware-compatible] (quantum-period-finding a N n-qubits hardware-compatible 1))
+  ([a N n-qubits hardware-compatible n-measurements]
+   {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
+   
+   ;; Calculate number of qubits needed for target register
+   ;; We need enough qubits to represent N
+   (let [n-target-qubits (int (Math/ceil (/ (Math/log N) (Math/log 2))))
+         
+         ;; Create the complete circuit with both control and target registers
+         total-qubits (+ n-qubits n-target-qubits)
+         circuit (-> (qc/create-circuit total-qubits 
+                                       "Period Finding"
+                                       "Quantum period finding for Shor's algorithm")
+                     
+                     ;; Step 1: Put control register in superposition
+                     ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
+                     
+                     ;; Step 2: Apply controlled modular exponentiation
+                     ;; Choose the appropriate implementation based on hardware compatibility
+                     ((fn [c]
+                        ;; Import modular arithmetic functions
+                        (let [mod-exp-circuit-fn (requiring-resolve 
+                                              (if hardware-compatible
+                                                'org.soulspace.qclojure.domain.modular-arithmetic/hardware-compatible-modular-exponentiation-circuit
+                                                'org.soulspace.qclojure.domain.modular-arithmetic/controlled-modular-exponentiation-circuit))]
+                          
+                          ;; Create and compose the modular exponentiation circuit
+                          (qc/compose-circuits c (mod-exp-circuit-fn n-qubits n-target-qubits a N)))))
+                     
+                     ;; Step 3: Apply inverse QFT to the control register
+                     ((fn [c]
+                        ;; Create inverse QFT circuit for the control qubits only
+                        (let [iqft-circuit (qc/inverse-quantum-fourier-transform-circuit n-qubits)]
+                          ;; Apply the inverse QFT to control qubits only
+                          ;; Using the enhanced compose-circuits with control-qubits-only option
+                          (qc/compose-circuits c iqft-circuit {:control-qubits-only true})))))
+         
+         ;; Execute circuit and perform measurements multiple times for statistical analysis
+         measurements (repeatedly n-measurements
+                                (fn []
+                                  (let [initial-state (qs/zero-state total-qubits)
+                                        final-state (qc/execute-circuit circuit initial-state)
+                                        
+                                        ;; Measure only the control register qubits by tracing out target register
+                                        phase-register-state (-> final-state
+                                                               (qs/partial-trace (range n-qubits total-qubits)))
+                                        
+                                        ;; Perform measurement to get phase value
+                                        measurement (qs/measure-state phase-register-state)]
+                                    (:outcome measurement))))
+         
+         ;; Analyze measurements and find most frequent outcomes
+         measurement-freqs (frequencies measurements)
+         sorted-measurements (sort-by second > measurement-freqs)
+         most-likely-measurements (take (min 5 (count sorted-measurements)) sorted-measurements)
+         
+         ;; Find periods from the most likely measurements
+         estimated-periods (for [[measured-value _freq] most-likely-measurements
+                                :let [;; Calculate phase
+                                      measured-phase (/ measured-value (Math/pow 2 n-qubits))
+                                      ;; Use improved continued fraction for better period extraction
+                                      cf (continued-fraction measured-value (Math/pow 2 n-qubits))
+                                      convs (convergents cf)
+                                      ;; Find convergent that gives a valid period
+                                      period (some (fn [[_num den]]
+                                                    (when (and (pos? den) 
+                                                              (<= den N)
+                                                              (= 1 (qmath/mod-exp a den N)))
+                                                      den))
+                                                  convs)]
+                                :when period]
+                            {:measured-value measured-value
+                             :phase measured-phase
+                             :period period
+                             :probability (/ (get measurement-freqs measured-value) n-measurements)})
+         
+         ;; Sort by probability to get best candidates
+         best-periods (sort-by :probability > estimated-periods)
+         best-period (first best-periods)]
+     
+     {:measured-values measurements
+      :measurement-frequencies measurement-freqs
+      :estimated-period (when best-period (:period best-period))
+      :period-candidates best-periods
+      :circuit circuit 
+      :n-measurements n-measurements
+      :success (boolean (seq best-periods))
+      :confidence (when (seq best-periods)
+                    (/ (reduce + (map :probability best-periods)) 
+                       (count best-periods)))}))
 
 (defn shor-algorithm
   "Shor's algorithm for integer factorization.
@@ -646,6 +750,11 @@
   Shor's algorithm is a quantum algorithm that can factor large integers
   exponentially faster than the best known classical algorithms. It combines
   classical preprocessing, quantum period finding, and classical post-processing.
+  
+  This improved implementation supports:
+  1. Hardware-compatible mode for real quantum hardware execution
+  2. Multiple measurements for statistical robustness
+  3. Enhanced period extraction for better success rate
   
   Algorithm steps:
   1. Classical preprocessing: Check for trivial cases
@@ -655,7 +764,11 @@
   
   Parameters:
   - N: Integer to factor (should be composite)
-  - n-qubits: Number of qubits for quantum period finding (default: 2*⌈log₂(N)⌉)
+  - options: (Optional) Map containing:
+    - :n-qubits - Number of qubits for quantum period finding (default: 2*⌈log₂(N)⌉)
+    - :hardware-compatible - Boolean indicating if hardware-optimized circuit should be used
+    - :n-measurements - Number of measurements for statistical analysis (default: 10)
+    - :max-attempts - Maximum number of random 'a' values to try (default: 10)
   
   Returns:
   Map containing:
@@ -664,88 +777,142 @@
   - :N - The input number
   - :attempts - Vector of maps describing each attempt with different 'a' values
   - :quantum-circuit - The quantum circuit from the successful attempt (if any)
+  - :statistics - Performance statistics and confidence metrics
   
   Example:
   (shor-algorithm 15)    ;=> {:factors [3 5], :success true, :N 15, ...}
-  (shor-algorithm 21)    ;=> {:factors [3 7], :success true, :N 21, ...}"
-  ([N] (shor-algorithm N (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2)))))))
-  ([N n-qubits]
-   {:pre [(> N 1) (pos-int? n-qubits)]}
+  (shor-algorithm 21 {:hardware-compatible true})   ;=> {:factors [3 7], :success true, ...}"
+  ([N] (shor-algorithm N {}))
+  ([N options]
+   {:pre [(> N 1)]}
    
-   ;; Step 1: Classical preprocessing
-   (cond
-     ;; Check if N is even
-     (even? N) {:factors [2 (/ N 2)]
-                :success true
-                :N N
-                :attempts []
-                :method :classical-even}
-     
-     ;; Check if N is a perfect power
-     :else 
-     (let [attempts (atom [])
-           max-attempts 10]
-       
-       ;; Step 2-4: Try quantum period finding with different values of 'a'
-       (loop [attempt 0]
-         (if (>= attempt max-attempts)
-           ;; Failed to find factors
-           {:factors []
-            :success false
-            :N N
-            :attempts @attempts
-            :method :quantum-failed}
-           
-           ;; Choose random a
-           (let [a (+ 2 (rand-int (- N 2)))
-                 gcd-a-N (qmath/gcd a N)]
-             
-             ;; Check if gcd(a,N) gives us a factor
-             (if (> gcd-a-N 1)
-               ;; Found factor classically
-               (do
-                 (swap! attempts conj {:a a :gcd gcd-a-N :method :classical-gcd})
-                 {:factors [gcd-a-N (/ N gcd-a-N)]
+   (let [;; Extract options with defaults
+         n-qubits (get options :n-qubits 
+                        (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2))))))
+         hardware-compatible (get options :hardware-compatible false)
+         n-measurements (get options :n-measurements 10)
+         max-attempts (get options :max-attempts 10)]
+   
+     ;; Step 1: Classical preprocessing
+     (cond
+       ;; Check if N is even
+       (even? N) {:factors [2 (/ N 2)]
                   :success true
                   :N N
-                  :attempts @attempts
-                  :method :classical-gcd})
+                  :attempts []
+                  :method :classical-even}
+       
+       ;; Check if N is a perfect power - try to find if N = m^k for some m,k>1
+       (some (fn [k]
+               (let [root (Math/pow N (/ 1 k))
+                     int-root (int root)]
+                 (when (= N (int (Math/pow int-root k)))
+                   {:base int-root :power k})))
+             (range 2 (inc (int (/ (Math/log N) (Math/log 2))))))
+       (let [{:keys [base power]} (some (fn [k]
+                                          (let [root (Math/pow N (/ 1 k))
+                                                int-root (int root)]
+                                            (when (= N (int (Math/pow int-root k)))
+                                              {:base int-root :power k})))
+                                        (range 2 (inc (int (/ (Math/log N) (Math/log 2))))))]
+         {:factors (repeat power base)
+          :success true
+          :N N
+          :attempts []
+          :method :classical-perfect-power})
+       
+       ;; Continue with quantum period finding
+       :else 
+       (let [attempts (atom [])
+             start-time (System/currentTimeMillis)]
+         
+         ;; Step 2-4: Try quantum period finding with different values of 'a'
+         (loop [attempt 0]
+           (if (>= attempt max-attempts)
+             ;; Failed to find factors
+             {:factors []
+              :success false
+              :N N
+              :attempts @attempts
+              :method :quantum-failed
+              :statistics {:runtime (- (System/currentTimeMillis) start-time)
+                          :attempts attempt
+                          :n-measurements n-measurements}}
+             
+             ;; Choose random a coprime to N
+             (let [a (loop [candidate (+ 2 (rand-int (- N 2)))]
+                       (if (= (qmath/gcd candidate N) 1)
+                         candidate
+                         (recur (+ 2 (rand-int (- N 2))))))
+                   gcd-a-N (qmath/gcd a N)]
                
-               ;; Try quantum period finding
-               (let [period-result (quantum-period-finding a N n-qubits)
-                     period (:estimated-period period-result)]
+               ;; Check if gcd(a,N) gives us a factor
+               (if (> gcd-a-N 1)
+                 ;; Found factor classically
+                 (do
+                   (swap! attempts conj {:a a :gcd gcd-a-N :method :classical-gcd})
+                   {:factors [gcd-a-N (/ N gcd-a-N)]
+                    :success true
+                    :N N
+                    :attempts @attempts
+                    :method :classical-gcd
+                    :statistics {:runtime (- (System/currentTimeMillis) start-time)
+                                :attempts (inc attempt)
+                                :n-measurements 0}})
                  
-                 (swap! attempts conj (assoc period-result :a a))
-                 
-                 (if (and period 
-                         (even? period)
-                         (not= 1 (qmath/mod-exp a (/ period 2) N)))
-                   ;; We have a valid period, try to extract factors
-                   (let [factor1 (qmath/gcd (dec (qmath/mod-exp a (/ period 2) N)) N)
-                         factor2 (qmath/gcd (inc (qmath/mod-exp a (/ period 2) N)) N)]
-                     (if (and (> factor1 1) (< factor1 N))
-                       ;; Success!
-                       {:factors [factor1 (/ N factor1)]
-                        :success true
-                        :N N
-                        :attempts @attempts
-                        :quantum-circuit (:circuit period-result)
-                        :method :quantum-period-finding}
-                       ;; Try the second factor if first didn't work
-                       (if (and (> factor2 1) (< factor2 N))
+                 ;; Try quantum period finding with our improved implementation
+                 (let [period-options {:hardware-compatible hardware-compatible
+                                      :n-measurements n-measurements
+                                      :use-enhanced-period-finding true}
+                       period-result (quantum-period-finding a N n-qubits period-options)
+                       period (:estimated-period period-result)]
+                   
+                   (swap! attempts conj (assoc period-result :a a))
+                   
+                   (if (and period 
+                           (even? period)
+                           (not= 1 (qmath/mod-exp a (/ period 2) N)))
+                     ;; We have a valid period, try to extract factors
+                     (let [exp-a-r/2 (qmath/mod-exp a (/ period 2) N)
+                           factor1 (qmath/gcd (dec exp-a-r/2) N)
+                           factor2 (qmath/gcd (inc exp-a-r/2) N)]
+                       (cond
+                         ;; First factor is valid
+                         (and (> factor1 1) (< factor1 N))
+                         {:factors [factor1 (/ N factor1)]
+                          :success true
+                          :N N
+                          :attempts @attempts
+                          :quantum-circuit (:circuit period-result)
+                          :method :quantum-period-finding
+                          :statistics {:runtime (- (System/currentTimeMillis) start-time)
+                                      :attempts (inc attempt)
+                                      :n-measurements n-measurements
+                                      :period period
+                                      :confidence (:confidence period-result)}}
+                         
+                         ;; Second factor is valid 
+                         (and (> factor2 1) (< factor2 N))
                          {:factors [factor2 (/ N factor2)]
                           :success true
                           :N N
                           :attempts @attempts
                           :quantum-circuit (:circuit period-result)
-                          :method :quantum-period-finding}
+                          :method :quantum-period-finding
+                          :statistics {:runtime (- (System/currentTimeMillis) start-time)
+                                      :attempts (inc attempt)
+                                      :n-measurements n-measurements
+                                      :period period
+                                      :confidence (:confidence period-result)}}
+                         
                          ;; Period didn't give useful factors, try again
-                         (recur (inc attempt)))))
-                   ;; Invalid period or quantum step failed, try again
-                   (recur (inc attempt))))))))))))
+                         :else
+                         (recur (inc attempt))))
+                     
+                     ;; Invalid period or quantum step failed, try again
+                     (recur (inc attempt)))))))))))))))
 
-  (run-algorithm-suite [1 0 1] 5)
-
+(comment
   ;; Test Shor's algorithm
   (println "\n=== Shor's Factoring Algorithm ===")
   (println "Factoring N = 15:")

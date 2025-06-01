@@ -295,4 +295,9 @@
   (qa/bernstein-vazirani-algorithm [1 0 1 0])
   (qa/simon-algorithm [1 0 1] 3)
   (qa/quantum-phase-estimation 0.375 4)
+
+  (qa/shor-algorithm 14)
+  (qa/shor-algorithm 15)
+  (qa/shor-algorithm 21)
+  (qa/shor-algorithm 77)
   )

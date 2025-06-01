@@ -9,6 +9,7 @@
             [org.soulspace.qclojure.application.quantum-algorithms :as qa]
             [org.soulspace.qclojure.domain.quantum-state :as qs]
             [org.soulspace.qclojure.domain.quantum-gate :as qg]
+            [org.soulspace.qclojure.domain.math :as qmath]
             [fastmath.core :as m]
             [fastmath.complex :as fc]))
 
@@ -148,6 +149,39 @@
       (is (contains? result :complexity))
       (is (contains? result :circuit))
       (is (= (get-in result [:circuit :qubits]) 5)))))  ; 4 counting + 1 eigenstate
+
+;; Test Shor's Algorithm
+#_(deftest test-shor-algorithm
+  (testing "Shor's algorithm can factor small composite numbers"
+    (let [;; Test with N = 15 (3 * 5)
+          result-15 (qa/shor-algorithm 15)]
+      (is (= (count (:factors result-15)) 2))
+      (is (contains? (set (:factors result-15)) 3))
+      (is (contains? (set (:factors result-15)) 5))
+      (is (:success result-15))
+      (is (= (:N result-15) 15))))
+  
+  (testing "Shor's algorithm handles even numbers trivially"
+    (let [result-14 (qa/shor-algorithm 14)]
+      (is (= (count (:factors result-14)) 2))
+      (is (contains? (set (:factors result-14)) 2))
+      (is (contains? (set (:factors result-14)) 7))
+      (is (:success result-14))
+      (is (= (:method result-14) :classical-even))))
+  
+  (testing "Shor's algorithm correctly implements period finding"
+    (let [;; We'll test period finding directly with known values
+          ;; For a = 2, N = 15, the period should be 4 (since 2^4 mod 15 = 1)
+          period-result (qa/quantum-period-finding 2 15 8)]
+      ;; The period finding might not be deterministic in all runs
+      ;; due to quantum measurement randomness, but we can verify:
+      (is (contains? period-result :measured-value))
+      (is (contains? period-result :circuit))
+      
+      ;; If we found a period, check that it's valid
+      (when-let [period (:estimated-period period-result)]
+        (is (= 1 (qmath/mod-exp 2 period 15))
+            "Verify that a^r mod N = 1 for the found period")))))
 
 ;; Property-based tests using test.check
 (defspec deutsch-algorithm-deterministic 20

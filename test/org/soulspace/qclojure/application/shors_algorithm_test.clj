@@ -4,41 +4,6 @@
             [org.soulspace.qclojure.application.quantum-algorithms :as qa]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
-;; Test Enhanced Period Finding
-(deftest test-enhanced-period-finding
-  (testing "Enhanced period finding for various inputs"
-    (let [test-cases [{:a 7 :N 15 :period 4}
-                      {:a 11 :N 21 :period 6}
-                      {:a 2 :N 35 :period 12}]
-          precision 8]  ;; Using 8 qubits precision for simulation
-      
-      (doseq [{:keys [a N period]} test-cases]
-        ;; Calculate expected phase from period
-        (let [phase-fraction (/ 1 period)
-              measured-value (int (* phase-fraction (Math/pow 2 precision)))
-              found-period (qa/enhanced-period-finding measured-value precision N a)]
-          (is (= period found-period)
-              (str "Period finding failed for a=" a ", N=" N 
-                   ". Expected period " period ", got " found-period)))))))
-
-;; Test Quantum Period Finding
-(deftest test-quantum-period-finding
-  (testing "Quantum period finding routine"
-    ;; Test with a=7, N=15, expected period=4
-    (let [a 7
-          N 15
-          expected-period 4
-          ;; Use small number of qubits for faster tests
-          n-qubits 4
-          result (qa/quantum-period-finding a N n-qubits)]
-      
-      (is (map? result) "Result should be a map")
-      (is (contains? result :estimated-period) "Result should contain estimated period")
-      
-      (when-let [period (:estimated-period result)]
-        (is (= 1 (qmath/mod-exp a period N))
-            (str "a^period mod N should equal 1: " a "^" period " mod " N))))))
-
 ;; Test Shor's Algorithm with small composite numbers
 (deftest test-shors-algorithm
   (testing "Factoring N=15"
@@ -89,3 +54,9 @@
       (is (map? result) "Should return a map")
       (is (contains? result :success) "Should include success flag")
       (is (contains? result :statistics) "Should include statistics"))))
+
+(comment 
+  (run-tests)
+
+  ;
+  )

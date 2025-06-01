@@ -642,28 +642,28 @@
   - :success - Whether a valid period was found
   - :confidence - Statistical confidence in the result (only with multiple measurements)"
   ([a N n-qubits]
-   (quantum-period-finding a N n-qubits 1))
+   (enhanced-period-finding a N n-qubits 1))
   ([a N n-qubits n-measurements]
    {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
    
    ;; Calculate number of qubits needed for target register
    ;; We need enough qubits to represent N
    (let [n-target-qubits (int (Math/ceil (/ (Math/log N) (Math/log 2))))
-         
+
          ;; Create the complete circuit with both control and target registers
          total-qubits (+ n-qubits n-target-qubits)
-         circuit (-> (qc/create-circuit total-qubits 
-                                       "Period Finding"
-                                       "Quantum period finding for Shor's algorithm")
-                     
+         circuit (-> (qc/create-circuit total-qubits
+                                        "Period Finding"
+                                        "Quantum period finding for Shor's algorithm")
+
                      ;; Step 1: Put control register in superposition
                      ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
-                     
+
                      ;; Step 2: Apply controlled modular exponentiation
                      ((fn [c]
                         ;; Create and compose the modular exponentiation circuit
                         (qc/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
-                     
+
                      ;; Step 3: Apply inverse QFT to the control register
                      ((fn [c]
                         ;; Create inverse QFT circuit for the control qubits only
@@ -671,46 +671,50 @@
                           ;; Apply the inverse QFT to control qubits only
                           ;; Using the enhanced compose-circuits with control-qubits-only option
                           (qc/compose-circuits c iqft-circuit {:control-qubits-only true})))))
-         
+
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
-                                (fn []
-                                  (let [initial-state (qs/zero-state total-qubits)
-                                        final-state (qc/execute-circuit circuit initial-state)
-                                        
-                                        ;; Measure only the control register qubits by tracing out target register
-                                        phase-register-state (-> final-state
-                                                               (qs/partial-trace (range n-qubits total-qubits)))
-                                        
-                                        ;; Perform measurement to get phase value
-                                        measurement (qs/measure-state phase-register-state)]
-                                    (:outcome measurement))))
-         
+                                  (fn []
+                                    (let [initial-state (qs/zero-state total-qubits)
+                                          final-state (qc/execute-circuit circuit initial-state)
+                                          ;; Measure only the control register qubits by tracing out target register
+                                          phase-register-state (-> final-state
+                                                                   ;; Trace out target qubits one by one (in reverse order to maintain indices)
+                                                                   (as-> state
+                                                                         (reduce (fn [s qubit-idx]
+                                                                                   (qs/partial-trace s qubit-idx))
+                                                                                 state
+                                                                                 (reverse (range n-qubits total-qubits)))))
+
+                                          ;; Perform measurement to get phase value
+                                          measurement (qs/measure-state phase-register-state)]
+                                      (:outcome measurement))))
+
          ;; Analyze measurements and find most frequent outcomes
          measurement-freqs (frequencies measurements)
          sorted-measurements (sort-by second > measurement-freqs)
          most-likely-measurements (take (min 5 (count sorted-measurements)) sorted-measurements)
-         
+
          ;; Find periods from the most likely measurements
          estimated-periods (for [[measured-value _freq] most-likely-measurements
-                                :let [;; Calculate phase
-                                      measured-phase (/ measured-value (Math/pow 2 n-qubits))
-                                      ;; Use improved continued fraction for better period extraction
-                                      cf (continued-fraction measured-value (Math/pow 2 n-qubits))
-                                      convs (convergents cf)
-                                      ;; Find convergent that gives a valid period
-                                      period (some (fn [[_num den]]
-                                                    (when (and (pos? den) 
-                                                              (<= den N)
-                                                              (= 1 (qmath/mod-exp a den N)))
-                                                      den))
-                                                  convs)]
-                                :when period]
-                            {:measured-value measured-value
-                             :phase measured-phase
-                             :period period
-                             :probability (/ (get measurement-freqs measured-value) n-measurements)})
-         
+                                 :let [;; Calculate phase
+                                       measured-phase (/ measured-value (Math/pow 2 n-qubits))
+                                       ;; Use improved continued fraction for better period extraction
+                                       cf (continued-fraction measured-value (Math/pow 2 n-qubits))
+                                       convs (convergents cf)
+                                       ;; Find convergent that gives a valid period
+                                       period (some (fn [[_num den]]
+                                                      (when (and (pos? den)
+                                                                 (<= den N)
+                                                                 (= 1 (qmath/mod-exp a den N)))
+                                                        den))
+                                                    convs)]
+                                 :when period]
+                             {:measured-value measured-value
+                              :phase measured-phase
+                              :period period
+                              :probability (/ (get measurement-freqs measured-value) n-measurements)})
+
          ;; Sort by probability to get best candidates
          best-periods (sort-by :probability > estimated-periods)
          best-period (first best-periods)]
@@ -845,13 +849,14 @@
                  (let [period-result (enhanced-period-finding a N n-qubits)
                        period (:estimated-period period-result)]
                    
-                   (swap! attempts conj (assoc period-result :a a))
+                   (when (map? period-result)
+                     (swap! attempts conj (assoc period-result :a a)))
                    
                    (if (and period 
                            (even? period)
-                           (not= 1 (qmath/mod-exp a (/ period 2) N)))
+                           (not= 1 (qmath/mod-exp a (int (/ period 2)) N)))
                      ;; We have a valid period, try to extract factors
-                     (let [exp-a-r-2 (qmath/mod-exp a (/ period 2) N)
+                     (let [exp-a-r-2 (qmath/mod-exp a (int (/ period 2)) N)
                            factor1 (qmath/gcd (dec exp-a-r-2) N)
                            factor2 (qmath/gcd (inc exp-a-r-2) N)]
                        (cond

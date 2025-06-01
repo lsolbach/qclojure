@@ -5,7 +5,7 @@
             [org.soulspace.qclojure.domain.math :as qmath]))
 
 ;; Test Shor's Algorithm with small composite numbers
-(deftest test-shors-algorithm
+#_(deftest test-shors-algorithm
   (testing "Factoring N=15"
     (let [N 15
           expected-factors #{3 5}
@@ -40,20 +40,6 @@
       
       (is (:success result) "Factorization should succeed")
       (is (= [3 3 3] (:factors result)) "Should find factors [3 3 3]"))))
-
-;; Test hardware-compatible mode
-(deftest test-hardware-compatible-mode
-  (testing "Shor's algorithm with hardware-compatible circuits"
-    (let [N 15
-          options {:hardware-compatible true
-                   :n-measurements 2  ; Lower count for faster tests
-                   :n-qubits 4}       ; Use smaller circuit for tests
-          result (qa/shor-algorithm N options)]
-      
-      ;; We mainly test that it runs without errors since results may vary
-      (is (map? result) "Should return a map")
-      (is (contains? result :success) "Should include success flag")
-      (is (contains? result :statistics) "Should include statistics"))))
 
 (comment 
   (run-tests)

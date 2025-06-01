@@ -16,7 +16,7 @@
 (s/def ::backend-config map?)
 (s/def ::job-id string?)
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
-(s/def ::shot-count pos-int?)
+(s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
 (s/def ::supported-gates ::gr/gate-set)
 
@@ -25,7 +25,7 @@
           :opt-un [::backend-config ::description]))
 
 (s/def ::execution-options
-  (s/keys :opt-un [::shot-count ::backend-info]))
+  (s/keys :opt-un [::shots ::backend-info]))
 
 (s/def ::job-result
   (s/keys :req-un [::job-id ::job-status]
@@ -88,7 +88,7 @@
   
   Returns: Job result map with measurement outcomes"
   ([backend circuit]
-   (execute-circuit backend circuit {:shot-count 1024}))
+   (execute-circuit backend circuit {:shots 1024}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::qc/quantum-circuit circuit)
@@ -131,7 +131,7 @@
   
   Returns: Job ID string"
   ([backend circuit]
-   (execute-circuit-async backend circuit {:shot-count 1024}))
+   (execute-circuit-async backend circuit {:shots 1024}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::qc/quantum-circuit circuit)
@@ -356,7 +356,7 @@
         circuit (-> (qc/create-circuit 2)
                    (qc/add-gate :hadamard {:qubit-target 0})
                    (qc/add-gate :cnot {:qubit-control 0 :qubit-target 1}))
-        result (execute-circuit backend circuit {:shot-count 1000})]
+        result (execute-circuit backend circuit {:shots 1000})]
     (analyze-measurement-results (:measurement-results result)))
   
   ;; Asynchronous execution pattern

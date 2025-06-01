@@ -72,7 +72,7 @@
   (testing "Circuit submission"
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
-          job-id (qb/submit-circuit simulator circuit {:shot-count 100})]
+          job-id (qb/submit-circuit simulator circuit {:shots 100})]
       (is (string? job-id))
       
       ;; Wait a bit for the job to complete (since it runs in a future)
@@ -97,7 +97,7 @@
   (testing "Circuit execution convenience function"
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
-          result (qb/execute-circuit simulator circuit {:shot-count 500})]
+          result (qb/execute-circuit simulator circuit {:shots 500})]
       (is (= :completed (:job-status result)))
       (is (map? (:measurement-results result)))
       (is (contains? (:measurement-results result) "00"))
@@ -108,7 +108,7 @@
     (let [simulator (sim/create-simulator)
           h-circuit (-> (qc/create-circuit 1 "Hadamard Test")
                          (qc/h-gate 0))
-          result (qb/execute-circuit simulator h-circuit {:shot-count 1000})
+          result (qb/execute-circuit simulator h-circuit {:shots 1000})
           measurements (:measurement-results result)]
       ;; Hadamard should create superposition of |0⟩ and |1⟩ with ~50% probability each
       (is (contains? measurements "0"))
@@ -122,7 +122,7 @@
   (testing "Bell state simulation"
     (let [simulator (sim/create-simulator)
           bell (bell-circuit)
-          result (qb/execute-circuit simulator bell {:shot-count 1000})
+          result (qb/execute-circuit simulator bell {:shots 1000})
           measurements (:measurement-results result)]
       ;; Bell state should only measure |00⟩ and |11⟩ with ~50% probability each
       (is (contains? measurements "00"))
@@ -138,7 +138,7 @@
   (testing "Multi-qubit GHZ state"
     (let [simulator (sim/create-simulator)
           ghz (ghz-circuit 3)  ;; 3-qubit GHZ state
-          result (qb/execute-circuit simulator ghz {:shot-count 1000})
+          result (qb/execute-circuit simulator ghz {:shots 1000})
           measurements (:measurement-results result)]
       ;; GHZ state should only measure |000⟩ and |111⟩
       (is (contains? measurements "000"))
@@ -155,7 +155,7 @@
     (let [simulator (sim/create-simulator)
           x-circuit (-> (qc/create-circuit 1 "X Gate Test")
                          (qc/x-gate 0))
-          result (qb/execute-circuit simulator x-circuit {:shot-count 100})
+          result (qb/execute-circuit simulator x-circuit {:shots 100})
           measurements (:measurement-results result)]
       ;; X gate should flip |0⟩ to |1⟩
       (is (contains? measurements "1"))
@@ -168,7 +168,7 @@
                          ;; Control=1, Target=0
                          (qc/x-gate 0)
                          (qc/cnot-gate 0 1))
-          result (qb/execute-circuit simulator cx-circuit {:shot-count 100})
+          result (qb/execute-circuit simulator cx-circuit {:shots 100})
           measurements (:measurement-results result)]
       ;; Initial state |00⟩, apply X to get |10⟩, CNOT gives |11⟩
       (is (contains? measurements "11"))
@@ -178,7 +178,7 @@
   (testing "Job cancellation"
     (let [simulator (sim/create-simulator)
           circuit (ghz-circuit 5)  ;; Create a larger circuit
-          job-id (qb/submit-circuit simulator circuit {:shot-count 5000})
+          job-id (qb/submit-circuit simulator circuit {:shots 5000})
           cancel-result (qb/cancel-job simulator job-id)]
       ;; Might already be completed depending on timing
       (is (contains? #{:cancelled :cannot-cancel} cancel-result))))
@@ -198,7 +198,7 @@
 (deftest test-simulator-statistics
   (testing "Simulator stats"
     (let [simulator (sim/create-simulator)
-          _ (qb/execute-circuit simulator (bell-circuit) {:shot-count 100})
+          _ (qb/execute-circuit simulator (bell-circuit) {:shots 100})
           stats (sim/get-simulator-stats)]
       (is (map? stats))
       (is (contains? stats :total-jobs))

@@ -22,7 +22,7 @@ A functional library for building and simulating quantum algorithms.
 
 ;; Run the circuit on the simulator
 (def simulator (sim/create-simulator))
-(def result (qb/execute-circuit simulator circuit {:shot-count 1000}))
+(def result (qb/execute-circuit simulator circuit {:shots 1000}))
 
 ;; Examine the results
 (:final-state result)

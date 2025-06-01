@@ -61,11 +61,11 @@
   
   Parameters:
   - state: Quantum state
-  - shot-count: Number of measurement shots
+  - shots: Number of measurement shots
   - num-qubits: Number of qubits in the system
   
   Returns: Map of measurement outcomes to counts"
-  [state shot-count num-qubits]
+  [state shots num-qubits]
   (let [probabilities (get-measurement-probabilities state)
         ;; Convert to computational basis state strings
         basis-states (map #(index-to-basis-string % num-qubits) 
@@ -73,7 +73,7 @@
         outcomes (into {} (map vector basis-states probabilities))]
     
     ;; Simulate shot-by-shot measurement
-    (loop [shots-remaining shot-count
+    (loop [shots-remaining shots
            results {}]
       (if (zero? shots-remaining)
         results
@@ -104,7 +104,7 @@
   (try
     (let [start-time (System/currentTimeMillis)
           num-qubits (:num-qubits circuit)
-          shot-count (get options :shot-count 1024)
+          shots (get options :shots 1024)
           
           ;; Create initial state and execute the circuit
           initial-state (qs/zero-state num-qubits)
@@ -113,7 +113,7 @@
           ;; Perform measurements
           measurement-results (measure-quantum-state 
                              final-state
-                             shot-count
+                             shots
                              num-qubits)]
       
       {:job-status :completed
@@ -281,7 +281,7 @@
         (qc/add-gate :cnot {:qubit-control 0 :qubit-target 1})))
   
   ;; Execute synchronously
-  (def result (qb/execute-circuit sim bell-circuit {:shot-count 1000}))
+  (def result (qb/execute-circuit sim bell-circuit {:shots 1000}))
   
   ;; Analyze results
   (qb/analyze-measurement-results (:measurement-results result))

@@ -1,0 +1,434 @@
+(ns org.soulspace.qclojure.adapter.visualization.common
+  "Common utilities for quantum visualization - shared calculations and data extraction.
+  
+  This namespace contains shared functions used across different visualization formats.
+  It focuses on pure data transformation and calculation, keeping format-specific
+  rendering logic in the individual format namespaces."
+  (:require [clojure.string :as str]
+            [fastmath.core :as m]
+            [fastmath.complex :as fc]
+            [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]))
+
+;;
+;; Data Extraction and Calculation
+;;
+(defn extract-state-probabilities
+  "Extract probability distribution from quantum state.
+  
+  Parameters:
+  - state: Quantum state with :state-vector and :num-qubits
+  
+  Returns:
+  Vector of probabilities (real numbers) for each computational basis state"
+  [state]
+  (mapv #(* (fc/abs %) (fc/abs %)) (:state-vector state)))
+
+(defn generate-basis-labels
+  "Generate computational basis state labels for given number of qubits.
+  
+  Parameters:
+  - n-qubits: Number of qubits in the system
+  
+  Returns:
+  Vector of basis state labels like [|00⟩ |01⟩ |10⟩ |11⟩] for 2 qubits
+  
+  Examples:
+  (generate-basis-labels 1) ;=> [|0⟩ |1⟩]
+  (generate-basis-labels 2) ;=> [|00⟩ |01⟩ |10⟩ |11⟩]"
+  [n-qubits]
+  (when (and n-qubits (pos? n-qubits))
+    (mapv (fn [i]
+            (let [binary-str (Long/toBinaryString i)
+                  padded-binary (str (apply str (repeat (- n-qubits (count binary-str)) "0")) binary-str)]
+              (str "|" padded-binary "⟩")))
+          (range (bit-shift-left 1 n-qubits)))))
+
+(defn filter-significant-probabilities
+  "Filter probabilities above threshold and limit count.
+  
+  Parameters:
+  - probabilities: Vector of probability values
+  - threshold: Minimum probability to include (default 0.001)
+  - max-count: Maximum number of states to include (default 16)
+  
+  Returns:
+  Map with :indices, :probabilities, :labels, and :summary info"
+  [probabilities labels & {:keys [threshold max-count] 
+                           :or {threshold 0.001 max-count 16}}]
+  (let [significant-indices (->> (range (count probabilities))
+                                 (filter #(> (nth probabilities %) threshold))
+                                 (sort-by #(nth probabilities %) >)
+                                 (take max-count))
+        filtered-probs (mapv #(nth probabilities %) significant-indices)
+        filtered-labels (mapv #(nth labels %) significant-indices)
+        total-shown (reduce + filtered-probs)
+        n-hidden (- (count probabilities) (count filtered-probs))]
+    
+    {:indices significant-indices
+     :probabilities filtered-probs
+     :labels filtered-labels
+     :total-shown total-shown
+     :n-hidden n-hidden}))
+
+(defn format-amplitude-display
+  "Format complex amplitude for human-readable display.
+  
+  Parameters:
+  - amplitude: Complex amplitude (fastmath Vec2)
+  - precision: Decimal places for rounding (default 3)
+  
+  Returns:
+  String representation like '0.707+0.0i' or '0.5-0.3i'"
+  [amplitude & {:keys [precision] :or {precision 3}}]
+  (let [real-part (qmath/round-precision (fc/re amplitude) precision)
+        imag-part (qmath/round-precision (fc/im amplitude) precision)
+        sign (if (>= imag-part 0) "+" "")]
+    (str real-part sign imag-part "i")))
+
+(defn format-state-expression
+  "Format quantum state as amplitude expression.
+  
+  Parameters:
+  - state: Quantum state
+  - indices: Indices of significant amplitudes to show
+  - labels: Corresponding basis state labels
+  - precision: Decimal places (default 3)
+  
+  Returns:
+  String like '0.707|0⟩ + 0.707|1⟩'"
+  [state indices labels & {:keys [precision] :or {precision 3}}]
+  (let [amplitudes (:state-vector state)]
+    (->> (map (fn [idx label]
+                (let [amp (nth amplitudes idx)]
+                  (str (format-amplitude-display amp :precision precision) 
+                       " " label)))
+              indices labels)
+         (str/join " + "))))
+
+(defn calculate-state-summary
+  "Calculate summary information about quantum state.
+  
+  Parameters:
+  - state: Quantum state
+  - filtered-data: Result from filter-significant-probabilities
+  
+  Returns:
+  Map with summary statistics"
+  [state filtered-data]
+  (let [{:keys [total-shown n-hidden]} filtered-data
+        n-qubits (:num-qubits state)]
+    {:num-qubits n-qubits
+     :total-probability-shown total-shown
+     :percentage-shown (* total-shown 100)
+     :hidden-states n-hidden
+     :total-dimension (bit-shift-left 1 n-qubits)}))
+
+;;
+;; Amplitude and Phase Analysis
+;;
+(defn extract-amplitude-info
+  "Extract detailed amplitude information for display.
+  
+  Parameters:
+  - state: Quantum state
+  - indices: Indices of amplitudes to extract
+  - labels: Corresponding labels
+  - precision: Decimal places (default 3)
+  
+  Returns:
+  Vector of maps with :label, :amplitude, :magnitude, :phase, :probability"
+  [state indices labels & {:keys [precision] :or {precision 3}}]
+  (let [amplitudes (:state-vector state)]
+    (mapv (fn [idx label]
+            (let [amp (nth amplitudes idx)
+                  magnitude (fc/abs amp)
+                  phase (m/degrees (fc/arg amp))
+                  probability (* magnitude magnitude)]
+              {:label label
+               :amplitude (format-amplitude-display amp :precision precision)
+               :magnitude (qmath/round-precision magnitude precision)
+               :phase (qmath/round-precision phase 1)
+               :probability (qmath/round-precision probability precision)}))
+          indices labels)))
+
+(defn calculate-phase-info
+  "Calculate phase information for quantum state amplitudes.
+  
+  Parameters:
+  - state: Quantum state
+  - indices: Indices to analyze
+  - labels: Corresponding labels
+  
+  Returns:
+  Vector of maps with :label and :phase-degrees"
+  [state indices labels]
+  (let [amplitudes (:state-vector state)]
+    (mapv (fn [idx label]
+            (let [amp (nth amplitudes idx)
+                  phase (m/degrees (fc/arg amp))]
+              {:label label
+               :phase-degrees (qmath/round-precision phase 1)}))
+          indices labels)))
+
+;;
+;; Probability Bar Chart Data
+;;
+
+(defn prepare-bar-chart-data
+  "Prepare data for probability bar charts across different formats.
+  
+  This function extracts and normalizes probability data in a format-agnostic way.
+  
+  Parameters:
+  - state: Quantum state
+  - options: Chart options
+    :threshold - Minimum probability threshold (default 0.001)
+    :max-bars - Maximum number of bars (default 16)
+    :normalize - Whether to normalize to max probability (default true)
+  
+  Returns:
+  Map with chart data:
+  - :probabilities - Filtered probability values
+  - :labels - Corresponding state labels  
+  - :normalized - Normalized probabilities (0-1 scale)
+  - :max-probability - Maximum probability value
+  - :summary - Summary information"
+  [state & {:keys [threshold max-bars normalize]
+            :or {threshold 0.001 max-bars 16 normalize true}}]
+  (let [num-qubits (:num-qubits state)
+        ;; Guard against invalid states
+        _ (when (or (nil? num-qubits) (not (pos? num-qubits)))
+            (throw (ex-info "Invalid quantum state: missing or invalid num-qubits" 
+                           {:state state :num-qubits num-qubits})))
+        all-probabilities (extract-state-probabilities state)
+        all-labels (generate-basis-labels num-qubits)
+        filtered (filter-significant-probabilities all-probabilities all-labels
+                                                   :threshold threshold
+                                                   :max-count max-bars)
+        max-prob (if (empty? (:probabilities filtered)) 
+                   1 
+                   (apply max (:probabilities filtered)))
+        normalized (when normalize
+                     (mapv #(if (zero? max-prob) 0 (/ % max-prob)) 
+                           (:probabilities filtered)))
+        summary (calculate-state-summary state filtered)]
+    
+    {:probabilities (:probabilities filtered)
+     :labels (:labels filtered)
+     :normalized normalized
+     :max-probability max-prob
+     :indices (:indices filtered)
+     :summary summary}))
+
+;;
+;; Format-agnostic Styling Helpers
+;;
+
+(defn generate-color-palette
+  "Generate color palette for quantum visualizations.
+  
+  Parameters:
+  - n-colors: Number of colors needed
+  - scheme: Color scheme (:quantum, :rainbow, :monochrome)
+  
+  Returns:
+  Vector of color codes (format depends on target: hex for web, ANSI for terminal)"
+  [n-colors & {:keys [scheme] :or {scheme :quantum}}]
+  (case scheme
+    :quantum ["#7c3aed" "#3b82f6" "#10b981" "#f59e0b" "#ef4444" "#8b5cf6" "#06b6d4" "#84cc16"]
+    :rainbow (take n-colors ["#ff0000" "#ff7f00" "#ffff00" "#00ff00" "#0000ff" "#4b0082" "#9400d3"])
+    :monochrome (take n-colors (repeat "#6b7280"))))
+
+(defn calculate-bar-dimensions
+  "Calculate bar dimensions for different chart formats.
+  
+  Parameters:
+  - chart-data: Result from prepare-bar-chart-data
+  - total-width: Total available width
+  - total-height: Total available height
+  
+  Returns:
+  Map with dimension calculations for bars"
+  [chart-data total-width total-height]
+  (let [n-bars (count (:probabilities chart-data))
+        bar-spacing (max 2 (/ total-width (* n-bars 20)))
+        bar-width (max 10 (/ (- total-width (* bar-spacing (inc n-bars))) n-bars))
+        max-bar-height (* total-height 0.8)]
+    
+    {:bar-count n-bars
+     :bar-width bar-width
+     :bar-spacing bar-spacing
+     :max-bar-height max-bar-height
+     :chart-area-width (- total-width (* bar-spacing 2))
+     :chart-area-height max-bar-height}))
+
+;;
+;; Bloch Sphere Common Utilities
+;;
+
+(defn format-single-qubit-state
+  "Format single-qubit quantum state as amplitude expression.
+  
+  Parameters:
+  - state: Single-qubit quantum state
+  - precision: Decimal places (default 3)
+  
+  Returns:
+  String like '0.707|0⟩ + 0.707i|1⟩'"
+  [state & {:keys [precision] :or {precision 3}}]
+  {:pre [(= (:num-qubits state) 1)]}
+  (let [amplitudes (:state-vector state)
+        α (first amplitudes)   ; amplitude for |0⟩  
+        β (second amplitudes)] ; amplitude for |1⟩
+    (str (format-amplitude-display α :precision precision) " |0⟩ + "
+         (format-amplitude-display β :precision precision) " |1⟩")))
+
+(defn format-bloch-coordinates
+  "Format Bloch sphere coordinates for display.
+  
+  Parameters:
+  - coords: Result from quantum-state-to-bloch-coordinates
+  - precision: Decimal places (default 3 for cartesian, 1 for angles)
+  
+  Returns:
+  Map with formatted coordinate strings"
+  [coords & {:keys [precision] :or {precision 3}}]
+  (let [{θ :theta φ :phi} (:spherical coords)
+        {x :x y :y z :z} (:cartesian coords)]
+    {:spherical-text (str "θ=" (qmath/round-precision (m/degrees θ) 1) "°, "
+                          "φ=" (qmath/round-precision (m/degrees φ) 1) "°")
+     :cartesian-text (str "(" (qmath/round-precision x precision) ", "
+                              (qmath/round-precision y precision) ", " 
+                              (qmath/round-precision z precision) ")")
+     :angles {:theta-deg (qmath/round-precision (m/degrees θ) 1)
+              :phi-deg (qmath/round-precision (m/degrees φ) 1)}
+     :vector {:x (qmath/round-precision x precision)
+              :y (qmath/round-precision y precision) 
+              :z (qmath/round-precision z precision)}}))
+
+(defn calculate-reference-distances
+  "Calculate distances from current state to reference states.
+  
+  Parameters:
+  - coords: Current state coordinates from quantum-state-to-bloch-coordinates
+  - precision: Decimal places for distance values (default 2)
+  
+  Returns:
+  Vector of maps with :label and :distance for each reference state"
+  [coords & {:keys [precision] :or {precision 2}}]
+  (let [reference-states (coord/reference-state-coordinates)]
+    (mapv (fn [[label ref-coords]]
+            (let [dist (coord/bloch-distance coords ref-coords)]
+              {:label label
+               :distance (qmath/round-precision dist precision)}))
+          reference-states)))
+
+(defn format-reference-distances
+  "Format reference state distances as display text.
+  
+  Parameters:
+  - distance-data: Result from calculate-reference-distances
+  - format: Output format (:inline or :list)
+  
+  Returns:
+  Formatted string"
+  [distance-data & {:keys [format] :or {format :inline}}]
+  (case format
+    :inline (str/join ", " (map #(str (:label %) ":" (:distance %)) distance-data))
+    :list (str/join "\n" (map #(str "  " (:label %) ": " (:distance %)) distance-data))))
+
+(defn generate-bloch-legend
+  "Generate legend text for Bloch sphere visualizations.
+  
+  Parameters:
+  - format: Target format (:ascii or :svg)
+  
+  Returns:
+  String with appropriate legend information"
+  [format]
+  (case format
+    :ascii "Legend: ● = current state, · = sphere outline, + = axes"
+    :svg "Interactive Bloch Sphere: Hover for details, scroll to zoom"
+    "Bloch Sphere Visualization"))
+
+(defn prepare-bloch-display-data
+  "Prepare all display data for Bloch sphere visualization.
+  
+  This aggregates all the text and coordinate information needed by both
+  ASCII and SVG formats, reducing code duplication.
+  
+  Parameters:
+  - state: Single-qubit quantum state
+  - coords: Coordinates from quantum-state-to-bloch-coordinates
+  - options: Display options
+    :show-coordinates - Include coordinate text (default true)
+    :show-distances - Include reference distances (default true)
+    :precision - Decimal places (default 3)
+  
+  Returns:
+  Map with formatted display strings and data"
+  [state coords & {:keys [show-coordinates show-distances precision format]
+                   :or {show-coordinates true show-distances true precision 3 format :ascii}}]
+  (let [state-text (format-single-qubit-state state :precision precision)
+        coord-info (when show-coordinates
+                     (format-bloch-coordinates coords :precision precision))
+        distance-info (when show-distances
+                        (calculate-reference-distances coords))
+        legend (generate-bloch-legend format)]
+    
+    {:state-expression state-text
+     :coordinates coord-info
+     :distances distance-info
+     :legend legend
+     :summary (str "Single-qubit state on Bloch sphere\n"
+                   "State: " state-text "\n"
+                   (when show-coordinates
+                     (str "Coordinates: " (:spherical-text coord-info) "\n"
+                          "Bloch vector: " (:cartesian-text coord-info) "\n"))
+                   (when show-distances
+                     (str "Distances: " (format-reference-distances distance-info) "\n")))}))
+
+;;
+;; Test Utilities (REPL/Dev Only)
+;;
+
+(comment
+  ;; REPL testing of common utilities
+  (require '[qclojure.domain.quantum-state :as qs])
+  
+  ;; Test state preparation
+  (def test-state (qs/zero-state 2))
+  (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0) 
+                                 (fc/complex 0 0) (fc/complex 0.7 0)] 
+                  :num-qubits 2})
+  
+  ;; Test probability extraction
+  (extract-state-probabilities test-state)
+  (generate-basis-labels 2)
+  
+  ;; Test bar chart data preparation
+  (prepare-bar-chart-data bell-like)
+  
+  ;; Test amplitude formatting
+  (format-amplitude-display (fc/complex 0.707 0.0))
+  (format-amplitude-display (fc/complex 0.5 -0.3))
+  
+  ;; Test summary calculations
+  (let [probs [0.5 0.3 0.2 0.0]
+        labels ["|00⟩" "|01⟩" "|10⟩" "|11⟩"]
+        filtered (filter-significant-probabilities probs labels)]
+    filtered)
+  ;; Test Bloch sphere utilities
+  (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)] 
+                            :num-qubits 1})
+  (def bloch-coords {:cartesian {:x 0.5 :y 0.5 :z 0.707}
+                      :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
+  
+  (format-single-qubit-state single-qubit-state)
+  (format-bloch-coordinates bloch-coords)
+  (calculate-reference-distances bloch-coords)
+  (format-reference-distances (calculate-reference-distances bloch-coords))
+  (generate-bloch-legend :ascii)
+  (prepare-bloch-display-data single-qubit-state bloch-coords)
+  )

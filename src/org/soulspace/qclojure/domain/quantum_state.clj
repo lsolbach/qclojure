@@ -187,23 +187,6 @@
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
 
-;; Default states for convenience - pre-defined common quantum states
-(def |0⟩ 
-  "Single-qubit |0⟩ computational basis state"
-  (zero-state 1))
-
-(def |1⟩ 
-  "Single-qubit |1⟩ computational basis state"
-  (one-state))
-
-(def |+⟩ 
-  "Single-qubit |+⟩ = (|0⟩ + |1⟩)/√2 superposition state"
-  (plus-state))
-
-(def |-⟩ 
-  "Single-qubit |-⟩ = (|0⟩ - |1⟩)/√2 superposition state"
-  (minus-state))
-
 ;; State manipulation functions
 (defn normalize-state
   "Normalize a quantum state vector to unit length.
@@ -371,31 +354,61 @@
          (> (:num-qubits state) 1)]}
   (let [n-qubits (:num-qubits state)
         amplitudes (:state-vector state)
-        
+
         ;; For simplicity, implement partial trace for 2-qubit systems
         ;; In a full implementation, this would handle arbitrary n-qubit systems
-        reduced-amplitudes 
+        reduced-amplitudes
         (if (= n-qubits 2)
           ;; 2-qubit case: trace out specified qubit
           (if (= trace-qubit 1)
             ;; Trace out second qubit: |00⟩ + |01⟩ -> |0⟩, |10⟩ + |11⟩ -> |1⟩
             (let [amp0 (Math/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
-                                    (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
+                                     (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
                   amp1 (Math/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
-                                    (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
+                                     (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)])
             ;; Trace out first qubit: |00⟩ + |10⟩ -> |0⟩, |01⟩ + |11⟩ -> |1⟩  
             (let [amp0 (Math/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
-                                    (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
+                                     (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
                   amp1 (Math/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
-                                    (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
+                                     (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)]))
           ;; For higher dimensions, use a simplified approach
           ;; This is a placeholder - full implementation would handle general case
           [(fc/complex (/ 1 (Math/sqrt 2)) 0) (fc/complex (/ 1 (Math/sqrt 2)) 0)])]
-    
+
     {:state-vector (vec reduced-amplitudes)
      :num-qubits (dec n-qubits)}))
+
+;; Default states for convenience - pre-defined common quantum states
+(def |0⟩
+  "Single-qubit |0⟩ computational basis state."
+  (zero-state 1))
+
+(def |1⟩
+  "Single-qubit |1⟩ computational basis state."
+  (one-state))
+
+(def |+⟩
+  "Single-qubit |+⟩ = (|0⟩ + |1⟩)/√2 superposition state."
+  (plus-state))
+
+(def |-⟩
+  "Single-qubit |-⟩ = (|0⟩ - |1⟩)/√2 superposition state."
+  (minus-state))
+
+(def |00⟩
+  "Two-qubit |00⟩ computational basis state."
+  (tensor-product |0⟩ |0⟩))
+(def |01⟩
+  "Two-qubit |01⟩ computational basis state."
+  (tensor-product |0⟩ |1⟩))
+(def |10⟩
+  "Two-qubit |10⟩ computational basis state."
+  (tensor-product |1⟩ |0⟩))
+(def |11⟩
+  "Two-qubit |11⟩ computational basis state."
+  (tensor-product |1⟩ |1⟩))
 
 (comment
   ;; Test normalization
@@ -404,15 +417,11 @@
   (def |+⟩-norm (normalize-state |+⟩))
   (def |-⟩-norm (normalize-state |-⟩))
 
-  ;; Test tensor products
-  (def |00⟩ (tensor-product |0⟩ |0⟩))
-  (def |01⟩ (tensor-product |0⟩ |1⟩))
-
   ;; Test measurements
   (probability |+⟩ 0)
   (probability |+⟩ 1)
 
   (measure-state |+⟩)
-  
+
   ;
   )

@@ -49,7 +49,7 @@
                                                                     (let [[x2d y2d] (project-3d x3d y3d z3d)]
                                                                       (str x2d "," y2d)))
                                                                   circle)))
-                                      :stroke "#e5e7eb" :stroke-width 1 :fill "none"}])
+                                      :stroke "#475569" :stroke-width 1.4 :fill "none" :opacity 0.8}])
                             (:circles wireframe))
 
         ;; Meridian lines
@@ -59,7 +59,7 @@
                                                                (let [[x2d y2d] (project-3d x3d y3d z3d)]
                                                                  (str x2d "," y2d)))
                                                              meridian)))
-                                 :stroke "#e5e7eb" :stroke-width 1 :fill "none"}])
+                                 :stroke "#475569" :stroke-width 1.4 :fill "none" :opacity 0.8}])
                        (:meridians wireframe))
 
         ;; Coordinate axes
@@ -119,18 +119,20 @@
                                                         :format :svg)
         
         state-vector [:g
-                      ;; Vector line from center to state
+                      ;; Vector line from center to state with improved visibility
                       [:line {:x1 center :y1 center :x2 state-x :y2 state-y
-                              :stroke "#7c3aed" :stroke-width 3}]
-                      ;; State point
-                      [:circle {:cx state-x :cy state-y :r 6
-                                :fill "#7c3aed" :stroke "#ffffff" :stroke-width 2}
+                              :stroke "#4c1d95" :stroke-width 4 :opacity 0.9}]
+                      [:line {:x1 center :y1 center :x2 state-x :y2 state-y
+                              :stroke "#7c3aed" :stroke-width 2.5 :opacity 1}]
+                      ;; State point with enhanced visibility
+                      [:circle {:cx state-x :cy state-y :r 8
+                                :fill "#7c3aed" :stroke "#ffffff" :stroke-width 3}
                        [:title (str "Current State: " (get-in display-data [:coordinates :spherical-text])
                                     "\nBloch Vector: " (get-in display-data [:coordinates :cartesian-text])
                                     "\nState: " (:state-expression display-data))]]
-                      ;; State label
-                      [:text {:x (+ state-x 10) :y (- state-y 10)
-                              :font-size "14" :fill "#7c3aed" :font-weight "bold"}
+                      ;; State label with shadow for better visibility
+                      [:text {:x (+ state-x 14) :y (- state-y 14)
+                             :font-size "18" :fill "#4c1d95" :font-weight "bold" :stroke "#ffffff" :stroke-width 0.8 :paint-order "stroke"}
                        "ψ"]]
 
         ;; Coordinate information
@@ -162,13 +164,13 @@
      (h/html
       [:svg {:width size :height size
              :xmlns "http://www.w3.org/2000/svg"
-             :style "background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #e5e7eb; border-radius: 8px;"}
+             :style "background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border: 1px solid #cbd5e1; border-radius: 8px;"}
        [:defs
         [:style "text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }"]]
        animations
-       ;; Background sphere shadow
-       [:ellipse {:cx (+ center 5) :cy (+ center 5) :rx radius :ry (* radius 0.3)
-                  :fill "#000000" :opacity 0.1}]
+       ;; Equatorial plane (corrected for isometric projection)
+       [:ellipse {:cx center :cy center :rx radius :ry (* radius 0.577) 
+                  :fill "#475569" :opacity 0.2}]
        (seq sphere-circles)
        (seq meridians)
        (seq axes)
@@ -195,10 +197,23 @@
                    :z {:fill "#3b82f6" :symbol "Z"}
                    :h {:fill "#8b5cf6" :symbol "H"}
                    :s {:fill "#f59e0b" :symbol "S"}
+                   :s-dag {:fill "#f59e0b" :symbol "S†"}
                    :t {:fill "#06b6d4" :symbol "T"}
+                   :t-dag {:fill "#06b6d4" :symbol "T†"}
                    :rx {:fill "#ec4899" :symbol "RX"}
                    :ry {:fill "#10b981" :symbol "RY"}
-                   :rz {:fill "#6366f1" :symbol "RZ"}}
+                   :rz {:fill "#6366f1" :symbol "RZ"}
+                   :phase {:fill "#9333ea" :symbol "P"}
+                   :cx {:fill "#ef4444" :symbol "CX"}
+                   :cy {:fill "#22c55e" :symbol "CY"}
+                   :cz {:fill "#3b82f6" :symbol "CZ"}
+                   :swap {:fill "#fb923c" :symbol "×"}
+                   :iswap {:fill "#fb923c" :symbol "i×"}
+                   :crx {:fill "#ec4899" :symbol "CRX"}
+                   :cry {:fill "#10b981" :symbol "CRY"}
+                   :crz {:fill "#6366f1" :symbol "CRZ"}
+                   :toffoli {:fill "#64748b" :symbol "CCX"}
+                   :fredkin {:fill "#fb923c" :symbol "C×"}}
 
       ;; Qubit lines
       qubit-lines (for [q (range n-qubits)]
@@ -225,15 +240,16 @@
                              gate-info (get gate-styles gate-type
                                             {:fill "#6b7280" :symbol (name gate-type)})]
 
-                         (case gate-type
-                           :cnot
+                         (cond
+                           ;; CNOT / CX gate
+                           (or (= gate-type :cnot) (= gate-type :cx))
                            (let [control-y (+ (:top margin) (* control qubit-spacing))
                                  target-y (+ (:top margin) (* target qubit-spacing))]
                              [:g {:class (when interactive "gate-group")}
                               ;; Control dot
                               [:circle {:cx x :cy control-y :r 6
                                         :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol
+                              ;; Target symbol - X gate
                               [:circle {:cx x :cy target-y :r 12
                                         :fill "none" :stroke "#374151" :stroke-width 2}]
                               [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
@@ -246,7 +262,171 @@
                                       :stroke "#374151" :stroke-width 2}]
                               [:title (str "CNOT: control=" control ", target=" target)]])
 
-                           ;; Single-qubit gates
+                           ;; CZ gate
+                           (= gate-type :cz)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol - Z gate
+                              [:circle {:cx x :cy target-y :r 12
+                                        :fill "none" :stroke "#3b82f6" :stroke-width 2}]
+                              [:text {:x x :y (+ target-y 5)
+                                      :text-anchor "middle" :font-size "12" :fill "#3b82f6" :font-weight "bold"}
+                               "Z"]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control-y target-y)
+                                      :x2 x :y2 (max control-y target-y)
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:title (str "CZ: control=" control ", target=" target)]])
+
+                           ;; CY gate
+                           (= gate-type :cy)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol - Y gate
+                              [:circle {:cx x :cy target-y :r 12
+                                        :fill "none" :stroke "#22c55e" :stroke-width 2}]
+                              [:text {:x x :y (+ target-y 5)
+                                      :text-anchor "middle" :font-size "12" :fill "#22c55e" :font-weight "bold"}
+                               "Y"]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control-y target-y)
+                                      :x2 x :y2 (max control-y target-y)
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:title (str "CY: control=" control ", target=" target)]])
+
+                           ;; Controlled rotation gates (CRX, CRY, CRZ)
+                           (#{:crx :cry :crz} gate-type)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))
+                                 angle (first (:rotation-angles params))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol - Rotation gate
+                              [:rect {:x (- x 15) :y (- target-y 12) :width 30 :height 24
+                                      :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
+                                      :rx 4}]
+                              [:text {:x x :y (+ target-y 5)
+                                      :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
+                               (:symbol gate-info)]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control-y target-y)
+                                      :x2 x :y2 (max control-y target-y)
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:title (str gate-type " gate: control=" control ", target=" target 
+                                           (when angle (str ", angle=" angle)))]])
+
+                           ;; SWAP gate
+                           (= gate-type :swap)
+                           (let [qubit1-y (+ (:top margin) (* control qubit-spacing))
+                                 qubit2-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Swap symbol on first qubit
+                              [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              ;; Swap symbol on second qubit
+                              [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min qubit1-y qubit2-y)
+                                      :x2 x :y2 (max qubit1-y qubit2-y)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:title (str "SWAP: qubits " control " and " target)]])
+
+                           ;; iSWAP gate
+                           (= gate-type :iswap)
+                           (let [qubit1-y (+ (:top margin) (* control qubit-spacing))
+                                 qubit2-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Swap symbols
+                              [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              ;; 'i' indicator
+                              [:text {:x (- x 20) :y (/ (+ qubit1-y qubit2-y) 2)
+                                      :text-anchor "middle" :font-size "12" :fill "#fb923c" :font-weight "bold"}
+                               "i"]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min qubit1-y qubit2-y)
+                                      :x2 x :y2 (max qubit1-y qubit2-y)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:title (str "iSWAP: qubits " control " and " target)]])
+
+                           ;; Toffoli gate (CCX)
+                           (= gate-type :toffoli)
+                           (let [control1 (:control1 params)
+                                 control2 (:control2 params)
+                                 control1-y (+ (:top margin) (* control1 qubit-spacing))
+                                 control2-y (+ (:top margin) (* control2 qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dots
+                              [:circle {:cx x :cy control1-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              [:circle {:cx x :cy control2-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol (same as X/CNOT)
+                              [:circle {:cx x :cy target-y :r 12
+                                        :fill "none" :stroke "#374151" :stroke-width 2}]
+                              [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:line {:x1 x :y1 (- target-y 8) :x2 x :y2 (+ target-y 8)
+                                      :stroke "#374151" :stroke-width 2}]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control1-y target-y)
+                                      :x2 x :y2 (max control1-y target-y)
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:line {:x1 x :y1 (min control2-y target-y)
+                                      :x2 x :y2 (max control2-y target-y)
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:title (str "Toffoli (CCX): controls=[" control1 ", " control2 "], target=" target)]])
+
+                           ;; Fredkin gate (CSWAP)
+                           (= gate-type :fredkin)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target1 (:target1 params)
+                                 target2 (:target2 params)
+                                 target1-y (+ (:top margin) (* target1 qubit-spacing))
+                                 target2-y (+ (:top margin) (* target2 qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Swap symbols on targets
+                              [:line {:x1 (- x 6) :y1 (- target1-y 6) :x2 (+ x 6) :y2 (+ target1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ target1-y 6) :x2 (+ x 6) :y2 (- target1-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (- target2-y 6) :x2 (+ x 6) :y2 (+ target2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              [:line {:x1 (- x 6) :y1 (+ target2-y 6) :x2 (+ x 6) :y2 (- target2-y 6)
+                                      :stroke "#fb923c" :stroke-width 2}]
+                              ;; Connection lines
+                              [:line {:x1 x :y1 (min control-y (min target1-y target2-y))
+                                      :x2 x :y2 (max control-y (max target1-y target2-y))
+                                      :stroke "#374151" :stroke-width 2}]
+                              [:title (str "Fredkin (CSWAP): control=" control ", targets=[" target1 ", " target2 "]")]])
+
+                           ;; Single-qubit gates (default case)
+                           :else
                            (let [gate-y (+ (:top margin) (* target qubit-spacing))]
                              [:g {:class (when interactive "gate-group")}
                               [:rect {:x (- x 15) :y (- gate-y 12) :width 30 :height 24
@@ -255,7 +435,15 @@
                               [:text {:x x :y (+ gate-y 5)
                                       :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
                                (:symbol gate-info)]
-                              [:title (str gate-type " gate on qubit " target)]]))))
+                              (when (= gate-type :phase)
+                                [:text {:x x :y (+ gate-y 16)
+                                        :text-anchor "middle" :font-size "8" :fill "#ffffff"}
+                                 (when-let [angle (first (:rotation-angles params))]
+                                   (str "φ=" (qmath/round-precision angle 2)))])
+                              [:title (str gate-type " gate on qubit " target
+                                           (when-let [angle (and (#{:rx :ry :rz :phase} gate-type) 
+                                                                (first (:rotation-angles params)))]
+                                             (str ", angle=" (qmath/round-precision angle 2))))]]))))
                      gates)
 
       ;; Measurement symbols
@@ -421,17 +609,17 @@
 
 (comment
   ;; REPL examples for SVG visualization
-  
+
   ;; Create SVG bar chart for Bell state
   (require '[org.soulspace.qclojure.domain.quantum-gate :as qg])
-  
+
   (def bell-state (-> (qs/zero-state 2)
-                      (qg/h-gate 0) 
+                      (qg/h-gate 0)
                       (qg/cnot)))
-  
+
   (def bell-svg (viz/visualize-bar-chart :svg bell-state))
   (qio/save-file bell-svg "bell-state.svg")
-  
+
   ;; Create SVG bar chart with amplitudes shown in tooltips
   (def bell-svg-detailed (viz/visualize-bar-chart :svg bell-state :show-amplitudes true))
   (qio/save-file bell-svg-detailed "bell-state-detailed.svg")
@@ -449,4 +637,21 @@
   (def sample-circuit (qc/bell-state-circuit))
   (def circuit-svg (viz/visualize-circuit :svg sample-circuit))
   (qio/save-file circuit-svg "bell-circuit.svg")
+
+  ;; Create complex circuit with various gates
+  (def complex-circuit
+    (-> (qc/create-circuit 3 "Complex Circuit")
+        (qc/h-gate 0)
+        (qc/cx-gate 0 1)
+        (qc/cz-gate 1 2)
+        (qc/s-dag-gate 0)
+        (qc/t-dag-gate 1)
+        (qc/rx-gate 2 0.5)
+        (qc/ry-gate 2 0.25)
+        (qc/rz-gate 2 0.75)
+        (qc/toffoli-gate 0 1 2)
+        (qc/fredkin-gate 1 2 0)))
+  (def complex-circuit-svg (viz/visualize-circuit :svg complex-circuit :interactive true))
+  (qio/save-file complex-circuit-svg "complex-circuit.svg")
+  ;
   )

@@ -49,9 +49,18 @@
   Returns:
   Vector [x2d y2d] of projected 2D coordinates"
   [x3d y3d z3d center scale]
-  (let [[cx cy] center]
-    [(+ cx (* scale x3d 0.866) (* scale y3d -0.5))
-     (+ cy (* scale z3d -1) (* scale y3d -0.866))]))
+  (let [[cx cy] center
+        ;; Use standard isometric angles for proper axis alignment
+        angle-x-rad (/ m/PI 6) ; 30 degrees
+        angle-y-rad (/ m/PI 6) ; 30 degrees
+        
+        ;; Map axes properly (X right, Y upper-left, Z upper)
+        x-proj (- (* x3d (m/cos angle-x-rad)) (* y3d (m/cos angle-y-rad)))
+        y-proj (- (* z3d -0.8) ; Scale Z for better height balance
+                 (+ (* x3d (m/sin angle-x-rad)) 
+                    (* y3d (m/sin angle-y-rad))))]
+    [(+ cx (* scale x-proj))
+     (+ cy (* scale y-proj))]))
 
 (defn orthographic-projection
   "Apply orthographic projection from 3D coordinates to 2D.

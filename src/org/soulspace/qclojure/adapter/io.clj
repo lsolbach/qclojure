@@ -9,11 +9,6 @@
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
 
 ;; Data format specifications
-(s/def ::file-format #{:edn :json :qasm})
-(s/def ::quantum-data (s/or :state ::qs/quantum-state
-                            :circuit ::qc/quantum-circuit
-                            :result map?))
-
 ;; State serialization and deserialization
 (defn complex-to-map
   "Convert a fastmath complex number to a serializable map.
@@ -181,8 +176,8 @@
   Deserialized quantum state data structure"
   file-format)
 
-  (defmulti export-quantum-data
-    "Write quantum data to a specified format.
+(defmulti export-quantum-data
+  "Write quantum data to a specified format.
   
   Dispatches on format keyword.
   
@@ -193,10 +188,10 @@
   
   Returns:
   Boolean indicating success"
-    file-format)
+  file-format)
 
-  (defmulti import-quantum-data
-    "Read quantum data from a specified format.
+(defmulti import-quantum-data
+  "Read quantum data from a specified format.
   
   Dispatches on format keyword.
   
@@ -206,100 +201,5 @@
   
   Returns:
   Deserialized quantum data"
-    file-format)
-
-  ;; Result formatting and display
-  (defn format-quantum-state
-    "Format quantum state for human-readable display.
-  
-  Parameters:
-  - state: Quantum state
-  - options: Display options map
-    :precision - Number of decimal places (default 3)
-    :threshold - Minimum amplitude to display (default 0.001)
-    :format - :cartesian or :polar (default :cartesian)
-  
-  Returns:
-  Formatted string representation"
-    [state & {:keys [precision threshold format]
-              :or {precision 3 threshold 0.001 format :cartesian}}]
-
-    (let [amplitudes (:state-vector state)
-          n-qubits (:num-qubits state)
-
-          format-complex (fn [z]
-                           (case format
-                             :cartesian (let [r (fc/re z)
-                                              i (fc/im z)]
-                                          (cond
-                                            (and (< (abs r) threshold) (< (abs i) threshold)) "0"
-                                            (< (abs i) threshold) (str (qmath/round-precision r precision))
-                                            (< (abs r) threshold) (str (qmath/round-precision i precision) "i")
-                                            :else (str (qmath/round-precision r precision)
-                                                       (if (>= i 0) "+" "")
-                                                       (qmath/round-precision i precision) "i")))
-                             :polar (let [mag (fc/abs z)
-                                          phase (fc/arg z)]
-                                      (if (< mag threshold)
-                                        "0"
-                                        (str (qmath/round-precision mag precision)
-                                             "∠" (qmath/round-precision (m/degrees phase) 1) "°")))))
-
-          basis-labels (for [i (range (bit-shift-left 1 n-qubits))]
-                         (str "|" (format (str "%0" n-qubits "d")
-                                          (Long/parseLong (Integer/toBinaryString i) 2)) "⟩"))
-
-          non-zero-terms (filter (fn [[amp label]]
-                                   (> (fc/abs amp) threshold))
-                                 (map vector amplitudes basis-labels))]
-
-      (if (empty? non-zero-terms)
-        "|0⟩"
-        (str/join " + "
-                  (map (fn [[amp label]]
-                         (let [formatted-amp (format-complex amp)]
-                           (cond
-                             (= formatted-amp "1") label
-                             (= formatted-amp "-1") (str "-" label)
-                             :else (str formatted-amp label))))
-                       non-zero-terms)))))
-
-  (defn format-measurement-result
-    "Format quantum measurement results for display.
-  
-  Parameters:
-  - measurements: Collection of measurement outcomes
-  - options: Display options
-  
-  Returns:
-  Formatted string with statistics"
-    [measurements & {:keys [show-histogram show-probabilities]
-                     :or {show-histogram true show-probabilities true}}]
-
-    (let [freq-map (frequencies measurements)
-          total-measurements (count measurements)
-          sorted-outcomes (sort (keys freq-map))
-
-          format-outcome (fn [outcome]
-                           (if (number? outcome)
-                             (str "|" outcome "⟩")
-                             (str outcome)))
-
-          histogram-lines (when show-histogram
-                            (map (fn [outcome]
-                                   (let [count (freq-map outcome)
-                                         percentage (/ count total-measurements)
-                                         bar-length (int (* percentage 50))
-                                         bar (str/join (repeat bar-length "█"))]
-                                     (str (format-outcome outcome) ": "
-                                          count " ("
-                                          (qmath/round-precision (* percentage 100) 1) "%) "
-                                          bar)))
-                                 sorted-outcomes))
-
-          probability-lines (when show-probabilities
-                              [(str "Total measurements: " total-measurements)
-                               (str "Distinct outcomes: " (count freq-map))])]
-
-      (str/join "\n" (concat probability-lines [""] histogram-lines))))
+  file-format)
 

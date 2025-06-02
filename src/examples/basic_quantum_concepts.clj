@@ -1,11 +1,12 @@
 (ns examples.basic-quantum-concepts
   "Examples demonstrating basic quantum computing concepts using QClojure"
-  (:require [qclojure.domain.quantum-state :as qs]
-            [qclojure.domain.quantum-gate :as qg]
-            [qclojure.domain.quantum-circuit :as qc]
-            [qclojure.application.quantum-algorithms :as qa]
-            [qclojure.adapter.visualization :as viz]
-            [qclojure.adapter.io :as qio]))
+  (:require [org.soulspace.qclojure.domain.quantum-state :as qs]
+            [org.soulspace.qclojure.domain.quantum-gate :as qg]
+            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.application.quantum-algorithms :as qa]
+            [org.soulspace.qclojure.adapter.visualization :as viz]
+            [org.soulspace.qclojure.adapter.visualization.ascii :as ascii-viz]
+            [org.soulspace.qclojure.adapter.io :as qio]))
 
 (defn quantum-superposition-demo
   "Demonstrate quantum superposition using Hadamard gates."
@@ -118,7 +119,7 @@
 
     (doseq [[state-name state] states]
       (println (str state-name ":"))
-      (println (viz/visualize-quantum-state state :show-amplitudes true))
+      (println (viz/visualize-quantum-state :ascii state :show-amplitudes true))
 
       (doseq [[gate-name gate-fn] gates]
         (let [result (gate-fn state)]
@@ -169,12 +170,12 @@
       ;; Execute step by step
       (println "4. Step-by-step Execution:")
       (let [initial-state (qs/zero-state 2)
-            evolution (viz/state-evolution-frames composed initial-state)]
+            evolution (viz/visualize-state-evolution :ascii composed initial-state)]
         (doseq [frame (take 3 evolution)]  ; Show first 3 steps
           (println (str "Step " (:step frame)
                         (when (:gate frame)
                           (str " - Applied " (get-in frame [:gate :gate-type])))))
-          (println (viz/visualize-quantum-state (:state frame))))))))
+          (println (viz/visualize-quantum-state :ascii (:state frame))))))))
 
 (defn quantum-measurement-demo
   "Demonstrate different aspects of quantum measurement."

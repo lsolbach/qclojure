@@ -9,10 +9,10 @@
   - Circuit composition and execution
   
   Run this in the REPL to see the full quantum computing library in action!"
-  (:require [qclojure.domain.quantum-state :as qs]
-            [qclojure.domain.quantum-gate :as qg]
-            [qclojure.domain.quantum-circuit :as qc]
-            [qclojure.application.quantum-algorithms :as qa]
+  (:require [org.soulspace.qclojure.domain.quantum-state :as qs]
+            [org.soulspace.qclojure.domain.quantum-gate :as qg]
+            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.application.quantum-algorithms :as qa]
             [fastmath.complex :as fc]))
 
 (defn demo-basic-states-and-gates

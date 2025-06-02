@@ -1,7 +1,7 @@
 # QClojure
 A functional library for building and simulating quantum algorithms.
 
-**Alpha, I expect the api to change!** 
+*Alpha, I expect the api to change!*
 
 ## Main Features of QClojure
 1. **Pure Functional Quantum Circuit Construction**
@@ -16,10 +16,6 @@ A functional library for building and simulating quantum algorithms.
 
    Built-in implementations of classic quantum algorithms including Deutsch, Grover's search, Bernstein-Vazirani, and Simon's algorithms
 
-4. **OpenQASM 2.0 Integration**
-
-   Bidirectional conversion between quantum circuits and OpenQASM format for interoperability with other quantum computing platforms
-
 5. **Extensible Backend System**
 
    Protocol-based architecture allowing integration with different quantum simulators and hardware backends
@@ -32,12 +28,22 @@ A functional library for building and simulating quantum algorithms.
 
    High-performance local simulator with job submission, status tracking, and statistical measurement results with configurable shot counts
 
+4. **OpenQASM 2.0 Integration**
+
+   Bidirectional conversion between quantum circuits and OpenQASM format for interoperability with other quantum computing platforms
+
+4. **Visualization**
+
+   Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML.
+
 8. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
 
 
 ## Usage
+QClojure is a library to be used in programs or interactive within the REPL.
+
 ```clojure
 (require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
 (require '[org.soulspace.qclojure.application.quantum-backend :as qb])
@@ -56,6 +62,9 @@ A functional library for building and simulating quantum algorithms.
 (:final-state result)
 (:measurement-results result)
 ```
+
+## Examples
+Some examples are provided in the [examples](/examples) folder.
 
 ## Build
 QClojure is currently build with [Leiningen](https://leiningen.org/).

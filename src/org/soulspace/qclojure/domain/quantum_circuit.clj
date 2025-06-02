@@ -987,62 +987,6 @@
   [n]
   (inverse-circuit (quantum-fourier-transform-circuit n)))
 
-(defn- gate-display
-  "Create a string representation of a gate for display purposes."
-  [gate-type params]
-  (case gate-type
-    :x (str "X(" (:target params) ")")
-    :y (str "Y(" (:target params) ")")
-    :z (str "Z(" (:target params) ")")
-    :h (str "H(" (:target params) ")")
-    :s (str "S(" (:target params) ")")
-    :t (str "T(" (:target params) ")")
-    :rx (str "RX(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :ry (str "RY(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :rz (str "RZ(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :cnot (str "CNOT(" (:control params) "→" (:target params) ")")
-    :cz (str "CZ(" (:control params) "→" (:target params) ")")
-    :crx (str "CRX(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :cry (str "CRY(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :crz (str "CRZ(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :swap (str "SWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
-    :controlled (str "C" (name (:gate-type params)) "(" (:control params) "→" (:target params) ")")
-    (str (name gate-type) "(" params ")")))
-
-(defn print-circuit
-  "Print a human-readable representation of a quantum circuit.
-  
-  Displays the circuit gates in a formatted way showing gate types,
-  target qubits, control qubits, and parameters for easy visualization
-  and debugging.
-  
-  Parameters:
-  - circuit: Quantum circuit to print
-  
-  Returns:
-  nil (prints to stdout)
-  
-  Example:
-  (print-circuit bell-circuit)
-  ;; Bell State (2 qubits):
-  ;; H(0)
-  ;; CNOT(0→1)"
-  [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
-  (let [name (get circuit :name "Unnamed Circuit")
-        description (get circuit :description "")
-        num-qubits (:num-qubits circuit)
-        gates (:gates circuit)]
-    (println (str name " (" num-qubits " qubits):"))
-    (when (seq description)
-      (println (str "  " description)))
-    (if (empty? gates)
-      (println "  (empty circuit)")
-      (doseq [gate gates]
-        (let [gate-type (:gate-type gate)
-              params (:gate-params gate)]
-          (println (str "  " (gate-display gate-type params))))))))
-
 (defn circuit-depth
   "Calculate the depth (number of sequential gate layers) of a quantum circuit.
   
@@ -1113,6 +1057,70 @@
   [circuit]
   {:pre [(s/valid? ::quantum-circuit circuit)]}
   (frequencies (map :gate-type (:gates circuit))))
+
+(defn- gate-display
+  "Create a string representation of a gate for display purposes."
+  [gate-type params]
+  (case gate-type
+    :x (str "X(" (:target params) ")")
+    :y (str "Y(" (:target params) ")")
+    :z (str "Z(" (:target params) ")")
+    :h (str "H(" (:target params) ")")
+    :s (str "S(" (:target params) ")")
+    :s-dag (str "S†(" (:target params) ")")
+    :t (str "T(" (:target params) ")")
+    :t-dag (str "T†(" (:target params) ")")
+    :phase (str "P(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :rx (str "RX(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :ry (str "RY(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :rz (str "RZ(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :cnot (str "CNOT(" (:control params) "→" (:target params) ")")
+    :cx (str "CX(" (:control params) "→" (:target params) ")")
+    :cy (str "CY(" (:control params) "→" (:target params) ")")
+    :cz (str "CZ(" (:control params) "→" (:target params) ")")
+    :crx (str "CRX(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :cry (str "CRY(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :crz (str "CRZ(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+    :swap (str "SWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
+    :iswap (str "iSWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
+    :toffoli (str "TOFFOLI(" (:control1 params) "," (:control2 params) "→" (:target params) ")")
+    :fredkin (str "FREDKIN(" (:control params) "→" (:target1 params) "↔" (:target2 params) ")")
+    :controlled (str "C" (name (:gate-type params)) "(" (:control params) "→" (:target params) ")")
+    (str (name gate-type) "(" (pr-str params) ")")))
+
+(defn print-circuit
+  "Print a human-readable representation of a quantum circuit.
+  
+  Displays the circuit gates in a formatted way showing gate types,
+  target qubits, control qubits, and parameters for easy visualization
+  and debugging.
+  
+  Parameters:
+  - circuit: Quantum circuit to print
+  
+  Returns:
+  nil (prints to stdout)
+  
+  Example:
+  (print-circuit bell-circuit)
+  ;; Bell State (2 qubits):
+  ;; H(0)
+  ;; CNOT(0→1)"
+  [circuit]
+  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  (let [name (get circuit :name "Unnamed Circuit")
+        description (get circuit :description "")
+        num-qubits (:num-qubits circuit)
+        gates (:gates circuit)]
+    (println (str name " (" num-qubits " qubits):"))
+    (when (seq description)
+      (println (str "  " description)))
+    (if (empty? gates)
+      (println "  (empty circuit)")
+      (doseq [gate gates]
+        (let [gate-type (:gate-type gate)
+              params (:gate-params gate)]
+          (println (str "  " (gate-display gate-type params))))))))
 
 ;; Predefined quantum circuits
 (defn bell-state-circuit

@@ -79,7 +79,11 @@
   - circuit: A quantum circuit map (created with create-circuit)
   - gate-type: Keyword identifying the type of gate (:x, :y, :z, :h, :cnot, etc.)
   - target: (optional) Integer index of the target qubit (0-indexed)
+  - target1: (optional) Integer index of the target1 qubit (0-indexed)
+  - target2: (optional) Integer index of the target2 qubit (0-indexed)
   - control: (optional) Integer index of the control qubit for controlled gates
+  - control1: (optional) Integer index of the control1 qubit for controlled gates
+  - control2: (optional) Integer index of the control2 qubit for controlled gates
   - angle: (optional) Rotation angle for parameterized gates (in radians)
   
   Returns:
@@ -94,7 +98,7 @@
   
   (add-gate (create-circuit 1) :rx :target 0 :angle 1.57)
   ;=> {:gates [{:gate-type :rx, :gate-params {:target 0, :angle 1.57}}], :num-qubits 1}"
-  [circuit gate-type & {:keys [target control angle] :as params}]
+  [circuit gate-type & {:keys [target target1 target2 control control1 control2 angle] :as params}]
   {:pre [(s/valid? ::quantum-circuit circuit)
          (s/valid? ::gate-type gate-type)]}
   (let [gate {:gate-type gate-type}

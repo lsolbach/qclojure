@@ -44,6 +44,9 @@ A functional library for building and simulating quantum algorithms.
 ## Usage
 QClojure is a library to be used in programs or interactive within the REPL.
 
+This small example show the creation of a quantum circuit in a functional way
+and the execution on the simulator.
+
 ```clojure
 (require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
 (require '[org.soulspace.qclojure.application.quantum-backend :as qb])

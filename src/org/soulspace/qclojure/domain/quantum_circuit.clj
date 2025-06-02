@@ -361,6 +361,26 @@
   ([circuit control target]
    (add-gate circuit :cnot :control control :target target)))
 
+(def cx-gate
+  "Alias for CNOT gate.
+  
+  The CX gate is another name for the CNOT gate, which flips the target qubit
+  if the control qubit is |1⟩. This function is provided for consistency with
+  other quantum programming languages.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - control: Integer index of the control qubit (0-indexed)
+  - target: Integer index of the target qubit (0-indexed)
+  
+  Returns:
+  Updated quantum circuit with CNOT gate appended
+  
+  Example:
+  (cx-gate (create-circuit 2) 0 1)
+  ;=> Circuit with CNOT gate, control on qubit 0, target on qubit 1"
+  cnot-gate)
+
 (defn cz-gate
   "Add a Controlled-Z gate to the quantum circuit.
   

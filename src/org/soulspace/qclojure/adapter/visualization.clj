@@ -108,6 +108,7 @@
 (comment
   ;; REPL examples for both the new unified API and legacy API
   (require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
+  (require '[org.soulspace.qclojure.adapter.io :as qio])
 
   (def cz-circuit
     (-> (qc/create-circuit 2 "CZ Test")
@@ -115,5 +116,6 @@
         (qc/h-gate 1)
         (qc/cz-gate 0 1)))
   (visualize-circuit :ascii cz-circuit)
-
+  (visualize-circuit :svg cz-circuit)
+  (spit "viz.html" (visualize-circuit :html cz-circuit))
   )

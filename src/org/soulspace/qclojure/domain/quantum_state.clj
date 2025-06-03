@@ -352,40 +352,151 @@
     (* (fc/abs amplitude) (fc/abs amplitude))))
 
 (defn measure-state
-  "Perform a quantum measurement and collapse the state.
+  "Perform a complete quantum measurement in the computational basis.
   
-  Simulates a quantum measurement in the computational basis by:
-  1. Computing measurement probabilities for each basis state
-  2. Randomly selecting an outcome based on these probabilities
+  Simulates a quantum measurement by:
+  1. Computing measurement probabilities for each basis state according to Born rule
+  2. Randomly selecting an outcome based on these probabilities  
   3. Collapsing the state to the measured basis state
   
-  This function models the fundamental quantum measurement process where
-  superposition is destroyed and the system collapses to a definite state.
+  This implements the fundamental quantum measurement postulate where the system
+  collapses from superposition to a definite classical state.
   
   Parameters:
   - state: Quantum state to measure
   
   Returns:
   Map containing:
-  - :outcome - Integer index of the measured basis state
+  - :outcome - Integer index of the measured basis state (0 to 2^n-1)
   - :collapsed-state - New quantum state after measurement collapse
+  - :probability - Probability of the measured outcome
   
   Example:
   (measure-state |+⟩)
-  ;=> {:outcome 0, :collapsed-state |0⟩}  ; or outcome 1 with |1⟩
+  ;=> {:outcome 0, :collapsed-state |0⟩, :probability 0.5}
   
-  Note: This is a probabilistic function - repeated calls may yield different results"
+  Note: This is probabilistic - repeated calls may yield different results"
   [state]
-  ;; Temporarily disabled spec validation
-  ;; {:pre [(s/valid? ::quantum-state state)]}
+  {:pre [(map? state)
+         (vector? (:state-vector state))
+         (pos-int? (:num-qubits state))]}
   (let [amplitudes (:state-vector state)
-        probabilities (mapv #(* (fc/abs %) (fc/abs %)) amplitudes)
+        probabilities (mapv #(let [amp-mag (fc/abs %)] (* amp-mag amp-mag)) amplitudes)
+        total-prob (reduce + probabilities)
+        ;; Verify normalization (allowing for small numerical errors)
+        _ (when (> (Math/abs (- total-prob 1.0)) 1e-8)
+            (throw (ex-info "State is not properly normalized" 
+                           {:total-probability total-prob})))
         cumulative-probs (reductions + probabilities)
-        random-val (rand)
+        random-val (rand total-prob)
         outcome (count (take-while #(< % random-val) cumulative-probs))
-        collapsed-vector (assoc (vec (repeat (count amplitudes) (fc/complex 0 0))) outcome (fc/complex 1 0))]
+        outcome (min outcome (dec (count amplitudes))) ; Ensure valid index
+        collapsed-vector (assoc (vec (repeat (count amplitudes) (fc/complex 0 0))) 
+                               outcome (fc/complex 1 0))]
     {:outcome outcome
-     :collapsed-state (assoc state :state-vector collapsed-vector)}))
+     :collapsed-state (assoc state :state-vector collapsed-vector)
+     :probability (nth probabilities outcome)}))
+
+(defn measure-specific-qubits
+  "Perform quantum measurement on specific qubits with proper partial measurement.
+  
+  This implements proper partial measurement by:
+  1. Computing probabilities for all possible outcomes of the measured qubits
+  2. Selecting an outcome probabilistically according to Born rule
+  3. Collapsing the measured qubits while preserving quantum coherence in unmeasured qubits
+  4. Properly renormalizing the remaining state
+  
+  For a full quantum simulator, this correctly handles:
+  - Entangled states where measurement affects the entire system
+  - Proper probability calculations for partial measurements  
+  - Correct post-measurement state normalization
+  - Preservation of quantum correlations in unmeasured subsystems
+  
+  Parameters:
+  - state: Quantum state to measure
+  - measurement-qubits: Vector of qubit indices to measure (0-indexed)
+  
+  Returns:
+  Map containing:
+  - :outcomes - Vector of measurement outcomes (0 or 1) for each measured qubit
+  - :collapsed-state - Properly normalized quantum state after partial measurement
+  - :probabilities - Map of outcome -> probability for each possible measurement result
+  
+  Example:
+  For a Bell state measuring qubit 0:
+  (measure-specific-qubits bell-state [0])
+  ;=> {:outcomes [0], :collapsed-state normalized-state, :probabilities {...}}
+  
+  Note: This correctly implements quantum measurement theory"
+  [state measurement-qubits]
+  {:pre [(map? state)
+         (vector? (:state-vector state))
+         (pos-int? (:num-qubits state))
+         (vector? measurement-qubits)
+         (every? #(and (integer? %) (>= % 0) (< % (:num-qubits state))) measurement-qubits)]}
+  (let [n-qubits (:num-qubits state)
+        amplitudes (:state-vector state)
+        n-measured (count measurement-qubits)
+        n-outcomes (bit-shift-left 1 n-measured) ; 2^n-measured possible outcomes
+        
+        ;; Calculate probabilities for each possible measurement outcome
+        outcome-probabilities 
+        (into {} 
+          (for [outcome-idx (range n-outcomes)]
+            (let [outcome-bits (into [] 
+                                 (for [i (range n-measured)]
+                                   (bit-and (bit-shift-right outcome-idx i) 1)))
+                  ;; Sum probabilities of all basis states consistent with this measurement
+                  total-prob 
+                  (reduce +
+                    (for [basis-idx (range (count amplitudes))
+                          :let [basis-bits (into []
+                                             (for [i (range n-qubits)]
+                                               (bit-and (bit-shift-right basis-idx (- n-qubits 1 i)) 1)))
+                                measured-bits (mapv #(nth basis-bits %) measurement-qubits)]
+                          :when (= measured-bits outcome-bits)]
+                      (let [amp (nth amplitudes basis-idx)
+                            amp-mag (fc/abs amp)]
+                        (* amp-mag amp-mag))))]
+              [outcome-bits total-prob])))
+        
+        ;; Select outcome probabilistically
+        total-prob (reduce + (vals outcome-probabilities))
+        cumulative-probs (reductions + (vals outcome-probabilities))
+        random-val (rand total-prob)
+        selected-outcome-idx (count (take-while #(< % random-val) cumulative-probs))
+        selected-outcome-idx (min selected-outcome-idx (dec (count outcome-probabilities)))
+        selected-outcome (nth (keys outcome-probabilities) selected-outcome-idx)
+        selected-probability (get outcome-probabilities selected-outcome)
+        
+        ;; Collapse state: zero out amplitudes inconsistent with measurement
+        ;; and renormalize remaining amplitudes
+        collapsed-amplitudes
+        (mapv (fn [basis-idx amplitude]
+                (let [basis-bits (into []
+                                   (for [i (range n-qubits)]
+                                     (bit-and (bit-shift-right basis-idx (- n-qubits 1 i)) 1)))
+                      measured-bits (mapv #(nth basis-bits %) measurement-qubits)]
+                  (if (= measured-bits selected-outcome)
+                    ;; Keep amplitude but will renorm
+                    amplitude
+                    ;; Zero out inconsistent amplitudes
+                    (fc/complex 0 0))))
+              (range (count amplitudes))
+              amplitudes)
+        
+        ;; Renormalize the collapsed state
+        normalization-factor (if (> selected-probability 0)
+                               (/ 1.0 (m/sqrt selected-probability))
+                               1.0)
+        normalized-amplitudes (mapv #(fc/mult % (fc/complex normalization-factor 0)) collapsed-amplitudes)
+        
+        collapsed-state {:state-vector normalized-amplitudes
+                        :num-qubits n-qubits}]
+    
+    {:outcomes selected-outcome
+     :collapsed-state collapsed-state
+     :probabilities outcome-probabilities}))
 
 (defn partial-trace
   "Compute the partial trace of a quantum state over specified qubits.
@@ -398,16 +509,16 @@
   ρᵢ = Σⱼ |αᵢⱼ|² for the reduced single-qubit state
   
   This implementation supports tracing out a single qubit from a multi-qubit system.
-  
+
   Parameters:
   - state: Multi-qubit quantum state to trace
   - trace-qubit: Index of the qubit to trace out (0-indexed)
-  
+
   Returns:
   Reduced quantum state with one fewer qubit
-  
+
   Example:
-  (partial-trace bell-state 1)  ; Trace out second qubit of Bell state
+    (partial-trace bell-state 1)  ; Trace out second qubit of Bell state
   ;=> Mixed state of first qubit"
   [state trace-qubit]
   {:pre [(< trace-qubit (:num-qubits state))

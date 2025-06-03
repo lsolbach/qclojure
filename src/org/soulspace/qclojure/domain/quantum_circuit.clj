@@ -11,7 +11,8 @@
 (s/def ::qubit-target nat-int?)
 (s/def ::qubit-control nat-int?)
 (s/def ::angle number?)
-(s/def ::gate-params (s/keys :opt-un [::qubit-target ::qubit-control ::angle]))
+(s/def ::measurement-qubits (s/coll-of nat-int? :kind vector?))
+(s/def ::gate-params (s/keys :opt-un [::qubit-target ::qubit-control ::angle ::measurement-qubits]))
 
 (s/def ::quantum-gate
   (s/keys :req-un [::gate-type]
@@ -25,6 +26,13 @@
 (s/def ::num-qubits pos-int?)
 (s/def ::name string?)
 (s/def ::description string?)
+
+;; Execution result specs
+(s/def ::measurement-outcome nat-int?)
+(s/def ::measurement-results (s/coll-of ::measurement-outcome :kind vector?))
+(s/def ::circuit-execution-result 
+  (s/keys :req-un [::final-state]
+          :opt-un [::measurement-results]))
 
 ;; Circuit creation functions
 (defn create-circuit
@@ -606,6 +614,46 @@
   ([circuit control target1 target2]
    (add-gate circuit :fredkin :control control :target1 target1 :target2 target2)))
 
+(defn measure-gate
+  "Add a measurement operation to the quantum circuit.
+  
+  The measurement gate performs a quantum measurement in the computational basis
+  on the specified qubits. This collapses the quantum state and produces classical
+  measurement outcomes. The measurement is probabilistic based on the quantum
+  amplitudes.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the measurement to
+  - qubits: Vector of qubit indices to measure (0-indexed)
+  
+  Returns:
+  Updated quantum circuit with measurement operation appended
+  
+  Example:
+  (measure-gate (create-circuit 2) [0 1])
+  ;=> Circuit with measurement of qubits 0 and 1"
+  ([circuit qubits]
+   (add-gate circuit :measure :measurement-qubits qubits)))
+
+(defn measure-all-gate
+  "Add a measurement operation for all qubits in the circuit.
+  
+  Convenience function that measures all qubits in the quantum circuit.
+  This is equivalent to calling (measure-gate circuit (range num-qubits)).
+  
+  Parameters:
+  - circuit: Quantum circuit to add the measurement to
+  
+  Returns:
+  Updated quantum circuit with measurement of all qubits
+  
+  Example:
+  (measure-all-gate (create-circuit 3))
+  ;=> Circuit with measurement of qubits [0 1 2]"
+  ([circuit]
+   (let [num-qubits (:num-qubits circuit)]
+     (measure-gate circuit (vec (range num-qubits))))))
+
 ;; Quantum algorithms - Higher-level constructs
 (defn quantum-fourier-transform-circuit
   "Create a Quantum Fourier Transform (QFT) circuit.
@@ -754,6 +802,11 @@
                                    {:gate gate}))))
       :controlled (throw (ex-info "General controlled gates not yet implemented"
                                   {:gate gate}))
+      :measure (let [measurement-qubits (:measurement-qubits params)]
+                 (if measurement-qubits
+                   (:collapsed-state (qs/measure-specific-qubits state measurement-qubits))
+                   (throw (ex-info "Measure requires measurement-qubits parameter"
+                                   {:gate gate}))))
       (throw (ex-info "Unknown gate type" {:gate-type gate-type})))))
 
 (defn execute-circuit
@@ -1308,5 +1361,3 @@
     (println "Empty circuit depth:" (circuit-depth empty-circuit)))
   ;  
   )
-
-;; Helper function for circuit composition

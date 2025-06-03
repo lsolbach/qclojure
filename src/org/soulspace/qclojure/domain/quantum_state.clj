@@ -187,6 +187,66 @@
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
 
+(defn bits-to-index
+  "Convert a vector of bits to the corresponding state vector index.
+  
+  For n qubits with bits [b0, b1, ..., b(n-1)], the index is:
+  index = b0*2^(n-1) + b1*2^(n-2) + ... + b(n-1)*2^0
+  
+  This maps computational basis states to their positions in the state vector.
+  
+  Parameters:
+  - bits: Vector of 0s and 1s representing the computational basis state
+  
+  Returns:
+  Integer index into the state vector (0 to 2^n - 1)
+  
+  Examples:
+  (bits-to-index [0 0 0]) ;=> 0  ; |000⟩ corresponds to index 0
+  (bits-to-index [0 0 1]) ;=> 1  ; |001⟩ corresponds to index 1  
+  (bits-to-index [1 0 1]) ;=> 5  ; |101⟩ corresponds to index 5"
+  [bits]
+  (let [n (count bits)]
+    (reduce + (map-indexed (fn [i bit]
+                             (* bit (bit-shift-left 1 (- n 1 i))))
+                           bits))))
+
+(defn computational-basis-state
+  "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
+  
+  Creates a pure quantum state where one specific computational basis state
+  has amplitude 1 and all others have amplitude 0. This represents a classical
+  bit string in quantum form.
+  
+  The bits are ordered from most significant to least significant (left to right),
+  so [1,0,1] represents the state |101⟩. This is consistent with standard
+  quantum computing notation.
+  
+  Parameters:
+  - n: Number of qubits (must match length of bits vector)
+  - bits: Vector of 0s and 1s representing the desired basis state
+  
+  Returns:
+  Quantum state map representing the computational basis state
+  
+  Throws:
+  AssertionError if n doesn't match bits length or bits contains invalid values
+  
+  Examples:
+  (computational-basis-state 3 [0 0 0])  ;=> |000⟩ state (same as zero-state)
+  (computational-basis-state 3 [1 0 1])  ;=> |101⟩ state  
+  (computational-basis-state 2 [1 1])    ;=> |11⟩ state"
+  [n bits]
+  {:pre [(pos-int? n)
+         (= n (count bits))
+         (every? #(or (= % 0) (= % 1)) bits)]}
+  (let [size (bit-shift-left 1 n)  ; 2^n
+        target-index (bits-to-index bits)
+        state-vector (assoc (vec (repeat size (fc/complex 0 0)))
+                           target-index (fc/complex 1 0))]
+    {:state-vector state-vector
+     :num-qubits n}))
+
 ;; State manipulation functions
 (defn normalize-state
   "Normalize a quantum state vector to unit length.

@@ -7,96 +7,113 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]))
 
+(def gate-types #{:single-qubit
+                  :two-qubit
+                  :multi-qubit
+                  :parametric})
+
 ;; Specs for gate definitions
-(s/def ::gate-name keyword?)
-(s/def ::gate-type #{:single-qubit :two-qubit :multi-qubit :parametric})
+(s/def ::gate-id keyword?)
+(s/def ::gate-type gate-types)
 (s/def ::parameter-count nat-int?)
 (s/def ::description string?)
 (s/def ::native-gate? boolean?)
-(s/def ::decomposition (s/coll-of ::gate-name :kind vector?))
+(s/def ::decomposition (s/coll-of ::gate-id :kind vector?))
 
 (s/def ::gate-definition
-  (s/keys :req-un [::gate-name ::gate-type ::description]
+  (s/keys :req-un [::gate-id ::gate-type ::description]
           :opt-un [::parameter-count ::native-gate? ::decomposition]))
 
-(s/def ::gate-set (s/coll-of ::gate-name :kind set?))
+(s/def ::gate-set (s/coll-of ::gate-id :kind set?))
 
 ;; Comprehensive gate catalog
 (def gate-catalog
   "Complete catalog of quantum gates with their properties."
   {;; Single-qubit Pauli gates
-   :x {:gate-name :x
+   :x {:gate-id :x
+       :gate-name "X"
        :gate-type :single-qubit
        :description "Pauli-X (NOT) gate - bit flip operation"
        :native-gate? false
        :decomposition [:h :cnot :h]}  ;; X = HZH = H(controlled-Z)H
 
-   :y {:gate-name :y
+   :y {:gate-id :y
+       :gate-name "Y"
        :gate-type :single-qubit
        :description "Pauli-Y gate - bit flip + phase flip operation"
        :native-gate? false
        :decomposition [:t :t :t :h :t :h]}  ;; Y can be decomposed to H and T gates
 
-   :z {:gate-name :z
+   :z {:gate-id :z
+       :gate-name "Z"
        :gate-type :single-qubit
        :description "Pauli-Z gate - phase flip operation"
        :native-gate? false
        :decomposition [:t :t :t :t]}  ;; Z = T^4 (four T gates)
 
    ;; Hadamard gate
-   :h {:gate-name :h
+   :h {:gate-id :h
+       :gate-name "H"
        :gate-type :single-qubit
        :description "Hadamard gate - creates superposition"
        :native-gate? true}
 
    ;; Phase gates
-   :s {:gate-name :s
+   :s {:gate-id :s
+       :gate-name "S"
        :gate-type :single-qubit
        :description "S gate (π/2 phase gate)"
        :native-gate? false
        :decomposition [:rz]}
 
-   :s-dag {:gate-name :s-dag
+   :s-dag {:gate-id :s-dag
+           :gate-name "S†"
            :gate-type :single-qubit
            :description "S† gate (−π/2 phase gate)"
            :native-gate? false
            :decomposition [:rz]}
 
-   :t {:gate-name :t
+   :t {:gate-id :t
+       :gate-name "T"
        :gate-type :single-qubit
        :description "T gate (π/4 phase gate)"
        :native-gate? false
        :decomposition [:rz]}
 
-   :t-dag {:gate-name :t-dag
+   :t-dag {:gate-id :t-dag
+           :gate-name "T†"
            :gate-type :single-qubit
            :description "T† gate (−π/4 phase gate)"
            :native-gate? false
            :decomposition [:rz]}
 
    ;; Parametric rotation gates
-   :rx {:gate-name :rx
+   :rx {:gate-id :rx
+        :gate-name "RX"
         :gate-type :parametric
         :parameter-count 1
         :description "Rotation around X-axis"
         :native-gate? false
         :decomposition [:h :t :h]}    ;; RX can be built from H-T-H sequence
 
-   :ry {:gate-name :ry
+   :ry {:gate-id :ry
+        :gate-name "RY"
         :gate-type :parametric
         :parameter-count 1
         :description "Rotation around Y-axis"
         :native-gate? false
         :decomposition [:rx :rz]}
 
-   :rz {:gate-name :rz
+   :rz {:gate-id :rz
+        :gate-name "RZ"
         :gate-type :parametric
         :parameter-count 1
         :description "Rotation around Z-axis"
         :native-gate? false
         :decomposition [:h :cnot :t :cnot :h]}  ;; RZ can be implemented with universal gates
 
-   :phase {:gate-name :phase
+   :phase {:gate-id :phase
+           :gate-name "Phase"
            :gate-type :parametric
            :parameter-count 1
            :description "Arbitrary phase gate"
@@ -104,57 +121,66 @@
            :decomposition [:rz]}
 
    ;; Two-qubit gates
-   :cnot {:gate-name :cnot
+   :cnot {:gate-id :cnot
+          :gate-name "CNOT"
           :gate-type :two-qubit
           :description "Controlled-NOT gate"
           :native-gate? true}
 
-   :cx {:gate-name :cx
+   :cx {:gate-id :cx
+        :gate-name "CX"
         :gate-type :two-qubit
         :description "Controlled-X gate (alias for CNOT)"
         :native-gate? true
         :decomposition [:cnot]}
 
-   :cz {:gate-name :cz
+   :cz {:gate-id :cz
+        :gate-name "CZ"
         :gate-type :two-qubit
         :description "Controlled-Z gate"
         :native-gate? false
         :decomposition [:cnot :h]}
 
-   :cy {:gate-name :cy
+   :cy {:gate-id :cy
+        :gate-name "CY"
         :gate-type :two-qubit
         :description "Controlled-Y gate"
         :native-gate? false
         :decomposition [:cnot :ry :rx]}
 
-   :swap {:gate-name :swap
+   :swap {:gate-id :swap
+          :gate-name "SWAP"
           :gate-type :two-qubit
           :description "SWAP gate - exchanges two qubits"
           :native-gate? false
           :decomposition [:cnot]}
 
-   :iswap {:gate-name :iswap
+   :iswap {:gate-id :iswap
+           :gate-name "iSWAP"
            :gate-type :two-qubit
            :description "iSWAP gate - swap with phase"
            :native-gate? false
            :decomposition [:cnot :rz]}
 
    ;; Parametric two-qubit gates
-   :crx {:gate-name :crx
+   :crx {:gate-id :crx
+         :gate-name "CRX"
          :gate-type :parametric
          :parameter-count 1
          :description "Controlled rotation around X-axis"
          :native-gate? false
          :decomposition [:cnot :rx]}
 
-   :cry {:gate-name :cry
+   :cry {:gate-id :cry
+         :gate-name "CRY"
          :gate-type :parametric
          :parameter-count 1
          :description "Controlled rotation around Y-axis"
          :native-gate? false
          :decomposition [:cnot :ry]}
 
-   :crz {:gate-name :crz
+   :crz {:gate-id :crz
+         :gate-name "CRZ"
          :gate-type :parametric
          :parameter-count 1
          :description "Controlled rotation around Z-axis"
@@ -162,13 +188,15 @@
          :decomposition [:cnot :rz]}
 
    ;; Multi-qubit gates
-   :toffoli {:gate-name :toffoli
+   :toffoli {:gate-id :toffoli
+             :gate-name "Toffoli"
              :gate-type :multi-qubit
              :description "Toffoli gate (CCX) - doubly controlled NOT"
              :native-gate? false
              :decomposition [:cnot :h :t]}
 
-   :fredkin {:gate-name :fredkin
+   :fredkin {:gate-id :fredkin
+             :gate-name "Fredkin"
              :gate-type :multi-qubit
              :description "Fredkin gate (CSWAP) - controlled SWAP"
              :native-gate? false
@@ -290,7 +318,7 @@
 
 ;; Specs for validation
 (s/fdef get-gate-info
-  :args (s/cat :gate-name ::gate-name)
+  :args (s/cat :gate-id ::gate-id)
   :ret (s/nilable ::gate-definition))
 
 (s/fdef get-gates-by-type

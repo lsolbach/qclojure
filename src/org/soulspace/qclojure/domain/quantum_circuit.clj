@@ -744,14 +744,14 @@
                  (if (and control1 control2 target)
                    (qg/toffoli-gate state control1 control2 target)
                    (throw (ex-info "Toffoli requires control1, control2, and target parameters"
-                                  {:gate gate}))))
+                                   {:gate gate}))))
       :fredkin (let [control (:control params)
                      target1 (:target1 params)
                      target2 (:target2 params)]
                  (if (and control target1 target2)
                    (qg/fredkin-gate state control target1 target2)
                    (throw (ex-info "Fredkin requires control, target1, and target2 parameters"
-                                  {:gate gate}))))
+                                   {:gate gate}))))
       :controlled (throw (ex-info "General controlled gates not yet implemented"
                                   {:gate gate}))
       (throw (ex-info "Unknown gate type" {:gate-type gate-type})))))
@@ -798,13 +798,13 @@
   Updated gate with remapped qubit indices"
   [gate mapping-fn]
   (if-let [params (:gate-params gate)]
-    (let [updated-params 
+    (let [updated-params
           (reduce-kv (fn [m k v]
                        (cond
                          ;; Check if this is a qubit index parameter
                          (#{:target :control :qubit1 :qubit2 :control1 :control2 :target1 :target2} k)
                          (assoc m k (mapping-fn v))
-                         
+
                          ;; Keep other parameters as they are
                          :else
                          (assoc m k v)))
@@ -841,7 +841,7 @@
   [circuit new-num-qubits & {:keys [qubit-mapping] :or {qubit-mapping identity}}]
   {:pre [(s/valid? ::quantum-circuit circuit)
          (>= new-num-qubits (:num-qubits circuit))]}
-  
+
   ;; Only update gate parameters if the qubit mapping is not identity
   (let [gates (if (= qubit-mapping identity)
                 (:gates circuit)
@@ -892,42 +892,42 @@
         num-qubits-1 (:num-qubits circuit1)
         num-qubits-2 (:num-qubits circuit2)
         max-qubits (max num-qubits-1 num-qubits-2)
-        
+
         ;; Determine the appropriate qubit mapping function
         mapping-fn (cond
-                    ;; Explicit mapping function provided
-                    (fn? qubit-mapping)
-                    qubit-mapping
-                    
-                    ;; Simple offset provided
-                    (integer? offset)
-                    #(+ % offset)
-                    
-                    ;; Circuit2 operates on control qubits only (for algorithms like Shor's)
-                    control-qubits-only
-                    identity
-                    
-                    ;; Default - identity mapping
-                    :else
-                    identity)
-        
+                     ;; Explicit mapping function provided
+                     (fn? qubit-mapping)
+                     qubit-mapping
+
+                     ;; Simple offset provided
+                     (integer? offset)
+                     #(+ % offset)
+
+                     ;; Circuit2 operates on control qubits only (for algorithms like Shor's)
+                     control-qubits-only
+                     identity
+
+                     ;; Default - identity mapping
+                     :else
+                     identity)
+
         ;; Apply the mapping function to circuit2's gates
         mapped-gates-2 (if (= mapping-fn identity)
                          (:gates circuit2)
-                         (mapv #(update-gate-params % mapping-fn) 
-                              (:gates circuit2)))
-        
+                         (mapv #(update-gate-params % mapping-fn)
+                               (:gates circuit2)))
+
         ;; Extend circuit1 if needed
         target-qubits (if (< num-qubits-1 max-qubits)
                         max-qubits
                         num-qubits-1)
-        
+
         ;; Calculate proper name for the composed circuit
-        circuit-name (str (get circuit1 :name "Circuit1") " + " 
-                        (get circuit2 :name "Circuit2")
-                        (when offset (str " (offset " offset ")"))
-                        (when control-qubits-only " (control qubits only)"))]
-    
+        circuit-name (str (get circuit1 :name "Circuit1") " + "
+                          (get circuit2 :name "Circuit2")
+                          (when offset (str " (offset " offset ")"))
+                          (when control-qubits-only " (control qubits only)"))]
+
     (-> circuit1
         (assoc :num-qubits target-qubits)
         (update :gates #(into % mapped-gates-2))
@@ -1201,6 +1201,36 @@
             circuit
             (range n))))
 
+(defn all-gates-circuit
+  "Create a quantum circuit that demonstrates all supported gates.
+   
+  Parameters: None
+   
+  Returns:
+  Quantum circuit that contains all supported gates"
+  []
+  (-> (create-circuit 3 "All Gates Circuit")
+      (x-gate 0)
+      (y-gate 1)
+      (z-gate 2)
+      (h-gate 0)
+      (s-gate 1)
+      (s-dag-gate 2)
+      (t-gate 0)
+      (t-dag-gate 1)
+      (rx-gate 0 (/ Math/PI 4))
+      (ry-gate 1 (/ Math/PI 4))
+      (rz-gate 2 (/ Math/PI 4))
+      (cnot-gate 0 1)
+      (cz-gate 1 2)
+      (crx-gate 0 2 (/ Math/PI 8))
+      (cry-gate 1 2 (/ Math/PI 8))
+      (crz-gate 0 1 (/ Math/PI 8))
+      (swap-gate 0 2)
+      (iswap-gate 1 2)
+      (toffoli-gate 0 1 2)
+      (fredkin-gate 0 1 2)))
+
 (comment
   ;; Create a simple circuit with a CZ gate
   (def cz-circuit
@@ -1243,6 +1273,8 @@
   ;; Create GHZ state
   (def ghz-circuit (ghz-state-circuit 3))
   (print-circuit ghz-circuit)
+
+  (print-circuit (all-gates-circuit))
 
   ;; Circuit composition
   (def composed (compose-circuits bell-circuit custom-circuit))

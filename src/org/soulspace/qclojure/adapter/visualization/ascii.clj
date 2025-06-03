@@ -537,7 +537,9 @@
 
   ;; Circuit diagram
   (def sample-circuit (qc/bell-state-circuit))
+  (def all-gates-circuit (qc/all-gates-circuit))
   (println (viz/visualize-circuit :ascii sample-circuit))
+  (println (viz/visualize-circuit :ascii all-gates-circuit))
 
   ;; State evolution
   (def evolution (viz/visualize-state-evolution :ascii sample-circuit (qs/zero-state 2)))
@@ -546,6 +548,6 @@
              (when (:gate frame) (str "- Applied " (:gate-type (:gate frame)))))
     (println (viz/visualize-quantum-state (:state frame)))
     (println "---"))
-  
+
   ;
   )

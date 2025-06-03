@@ -20,7 +20,7 @@
   
   (testing "Gate information retrieval"
     (let [x-gate-info (gr/get-gate-info :x)]
-      (is (= :x (:gate-name x-gate-info)))
+      (is (= :x (:gate-id x-gate-info)))
       (is (= :single-qubit (:gate-type x-gate-info))))
     
     (is (nil? (gr/get-gate-info :nonexistent-gate))))

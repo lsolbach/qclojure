@@ -238,6 +238,163 @@
          (:legend display-data) "\n"
          distance-text)))
 
+(def gate-symbols
+  "Map of gate types to their ASCII symbols.
+  
+  Used for circuit diagram visualization."
+  {:x "X" :y "Y" :z "Z" :h "H" :s "S" :t "T"
+   :s-dag "S†" :t-dag "T†"
+   :cnot "●" :cx "●" :cy "●" :cz "●"
+   :target "⊕"
+   :rx "RX" :ry "RY" :rz "RZ" :phase "P"
+   :crx "●" :cry "●" :crz "●"
+   :swap "×" :iswap "i×"
+   :toffoli "●●" :fredkin "●×"})
+
+(defn add-gate-to-lines
+  "Helper function to add a gate to the ASCII circuit lines.
+  
+  Parameters:
+  - lines: Current circuit lines
+  - gate: Gate definition map
+  - gate-pos: Position of the gate in the circuit
+  - gate-symbols: Sybmbols of the gates
+  
+  Returns:
+  Updated circuit lines with the gate added"
+[lines gate gate-pos gate-symbols]
+(let [gate-type (:gate-type gate)
+      params (:gate-params gate)
+      target (:target params)
+      control (:control params)
+      ;; Add spacing between gates
+      gate-spacing (if (> gate-pos 0) "─" "")]
+  (case gate-type
+    ;; Standard CNOT gate
+    :cnot (let [updated-lines (-> lines
+                                  (update control #(str % gate-spacing "●─"))
+                                  (update target #(str % gate-spacing "⊕─")))
+                min-qubit (min control target)
+                max-qubit (max control target)]
+            ;; Add vertical connection line
+            (mapv (fn [i line]
+                    (if (and (> i min-qubit) (< i max-qubit))
+                      (str line gate-spacing "│─")
+                      line))
+                  (range (count updated-lines))
+                  updated-lines))
+
+    ;; Other controlled gates (CX, CY, CZ)
+    (:cx :cy :cz) (let [updated-lines (-> lines
+                                          (update control #(str % gate-spacing "●─"))
+                                          (update target #(str % gate-spacing "["
+                                                               (subs (name gate-type) 1)
+                                                               "]─")))
+                        min-qubit (min control target)
+                        max-qubit (max control target)]
+                    ;; Add vertical connection line
+                    (mapv (fn [i line]
+                            (if (and (> i min-qubit) (< i max-qubit))
+                              (str line gate-spacing "│─")
+                              line))
+                          (range (count updated-lines))
+                          updated-lines))
+
+    ;; Controlled rotation gates (CRX, CRY, CRZ)
+    (:crx :cry :crz) (let [rotation-type (subs (name gate-type) 1)
+                           updated-lines (-> lines
+                                             (update control #(str % gate-spacing "●─"))
+                                             (update target #(str % gate-spacing "["
+                                                                  rotation-type
+                                                                  "]─")))
+                           min-qubit (min control target)
+                           max-qubit (max control target)]
+                       ;; Add vertical connection line
+                       (mapv (fn [i line]
+                               (if (and (> i min-qubit) (< i max-qubit))
+                                 (str line gate-spacing "│─")
+                                 line))
+                             (range (count updated-lines))
+                             updated-lines))
+
+    ;; SWAP gate
+    :swap (let [qubit1 (:qubit1 params)
+                qubit2 (:qubit2 params)
+                updated-lines (-> lines
+                                  (update qubit1 #(str % gate-spacing "×─"))
+                                  (update qubit2 #(str % gate-spacing "×─")))
+                min-qubit (min qubit1 qubit2)
+                max-qubit (max qubit1 qubit2)]
+            ;; Add vertical connection line
+            (mapv (fn [i line]
+                    (if (and (> i min-qubit) (< i max-qubit))
+                      (str line gate-spacing "│─")
+                      line))
+                  (range (count updated-lines))
+                  updated-lines))
+
+    ;; iSWAP gate
+    :iswap (let [qubit1 (:qubit1 params)
+                 qubit2 (:qubit2 params)
+                 updated-lines (-> lines
+                                   (update qubit1 #(str % gate-spacing "i×─"))
+                                   (update qubit2 #(str % gate-spacing "i×─")))
+                 min-qubit (min qubit1 qubit2)
+                 max-qubit (max qubit1 qubit2)]
+             ;; Add vertical connection line
+             (mapv (fn [i line]
+                     (if (and (> i min-qubit) (< i max-qubit))
+                       (str line gate-spacing "│─")
+                       line))
+                   (range (count updated-lines))
+                   updated-lines))
+
+    ;; Toffoli gate (CCX)
+    :toffoli (let [control1 (:control1 params)
+                   control2 (:control2 params)
+                   target (:target params)
+                   updated-lines (-> lines
+                                     (update control1 #(str % gate-spacing "●─"))
+                                     (update control2 #(str % gate-spacing "●─"))
+                                     (update target #(str % gate-spacing "⊕─")))
+                   all-qubits [control1 control2 target]
+                   min-qubit (apply min all-qubits)
+                   max-qubit (apply max all-qubits)]
+               ;; Add vertical connection lines
+               (mapv (fn [i line]
+                       (if (and (>= i min-qubit) (<= i max-qubit)
+                                (not (contains? (set all-qubits) i)))
+                         (str line gate-spacing "│─")
+                         line))
+                     (range (count updated-lines))
+                     updated-lines))
+
+    ;; Fredkin gate (CSWAP)
+    :fredkin (let [control (:control params)
+                   target1 (:target1 params)
+                   target2 (:target2 params)
+                   updated-lines (-> lines
+                                     (update control #(str % gate-spacing "●─"))
+                                     (update target1 #(str % gate-spacing "×─"))
+                                     (update target2 #(str % gate-spacing "×─")))
+                   all-qubits [control target1 target2]
+                   min-qubit (apply min all-qubits)
+                   max-qubit (apply max all-qubits)]
+               ;; Add vertical connection lines
+               (mapv (fn [i line]
+                       (if (and (>= i min-qubit) (<= i max-qubit)
+                                (not (contains? (set all-qubits) i)))
+                         (str line gate-spacing "│─")
+                         line))
+                     (range (count updated-lines))
+                     updated-lines))
+    
+    ;; Single-qubit gates
+    (update lines target
+            #(str % gate-spacing "["
+                  (get gate-symbols gate-type (name gate-type))
+                  "]─")))))
+
 (defmethod viz/visualize-circuit :ascii
   [_format circuit & {:keys [show-measurements]
                       :or {show-measurements true}}]
@@ -260,139 +417,6 @@
                             (str "q" i " |0⟩─"))
                           (range n-qubits))
 
-        ;; Add gates to diagram
-        add-gate-to-lines (fn [lines gate gate-pos]
-                            (let [gate-type (:gate-type gate)
-                                  params (:gate-params gate)
-                                  target (:target params)
-                                  control (:control params)
-                                  ;; Add spacing between gates
-                                  gate-spacing (if (> gate-pos 0) "─" "")]
-                              (case gate-type
-                                ;; Standard CNOT gate
-                                :cnot (let [updated-lines (-> lines
-                                                              (update control #(str % gate-spacing "●─"))
-                                                              (update target #(str % gate-spacing "⊕─")))
-                                            min-qubit (min control target)
-                                            max-qubit (max control target)]
-                                        ;; Add vertical connection line
-                                        (mapv (fn [i line]
-                                                (if (and (> i min-qubit) (< i max-qubit))
-                                                  (str line gate-spacing "│─")
-                                                  line))
-                                              (range (count updated-lines))
-                                              updated-lines))
-                                
-                                ;; Other controlled gates (CX, CY, CZ)
-                                (:cx :cy :cz) (let [updated-lines (-> lines
-                                                                    (update control #(str % gate-spacing "●─"))
-                                                                    (update target #(str % gate-spacing "["
-                                                                                         (subs (name gate-type) 1)
-                                                                                         "]─")))
-                                                   min-qubit (min control target)
-                                                   max-qubit (max control target)]
-                                                ;; Add vertical connection line
-                                                (mapv (fn [i line]
-                                                        (if (and (> i min-qubit) (< i max-qubit))
-                                                          (str line gate-spacing "│─")
-                                                          line))
-                                                      (range (count updated-lines))
-                                                      updated-lines))
-                                
-                                ;; Controlled rotation gates (CRX, CRY, CRZ)
-                                (:crx :cry :crz) (let [rotation-type (subs (name gate-type) 1)
-                                                      updated-lines (-> lines
-                                                                       (update control #(str % gate-spacing "●─"))
-                                                                       (update target #(str % gate-spacing "["
-                                                                                            rotation-type
-                                                                                            "]─")))
-                                                      min-qubit (min control target)
-                                                      max-qubit (max control target)]
-                                                   ;; Add vertical connection line
-                                                   (mapv (fn [i line]
-                                                           (if (and (> i min-qubit) (< i max-qubit))
-                                                             (str line gate-spacing "│─")
-                                                             line))
-                                                         (range (count updated-lines))
-                                                         updated-lines))
-                                
-                                ;; SWAP gate
-                                :swap (let [qubit1 (:qubit1 params)
-                                           qubit2 (:qubit2 params)
-                                           updated-lines (-> lines
-                                                             (update qubit1 #(str % gate-spacing "×─"))
-                                                             (update qubit2 #(str % gate-spacing "×─")))
-                                           min-qubit (min qubit1 qubit2)
-                                           max-qubit (max qubit1 qubit2)]
-                                        ;; Add vertical connection line
-                                        (mapv (fn [i line]
-                                                (if (and (> i min-qubit) (< i max-qubit))
-                                                  (str line gate-spacing "│─")
-                                                  line))
-                                              (range (count updated-lines))
-                                              updated-lines))
-                                
-                                ;; iSWAP gate
-                                :iswap (let [qubit1 (:qubit1 params)
-                                            qubit2 (:qubit2 params)
-                                            updated-lines (-> lines
-                                                              (update qubit1 #(str % gate-spacing "i×─"))
-                                                              (update qubit2 #(str % gate-spacing "i×─")))
-                                            min-qubit (min qubit1 qubit2)
-                                            max-qubit (max qubit1 qubit2)]
-                                         ;; Add vertical connection line
-                                         (mapv (fn [i line]
-                                                 (if (and (> i min-qubit) (< i max-qubit))
-                                                   (str line gate-spacing "│─")
-                                                   line))
-                                               (range (count updated-lines))
-                                               updated-lines))
-                                
-                                ;; Toffoli gate (CCX)
-                                :toffoli (let [control1 (:control1 params)
-                                              control2 (:control2 params)
-                                              target (:target params)
-                                              updated-lines (-> lines
-                                                                (update control1 #(str % gate-spacing "●─"))
-                                                                (update control2 #(str % gate-spacing "●─"))
-                                                                (update target #(str % gate-spacing "⊕─")))
-                                              all-qubits [control1 control2 target]
-                                              min-qubit (apply min all-qubits)
-                                              max-qubit (apply max all-qubits)]
-                                           ;; Add vertical connection lines
-                                           (mapv (fn [i line]
-                                                   (if (and (>= i min-qubit) (<= i max-qubit)
-                                                            (not (contains? (set all-qubits) i)))
-                                                     (str line gate-spacing "│─")
-                                                     line))
-                                                 (range (count updated-lines))
-                                                 updated-lines))
-                                
-                                ;; Fredkin gate (CSWAP)
-                                :fredkin (let [control (:control params)
-                                              target1 (:target1 params)
-                                              target2 (:target2 params)
-                                              updated-lines (-> lines
-                                                               (update control #(str % gate-spacing "●─"))
-                                                               (update target1 #(str % gate-spacing "×─"))
-                                                               (update target2 #(str % gate-spacing "×─")))
-                                              all-qubits [control target1 target2]
-                                              min-qubit (apply min all-qubits)
-                                              max-qubit (apply max all-qubits)]
-                                          ;; Add vertical connection lines
-                                          (mapv (fn [i line]
-                                                  (if (and (>= i min-qubit) (<= i max-qubit)
-                                                           (not (contains? (set all-qubits) i)))
-                                                    (str line gate-spacing "│─")
-                                                    line))
-                                                (range (count updated-lines))
-                                                updated-lines))
-
-                                ;; Single-qubit gates
-                                (update lines target
-                                        #(str % gate-spacing "["
-                                              (get gate-symbols gate-type (name gate-type))
-                                              "]─")))))
 
         ;; Process all gates
         final-lines (loop [lines qubit-lines
@@ -400,7 +424,7 @@
                            gate-pos 0]
                       (if (empty? remaining-gates)
                         lines
-                        (recur (add-gate-to-lines lines (first remaining-gates) gate-pos)
+                        (recur (add-gate-to-lines lines (first remaining-gates) gate-pos gate-symbols)
                                (rest remaining-gates)
                                (inc gate-pos))))
 
@@ -508,8 +532,6 @@
          measurement-section
          circuit-section
          complexity-section)))
-
-
 
 (comment
   ;; REPL examples for ASCII visualization

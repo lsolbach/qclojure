@@ -320,6 +320,43 @@
     [[exp-neg (fc/complex 0 0)]
      [(fc/complex 0 0) exp-pos]]))
 
+(defn cnot-gate
+  "CNOT (Controlled-NOT) gate matrix for 2-qubit systems.
+  
+  The CNOT gate is a fundamental two-qubit gate that flips the target qubit
+  if and only if the control qubit is in state |1⟩. It's the quantum
+  equivalent of the classical XOR gate and is essential for creating
+  quantum entanglement.
+  
+  Truth table for computational basis states:
+  |00⟩ → |00⟩  (control=0: no change)
+  |01⟩ → |01⟩  (control=0: no change)
+  |10⟩ → |11⟩  (control=1: flip target)
+  |11⟩ → |10⟩  (control=1: flip target)
+  
+  Matrix representation (4×4 for 2-qubit system):
+  CNOT = [[1,0,0,0],
+          [0,1,0,0],
+          [0,0,0,1],
+          [0,0,1,0]]
+  
+  The CNOT gate is universal for classical computation and, together
+  with single-qubit gates, forms a universal set for quantum computation.
+  
+  Parameters: None (assumes control=qubit 0, target=qubit 1)
+  
+  Returns:
+  4×4 matrix representing the CNOT gate
+  
+  Example:
+  (matrix-vector-mult (cnot-gate) [1 0 0 0])  ; |00⟩ → |00⟩
+  (matrix-vector-mult (cnot-gate) [0 0 1 0])  ; |10⟩ → |11⟩"
+  []
+  [[(fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0) (fc/complex 0 0)]
+   [(fc/complex 0 0) (fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0)]
+   [(fc/complex 0 0) (fc/complex 0 0) (fc/complex 0 0) (fc/complex 1 0)]
+   [(fc/complex 0 0) (fc/complex 0 0) (fc/complex 1 0) (fc/complex 0 0)]])
+
 ;; Gate application functions - Functions to apply gates to quantum states
 (defn expand-gate-to-n-qubits
   "Expand a single-qubit gate to operate on an n-qubit system at a specific position.
@@ -396,43 +433,6 @@
          :num-qubits n}))))
 
 ;; Controlled gate operations - Two-qubit gates with control logic
-(defn cnot-gate
-  "CNOT (Controlled-NOT) gate matrix for 2-qubit systems.
-  
-  The CNOT gate is a fundamental two-qubit gate that flips the target qubit
-  if and only if the control qubit is in state |1⟩. It's the quantum
-  equivalent of the classical XOR gate and is essential for creating
-  quantum entanglement.
-  
-  Truth table for computational basis states:
-  |00⟩ → |00⟩  (control=0: no change)
-  |01⟩ → |01⟩  (control=0: no change)
-  |10⟩ → |11⟩  (control=1: flip target)
-  |11⟩ → |10⟩  (control=1: flip target)
-  
-  Matrix representation (4×4 for 2-qubit system):
-  CNOT = [[1,0,0,0],
-          [0,1,0,0],
-          [0,0,0,1],
-          [0,0,1,0]]
-  
-  The CNOT gate is universal for classical computation and, together
-  with single-qubit gates, forms a universal set for quantum computation.
-  
-  Parameters: None (assumes control=qubit 0, target=qubit 1)
-  
-  Returns:
-  4×4 matrix representing the CNOT gate
-  
-  Example:
-  (matrix-vector-mult (cnot-gate) [1 0 0 0])  ; |00⟩ → |00⟩
-  (matrix-vector-mult (cnot-gate) [0 0 1 0])  ; |10⟩ → |11⟩"
-  []
-  [[(fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0) (fc/complex 0 0)]
-   [(fc/complex 0 0) (fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0)]
-   [(fc/complex 0 0) (fc/complex 0 0) (fc/complex 0 0) (fc/complex 1 0)]
-   [(fc/complex 0 0) (fc/complex 0 0) (fc/complex 1 0) (fc/complex 0 0)]])
-
 (defn controlled-gate
   "Create a controlled version of a single-qubit gate.
   

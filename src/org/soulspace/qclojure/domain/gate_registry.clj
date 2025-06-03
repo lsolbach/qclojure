@@ -116,6 +116,7 @@
            :gate-name "Phase"
            :gate-type :parametric
            :parameter-count 1
+           :parameters [:theta]
            :description "Arbitrary phase gate"
            :native-gate? false
            :decomposition [:rz]}
@@ -167,6 +168,7 @@
          :gate-name "CRX"
          :gate-type :parametric
          :parameter-count 1
+         :parameters [:theta]
          :description "Controlled rotation around X-axis"
          :native-gate? false
          :decomposition [:cnot :rx]}
@@ -175,6 +177,7 @@
          :gate-name "CRY"
          :gate-type :parametric
          :parameter-count 1
+         :parameters [:theta]
          :description "Controlled rotation around Y-axis"
          :native-gate? false
          :decomposition [:cnot :ry]}
@@ -183,6 +186,7 @@
          :gate-name "CRZ"
          :gate-type :parametric
          :parameter-count 1
+         :parameters [:theta]
          :description "Controlled rotation around Z-axis"
          :native-gate? false
          :decomposition [:cnot :rz]}

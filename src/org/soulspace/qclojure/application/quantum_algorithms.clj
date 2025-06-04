@@ -18,6 +18,20 @@
 (s/def ::deutsch-oracle ::oracle-function)
 (s/def ::grover-oracle ::oracle-function)
 
+(defn measure-subsystem
+  "Measure specific qubits and return just the measurement outcome.
+  
+  This is a convenience function that combines partial trace with measurement
+  for algorithms that only care about specific qubit outcomes."
+  [state qubit-indices]
+  (if (= (count qubit-indices) (:num-qubits state))
+    ;; Measuring all qubits - use direct measurement
+    (qs/measure-state state)
+    ;; Measuring subset - use partial trace approach
+    (let [other-qubits (remove (set qubit-indices) (range (:num-qubits state)))
+          traced-state (reduce qs/partial-trace state (reverse other-qubits))]
+      (qs/measure-state traced-state))))
+
 (defn deutsch-algorithm
   "Implement the Deutsch algorithm to determine if a function is constant or balanced.
   
@@ -78,7 +92,7 @@
         final-state (qg/h-gate after-oracle 0)
         
         ;; Measure the input qubit (qubit 0)
-        measurement (qs/measure-state (qs/partial-trace final-state 1))
+        measurement (measure-subsystem final-state [0])
         outcome (:outcome measurement)
         result (if (= outcome 0) :constant :balanced)]
     
@@ -677,17 +691,9 @@
                                   (fn []
                                     (let [initial-state (qs/zero-state total-qubits)
                                           final-state (qc/execute-circuit circuit initial-state)
-                                          ;; Measure only the control register qubits by tracing out target register
-                                          phase-register-state (-> final-state
-                                                                   ;; Trace out target qubits one by one (in reverse order to maintain indices)
-                                                                   (as-> state
-                                                                         (reduce (fn [s qubit-idx]
-                                                                                   (qs/partial-trace s qubit-idx))
-                                                                                 state
-                                                                                 (reverse (range n-qubits total-qubits)))))
-
-                                          ;; Perform measurement to get phase value
-                                          measurement (qs/measure-state phase-register-state)]
+                                          ;; Measure only the control register qubits using measure-subsystem
+                                          phase-qubits (range n-qubits)
+                                          measurement (measure-subsystem final-state phase-qubits)]
                                       (:outcome measurement))))
 
          ;; Analyze measurements and find most frequent outcomes

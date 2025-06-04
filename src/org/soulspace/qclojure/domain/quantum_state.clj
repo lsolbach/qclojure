@@ -551,6 +551,99 @@
     {:state-vector (vec reduced-amplitudes)
      :num-qubits (dec n-qubits)}))
 
+;; Measurement utility functions
+(defn measurement-probabilities
+  "Calculate measurement probabilities for all computational basis states.
+  
+  Returns a vector of probabilities for measuring each computational basis state,
+  computed using the Born rule: P(|i⟩) = |αᵢ|² where αᵢ is the amplitude
+  for basis state |i⟩.
+  
+  Parameters:
+  - state: Quantum state to analyze
+  
+  Returns:
+  Vector of probabilities, one for each computational basis state
+  
+  Example:
+  (measurement-probabilities |+⟩)
+  ;=> [0.5 0.5]  ; Equal probability for |0⟩ and |1⟩"
+  [state]
+  {:pre [(map? state)
+         (vector? (:state-vector state))
+         (pos-int? (:num-qubits state))]}
+  (mapv #(let [amp-mag (fc/abs %)] (* amp-mag amp-mag)) 
+        (:state-vector state)))
+
+(defn measurement-outcomes-to-bits
+  "Convert a measurement outcome integer to its binary bit representation.
+  
+  This is the inverse of bits-to-index. Converts an integer measurement outcome
+  back to the corresponding bit vector representation.
+  
+  Parameters:
+  - outcome: Integer measurement outcome (0 to 2^n-1)
+  - n-qubits: Number of qubits (determines bit vector length)
+  
+  Returns:
+  Vector of bits [b₀ b₁ ... bₙ₋₁] representing the measurement outcome
+  
+  Examples:
+  (measurement-outcomes-to-bits 0 1) ;=> [0]
+  (measurement-outcomes-to-bits 1 1) ;=> [1]  
+  (measurement-outcomes-to-bits 5 3) ;=> [1 0 1]  ; 5 = 4+1 = 101₂"
+  [outcome n-qubits]
+  {:pre [(integer? outcome)
+         (>= outcome 0)
+         (< outcome (bit-shift-left 1 n-qubits))
+         (pos-int? n-qubits)]}
+  (vec (for [i (range n-qubits)]
+         (bit-and (bit-shift-right outcome (- n-qubits 1 i)) 1))))
+
+(defn measure-state-statistics
+  "Perform multiple measurements and collect statistical data.
+  
+  Simulates running the same quantum measurement many times to gather
+  statistical information about measurement outcomes, frequencies, and
+  empirical probabilities.
+  
+  Parameters:
+  - state: Quantum state to measure repeatedly
+  - num-measurements: Number of measurements to perform
+  
+  Returns:
+  Map containing:
+  - :total-measurements - Total number of measurements performed
+  - :outcomes - Vector of all measurement outcomes  
+  - :frequencies - Map of outcome -> count
+  - :probabilities - Map of outcome -> empirical probability
+  - :expected-probabilities - Map of outcome -> theoretical probability
+  
+  Example:
+  (measure-state-statistics |+⟩ 1000)
+  ;=> {:total-measurements 1000, :outcomes [...], :frequencies {0 501, 1 499}, ...}"
+  [state num-measurements]
+  {:pre [(map? state)
+         (vector? (:state-vector state))
+         (pos-int? (:num-qubits state))
+         (pos-int? num-measurements)]}
+  (let [outcomes (repeatedly num-measurements #(:outcome (measure-state state)))
+        frequencies (frequencies outcomes)
+        total (reduce + (vals frequencies))
+        empirical-probs (into {} (map (fn [[outcome count]]
+                                       [outcome (/ count total)])
+                                     frequencies))
+        ;; Calculate expected probabilities using Born rule
+        n-states (count (:state-vector state))
+        expected-probs (into {} (map (fn [i]
+                                      [i (probability state i)])
+                                    (range n-states)))]
+    {:total-measurements num-measurements
+     :outcomes (vec outcomes)
+     :frequencies frequencies
+     :probabilities empirical-probs
+     :expected-probabilities expected-probs}))
+
 ;; Default states for convenience - pre-defined common quantum states
 (def |0⟩
   "Single-qubit |0⟩ computational basis state."

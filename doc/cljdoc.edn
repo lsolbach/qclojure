@@ -1,0 +1,5 @@
+; configuration for cljdoc
+{:cljdoc.doc/tree
+ [["Readme" {:file "README.md"}]
+  ["Changes" {:file "Changelog.md"}]
+  ["Usage" {:file "doc/usage.md"}]]}

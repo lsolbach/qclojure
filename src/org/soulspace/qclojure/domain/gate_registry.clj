@@ -12,6 +12,8 @@
                   :multi-qubit
                   :parametric})
 
+(def gate-params #{:target :target1 :target2 :control :control1 :control2 :angle})
+
 ;; Specs for gate definitions
 (s/def ::gate-id keyword?)
 (s/def ::gate-type gate-types)

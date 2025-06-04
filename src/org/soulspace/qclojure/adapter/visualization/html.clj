@@ -4,7 +4,7 @@
             [org.soulspace.qclojure.util.io :as qio]
             [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.common :as common]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;;;
 ;;; HTML functions
@@ -211,9 +211,8 @@
   (qio/save-file custom-page "custom.html")
 
   ;; Create circuit diagram
-  (require '[org.soulspace.qclojure.domain.quantum-state :as qs]
-           '[org.soulspace.qclojure.domain.quantum-gate :as qg]
-           '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
+  (require '[org.soulspace.qclojure.domain.state :as qs]
+           '[org.soulspace.qclojure.domain.gate :as qg])
 
   (def bell-state (-> (qs/zero-state 2)
                       (qg/h-gate 0)

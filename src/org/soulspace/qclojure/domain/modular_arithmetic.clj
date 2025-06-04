@@ -3,7 +3,7 @@
    
    This namespace provides functions to create quantum circuits that implement
    modular addition, multiplication, and exponentiation operations."
-  (:require [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+  (:require [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
 (defn controlled-modular-addition-circuit

@@ -4,9 +4,9 @@
             [clojure.string :as str]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
+            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Data format specifications
 ;; State serialization and deserialization

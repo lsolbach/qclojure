@@ -7,13 +7,12 @@
   (:require [clojure.string :as str]
             [hiccup2.core :as h]
             [org.soulspace.qclojure.util.io :as qio]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
-
 
 ;;;
 ;;; SVG Format Implementations
@@ -611,7 +610,7 @@
   ;; REPL examples for SVG visualization
 
   ;; Create SVG bar chart for Bell state
-  (require '[org.soulspace.qclojure.domain.quantum-gate :as qg])
+  (require '[org.soulspace.qclojure.domain.gate :as qg])
 
   (def bell-state (-> (qs/zero-state 2)
                       (qg/h-gate 0)

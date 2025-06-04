@@ -1,8 +1,8 @@
-(ns org.soulspace.qclojure.domain.quantum-measurement-test
+(ns org.soulspace.qclojure.domain.measurement-test
   "Comprehensive tests for quantum measurement functionality"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [fastmath.complex :as fc]))
 
 ;; Test basic quantum measurement functionality
@@ -298,4 +298,4 @@
 ;; Run all measurement tests
 (defn run-all-measurement-tests []
   (println "Running comprehensive quantum measurement tests...")
-  (run-tests 'org.soulspace.qclojure.domain.quantum-measurement-test))
+  (run-tests 'org.soulspace.qclojure.domain.measurement-test))

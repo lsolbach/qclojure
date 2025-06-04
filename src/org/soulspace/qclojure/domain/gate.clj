@@ -1,9 +1,9 @@
-(ns org.soulspace.qclojure.domain.quantum-gate
+(ns org.soulspace.qclojure.domain.gate
   "Quantum gate operations for quantum state manipulation"
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]))
+            [org.soulspace.qclojure.domain.state :as qs]))
 
 ;; Specs for quantum gates
 (s/def ::gate-matrix (s/coll-of (s/coll-of ::qs/complex-amplitude :kind vector?) :kind vector?))

@@ -1,11 +1,11 @@
-(ns org.soulspace.qclojure.application.quantum-backend-test
+(ns org.soulspace.qclojure.application.backend-test
   "Tests for quantum backend protocol and gate support functionality."
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.application.quantum-backend :as qb]
+            [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.gate-registry :as gr]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
-            [org.soulspace.qclojure.adapter.backend.quantum-simulator :as sim]))
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 (deftest test-gate-registry
   (testing "Gate catalog validation"

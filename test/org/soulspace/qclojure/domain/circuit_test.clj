@@ -1,8 +1,8 @@
-(ns org.soulspace.qclojure.domain.quantum-circuit-test
+(ns org.soulspace.qclojure.domain.circuit-test
   "Tests for quantum circuit operations and composition"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]))
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]))
 
 ;; Test circuit composition functionality
 (deftest test-circuit-composition
@@ -54,7 +54,8 @@
       (is (= (get-in (first (:gates extended)) [:gate-params :control]) 2))
       (is (= (get-in (first (:gates extended)) [:gate-params :target]) 3)))))
 
-;; Run all tests
-(defn run-all-circuit-tests []
-  (println "Running quantum circuit tests...")
-  (run-tests 'org.soulspace.qclojure.domain.quantum-circuit-test))
+(comment
+  (run-tests)
+
+  ;
+  )

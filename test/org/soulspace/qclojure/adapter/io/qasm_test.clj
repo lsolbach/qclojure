@@ -3,11 +3,11 @@
    
    These tests verify that the OpenQASM adapter correctly converts
    quantum circuits to QASM format and back without file I/O operations."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.string :as str]
             [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.adapter.io.qasm :as qasm]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]))
+            [org.soulspace.qclojure.application.format.qasm2 :as qasm2]
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Helper functions for tests
 (defn- contains-line?
@@ -77,7 +77,7 @@
 (deftest test-circuit-to-qasm-header
   (testing "QASM header generation"
     (let [circuit (qc/create-circuit 3 "Test Circuit")
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (str/starts-with? qasm-code "OPENQASM 2.0;"))
       (is (contains-line? qasm-code "include \"qelib1.inc\";"))
       (is (contains-line? qasm-code "qreg q[3];"))
@@ -90,7 +90,7 @@
                       (qc/y-gate 1)
                       (qc/z-gate 0)
                       (qc/h-gate 1))
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code "x q[0];"))
       (is (contains-line? qasm-code "y q[1];"))
       (is (contains-line? qasm-code "z q[0];"))
@@ -100,13 +100,13 @@
   (testing "Controlled gate conversion to QASM"
     (let [circuit (-> (qc/create-circuit 2 "CNOT Circuit")
                       (qc/cnot-gate 0 1))
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code "cx q[0],q[1];")))))
 
 (deftest test-circuit-to-qasm-rotation-gates
   (testing "Rotation gate conversion to QASM"
     (let [circuit (rotation-gates-circuit)
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code (str "rx(" (/ Math/PI 2) ") q[0];")))
       (is (contains-line? qasm-code (str "ry(" (/ Math/PI 4) ") q[0];")))
       (is (contains-line? qasm-code (str "rz(" (/ Math/PI 3) ") q[0];"))))))
@@ -114,14 +114,14 @@
 (deftest test-circuit-to-qasm-bell-state
   (testing "Bell state circuit conversion to QASM"
     (let [bell-circuit (qc/bell-state-circuit)
-          qasm-code (qasm/circuit-to-qasm bell-circuit)]
+          qasm-code (qasm2/circuit-to-qasm bell-circuit)]
       (is (contains-line? qasm-code "h q[0];"))
       (is (contains-line? qasm-code "cx q[0],q[1];")))))
 
 (deftest test-circuit-to-qasm-extended-gates
   (testing "Extended gate conversion to QASM"
     (let [circuit (extended-gates-circuit)
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code "sdg q[0];") "S-dagger gate conversion")
       (is (contains-line? qasm-code "tdg q[1];") "T-dagger gate conversion")
       (is (contains-line? qasm-code (str "p(" (/ Math/PI 3) ") q[0];")) "Phase gate conversion")
@@ -136,7 +136,7 @@
                       (qc/crx-gate 0 2 (/ Math/PI 4))
                       (qc/cry-gate 1 2 (/ Math/PI 3))
                       (qc/crz-gate 0 1 (/ Math/PI 6)))
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code "swap q[0],q[1];") "SWAP gate conversion")
       (is (contains-line? qasm-code "ccx q[0],q[1],q[2];") "Toffoli gate conversion")
       (is (contains-line? qasm-code (str "crx(" (/ Math/PI 4) ") q[0],q[2];")) "CRX gate conversion")
@@ -148,14 +148,14 @@
     (let [circuit (-> (qc/create-circuit 3 "New Gates")
                       (qc/iswap-gate 0 1)
                       (qc/fredkin-gate 0 1 2))
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (contains-line? qasm-code "iswap q[0],q[1];") "iSWAP gate conversion")
       (is (contains-line? qasm-code "cswap q[0],q[1],q[2];") "Fredkin gate conversion"))))
 
 (deftest test-qasm-to-circuit-new-gates
   (testing "QASM to circuit conversion for new gates"
     (let [qasm-code "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncreg c[3];\n\niswap q[0],q[1];\ncswap q[0],q[1],q[2];\nmeasure q -> c;"
-          circuit (qasm/qasm-to-circuit qasm-code)]
+          circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 3 (:num-qubits circuit)))
       (is (= 2 (count (:gates circuit))))
       
@@ -177,8 +177,8 @@
                                (qc/iswap-gate 0 1)
                                (qc/fredkin-gate 2 0 1)
                                (qc/x-gate 2))
-          qasm-code (qasm/circuit-to-qasm original-circuit)
-          converted-circuit (qasm/qasm-to-circuit qasm-code)]
+          qasm-code (qasm2/circuit-to-qasm original-circuit)
+          converted-circuit (qasm2/qasm-to-circuit qasm-code)]
       
       ;; Verify circuit structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -219,7 +219,7 @@ creg c[2];
 h q[0];
 cx q[0],q[1];
 measure q -> c;"
-          circuit (qasm/qasm-to-circuit qasm-code)]
+          circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 2 (:num-qubits circuit)))
       (is (= 2 (count (:gates circuit))))
       
@@ -242,7 +242,7 @@ y q[1];
 z q[2];
 h q[0];
 measure q -> c;"
-          circuit (qasm/qasm-to-circuit qasm-code)]
+          circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 3 (:num-qubits circuit)))
       (is (= 4 (count (:gates circuit))))
       
@@ -257,23 +257,23 @@ measure q -> c;"
 (deftest test-invalid-qasm-handling
   (testing "Handling of invalid QASM code"
     (let [invalid-qasm "This is not valid QASM code"]
-      (is (thrown? Exception (qasm/qasm-to-circuit invalid-qasm))))))
+      (is (thrown? Exception (qasm2/qasm-to-circuit invalid-qasm))))))
 
 (deftest test-unknown-gate-handling
   (testing "Handling of unknown gates in circuit to QASM"
     (let [circuit {:gates [{:gate-type :unknown-gate 
                             :gate-params {:target 0}}]
                   :num-qubits 1}
-          qasm-code (qasm/circuit-to-qasm circuit)]
+          qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (str/includes? qasm-code "// Unknown gate: unknown-gate")))))
 
 (deftest test-round-trip-conversion
   (testing "Round-trip conversion from circuit to QASM and back"
     (let [original-circuit (complex-test-circuit)
           ;; Convert to QASM
-          qasm-code (qasm/circuit-to-qasm original-circuit)
+          qasm-code (qasm2/circuit-to-qasm original-circuit)
           ;; Convert back to circuit
-          converted-circuit (qasm/qasm-to-circuit qasm-code)]
+          converted-circuit (qasm2/qasm-to-circuit qasm-code)]
       
       ;; Verify circuit structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -323,8 +323,8 @@ measure q -> c;"
                               (qc/cnot-gate 0 2)
                               (qc/h-gate 0)
                               (qc/cnot-gate 1 2))
-          qasm-code (qasm/circuit-to-qasm control-circuit)
-          converted (qasm/qasm-to-circuit qasm-code)
+          qasm-code (qasm2/circuit-to-qasm control-circuit)
+          converted (qasm2/qasm-to-circuit qasm-code)
 
           ;; Count the CNOT gates in both circuits
           original-cnots (filter #(contains? #{:cnot :cx} (:gate-type %))
@@ -352,8 +352,8 @@ measure q -> c;"
                             (qc/rx-gate 0 (/ Math/PI 2))
                             (qc/ry-gate 0 (/ Math/PI 3))
                             (qc/rz-gate 0 (/ Math/PI 4)))
-          qasm-code (qasm/circuit-to-qasm param-circuit)
-          converted (qasm/qasm-to-circuit qasm-code)
+          qasm-code (qasm2/circuit-to-qasm param-circuit)
+          converted (qasm2/qasm-to-circuit qasm-code)
 
           ;; Extract all rotation gates and their angles
           original-rotations (filter #(contains? #{:rx :ry :rz} (:gate-type %))
@@ -387,3 +387,9 @@ measure q -> c;"
                     conv (nth conv-angles i)]
                 (is (< (Math/abs (- orig conv)) 1.0e-6)
                     (str gate-type " angle preserved: " orig " vs " conv)))))))))
+
+(comment
+  (run-tests)
+
+  ;
+  )

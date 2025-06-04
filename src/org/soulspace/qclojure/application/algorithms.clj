@@ -1,11 +1,11 @@
-(ns org.soulspace.qclojure.application.quantum-algorithms
+(ns org.soulspace.qclojure.application.algorithms
   "Implementation of fundamental quantum algorithms using the qclojure domain"
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-gate :as qg]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.gate :as qg]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.modular-arithmetic :as qma]
             [org.soulspace.qclojure.domain.math :as qmath]))
 

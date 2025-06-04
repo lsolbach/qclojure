@@ -6,9 +6,9 @@
    by the backend into equivalent sequences of supported gates."
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.gate-registry :as gr]
-            [org.soulspace.qclojure.application.quantum-backend :as qb]))
+            [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; Specs
 (s/def ::transformation-result
@@ -250,7 +250,7 @@
   
   ([circuit backend options]
    {:pre [(s/valid? ::qc/quantum-circuit circuit)
-          (satisfies? org.soulspace.qclojure.application.quantum-backend/QuantumBackend backend)]}
+          (satisfies? org.soulspace.qclojure.application.backend/QuantumBackend backend)]}
    
    (let [max-iterations (get options :max-iterations 100)
          transform-unsupported? (get options :transform-unsupported? true)
@@ -481,7 +481,7 @@
   
   ([circuit backend options]
    {:pre [(s/valid? ::qc/quantum-circuit circuit)
-          (satisfies? org.soulspace.qclojure.application.quantum-backend/QuantumBackend backend)]}
+          (satisfies? org.soulspace.qclojure.application.backend/QuantumBackend backend)]}
    
    (let [optimize-qubits? (get options :optimize-qubits? true)
          transform-gates? (get options :transform-gates? true)

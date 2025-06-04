@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.quantum-state
+(ns org.soulspace.qclojure.domain.state
   "Core quantum state representation and operations"
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]

@@ -1,13 +1,13 @@
-(ns org.soulspace.qclojure.adapter.backend.quantum-simulator
+(ns org.soulspace.qclojure.adapter.backend.simulator
   "Local quantum simulator implementing the QuantumBackend protocol.
   
   This adapter provides a local simulation of quantum circuits using
   the domain layer's quantum state and circuit functionality. It serves
   as both a reference implementation and a testing backend."
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.application.quantum-backend :as qb]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
+            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate-registry :as gr]))
 
 ;; Simulator state management
@@ -389,7 +389,7 @@
   (qb/get-job-result sim job-id)
   
   ;; Test with different algorithms
-  (require '[qclojure.application.quantum-algorithms :as qa])
+  (require '[qclojure.application.algorithms :as qa])
   
   ;; Deutsch algorithm
   (def deutsch-circuit (:circuit (qa/deutsch-algorithm (fn [_] true))))

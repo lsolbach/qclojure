@@ -8,13 +8,12 @@
             [clojure.string :as str]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
-            [org.soulspace.qclojure.adapter.visualization.common :as common]
-            [clojure.spec.alpha :as s]))
+            [org.soulspace.qclojure.adapter.visualization.common :as common]))
 
 (s/def ::quantum-data (s/or :state ::qs/quantum-state
                             :circuit ::qc/quantum-circuit

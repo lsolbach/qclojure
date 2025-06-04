@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.application.shors-algorithm-test
   "Tests for Shor's factoring algorithm implementation"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.application.quantum-algorithms :as qa]
+            [org.soulspace.qclojure.application.algorithms :as qa]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
 ;; Test Shor's Algorithm with small composite numbers

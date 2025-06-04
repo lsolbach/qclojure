@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.application.quantum-backend
+(ns org.soulspace.qclojure.application.backend
   "Protocol and interface for quantum computing hardware backends.
   
   This namespace defines the protocol for connecting to and executing
@@ -7,7 +7,7 @@
   different quantum computing providers and simulators."
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.gate-registry :as gr]))
 
 ;; Specs for hardware interface
@@ -452,7 +452,7 @@
   
   Returns: True if the gate is supported, false otherwise"
   [backend gate]
-  {:pre [(satisfies? org.soulspace.qclojure.application.quantum-backend/QuantumBackend backend)
+  {:pre [(satisfies? org.soulspace.qclojure.application.backend/QuantumBackend backend)
          (keyword? gate)]}
   (contains? (get-supported-gates backend) gate))
 

@@ -1,12 +1,12 @@
-(ns org.soulspace.qclojure.domain.quantum-gate-test
+(ns org.soulspace.qclojure.domain.gate-test
   (:require [clojure.test :refer :all]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :refer [defspec]]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-gate :as qg]))
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.gate :as qg]))
 
 (deftest test-pauli-gates
   (testing "Pauli-X gate flips qubit states"
@@ -138,13 +138,9 @@
                   (and (= (:state-vector |0⟩) (:state-vector x-x-0))
                        (= (:state-vector |1⟩) (:state-vector x-x-1))))))
 
-;; Run all tests
-(defn run-all-gate-tests []
-  (run-tests 'qclojure.domain.quantum-gate-test))
-
 (comment
   ;; Run tests in REPL
-  (run-all-gate-tests)
+  (run-tests)
 
   ;; Run specific test
   (test-pauli-gates)

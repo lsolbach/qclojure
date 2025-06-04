@@ -4,9 +4,9 @@
    These tests verify that the quantum simulator correctly implements the
    QuantumBackend protocol and accurately simulates quantum circuits."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [org.soulspace.qclojure.application.quantum-backend :as qb]
-            [org.soulspace.qclojure.domain.quantum-circuit :as qc]
-            [org.soulspace.qclojure.adapter.backend.quantum-simulator :as sim]))
+            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 ;; Test fixtures
 (defn reset-simulator-fixture
@@ -36,7 +36,7 @@
   (testing "Basic simulator creation"
     (let [sim1 (sim/create-simulator)]
       (is (satisfies? qb/QuantumBackend sim1))
-      (is (instance? org.soulspace.qclojure.adapter.backend.quantum_simulator.LocalQuantumSimulator sim1))))
+      (is (instance? org.soulspace.qclojure.adapter.backend.simulator.LocalQuantumSimulator sim1))))
   
   (testing "Simulator creation with config"
     (let [config {:max-qubits 10 :seed 42}

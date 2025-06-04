@@ -1,11 +1,11 @@
-(ns org.soulspace.qclojure.domain.quantum-state-test
+(ns org.soulspace.qclojure.domain.state-test
   "Tests for quantum state operations"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
+            [org.soulspace.qclojure.domain.state :as qs]
             [fastmath.core :as m]
             [fastmath.complex :as fc]))
 
@@ -441,13 +441,9 @@
                                   inner-product (reduce + (map #(* (fc/abs %1) (fc/abs %2)) amplitudes-i amplitudes-j))]
                               (< inner-product 1e-10)))))))
 
-;; Run all tests
-(defn run-all-state-tests []
-  (run-tests 'qclojure.domain.quantum-state-test))
-
 (comment
   ;; Run tests in REPL
-  (run-all-state-tests)
+  (run-tests)
 
   ;; Run specific test
   (test-basic-states)

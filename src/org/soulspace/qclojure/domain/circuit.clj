@@ -1,10 +1,10 @@
-(ns org.soulspace.qclojure.domain.quantum-circuit
+(ns org.soulspace.qclojure.domain.circuit
   "Quantum circuit representation and execution"
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.quantum-state :as qs]
-            [org.soulspace.qclojure.domain.quantum-gate :as qg]))
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.gate :as qg]))
 
 ;; Specs for quantum circuits
 (s/def ::gate-type keyword?)

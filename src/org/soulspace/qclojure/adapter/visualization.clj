@@ -107,8 +107,7 @@
 
 (comment
   ;; REPL examples for both the new unified API and legacy API
-  (require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
-  (require '[org.soulspace.qclojure.adapter.io :as qio])
+  (require '[org.soulspace.qclojure.domain.circuit :as qc])
 
   (def cz-circuit
     (-> (qc/create-circuit 2 "CZ Test")

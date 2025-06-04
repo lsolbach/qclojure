@@ -7,7 +7,6 @@
   (:require [clojure.string :as str]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.util.io :as qio]
             [org.soulspace.qclojure.domain.quantum-state :as qs]
             [org.soulspace.qclojure.domain.quantum-circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
@@ -268,7 +267,9 @@
       target (:target params)
       control (:control params)
       ;; Add spacing between gates
-      gate-spacing (if (> gate-pos 0) "─" "")]
+      ;gate-spacing (if (> gate-pos 0) "─" "")
+      gate-spacing "─"
+      ]
   (case gate-type
     ;; Standard CNOT gate
     :cnot (let [updated-lines (-> lines

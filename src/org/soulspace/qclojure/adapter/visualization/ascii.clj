@@ -4,7 +4,8 @@
   This namespace provides text-based visualizations that can be displayed
   in terminals, REPLs, and simple text outputs. All functions return strings
   containing formatted ASCII art representations."
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.quantum-state :as qs]

@@ -136,7 +136,7 @@
      :description "Local simulator for quantum circuits using matrix operations"
      :backend-config config
      :max-qubits (get config :max-qubits 20)
-     :capabilities #{:simulation :measurement :statevector}
+     :capabilities #{:simulation :measurement :statevector :batch-execution}
      :supported-gates gr/native-simulator-gates
      :version "1.0.0"})
   
@@ -166,12 +166,12 @@
       
       job-id))
   
-  (get-job-status [this job-id]
+  (get-job-status [_this job-id]
     (if-let [job (get @active-jobs job-id)]
       (:status job)
       :not-found))
   
-  (get-job-result [this job-id]
+  (get-job-result [_this job-id]
     (if-let [job (get @active-jobs job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
@@ -182,7 +182,7 @@
        :job-status :not-found
        :error-message "Job not found"}))
   
-  (cancel-job [this job-id]
+  (cancel-job [_this job-id]
     (if-let [job (get @active-jobs job-id)]
       (if (#{:queued :running} (:status job))
         (do
@@ -193,7 +193,7 @@
         :cannot-cancel)
       :not-found))
   
-  (get-queue-status [this]
+  (get-queue-status [_this]
     (let [jobs (vals @active-jobs)
           queued (count (filter #(= (:status %) :queued) jobs))
           running (count (filter #(= (:status %) :running) jobs))
@@ -204,7 +204,104 @@
        :running running
        :completed completed
        :backend-load 0.0 ; Simulator has no real load
-       :estimated-wait-time 0})))
+       :estimated-wait-time 0}))
+  
+  ;; Mock cloud backend implementation for testing
+  qb/CloudQuantumBackend
+  
+  (authenticate [_this _credentials]
+    ;; Mock authentication - always succeeds for simulator
+    {:status :authenticated
+     :session-id (str "sim_session_" (System/currentTimeMillis))
+     :expires-at (+ (System/currentTimeMillis) (* 24 60 60 1000))}) ; 24 hours
+  
+  (get-session-info [_this]
+    ;; Mock session - always authenticated
+    {:status :authenticated
+     :backend-type :simulator
+     :session-id "sim_session_mock"
+     :authenticated-at (System/currentTimeMillis)})
+  
+  (list-available-devices [_this]
+    ;; Mock device list for simulator
+    [{:device-id "simulator-1"
+      :device-name "Local Quantum Simulator"
+      :device-status :online
+      :max-qubits (get config :max-qubits 20)
+      :backend-type :simulator}])
+  
+  (get-device-topology [_this device-id]
+    ;; Mock topology - all-to-all connectivity for simulator
+    (let [max-qubits (get config :max-qubits 20)
+          coupling-map (for [i (range max-qubits)
+                            j (range max-qubits)
+                            :when (not= i j)]
+                        [i j])]
+      {:device-id device-id
+       :device-name "Local Quantum Simulator"
+       :coupling-map coupling-map
+       :max-qubits max-qubits
+       :gate-times {:hadamard 10 :cnot 20 :rotation 15}
+       :gate-errors {:hadamard 0.001 :cnot 0.01 :rotation 0.005}}))
+  
+  (get-calibration-data [_this device-id]
+    ;; Mock calibration data for simulator
+    {:device-id device-id
+     :timestamp (java.time.Instant/now)
+     :gate-times {:hadamard 10 :cnot 20 :rotation 15}
+     :gate-errors {:hadamard 0.001 :cnot 0.01 :rotation 0.005}
+     :readout-errors (vec (repeat (get config :max-qubits 20) 0.02))
+     :coherence-times (vec (repeat (get config :max-qubits 20) 100000))})
+  
+  (estimate-cost [_this _circuit _options]
+    ;; Mock cost estimation - free for simulator
+    {:total-cost 0.0
+     :currency "USD"
+     :cost-breakdown {:circuit-cost 0.0
+                     :shot-cost 0.0
+                     :device-cost 0.0}
+     :estimated-credits 0})
+  
+  (batch-submit [this circuits options]
+    ;; Submit each circuit individually and track as batch
+    (let [batch-id (str "batch_" (System/currentTimeMillis))
+          job-ids (mapv #(qb/submit-circuit this % options) circuits)]
+      (swap! active-jobs assoc batch-id
+             {:batch-id batch-id
+              :job-ids job-ids
+              :status :queued
+              :created-at (System/currentTimeMillis)})
+      batch-id))
+  
+  (get-batch-status [this batch-job-id]
+    (if-let [batch-info (get @active-jobs batch-job-id)]
+      (let [job-ids (:job-ids batch-info)
+            statuses (map #(qb/get-job-status this %) job-ids)
+            status-counts (frequencies statuses)]
+        {:batch-id batch-job-id
+         :total-jobs (count job-ids)
+         :status-counts status-counts
+         :overall-status (cond
+                          (every? #(= % :completed) statuses) :completed
+                          (some #(= % :failed) statuses) :partial-failure
+                          (some #(= % :running) statuses) :running
+                          :else :queued)})
+      {:batch-id batch-job-id
+       :status :not-found}))
+  
+  (get-batch-results [this batch-job-id]
+    (if-let [batch-info (get @active-jobs batch-job-id)]
+      (let [job-ids (:job-ids batch-info)
+            results (into {} (map (fn [job-id]
+                                   [job-id (qb/get-job-result this job-id)])
+                                 job-ids))]
+        {:batch-id batch-job-id
+         :results results
+         :completed-jobs (count (filter #(= (:job-status %) :completed) 
+                                       (vals results)))
+         :total-jobs (count job-ids)})
+      {:batch-id batch-job-id
+       :error-message "Batch not found"})))
 
 ;; Factory functions
 (defn create-simulator

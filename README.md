@@ -4,6 +4,8 @@ A functional library for building and simulating quantum algorithms.
 *Alpha, I expect the api to change!*
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
+[![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure)
+![GitHub](https://img.shields.io/github/license/lsolbach/QClojure)
 
 ## Main Features of QClojure
 1. **Pure Functional Quantum Circuit Construction**

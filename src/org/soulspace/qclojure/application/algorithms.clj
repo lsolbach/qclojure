@@ -7,7 +7,9 @@
             [org.soulspace.qclojure.domain.gate :as qg]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.modular-arithmetic :as qma]
-            [org.soulspace.qclojure.domain.math :as qmath]))
+            [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 ;; Specs for algorithm inputs and outputs
 (s/def ::oracle-function fn?)
@@ -32,6 +34,74 @@
           traced-state (reduce qs/partial-trace state (reverse other-qubits))]
       (qs/measure-state traced-state))))
 
+(defn build-deutsch-oracle-circuit
+  "Build the quantum circuit for the Deutsch oracle Uf.
+
+  Parameters:
+  - oracle-fn: Function that takes a boolean input and returns boolean output
+               Represents the quantum oracle Uf
+  Returns:
+  A function that takes a quantum circuit and applies the Deutsch oracle Uf
+   to it based on the behavior of the oracle function.
+
+   The oracle function should behave as follows:
+   - If oracle-fn false, returns false for both inputs (constant function f(x) = 0)
+   - If oracle-fn true, returns true for both inputs (constant function f(x) = 1)
+   - If oracle-fn false for input 0 and true for input 1 (balanced function f(x) = x)
+   - If oracle-fn true for input 0 and false for input 1 (balanced function f(x) = NOT x)" 
+  [oracle-fn & _]
+  (let [;; Determine oracle type by evaluating the function
+        f-false (oracle-fn false)
+        f-true (oracle-fn true)
+        is-constant? (= f-false f-true)]
+    (fn [c]
+      (cond
+        ;; Constant function f(x) = 0: no gates needed
+        (and is-constant? (= f-false false))
+        c
+
+        ;; Constant function f(x) = 1: apply X to ancilla 
+        (and is-constant? (= f-false true))
+        (qc/x-gate c 1)
+
+        ;; Balanced function f(x) = x: apply CNOT 
+        (and (not is-constant?) (= f-false false) (= f-true true))
+        (qc/cnot-gate c 0 1)
+
+        ;; Balanced function f(x) = NOT x: apply X to ancilla then CNOT
+        (and (not is-constant?) (= f-false true) (= f-true false))
+        (-> c
+            (qc/x-gate 1)
+            (qc/cnot-gate 0 1))
+
+        :else
+        (throw (ex-info "Invalid oracle function"
+                        {:f-false f-false :f-true f-true}))))))
+
+(defn build-deutsch-circuit
+  "Build the quantum circuit for the Deutsch algorithm.
+  
+  Parameters:
+  - oracle-fn: Function that takes a boolean input and returns boolean output
+               Represents the quantum oracle Uf
+  Returns:
+  A quantum circuit implementing the Deutsch algorithm using the provided oracle function."
+  [oracle-fn]
+  {:pre [(fn? oracle-fn)]}
+
+  (let [circuit (qc/create-circuit 2 "Deutsch Algorithm"
+                                   "Determines if function is constant or balanced")]
+    (-> circuit
+        ;; Initialize ancilla qubit to |1⟩
+        (qc/x-gate 1)
+        ;; Apply Hadamard to both qubits
+        (qc/h-gate 0)
+        (qc/h-gate 1)
+        ;; Implement oracle based on function behavior
+        ((build-deutsch-oracle-circuit oracle-fn))
+        ;; Final Hadamard on input qubit
+        (qc/h-gate 0))))
+
 (defn deutsch-algorithm
   "Implement the Deutsch algorithm to determine if a function is constant or balanced.
   
@@ -49,58 +119,52 @@
   Parameters:
   - oracle-fn: Function that takes a boolean input and returns boolean output
                Represents the quantum oracle Uf
+  - backend: Quantum backend implementing the QuantumBackend protocol
+  - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
   Map containing:
-  - :result - :constant or :balanced
-  - :measurement-outcome - 0 for constant, 1 for balanced
+  - :result - :constant or :balanced  
+  - :measurement-outcome - measurement outcome from backend
   - :circuit - The quantum circuit used
-  - :final-state - Final quantum state before measurement
+  - :execution-result - Full backend execution result
   
   Example:
-  (deutsch-algorithm (fn [x] true))     ;=> {:result :constant}
-  (deutsch-algorithm (fn [x] x))        ;=> {:result :balanced}"
-  [oracle-fn]
-  {:pre [(fn? oracle-fn)]}
-  
-  ;; Create circuit for Deutsch algorithm
-  (let [circuit (-> (qc/create-circuit 2 "Deutsch Algorithm" 
-                                       "Determines if function is constant or balanced")
-                    ;; Initialize ancilla qubit to |1⟩
-                    (qc/x-gate 1)
-                    ;; Apply Hadamard to both qubits
-                    (qc/h-gate 0)
-                    (qc/h-gate 1)
-                    ;; Oracle implementation (simplified)
-                    ;; For demonstration, we'll add identity or X based on oracle
-                    )
-        
-        ;; Execute the first part (before oracle)
-        initial-state (qs/zero-state 2)
-        after-x (qg/x-gate initial-state 1)
-        after-h0 (qg/h-gate after-x 0)
-        after-h1 (qg/h-gate after-h0 1)
-        
-        ;; Simulate oracle (this is simplified - real implementation would be more complex)
-        after-oracle (if (= (oracle-fn false) (oracle-fn true))
-                       ;; Constant function - no change needed
-                       after-h1
-                       ;; Balanced function - apply X to input qubit controlled by ancilla
-                       (qg/cnot after-h1))
-        
-        ;; Final Hadamard on input qubit  
-        final-state (qg/h-gate after-oracle 0)
-        
-        ;; Measure the input qubit (qubit 0)
-        measurement (measure-subsystem final-state [0])
-        outcome (:outcome measurement)
-        result (if (= outcome 0) :constant :balanced)]
-    
-    {:result result
-     :measurement-outcome outcome
-     :circuit circuit
-     :final-state final-state
-     :oracle-function oracle-fn}))
+  (deutsch-algorithm (fn [x] true) simulator)     ;=> {:result :constant}
+  (deutsch-algorithm (fn [x] x) simulator)        ;=> {:result :balanced}"
+  ([oracle-fn backend]
+   (deutsch-algorithm oracle-fn backend {:shots 1024}))
+  ([oracle-fn backend options]
+   {:pre [(fn? oracle-fn)
+          (satisfies? qb/QuantumBackend backend)]}
+   
+   (let [;; Build the complete quantum circuit
+         circuit (build-deutsch-circuit oracle-fn)
+
+         ;; Execute circuit on backend
+         execution-result (qb/execute-circuit backend circuit options)
+
+         ;; Extract measurement results and determine outcome
+         measurements (:measurement-results execution-result)
+
+         ;; For Deutsch algorithm, we only care about the measurement of qubit 0
+         ;; Parse measurement outcomes to determine if qubit 0 was measured as 0 or 1
+         outcome-0-count (+ (get measurements "00" 0) (get measurements "01" 0))
+         outcome-1-count (+ (get measurements "10" 0) (get measurements "11" 0))
+         total-shots (+ outcome-0-count outcome-1-count)
+
+         ;; Determine most likely outcome based on measurement statistics
+         measurement-outcome (if (> outcome-0-count outcome-1-count) 0 1)
+         result (if (= measurement-outcome 0) :constant :balanced)]
+
+     {:result result
+      :measurement-outcome measurement-outcome
+      :circuit circuit
+      :execution-result execution-result
+      :oracle-function oracle-fn
+      :measurement-statistics {:outcome-0-count outcome-0-count
+                               :outcome-1-count outcome-1-count
+                               :total-shots total-shots}})))
 
 (defn grover-iteration
   "Perform one iteration of Grover's algorithm.
@@ -500,8 +564,8 @@
   (def constant-fn (constantly true))  ; Always returns true
   (def balanced-fn identity)           ; Returns input (identity)
 
-  (deutsch-algorithm constant-fn)
-  (deutsch-algorithm balanced-fn)
+  (deutsch-algorithm constant-fn (sim/create-simulator))
+  (deutsch-algorithm balanced-fn (sim/create-simulator))
 
   ;; Test Grover's algorithm
   ;; Search for item at index 2 in a 4-item database
@@ -935,9 +999,9 @@
     [hidden-string search-target]
     (println "=== Quantum Algorithm Suite ===")
     (println "\n1. Deutsch Algorithm (constant function):")
-    (println (deutsch-algorithm (constantly true)))
+    (println (deutsch-algorithm (constantly true) (sim/create-simulator)))
     (println "\n2. Deutsch Algorithm (balanced function):")
-    (println (deutsch-algorithm identity))
+    (println (deutsch-algorithm identity (sim/create-simulator)))
     (println "\n3. Grover Search:")
     (println (grover-algorithm 8 #(= % search-target)))
     (println "\n4. Bernstein-Vazirani:")

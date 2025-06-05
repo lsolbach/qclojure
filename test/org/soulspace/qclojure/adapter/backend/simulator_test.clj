@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.backend.quantum-simulator-test
+(ns org.soulspace.qclojure.adapter.backend.simulator-test
   "Tests for the local quantum simulator backend.
   
    These tests verify that the quantum simulator correctly implements the

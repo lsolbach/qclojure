@@ -1,17 +1,11 @@
 (ns org.soulspace.qclojure.application.algorithms-test
   "Tests for quantum algorithms in the application layer"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [clojure.spec.alpha :as s]
-            [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [org.soulspace.qclojure.application.algorithms :as qa]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]
-            [org.soulspace.qclojure.domain.math :as qmath]
-            [fastmath.core :as m]
-            [fastmath.complex :as fc]))
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 ;; Test continued fraction expansion
 (deftest test-continued-fraction
@@ -76,29 +70,32 @@
 ;; Test Deutsch Algorithm
 (deftest test-deutsch-algorithm
   (testing "Deutsch algorithm correctly identifies constant functions"
-    (let [constant-true (constantly true)
+    (let [simulator (sim/create-simulator)
+          constant-true (constantly true)
           constant-false (constantly false)
-          result-true (qa/deutsch-algorithm constant-true)
-          result-false (qa/deutsch-algorithm constant-false)]
+          result-true (qa/deutsch-algorithm constant-true simulator)
+          result-false (qa/deutsch-algorithm constant-false simulator)]
       (is (= (:result result-true) :constant))
       (is (= (:result result-false) :constant))
       (is (= (:measurement-outcome result-true) 0))
       (is (= (:measurement-outcome result-false) 0))))
   
   (testing "Deutsch algorithm correctly identifies balanced functions"
-    (let [identity-fn identity
+    (let [simulator (sim/create-simulator)
+          identity-fn identity
           not-fn (comp not boolean)
-          result-id (qa/deutsch-algorithm identity-fn)
-          result-not (qa/deutsch-algorithm not-fn)]
+          result-id (qa/deutsch-algorithm identity-fn simulator)
+          result-not (qa/deutsch-algorithm not-fn simulator)]
       (is (= (:result result-id) :balanced))
       (is (= (:result result-not) :balanced))
       (is (= (:measurement-outcome result-id) 1))
       (is (= (:measurement-outcome result-not) 1))))
   
   (testing "Deutsch algorithm includes proper metadata"
-    (let [result (qa/deutsch-algorithm identity)]
+    (let [simulator (sim/create-simulator)
+          result (qa/deutsch-algorithm identity simulator)]
       (is (contains? result :circuit))
-      (is (contains? result :final-state))
+      (is (contains? result :execution-result))
       (is (contains? result :oracle-function))
       (is (fn? (:oracle-function result))))))
 
@@ -244,18 +241,19 @@
             "Verify that a^r mod N = 1 for the found period")))))
 
 ;; Property-based tests using test.check
-(defspec deutsch-algorithm-deterministic 20
+(def deutsch-algorithm-deterministic
   (prop/for-all [input gen/boolean]
     (let [constant-fn (constantly input)
-          result (qa/deutsch-algorithm constant-fn)]
+          simulator (sim/create-simulator)
+          result (qa/deutsch-algorithm constant-fn simulator)]
       (= (:result result) :constant))))
 
-(defspec bernstein-vazirani-correctness 10
+(def bernstein-vazirani-correctness
   (prop/for-all [hidden-string (gen/not-empty (gen/vector (gen/elements [0 1]) 1 6))]
     (let [result (qa/bernstein-vazirani-algorithm hidden-string)]
       (= (:hidden-string result) hidden-string))))
 
-(defspec simon-algorithm-valid-structure 10
+(def simon-algorithm-valid-structure
   (prop/for-all [period-length (gen/choose 2 4)]
     (let [period (vec (concat [1] (repeatedly (dec period-length) #(rand-int 2))))
           result (qa/simon-algorithm period period-length)]
@@ -263,7 +261,7 @@
            (= (count (:measurements result)) (dec period-length))
            (= (:algorithm result) "Simon")))))
 
-(defspec quantum-phase-estimation-bounds 15
+(def quantum-phase-estimation-bounds
   (prop/for-all [phase (gen/such-that #(and (not (Double/isNaN %)) 
                                             (>= % 0.0) 
                                             (< % 1.0))
@@ -277,12 +275,13 @@
 ;; Integration tests
 (deftest test-algorithm-integration
   (testing "All algorithms can be run in sequence"
-    (let [constant-fn (constantly true)
+    (let [simulator (sim/create-simulator)
+          constant-fn (constantly true)
           oracle-fn #(= % 2)
           hidden-string [1 0 1]
           phase 0.25
 
-          deutsch-result (qa/deutsch-algorithm constant-fn)
+          deutsch-result (qa/deutsch-algorithm constant-fn simulator)
           grover-result (qa/grover-algorithm 8 oracle-fn)
           bv-result (qa/bernstein-vazirani-algorithm hidden-string)
           simon-result (qa/simon-algorithm hidden-string 3)
@@ -306,12 +305,8 @@
       (is (< n16-iter (* 2 n64-iter))))) ; 16 vs 64 → 4x vs 8x
   
   (testing "Algorithm complexity metadata is consistent"
-    (let [algorithms [qa/deutsch-algorithm
-                      qa/grover-algorithm  
-                      qa/bernstein-vazirani-algorithm
-                      qa/simon-algorithm
-                      qa/quantum-phase-estimation]
-          results [(qa/deutsch-algorithm identity)
+    (let [simulator (sim/create-simulator)
+          results [(qa/deutsch-algorithm identity simulator)
                    (qa/grover-algorithm 4 #(= % 1))
                    (qa/bernstein-vazirani-algorithm [1 0])
                    (qa/simon-algorithm [1 0] 2)
@@ -344,14 +339,15 @@
   (time (qa/simon-algorithm [1 0 1 1 0] 5))
   
   ;; Manual algorithm verification
-  (qa/deutsch-algorithm (constantly true))
-  (qa/grover-algorithm 8 #(= % 3))
-  (qa/bernstein-vazirani-algorithm [1 0 1 0])
-  (qa/simon-algorithm [1 0 1] 3)
-  (qa/quantum-phase-estimation 0.375 4)
+  (let [simulator (sim/create-simulator)]
+    (qa/deutsch-algorithm (constantly true) simulator)
+    (qa/grover-algorithm 8 #(= % 3))
+    (qa/bernstein-vazirani-algorithm [1 0 1 0])
+    (qa/simon-algorithm [1 0 1] 3)
+    (qa/quantum-phase-estimation 0.375 4)
 
-  (qa/shor-algorithm 14)
-  (qa/shor-algorithm 15)
-  (qa/shor-algorithm 21)
-  (qa/shor-algorithm 77)
+    (qa/shor-algorithm 14)
+    (qa/shor-algorithm 15)
+    (qa/shor-algorithm 21)
+    (qa/shor-algorithm 77))
   )

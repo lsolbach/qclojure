@@ -105,7 +105,7 @@
     (let [target-item 3
           search-size 8
           oracle-fn #(= % target-item)
-          result (qa/grover-algorithm search-size oracle-fn)]
+          result (qa/grover-algorithm search-size oracle-fn  (sim/create-simulator))]
       (is (contains? result :measurements))
       (is (contains? result :target-indices))
       (is (contains? result :probability))
@@ -124,7 +124,7 @@
   
   (testing "Grover search with multiple targets"
     (let [oracle-fn #(or (= % 1) (= % 3) (= % 5))
-          result (qa/grover-algorithm 8 oracle-fn)]
+          result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))]
       (is (>= (:probability result) 0.0))
       (is (<= (:probability result) 1.0)))))
 
@@ -275,14 +275,13 @@
 ;; Integration tests
 (deftest test-algorithm-integration
   (testing "All algorithms can be run in sequence"
-    (let [simulator (sim/create-simulator)
-          constant-fn (constantly true)
+    (let [constant-fn (constantly true)
           oracle-fn #(= % 2)
           hidden-string [1 0 1]
           phase 0.25
 
-          deutsch-result (qa/deutsch-algorithm constant-fn simulator)
-          grover-result (qa/grover-algorithm 8 oracle-fn)
+          deutsch-result (qa/deutsch-algorithm constant-fn  (sim/create-simulator))
+          grover-result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))
           bv-result (qa/bernstein-vazirani-algorithm hidden-string)
           simon-result (qa/simon-algorithm hidden-string 3)
           qpe-result (qa/quantum-phase-estimation phase 4)]
@@ -305,9 +304,8 @@
       (is (< n16-iter (* 2 n64-iter))))) ; 16 vs 64 → 4x vs 8x
   
   (testing "Algorithm complexity metadata is consistent"
-    (let [simulator (sim/create-simulator)
-          results [(qa/deutsch-algorithm identity simulator)
-                   (qa/grover-algorithm 4 #(= % 1))
+    (let [results [(qa/deutsch-algorithm identity (sim/create-simulator))
+                   (qa/grover-algorithm 4 #(= % 1) (sim/create-simulator))
                    (qa/bernstein-vazirani-algorithm [1 0])
                    (qa/simon-algorithm [1 0] 2)
                    (qa/quantum-phase-estimation 0.5 3)]]
@@ -319,7 +317,7 @@
 
 (comment
   ;; REPL testing examples
-  
+
   ;; Run all tests
   (run-tests)
 
@@ -329,25 +327,25 @@
   (test-bernstein-vazirani-algorithm)
   (test-simon-algorithm)
   (test-quantum-phase-estimation)
-  
+
   ;; Run property-based tests
   (tc/quick-check 50 deutsch-algorithm-deterministic)
   (tc/quick-check 20 bernstein-vazirani-correctness)
 
   ;; Performance testing
-  (time (qa/grover-algorithm 256 #(= % 100)))
+  (time (qa/grover-algorithm 256 #(= % 100) (sim/create-simulator)))
   (time (qa/simon-algorithm [1 0 1 1 0] 5))
-  
-  ;; Manual algorithm verification
-  (let [simulator (sim/create-simulator)]
-    (qa/deutsch-algorithm (constantly true) simulator)
-    (qa/grover-algorithm 8 #(= % 3))
-    (qa/bernstein-vazirani-algorithm [1 0 1 0])
-    (qa/simon-algorithm [1 0 1] 3)
-    (qa/quantum-phase-estimation 0.375 4)
 
-    (qa/shor-algorithm 14)
-    (qa/shor-algorithm 15)
-    (qa/shor-algorithm 21)
-    (qa/shor-algorithm 77))
+  ;; Manual algorithm verification
+  (qa/deutsch-algorithm (constantly true)  (sim/create-simulator))
+  (qa/grover-algorithm 8 #(= % 3) (sim/create-simulator))
+  (qa/bernstein-vazirani-algorithm [1 0 1 0])
+  (qa/simon-algorithm [1 0 1] 3)
+  (qa/quantum-phase-estimation 0.375 4)
+
+  (qa/shor-algorithm 14)
+  (qa/shor-algorithm 15)
+  (qa/shor-algorithm 21)
+  (qa/shor-algorithm 77)
+  ;
   )

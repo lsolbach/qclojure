@@ -668,11 +668,11 @@
   ;; Test Grover's algorithm
   ;; Search for item at index 2 in a 4-item database
   (def target-oracle #(= % 2))
-  (grover-algorithm 4 target-oracle)
+  (grover-algorithm 4 target-oracle (sim/create-simulator))
 
   ;; Search for multiple targets
   (def multi-target-oracle #(or (= % 1) (= % 3)))
-  (grover-algorithm 8 multi-target-oracle)
+  (grover-algorithm 8 multi-target-oracle (sim/create-simulator))
 
   ;; Test Bernstein-Vazirani algorithm
   (bernstein-vazirani-algorithm [1 0 1 0])
@@ -1092,22 +1092,5 @@
 
   (algorithm-complexity-demo)
 
-  ;; Demonstrate algorithm composition
-  (defn algorithm-demo
-    [hidden-string search-target]
-    (println "=== Quantum Algorithm Suite ===")
-    (println "\n1. Deutsch Algorithm (constant function):")
-    (println (deutsch-algorithm (constantly true) (sim/create-simulator)))
-    (println "\n2. Deutsch Algorithm (balanced function):")
-    (println (deutsch-algorithm identity (sim/create-simulator)))
-    (println "\n3. Grover Search:")
-    (println (grover-algorithm 8 #(= % search-target)))
-    (println "\n4. Bernstein-Vazirani:")
-    (println (bernstein-vazirani-algorithm hidden-string))
-    (println "\n5. Simon's Algorithm:")
-    (println (simon-algorithm hidden-string (count hidden-string)))
-    (println "\n6. Quantum Phase Estimation:")
-    (println (quantum-phase-estimation 0.25 4)))
-
-
+ 
   )

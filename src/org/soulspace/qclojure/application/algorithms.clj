@@ -20,20 +20,6 @@
 (s/def ::deutsch-oracle ::oracle-function)
 (s/def ::grover-oracle ::oracle-function)
 
-(defn measure-subsystem
-  "Measure specific qubits and return just the measurement outcome.
-  
-  This is a convenience function that combines partial trace with measurement
-  for algorithms that only care about specific qubit outcomes."
-  [state qubit-indices]
-  (if (= (count qubit-indices) (:num-qubits state))
-    ;; Measuring all qubits - use direct measurement
-    (qs/measure-state state)
-    ;; Measuring subset - use partial trace approach
-    (let [other-qubits (remove (set qubit-indices) (range (:num-qubits state)))
-          traced-state (reduce qs/partial-trace state (reverse other-qubits))]
-      (qs/measure-state traced-state))))
-
 (defn build-deutsch-oracle-circuit
   "Build the quantum circuit for the Deutsch oracle Uf.
 
@@ -166,6 +152,44 @@
                                :outcome-1-count outcome-1-count
                                :total-shots total-shots}})))
 
+(defn build-grover-oracle-circuit
+  "Build the quantum circuit for Grover's oracle Uf.
+  
+  Parameters:
+  - oracle-fn: Function that takes a basis state index and returns true if it's a target state
+               Represents the Grover oracle Uf
+  - n-qubits: Number of qubits in the system
+  
+  Returns:
+  A function that takes a quantum circuit and applies the Grover oracle Uf to it."
+  [oracle-fn n-qubits]
+  (let [target-states (filter oracle-fn (range (bit-shift-left 1 n-qubits)))]
+    (fn [circuit]
+      (reduce (fn [c idx]
+                ;; Apply phase flip to target states
+                (qc/z-gate c idx))
+              circuit
+              target-states))))
+
+(defn build-grover-diffusion-circuit
+  "Build the quantum circuit for Grover's diffusion operator.
+  
+  The diffusion operator applies inversion about the average amplitude.
+  
+  Parameters:
+  - n-qubits: Number of qubits in the system
+  
+  Returns:
+  A function that takes a quantum circuit and applies the diffusion operator."
+  [n-qubits]
+  (fn [circuit]
+    ;; Apply Hadamard to all qubits
+    (reduce (fn [c idx] (qc/h-gate c idx)) circuit (range n-qubits))
+    ;; Apply conditional phase shift (|0...0⟩ → -|0...0⟩)
+    (qc/z-gate circuit 0)
+    ;; Apply Hadamard again to all qubits
+    (reduce (fn [c idx] (qc/h-gate c idx)) circuit (range n-qubits))))
+
 (defn grover-iteration
   "Perform one iteration of Grover's algorithm.
   
@@ -236,6 +260,8 @@
   - search-space-size: Number of items to search through (must be power of 2)
   - oracle-fn: Function that returns true for target items
                Takes basis state index as input
+  - backend: Quantum backend implementing the QuantumBackend protocol
+  - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
   Map containing:
@@ -247,50 +273,52 @@
   
   Example:
   (grover-algorithm 4 #(= % 2))  ; Search for item at index 2 in 4-item space"
-  [search-space-size oracle-fn]
-  {:pre [(pos-int? search-space-size)
-         (= search-space-size (bit-shift-left 1 (m/log2int search-space-size)))  ; Power of 2
-         (fn? oracle-fn)]}
-  
-  (let [n-qubits (m/log2int search-space-size)
-        
-        ;; Calculate optimal number of iterations: π√N/4
-        n-iterations (max 1 (int (* (/ m/PI 4) (m/sqrt search-space-size))))
-        
-        ;; Initialize uniform superposition state
-        initial-state (reduce (fn [state qubit-idx]
-                                (qg/h-gate state qubit-idx))
-                              (qs/zero-state n-qubits)
-                              (range n-qubits))
-        
-        ;; Perform Grover iterations
-        final-state (reduce (fn [state _iteration]
-                              (grover-iteration state oracle-fn n-qubits))
-                            initial-state
-                            (range n-iterations))
-        
-        ;; Measure the final state
-        measurement (qs/measure-state final-state)
-        result (:outcome measurement)
-        
-        ;; Calculate probability of measuring the target
-        target-indices (filter oracle-fn (range search-space-size))
-        target-probability (reduce + (map #(qs/probability final-state %) target-indices))]
-    
-    {:result result
-     :probability target-probability
-     :iterations n-iterations
-     :final-state final-state
-     :target-indices target-indices
-     :search-space-size search-space-size
-     :oracle-function oracle-fn
-     :measurements [measurement]  ; Include the measurement data
-     :circuit {:name "Grover Search"
-               :description (str "Search " search-space-size " items using " n-iterations " iterations")
-               :qubits n-qubits
-               :operations ["Initialize superposition" 
-                           (str "Apply " n-iterations " Grover iterations")
-                           "Measure result"]}}))
+  ([search-space-size oracle-fn backend]
+   (grover-algorithm search-space-size oracle-fn backend {:shots 1024}))
+  ([search-space-size oracle-fn backend options]
+   {:pre [(pos-int? search-space-size)
+          (= search-space-size (bit-shift-left 1 (m/log2int search-space-size)))  ; Power of 2
+          (fn? oracle-fn)]}
+
+   (let [n-qubits (m/log2int search-space-size)
+
+         ;; Calculate optimal number of iterations: π√N/4
+         n-iterations (max 1 (int (* (/ m/PI 4) (m/sqrt search-space-size))))
+
+         ;; Initialize uniform superposition state
+         initial-state (reduce (fn [state qubit-idx]
+                                 (qg/h-gate state qubit-idx))
+                               (qs/zero-state n-qubits)
+                               (range n-qubits))
+
+         ;; Perform Grover iterations
+         final-state (reduce (fn [state _iteration]
+                               (grover-iteration state oracle-fn n-qubits))
+                             initial-state
+                             (range n-iterations))
+
+         ;; Measure the final state
+         measurement (qs/measure-state final-state)
+         result (:outcome measurement)
+
+         ;; Calculate probability of measuring the target
+         target-indices (filter oracle-fn (range search-space-size))
+         target-probability (reduce + (map #(qs/probability final-state %) target-indices))]
+
+     {:result result
+      :probability target-probability
+      :iterations n-iterations
+      :final-state final-state
+      :target-indices target-indices
+      :search-space-size search-space-size
+      :oracle-function oracle-fn
+      :measurements [measurement]  ; Include the measurement data
+      :circuit {:name "Grover Search"
+                :description (str "Search " search-space-size " items using " n-iterations " iterations")
+                :qubits n-qubits
+                :operations ["Initialize superposition"
+                             (str "Apply " n-iterations " Grover iterations")
+                             "Measure result"]}})))
 
 (defn bernstein-vazirani-algorithm
   "Implement the Bernstein-Vazirani algorithm to find a hidden bit string.
@@ -557,6 +585,76 @@
                            "Apply inverse QFT"
                            "Measure counting qubits"]}}))
 
+(defn quantum-fourier-transform-circuit
+  "Create a Quantum Fourier Transform (QFT) circuit.
+  
+  Creates a complete QFT circuit that transforms computational basis states
+  into their quantum Fourier transformed states. The QFT is the quantum
+  analog of the discrete Fourier transform and is essential for many quantum
+  algorithms including Shor's factoring algorithm and quantum phase estimation.
+  
+  The QFT algorithm consists of:
+  1. Apply Hadamard gate to each qubit
+  2. Apply controlled rotation gates with angles π/2^k
+  3. Reverse qubit order with SWAP gates
+  
+  Parameters:
+  - n: Number of qubits
+  
+  Returns:
+  Quantum circuit implementing the complete QFT
+  
+  Example:
+  (def qft-circuit (quantum-fourier-transform-circuit 3))
+  ;=> Complete 3-qubit QFT circuit"
+  [n]
+  {:pre [(pos-int? n)]}
+  (let [circuit (qc/create-circuit n "QFT" "Quantum Fourier Transform")]
+    (-> circuit
+        ;; Apply QFT to each qubit
+        ((fn [c]
+           (reduce (fn [circuit qubit]
+                     ;; Apply Hadamard gate to current qubit
+                     (let [h-circuit (qc/h-gate circuit qubit)]
+                       ;; Apply controlled rotation gates
+                       (reduce (fn [inner-circuit k]
+                                 (let [control-qubit (+ qubit k 1)
+                                       angle (/ Math/PI (Math/pow 2 (inc k)))]
+                                   (if (< control-qubit n)
+                                     (qc/crz-gate inner-circuit control-qubit qubit angle)
+                                     inner-circuit)))
+                               h-circuit
+                               (range (- n qubit 1)))))
+                   c
+                   (range n))))
+        ;; Reverse qubit order with SWAP gates
+        ((fn [c]
+           (reduce (fn [circuit i]
+                     (let [j (- n 1 i)]
+                       (if (< i j)
+                         (qc/swap-gate circuit i j)
+                         circuit)))
+                   c
+                   (range (quot n 2))))))))
+
+(defn inverse-quantum-fourier-transform-circuit
+  "Create an Inverse Quantum Fourier Transform (IQFT) circuit.
+  
+  The IQFT undoes the QFT and is critical for quantum phase estimation
+  in Shor's algorithm and other quantum algorithms.
+  
+  Parameters:
+  - n: Number of qubits
+  
+  Returns:
+  Quantum circuit implementing the complete IQFT
+  
+  Example:
+  (def iqft-circuit (inverse-quantum-fourier-transform-circuit 3))"
+  [n]
+  (qc/inverse-circuit (quantum-fourier-transform-circuit n)))
+
+
 (comment
   ;; Rich comment block for REPL-driven development
 
@@ -745,7 +843,7 @@
                      ;; Step 3: Apply inverse QFT to the control register
                      ((fn [c]
                         ;; Create inverse QFT circuit for the control qubits only
-                        (let [iqft-circuit (qc/inverse-quantum-fourier-transform-circuit n-qubits)]
+                        (let [iqft-circuit (inverse-quantum-fourier-transform-circuit n-qubits)]
                           ;; Apply the inverse QFT to control qubits only
                           ;; Using the enhanced compose-circuits with control-qubits-only option
                           (qc/compose-circuits c iqft-circuit {:control-qubits-only true})))))
@@ -757,7 +855,7 @@
                                           final-state (qc/execute-circuit circuit initial-state)
                                           ;; Measure only the control register qubits using measure-subsystem
                                           phase-qubits (range n-qubits)
-                                          measurement (measure-subsystem final-state phase-qubits)]
+                                          measurement (qc/measure-subsystem final-state phase-qubits)]
                                       (:outcome measurement))))
 
          ;; Analyze measurements and find most frequent outcomes

@@ -16,7 +16,7 @@ target/
 .lsp/
 .cpcache/
 .clj-kondo/
-.github
+.github/
 .portal/
 **/.calva/repl.calva-repl
 

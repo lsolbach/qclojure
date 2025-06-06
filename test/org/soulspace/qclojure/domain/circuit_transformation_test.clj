@@ -1,9 +1,9 @@
-(ns org.soulspace.qclojure.application.circuit-transformer-test
+(ns org.soulspace.qclojure.domain.circuit-transformation-test
   "Tests for circuit transformation functionality."
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.application.circuit-transformer :as ct]
+            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;;

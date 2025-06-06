@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.application.circuit-transformer
+(ns org.soulspace.qclojure.domain.circuit-transformation
   "Circuit transformation utilities for quantum backends.
    
    This namespace provides functionality for adapting quantum circuits

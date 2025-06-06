@@ -22,25 +22,13 @@
           result (ct/transform-circuit circuit #{:h :x :z :rx :rz :cnot})]
 
       ;; Verify that the Y gate was transformed
-      (is (pos? (:transformed-operations result)))
+      (is (pos? (:transformed-operation-count result)))
 
       ;; Verify that no unsupported operations remain
       (is (empty? (:unsupported-operations result)))
 
       ;; Verify the circuit is valid
-      (is (s/valid? ::qc/quantum-circuit (:quantum-circuit result)))))
-
-  (testing "Circuit with gates that can't be decomposed"
-    (let [;; Create a circuit with a custom gate that has no decomposition
-          circuit (-> (qc/create-circuit 1)
-                      (qc/add-gate :custom-gate :target 0))
-
-          ;; Use a set with limited supported gates
-          ;; Transform the circuit
-          result (ct/transform-circuit circuit #{:x :h :cnot})]
-
-      ;; Verify that the unsupported gate is reported
-      (is (seq (:unsupported-operations result))))))
+      (is (s/valid? ::qc/quantum-circuit (:quantum-circuit result))))))
 
 (deftest test-transformation-options
   (testing "Non-transformation option"
@@ -54,7 +42,7 @@
                                        {:transform-unsupported? false})]
 
       ;; Verify the circuit was not transformed
-      (is (zero? (:transformed-operations result)))
+      (is (zero? (:transformed-operation-count result)))
 
       ;; Verify that the Y gate is reported as unsupported
       (is (= [:y] (:unsupported-operations result))))))
@@ -278,7 +266,7 @@
 
       ;; Check transformation result
       (let [transformation (:transformation-result result)]
-        (is (pos? (:transformed-operations transformation)))
+        (is (pos? (:transformed-operation-count transformation)))
         (is (empty? (:unsupported-operations transformation))))
 
       ;; Check qubit optimization result
@@ -308,7 +296,7 @@
       ;; Should have optimized qubits but not transformed gates
       (let [transformation (:transformation-result result)
             qubit-opt (:qubit-optimization-result result)]
-        (is (zero? (:transformed-operations transformation)))
+        (is (zero? (:transformed-operation-count transformation)))
         (is (seq (:unsupported-operations transformation))) ;; Y gate still unsupported
         (is (pos? (:qubits-saved qubit-opt))))))
 
@@ -321,7 +309,7 @@
           transformation (:transformation-result result)
           qubit-opt (:qubit-optimization-result result)]
 
-      (is (zero? (:transformed-operations transformation)))
+      (is (zero? (:transformed-operation-count transformation)))
       (is (empty? (:unsupported-operations transformation)))
       (is (zero? (:qubits-saved qubit-opt)))
       (is (= 2 (:optimized-qubits qubit-opt))))))

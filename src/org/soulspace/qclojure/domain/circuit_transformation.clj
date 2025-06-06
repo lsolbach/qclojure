@@ -12,7 +12,7 @@
 ;; Specs
 (s/def ::transformation-result
   (s/keys :req-un [::qc/quantum-circuit]
-          :opt-un [::transformed-operations ::unsupported-operations]))
+          :opt-un [::transformed-operation-count ::unsupported-operations]))
 
 (defn- can-be-fully-decomposed?
   "Check if a operation type can be fully decomposed into supported operations.
@@ -236,12 +236,12 @@
   Returns:
   A map containing:
   - :quantum-circuit - The transformed circuit
-  - :transformed-operations - Count of operations that were transformed
+  - :transformed-operation-count - Count of operations that were transformed
   - :unsupported-operations - List of operation types that couldn't be transformed
   
   Example:
   (transform-circuit my-circuit #{:h :x :cnot} {:max-iterations 50})
-  ;=> {:quantum-circuit <transformed-circuit>, :transformed-operations 3, :unsupported-operations []}"
+  ;=> {:quantum-circuit <transformed-circuit>, :transformed-operation-count 3, :unsupported-operations []}"
   ([circuit supported-operations]
    (transform-circuit circuit supported-operations {}))
   
@@ -269,7 +269,7 @@
                                              (keys new-types)))]
      
      {:quantum-circuit transformed-circuit
-      :transformed-operations (- (count transformed-operations) original-operation-count)
+      :transformed-operation-count (- (count transformed-operations) original-operation-count)
       :unsupported-operations remaining-unsupported})))
 
 (defn get-transformation-summary
@@ -282,7 +282,7 @@
   String with transformation summary"
   [transformation-result]
   (let [circuit (:quantum-circuit transformation-result)
-        transformed (:transformed-operations transformation-result)
+        transformed (:transformed-operation-count transformation-result)
         unsupported (:unsupported-operations transformation-result)]
     (str "Circuit transformation summary:\n"
          "- Final operation count: " (count (:operations circuit)) "\n"
@@ -487,7 +487,7 @@
                                        unsupported (filterv #(not (contains? supported-operations %)) operation-types)
                                        unique-unsupported (vec (distinct unsupported))]
                                    {:quantum-circuit circuit
-                                    :transformed-operations 0
+                                    :transformed-operation-count 0
                                     :unsupported-operations unique-unsupported}))
          
          transformed-circuit (:quantum-circuit transformation-result)

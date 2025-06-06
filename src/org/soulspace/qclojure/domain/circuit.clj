@@ -19,7 +19,7 @@
 
 ;; Quantum operation (gates + measurements + other non-unitary operations)
 (s/def ::quantum-operation
-  (s/keys :req-un [::operation-kind
+  (s/keys :req-un [;::operation-kind
                    ::operation-type]
           :opt-un [::operation-params]))
 

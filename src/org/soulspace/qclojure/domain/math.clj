@@ -1,7 +1,9 @@
 (ns org.soulspace.qclojure.domain.math
+  "Mathematical operations and utilities for quantum algorithms."
   (:require [fastmath.core :as m]))
 
-
+; Enable fastmath operator macros
+(m/use-primitive-operators)
 
 (defn gcd
   "Calculate greatest common divisor using Euclidean algorithm."
@@ -105,3 +107,6 @@
           scale precision
           rounded (.setScale bd scale java.math.RoundingMode/HALF_UP)]
       (double rounded))))
+
+; Disable fastmath operator macros to avoid conflicts
+(m/unuse-primitive-operators)

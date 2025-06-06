@@ -10,6 +10,9 @@
 (s/def ::num-qubits pos-int?)
 (s/def ::quantum-state (s/keys :req-un [::state-vector ::num-qubits]))
 
+; Enable fastmath operator macros
+(m/use-primitive-operators)
+
 ;; Helper functions for complex number operations using fastmath
 (defn complex?
   "Check if value is a fastmath complex number (Vec2).
@@ -689,3 +692,6 @@
 
   ;
   )
+
+; Disable fastmath operator macros to avoid conflicts
+(m/unuse-primitive-operators)

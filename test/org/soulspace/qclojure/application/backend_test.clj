@@ -144,8 +144,8 @@
 
       ;; Verify transformation was successful
       (is (:quantum-circuit result))
-      (is (pos? (count (:transformed-gates result))))
-      (is (empty? (:unsupported-gates result))))))
+      (is (pos? (:transformed-operation-count result)))
+      (is (empty? (:unsupported-operations result))))))
 
 (comment
   ;; REPL examples for testing

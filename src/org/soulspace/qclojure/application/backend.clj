@@ -553,7 +553,7 @@
    Returns:
    A map containing:
    - :quantum-circuit - The transformed circuit
-   - :transformed-gates - Count of gates that were transformed
+   - :transformed-operation-count - Count of gates that were transformed
    - :unsupported-gates - List of gate types that couldn't be transformed"
   [circuit backend & [options]]
   (ct/transform-circuit circuit (get-supported-gates backend) options))

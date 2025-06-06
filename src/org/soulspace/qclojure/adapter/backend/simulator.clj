@@ -8,7 +8,7 @@
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]))
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Simulator state management
 (defonce ^:private job-counter (atom 0))

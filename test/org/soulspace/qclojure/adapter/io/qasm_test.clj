@@ -157,18 +157,18 @@
     (let [qasm-code "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[3];\ncreg c[3];\n\niswap q[0],q[1];\ncswap q[0],q[1],q[2];\nmeasure q -> c;"
           circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 3 (:num-qubits circuit)))
-      (is (= 2 (count (:gates circuit))))
+      (is (= 2 (count (:operations circuit))))
       
       ;; Check gates
-      (let [gate1 (first (:gates circuit))
-            gate2 (second (:gates circuit))]
-        (is (= :iswap (:gate-type gate1)))
-        (is (= 0 (get-in gate1 [:gate-params :qubit1])))
-        (is (= 1 (get-in gate1 [:gate-params :qubit2])))
-        (is (= :fredkin (:gate-type gate2)))
-        (is (= 0 (get-in gate2 [:gate-params :control])))
-        (is (= 1 (get-in gate2 [:gate-params :target1])))
-        (is (= 2 (get-in gate2 [:gate-params :target2])))))))
+      (let [gate1 (first (:operations circuit))
+            gate2 (second (:operations circuit))]
+        (is (= :iswap (:operation-type gate1)))
+        (is (= 0 (get-in gate1 [:operation-params :qubit1])))
+        (is (= 1 (get-in gate1 [:operation-params :qubit2])))
+        (is (= :fredkin (:operation-type gate2)))
+        (is (= 0 (get-in gate2 [:operation-params :control])))
+        (is (= 1 (get-in gate2 [:operation-params :target1])))
+        (is (= 2 (get-in gate2 [:operation-params :target2])))))))
 
 (deftest test-new-gates-round-trip
   (testing "Round-trip conversion for new gates (iSWAP and Fredkin)"
@@ -182,32 +182,32 @@
       
       ;; Verify circuit structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
-      (is (= (count (:gates original-circuit)) (count (:gates converted-circuit))))
-      
+      (is (= (count (:operations original-circuit)) (count (:operations converted-circuit))))
+
       ;; Check that all gate types are preserved
-      (let [original-gate-types (mapv :gate-type (:gates original-circuit))
-            converted-gate-types (mapv :gate-type (:gates converted-circuit))]
+      (let [original-gate-types (mapv :operation-type (:operations original-circuit))
+            converted-gate-types (mapv :operation-type (:operations converted-circuit))]
         (is (= (frequencies original-gate-types) (frequencies converted-gate-types))))
       
       ;; Specifically test the new gates
-      (let [original-iswap (first (filter #(= :iswap (:gate-type %)) (:gates original-circuit)))
-            converted-iswap (first (filter #(= :iswap (:gate-type %)) (:gates converted-circuit)))
-            original-fredkin (first (filter #(= :fredkin (:gate-type %)) (:gates original-circuit)))
-            converted-fredkin (first (filter #(= :fredkin (:gate-type %)) (:gates converted-circuit)))]
+      (let [original-iswap (first (filter #(= :iswap (:operation-type %)) (:operations original-circuit)))
+            converted-iswap (first (filter #(= :iswap (:operation-type %)) (:operations converted-circuit)))
+            original-fredkin (first (filter #(= :fredkin (:operation-type %)) (:operations original-circuit)))
+            converted-fredkin (first (filter #(= :fredkin (:operation-type %)) (:operations converted-circuit)))]
         
         ;; Check iSWAP gate parameters
-        (is (= (get-in original-iswap [:gate-params :qubit1])
-               (get-in converted-iswap [:gate-params :qubit1])))
-        (is (= (get-in original-iswap [:gate-params :qubit2])
-               (get-in converted-iswap [:gate-params :qubit2])))
+        (is (= (get-in original-iswap [:operation-params :qubit1])
+               (get-in converted-iswap [:operation-params :qubit1])))
+        (is (= (get-in original-iswap [:operation-params :qubit2])
+               (get-in converted-iswap [:operation-params :qubit2])))
         
         ;; Check Fredkin gate parameters
-        (is (= (get-in original-fredkin [:gate-params :control])
-               (get-in converted-fredkin [:gate-params :control])))
-        (is (= (get-in original-fredkin [:gate-params :target1])
-               (get-in converted-fredkin [:gate-params :target1])))
-        (is (= (get-in original-fredkin [:gate-params :target2])
-               (get-in converted-fredkin [:gate-params :target2])))))))
+        (is (= (get-in original-fredkin [:operation-params :control])
+               (get-in converted-fredkin [:operation-params :control])))
+        (is (= (get-in original-fredkin [:operation-params :target1])
+               (get-in converted-fredkin [:operation-params :target1])))
+        (is (= (get-in original-fredkin [:operation-params :target2])
+               (get-in converted-fredkin [:operation-params :target2])))))))
 
 (deftest test-qasm-to-circuit-basic
   (testing "Basic QASM to circuit conversion"
@@ -221,14 +221,14 @@ cx q[0],q[1];
 measure q -> c;"
           circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 2 (:num-qubits circuit)))
-      (is (= 2 (count (:gates circuit))))
-      
-      ;; Check gates
-      (let [gate1 (first (:gates circuit))
-            gate2 (second (:gates circuit))]
-        (is (= :h (:gate-type gate1)))
-        (is (= 0 (get-in gate1 [:gate-params :target])))
-        (is (contains? #{:cnot :cx} (:gate-type gate2)))))))
+      (is (= 2 (count (:operations circuit))))
+
+      ;; Check operations
+      (let [op1 (first (:operations circuit))
+            op2 (second (:operations circuit))]
+        (is (= :h (:operation-type op1)))
+        (is (= 0 (get-in op1 [:operation-params :target])))
+        (is (contains? #{:cnot :cx} (:operation-type op2)))))))
 
 (deftest test-qasm-to-circuit-multiple-gates
   (testing "QASM with multiple gates to circuit conversion"
@@ -244,14 +244,13 @@ h q[0];
 measure q -> c;"
           circuit (qasm2/qasm-to-circuit qasm-code)]
       (is (= 3 (:num-qubits circuit)))
-      (is (= 4 (count (:gates circuit))))
-      
-      ;; Check the gate types
-      (let [gate-types (mapv :gate-type (:gates circuit))]
-        (is (= [:x :y :z :h] gate-types)))
-      
+      (is (= 4 (count (:operations circuit))))
+      ;; Check the operation types
+      (let [op-types (mapv :operation-type (:operations circuit))]
+        (is (= [:x :y :z :h] op-types)))
+
       ;; Check target qubits
-      (let [targets (mapv #(get-in % [:gate-params :target]) (:gates circuit))]
+      (let [targets (mapv #(get-in % [:operation-params :target]) (:operations circuit))]
         (is (= [0 1 2 0] targets))))))
 
 (deftest test-invalid-qasm-handling
@@ -261,8 +260,8 @@ measure q -> c;"
 
 (deftest test-unknown-gate-handling
   (testing "Handling of unknown gates in circuit to QASM"
-    (let [circuit {:gates [{:gate-type :unknown-gate 
-                            :gate-params {:target 0}}]
+    (let [circuit {:operations [{:operation-type :unknown-gate
+                            :operation-params {:target 0}}]
                   :num-qubits 1}
           qasm-code (qasm2/circuit-to-qasm circuit)]
       (is (str/includes? qasm-code "// Unknown gate: unknown-gate")))))
@@ -279,10 +278,10 @@ measure q -> c;"
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
       
       ;; Check that all original gates are preserved (may be in different order)
-      (let [original-gates (:gates original-circuit)
-            converted-gates (:gates converted-circuit)
-            original-gate-types (frequencies (map :gate-type original-gates))
-            converted-gate-types (frequencies (map :gate-type converted-gates))]
+      (let [original-gates (:operations original-circuit)
+            converted-gates (:operations converted-circuit)
+            original-gate-types (frequencies (map :operation-type original-gates))
+            converted-gate-types (frequencies (map :operation-type converted-gates))]
         
         ;; Check gate counts by type match
         (is (= original-gate-types converted-gate-types))
@@ -290,22 +289,22 @@ measure q -> c;"
         ;; Check that gate targets were preserved
         (doseq [gate-type (keys original-gate-types)]
           (let [orig-targets (->> original-gates 
-                                  (filter #(= gate-type (:gate-type %)))
-                                  (mapv #(get-in % [:gate-params :target]))
+                                  (filter #(= gate-type (:operation-type %)))
+                                  (mapv #(get-in % [:operation-params :target]))
                                   sort)
                 conv-targets (->> converted-gates
-                                 (filter #(= gate-type (:gate-type %)))
-                                 (mapv #(get-in % [:gate-params :target]))
+                                 (filter #(= gate-type (:operation-type %)))
+                                 (mapv #(get-in % [:operation-params :target]))
                                  sort)]
             (is (= orig-targets conv-targets) (str "Target preservation for gate type: " gate-type)))))
       
       ;; Check rotation angles are preserved
-      (let [original-rx-gates (filter #(= :rx (:gate-type %)) (:gates original-circuit))
-            converted-rx-gates (filter #(= :rx (:gate-type %)) (:gates converted-circuit))]
+      (let [original-rx-gates (filter #(= :rx (:operation-type %)) (:operations original-circuit))
+            converted-rx-gates (filter #(= :rx (:operation-type %)) (:operations converted-circuit))]
         (is (= (count original-rx-gates) (count converted-rx-gates)))
         (when (seq original-rx-gates)
-          (let [orig-angles (set (map #(get-in % [:gate-params :angle]) original-rx-gates))
-                conv-angles (set (map #(get-in % [:gate-params :angle]) converted-rx-gates))]
+          (let [orig-angles (set (map #(get-in % [:operation-params :angle]) original-rx-gates))
+                conv-angles (set (map #(get-in % [:operation-params :angle]) converted-rx-gates))]
             (is (= orig-angles conv-angles) "RX gate angles preserved"))))
       
       ;; Test that the code includes all expected elements
@@ -327,12 +326,12 @@ measure q -> c;"
           converted (qasm2/qasm-to-circuit qasm-code)
 
           ;; Count the CNOT gates in both circuits
-          original-cnots (filter #(contains? #{:cnot :cx} (:gate-type %))
-                                 (:gates control-circuit))
-          converted-cnots (filter #(contains? #{:cnot :cx} (:gate-type %))
-                                  (:gates converted))
-          original-controls (mapv #(get-in % [:gate-params :control]) original-cnots)
-          original-targets (mapv #(get-in % [:gate-params :target]) original-cnots)]
+          original-cnots (filter #(contains? #{:cnot :cx} (:operation-type %))
+                                 (:operations control-circuit))
+          converted-cnots (filter #(contains? #{:cnot :cx} (:operation-type %))
+                                  (:operations converted))
+          original-controls (mapv #(get-in % [:operation-params :control]) original-cnots)
+          original-targets (mapv #(get-in % [:operation-params :target]) original-cnots)]
 
         ;; Check that the counts match
         (is (= (count original-cnots) (count converted-cnots)))
@@ -341,8 +340,8 @@ measure q -> c;"
         (doseq [i (range (count original-cnots))]
           (let [orig-control (nth original-controls i)
                 orig-target (nth original-targets i)
-                pair-exists? (some #(and (= (get-in % [:gate-params :control]) orig-control)
-                                         (= (get-in % [:gate-params :target]) orig-target))
+                pair-exists? (some #(and (= (get-in % [:operation-params :control]) orig-control)
+                                         (= (get-in % [:operation-params :target]) orig-target))
                                    converted-cnots)]
             (is pair-exists? (str "Control-Target pair preserved: " orig-control "->" orig-target)))))))
 
@@ -356,20 +355,20 @@ measure q -> c;"
           converted (qasm2/qasm-to-circuit qasm-code)
 
           ;; Extract all rotation gates and their angles
-          original-rotations (filter #(contains? #{:rx :ry :rz} (:gate-type %))
-                                     (:gates param-circuit))
-          converted-rotations (filter #(contains? #{:rx :ry :rz} (:gate-type %))
-                                      (:gates converted))
+          original-rotations (filter #(contains? #{:rx :ry :rz} (:operation-type %))
+                                     (:operations param-circuit))
+          converted-rotations (filter #(contains? #{:rx :ry :rz} (:operation-type %))
+                                      (:operations converted))
 
           ;; Create maps of gate-type -> [angles] for comparison
           original-angles (reduce (fn [m gate]
-                                    (update m (:gate-type gate)
-                                            conj (get-in gate [:gate-params :angle])))
+                                    (update m (:operation-type gate)
+                                            conj (get-in gate [:operation-params :angle])))
                                   {:rx [] :ry [] :rz []}
                                   original-rotations)
           converted-angles (reduce (fn [m gate]
-                                     (update m (:gate-type gate)
-                                             conj (get-in gate [:gate-params :angle])))
+                                     (update m (:operation-type gate)
+                                             conj (get-in gate [:operation-params :angle])))
                                    {:rx [] :ry [] :rz []}
                                    converted-rotations)]
 

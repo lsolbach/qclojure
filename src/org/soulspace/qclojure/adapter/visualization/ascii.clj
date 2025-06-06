@@ -262,8 +262,8 @@
   Returns:
   Updated circuit lines with the gate added"
 [lines gate gate-pos gate-symbols]
-(let [gate-type (:gate-type gate)
-      params (:gate-params gate)
+(let [gate-type (:operation-type gate)
+      params (:operation-params gate)
       target (:target params)
       control (:control params)
       ;; Add spacing between gates
@@ -401,7 +401,8 @@
                       :or {show-measurements true}}]
 
   (let [n-qubits (:num-qubits circuit)
-        gates (:gates circuit)
+        operations (:operations circuit)
+        gates (filter #(not= (:operation-type %) :measure) operations)
 
         ;; Gate symbols
         gate-symbols {:x "X" :y "Y" :z "Z" :h "H" :s "S" :t "T"
@@ -474,7 +475,7 @@
   [_format circuit initial-state & {:keys [show-probabilities]
                                     :or {show-probabilities true}}]
 
-  (let [gates (:gates circuit)
+  (let [gates (:operations circuit)
 
         apply-gate-with-info (fn [acc gate]
                                (let [current-state (:state acc)
@@ -568,7 +569,7 @@
   (def evolution (viz/visualize-state-evolution :ascii sample-circuit (qs/zero-state 2)))
   (doseq [frame evolution]
     (println "Step" (:step frame)
-             (when (:gate frame) (str "- Applied " (:gate-type (:gate frame)))))
+             (when (:gate frame) (str "- Applied " (:operation-type (:gate frame)))))
     (println (viz/visualize-quantum-state (:state frame)))
     (println "---"))
 

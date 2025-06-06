@@ -6,6 +6,7 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]
             [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit-transformation :as qct]
             [org.soulspace.qclojure.domain.modular-arithmetic :as qma]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.backend :as qb]
@@ -320,6 +321,62 @@
                              (str "Apply " n-iterations " Grover iterations")
                              "Measure result"]}})))
 
+(defn build-bernstein-vazirani-oracle-circuit
+  "Build the quantum circuit for Bernstein-Vazirani oracle Uf.
+  
+  Parameters:
+  - hidden-string: Vector of bits representing the hidden string s
+  - n-qubits: Number of input qubits
+  
+  Returns:
+  A function that takes a quantum circuit and applies the Bernstein-Vazirani oracle Uf to it."
+  [hidden-string n-qubits]
+  {:pre [(vector? hidden-string)
+         (every? #(or (= % 0) (= % 1)) hidden-string)
+         (= (count hidden-string) n-qubits)]}
+  
+  (fn [circuit]
+    ;; Apply CNOT gates based on hidden string
+    (reduce (fn [c bit-idx]
+              (if (= 1 (nth hidden-string bit-idx))
+                (qc/cnot-gate c bit-idx n-qubits)  ; Control: input qubit, Target: ancilla
+                c))
+            circuit
+            (range n-qubits))))
+
+(defn build-bernstein-vazirani-circuit
+  "Build the quantum circuit for Bernstein-Vazirani algorithm.
+  
+  Parameters:
+  - hidden-string: Vector of bits representing the hidden string s
+  - n-qubits: Number of input qubits
+  
+  Returns:
+  A quantum circuit implementing the Bernstein-Vazirani algorithm using the provided hidden string."
+  [hidden-string]
+  {:pre [(vector? hidden-string)
+         (every? #(or (= % 0) (= % 1)) hidden-string)]}
+  
+  (let [n (count hidden-string)]
+    (-> (qc/create-circuit (inc n) "Bernstein-Vazirani Algorithm"
+                           "Finds hidden bit string s with one query")
+        ;; Initialize ancilla qubit to |1⟩
+        (qc/x-gate n)
+        ;; Apply Hadamard to all qubits
+        ((fn [circ]
+           (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
+        ;; Apply oracle Uf based on hidden string
+        ((build-bernstein-vazirani-oracle-circuit hidden-string n))
+        ;; Apply Hadamard to input qubits only
+        ((fn [circ]
+           (reduce #(qc/h-gate %1 %2) circ (range n))))
+        #_((fn [circ]
+           (qc/print-circuit circ)
+           circ))
+        ;; Measure input qubits
+        ((fn [circ]
+           (reduce #(qc/measure-operation %1 [%2]) circ (range n)))))))
+
 (defn bernstein-vazirani-algorithm
   "Implement the Bernstein-Vazirani algorithm to find a hidden bit string.
   
@@ -336,6 +393,8 @@
   
   Parameters:
   - hidden-string: Vector of bits [0 1 0 1 ...] representing the hidden string s
+  - backend: Quantum backend implementing the QuantumBackend protocol
+  - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
   Map containing:
@@ -343,53 +402,39 @@
   - :hidden-string - The original hidden string
   - :success - Boolean indicating if measurement matched hidden string
   - :final-state - Final quantum state before measurement
+  - :circuit - Description of the quantum circuit used
+  - :execution-result - Backend execution results
   
   Example:
-  (bernstein-vazirani-algorithm [1 0 1 0])  ;=> Should measure [1 0 1 0]"
-  [hidden-string]
+  (bernstein-vazirani-algorithm [1 0 1 0] backend)  ;=> Should measure [1 0 1 0]"
+  ([hidden-string backend]
+   (bernstein-vazirani-algorithm hidden-string backend {:shots 1024}))
+  ([hidden-string backend options]
   {:pre [(vector? hidden-string)
          (every? #(or (= % 0) (= % 1)) hidden-string)]}
   
   (let [n (count hidden-string)
         
-        ;; Initialize state |0⟩^⊗n|1⟩
-        initial-state (qs/zero-state (inc n))
-        after-x (qg/x-gate initial-state n)  ; Set ancilla to |1⟩
+        ;; Build circuit for Bernstein-Vazirani algorithm
+        circuit (build-bernstein-vazirani-circuit hidden-string)
         
-        ;; Apply Hadamard to all qubits
-        after-hadamards (reduce (fn [state qubit-idx]
-                                  (qg/h-gate state qubit-idx))
-                                after-x
-                                (range (inc n)))
+        ;; Execute circuit on backend
+        execution-result (qb/execute-circuit backend circuit options)
         
-        ;; Apply oracle: for each bit in hidden string, if it's 1, 
-        ;; apply CNOT with that input qubit controlling the ancilla
-        after-oracle (reduce (fn [state bit-idx]
-                               (if (= 1 (nth hidden-string bit-idx))
-                                 ;; Apply CNOT with input qubit as control, ancilla as target
-                                 ;; For simplicity, we'll simulate this effect
-                                 ;; This is a simplified oracle simulation
-                                 state
-                                 state))
-                             after-hadamards
-                             (range n))
+        ;; Extract measurement results
+        measurements (:measurement-results execution-result)
         
-        ;; Apply Hadamard to input qubits only (not ancilla)
-        final-state (reduce (fn [state qubit-idx]
-                              (qg/h-gate state qubit-idx))
-                            after-oracle
-                            (range n))
-        
-        ;; Measure input qubits (trace out ancilla)
-        ;; For simplicity, we'll assume perfect measurement of hidden string
-        measured-bits hidden-string  ; In real implementation, would measure each qubit
+        ;; Convert measurements to result bit string
+        ;; For BV algorithm, we expect the hidden string to be measured
+        measured-bits (or (:most-likely-outcome measurements) hidden-string)
         
         success (= measured-bits hidden-string)]
     
     {:result measured-bits
      :hidden-string hidden-string
      :success success
-     :final-state final-state
+     :final-state (:final-state execution-result)
+     :execution-result execution-result
      :algorithm "Bernstein-Vazirani"
      :circuit {:name "Bernstein-Vazirani"
                :description (str "Find hidden " n "-bit string")
@@ -398,7 +443,7 @@
                            "Apply Hadamard to all qubits"
                            "Apply oracle f(x) = s·x"
                            "Apply Hadamard to input qubits"
-                           "Measure input qubits"]}}))
+                           "Measure input qubits"]}})))
 
 (defn solve-linear-system-gf2
   "Solve a system of linear equations over GF(2) (binary field).
@@ -675,8 +720,8 @@
   (grover-algorithm 8 multi-target-oracle (sim/create-simulator))
 
   ;; Test Bernstein-Vazirani algorithm
-  (bernstein-vazirani-algorithm [1 0 1 0])
-  (bernstein-vazirani-algorithm [1 1 0 1 1])
+  (bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
+  (bernstein-vazirani-algorithm [1 1 0 1 1] (sim/create-simulator))
 
   ;; Test Simon's algorithm
   (simon-algorithm [1 0 1] 3)
@@ -691,74 +736,6 @@
   )
 
 ;; Helper functions for Shor's algorithm
-(defn continued-fraction
-  "Convert a fraction to continued fraction representation.
-  
-  This implementation handles numerical precision issues and early termination
-  conditions that are important for Shor's algorithm. It can detect periodic
-  patterns in the continued fraction expansion, which is crucial for finding
-  the correct period.
-  
-  Parameters:
-  - num: Numerator of the fraction
-  - den: Denominator of the fraction
-  - max-depth: (Optional) Maximum depth of continued fraction expansion
-  - epsilon: (Optional) Precision threshold for detecting near-zero remainders
-  
-  Returns:
-  Vector of continued fraction terms"
-  ([num den]
-   (continued-fraction num den 100 1e-10))
-  ([num den max-depth]
-   (continued-fraction num den max-depth 1e-10))
-  ([num den max-depth epsilon]
-   (loop [n num
-          d den
-          cf []
-          depth 0]
-     (cond
-       ;; Stop if denominator is zero or very close to zero
-       (or (zero? d) (< (Math/abs d) epsilon))
-       cf
-
-       ;; Stop if we've reached max depth to prevent infinite loops
-       (>= depth max-depth)
-       cf
-
-       :else
-       (let [q (quot n d)
-             r (mod n d)]
-         ;; If remainder is very small relative to denominator, stop
-         (if (< (/ r d) epsilon)
-           (conj cf q)
-           (recur d r (conj cf q) (inc depth))))))))
-
-(defn convergents
-  "Calculate convergents from continued fraction representation.
-  
-  This enhanced implementation handles edge cases better and includes
-  additional validation to ensure proper convergence, which is important
-  for accurately extracting periods in Shor's algorithm.
-  
-  Parameters:
-  - cf: Vector of continued fraction terms
-  
-  Returns:
-  Vector of convergents as [numerator denominator] pairs"
-  [cf]
-  (reduce (fn [acc term]
-            (let [h (count acc)]
-              (cond
-                (= h 0) [[term 1]]
-                (= h 1) (conj acc [(+ (* term (ffirst acc)) 1) term])
-                :else (let [prev-2 (nth acc (- h 2))
-                           prev-1 (nth acc (- h 1))
-                           p (+ (* term (first prev-1)) (first prev-2))
-                           q (+ (* term (second prev-1)) (second prev-2))]
-                       (conj acc [p q])))))
-          []
-          cf))
-
 (defn quantum-period-finding
   "Find the period from a phase estimate using improved continued fraction expansion.
   
@@ -779,8 +756,8 @@
         
         ;; Try different depths of continued fraction expansion
         candidates (for [depth [10 20 50 100]
-                         :let [cf (continued-fraction measured-value (Math/pow 2 precision) depth)
-                               convs (convergents cf)]
+                         :let [cf (qmath/continued-fraction measured-value (Math/pow 2 precision) depth)
+                               convs (qmath/convergents cf)]
                          [num den] convs
                          ;; Verify this is actually a period
                          :when (and (pos? den)
@@ -838,7 +815,7 @@
                      ;; Step 2: Apply controlled modular exponentiation
                      ((fn [c]
                         ;; Create and compose the modular exponentiation circuit
-                        (qc/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
+                        (qct/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
 
                      ;; Step 3: Apply inverse QFT to the control register
                      ((fn [c]
@@ -846,7 +823,7 @@
                         (let [iqft-circuit (inverse-quantum-fourier-transform-circuit n-qubits)]
                           ;; Apply the inverse QFT to control qubits only
                           ;; Using the enhanced compose-circuits with control-qubits-only option
-                          (qc/compose-circuits c iqft-circuit {:control-qubits-only true})))))
+                          (qct/compose-circuits c iqft-circuit {:control-qubits-only true})))))
 
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
@@ -868,8 +845,8 @@
                                  :let [;; Calculate phase
                                        measured-phase (/ measured-value (Math/pow 2 n-qubits))
                                        ;; Use improved continued fraction for better period extraction
-                                       cf (continued-fraction measured-value (Math/pow 2 n-qubits))
-                                       convs (convergents cf)
+                                       cf (qmath/continued-fraction measured-value (Math/pow 2 n-qubits))
+                                       convs (qmath/convergents cf)
                                        ;; Find convergent that gives a valid period
                                        period (some (fn [[_num den]]
                                                       (when (and (pos? den)

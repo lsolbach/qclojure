@@ -8,7 +8,8 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]))
+            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Specs for hardware interface
 (s/def ::backend-type #{:simulator :hardware :cloud})
@@ -18,7 +19,7 @@
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
-(s/def ::supported-gates ::gr/gate-set)
+(s/def ::supported-gates ::gr/operation-set)
 
 ;; Enhanced specs for cloud backends
 (s/def ::authentication-token string?)
@@ -542,9 +543,6 @@
 (defn transform-circuit-for-backend
   "Transform a quantum circuit to use only gates supported by a given backend.
    
-   This function delegates to the specialized circuit-transformer namespace.
-   See org.soulspace.qclojure.application.circuit-transformer for details.
-   
    Parameters:
    - circuit: Quantum circuit to transform
    - backend: Target backend for the transformation
@@ -555,28 +553,26 @@
    Returns:
    A map containing:
    - :quantum-circuit - The transformed circuit
-   - :transformed-gates - Count of gates that were transformed
+   - :transformed-operation-count - Count of gates that were transformed
    - :unsupported-gates - List of gate types that couldn't be transformed"
   [circuit backend & [options]]
-  (require '[org.soulspace.qclojure.application.circuit-transformer :as ct])
-  ((resolve 'org.soulspace.qclojure.application.circuit-transformer/transform-circuit)
-   circuit backend options))
+  (ct/transform-circuit circuit (get-supported-gates backend) options))
 
 ;; Specs for utility functions
-(s/fdef supports-gate?
+(s/fdef supports-operation?
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gate keyword?)
+               :operation keyword?)
   :ret boolean?)
 
-(s/fdef supports-gates?
+(s/fdef supports-operations?
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gates (s/coll-of keyword?))
+               :operations (s/coll-of keyword?))
   :ret boolean?)
 
-(s/fdef get-unsupported-gates
+(s/fdef get-unsupported-operations
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gates (s/coll-of keyword?))
-  :ret ::gr/gate-set)
+               :operations (s/coll-of keyword?))
+  :ret ::gr/operation-set)
 
 (s/fdef transform-circuit-for-backend
   :args (s/cat :circuit ::qc/quantum-circuit

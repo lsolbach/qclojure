@@ -183,7 +183,8 @@
             :or {width 800 gate-spacing 80 qubit-spacing 60 show-measurements true interactive true}}]
 
 (let [n-qubits (:num-qubits circuit)
-      gates (:gates circuit)
+      operations (:operations circuit)
+      gates (filter #(not= (:operation-type %) :measure) operations)
       margin {:top 40 :right 40 :bottom 80 :left 100}
 
       ;; Calculate dimensions
@@ -191,7 +192,7 @@
       height (+ (* n-qubits qubit-spacing) (:top margin) (:bottom margin))
 
       ;; Gate visual properties
-      gate-styles {:x {:fill "#ef4444" :symbol "X"}
+      operation-styles {:x {:fill "#ef4444" :symbol "X"}
                    :y {:fill "#22c55e" :symbol "Y"}
                    :z {:fill "#3b82f6" :symbol "Z"}
                    :h {:fill "#8b5cf6" :symbol "H"}
@@ -203,7 +204,7 @@
                    :ry {:fill "#10b981" :symbol "RY"}
                    :rz {:fill "#6366f1" :symbol "RZ"}
                    :phase {:fill "#9333ea" :symbol "P"}
-                   :cx {:fill "#ef4444" :symbol "CX"}
+;                   :cx {:fill "#ef4444" :symbol "CX"}
                    :cy {:fill "#22c55e" :symbol "CY"}
                    :cz {:fill "#3b82f6" :symbol "CZ"}
                    :swap {:fill "#fb923c" :symbol "×"}
@@ -230,13 +231,13 @@
       ;; Generate gate elements
       gate-elements (map-indexed
                      (fn [gate-idx gate]
-                       (let [gate-type (:gate-type gate)
-                             params (:gate-params gate)
+                       (let [gate-type (:operation-type gate)
+                             params (:operation-params gate)
                              control (:control params)
                              target (:target params)
                              x (+ (:left margin) gate-spacing (* gate-idx gate-spacing))
 
-                             gate-info (get gate-styles gate-type
+                             gate-info (get operation-styles gate-type
                                             {:fill "#6b7280" :symbol (name gate-type)})]
 
                          (cond
@@ -641,7 +642,6 @@
   (def complex-circuit
     (-> (qc/create-circuit 3 "Complex Circuit")
         (qc/h-gate 0)
-        (qc/cx-gate 0 1)
         (qc/cz-gate 1 2)
         (qc/s-dag-gate 0)
         (qc/t-dag-gate 1)

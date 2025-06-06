@@ -31,7 +31,6 @@
   (qc/ghz-state-circuit n))
 
 ;; Test cases for the quantum simulator backend
-
 (deftest test-simulator-creation
   (testing "Basic simulator creation"
     (let [sim1 (sim/create-simulator)]

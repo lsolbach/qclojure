@@ -73,7 +73,7 @@
   Returns:
   Serializable circuit data"
   [circuit]
-  {:gates (:gates circuit)
+  {:operations (:operations circuit)
    :num-qubits (:num-qubits circuit)
    :name (:name circuit)
    :description (:description circuit)
@@ -89,7 +89,7 @@
   Returns:
   Quantum circuit"
   [data]
-  (select-keys data [:gates :num-qubits :name :description :metadata]))
+  (select-keys data [:operations :num-qubits :name :description :metadata]))
 
 (defn serialize-quantum-data
   "Serialize quantum data to a portable format.
@@ -116,7 +116,7 @@
   [data]
   (cond
     (contains? data :state-vector) (deserialize-quantum-state data)
-    (contains? data :gates) (deserialize-quantum-circuit data)
+    (contains? data :operations) (deserialize-quantum-circuit data)
     :else (throw (ex-info "Unsupported quantum data format" {:data data}))))
 
 (defn file-format

@@ -8,7 +8,7 @@
             [org.soulspace.qclojure.adapter.io :as io]
             [org.soulspace.qclojure.application.format.qasm2 :as qasm2]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]))
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 (defmethod io/export-quantum-circuit :qasm2
   [_format circuit filename]

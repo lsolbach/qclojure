@@ -1,11 +1,9 @@
 # TODOs
 
 ## Next steps
-* rename gate-registry to operation-registry
-* rename gate-catalog to operation-catalog
 * rename attributes from :gate* to :operation*
-* add :operation-kind from #{:gate :measurement}
 * change usage of :gate* attributes
+* fix inconsistant usage of operations/gates
 
 ## Backlog
 * move circuit composition and extension to circuit-transformation

@@ -2,280 +2,276 @@
   "Circuit transformation utilities for quantum backends.
    
    This namespace provides functionality for adapting quantum circuits
-   to specific hardware backends by transforming gates not supported
-   by the backend into equivalent sequences of supported gates."
+   to specific hardware backends by transforming operations not supported
+   by the backend into equivalent sequences of supported operations."
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]
+            [org.soulspace.qclojure.domain.operation-registry :as gr]
             [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; Specs
 (s/def ::transformation-result
   (s/keys :req-un [::qc/quantum-circuit]
-          :opt-un [::transformed-gates ::unsupported-gates]))
+          :opt-un [::transformed-operations ::unsupported-operations]))
 
 (defn- can-be-fully-decomposed?
-  "Check if a gate type can be fully decomposed into supported gates.
+  "Check if a operation type can be fully decomposed into supported operations.
   
   Parameters:
-  - gate-type: Type of gate to check for decomposition
-  - supported-gates: Set of gate types supported by the backend
-  - visited: Set of gate types already visited (to prevent infinite recursion)
+  - operation-type: Type of operation to check for decomposition
+  - supported-operations: Set of operation types supported by the backend
+  - visited: Set of operation types already visited (to prevent infinite recursion)
   
   Returns:
-  Boolean indicating whether the gate can be fully decomposed into supported gates"
-  [gate-type supported-gates visited]
-  ;; Already visited this gate in recursion? Return false to break cycles
-  (if (contains? visited gate-type)
+  Boolean indicating whether the operation can be fully decomposed into supported operations"
+  [operation-type supported-operations visited]
+  ;; Already visited this operation in recursion? Return false to break cycles
+  (if (contains? visited operation-type)
     false
-    ;; Is the gate directly supported? Return true
-    (if (contains? supported-gates gate-type)
+    ;; Is the operation directly supported? Return true
+    (if (contains? supported-operations operation-type)
       true
       ;; Not directly supported, try decomposition
-      (let [decomposition (gr/get-gate-dependencies gate-type)]
+      (let [decomposition (gr/get-gate-dependencies operation-type)]
         (if (empty? decomposition)
           ;; No decomposition available
           false
-          ;; Check if ALL gates in decomposition can be fully decomposed
-          (every? #(can-be-fully-decomposed? % supported-gates (conj visited gate-type))
+          ;; Check if ALL operations in decomposition can be fully decomposed
+          (every? #(can-be-fully-decomposed? % supported-operations (conj visited operation-type))
                   decomposition))))))
 
-(defn- decompose-gate
-  "Decompose a gate into a sequence of more primitive gates.
+(defn- decompose-operation
+  "Decompose a operation into a sequence of more primitive operations.
   
   Parameters:
-  - gate: Gate map to decompose
-  - backend: Backend to target for decomposition
-  
+  - operation: operation map to decompose
+  - supported-operations: Set of operation types supported
+
   Returns:
-  Vector of gate maps representing the decomposition, or the original gate 
-  if no decomposition is available or if it cannot be fully decomposed to supported gates"
-  [gate backend]
-  (let [gate-type (:gate-type gate)
-        gate-params (:gate-params gate)
-        decomposition (gr/get-gate-dependencies gate-type)
-        supported-gates (qb/get-supported-gates backend)]
-    
-    ;; If the gate is already supported, no need to decompose
-    (if (contains? supported-gates gate-type)
-      [gate]
+  Vector of operation maps representing the decomposition, or the original operation 
+  if no decomposition is available or if it cannot be fully decomposed to supported operations"
+  [operation supported-operations]
+  (let [operation-type (:operation-type operation)
+        operation-params (:operation-params operation)
+        decomposition (gr/get-gate-dependencies operation-type)]
+
+    ;; If the operation is already supported, no need to decompose
+    (if (contains? supported-operations operation-type)
+      [operation]
       
       ;; If no decomposition available OR cannot be fully decomposed, return original
       ;; This breaks potential infinite loops
       (if (or (empty? decomposition)
-              (not (every? #(can-be-fully-decomposed? % supported-gates #{}) decomposition)))
-        [gate]
+              (not (every? #(can-be-fully-decomposed? % supported-operations #{}) decomposition)))
+        [operation]
         
-        ;; Create a sequence of gates based on decomposition
-        (mapv (fn [sub-gate-type]
+        ;; Create a sequence of operations based on decomposition
+        (mapv (fn [sub-operation-type]
                 (cond
-                  ;; Handle different gate types and parameters based on the original gate
-                  (= sub-gate-type :rx) 
-                  {:gate-type :rx 
-                   :gate-params (select-keys gate-params [:target :angle])}
+                  ;; Handle different operation types and parameters based on the original operation
+                  (= sub-operation-type :rx) 
+                  {:operation-type :rx 
+                   :operation-params (select-keys operation-params [:target :angle])}
                   
-                  (= sub-gate-type :ry)
-                  {:gate-type :ry
-                   :gate-params (select-keys gate-params [:target :angle])}
+                  (= sub-operation-type :ry)
+                  {:operation-type :ry
+                   :operation-params (select-keys operation-params [:target :angle])}
                   
-                  (= sub-gate-type :rz)
-                  {:gate-type :rz
-                   :gate-params (select-keys gate-params [:target :angle])}
+                  (= sub-operation-type :rz)
+                  {:operation-type :rz
+                   :operation-params (select-keys operation-params [:target :angle])}
                   
-                  (= sub-gate-type :x)
-                  {:gate-type :x
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :x)
+                  {:operation-type :x
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :y)
-                  {:gate-type :y
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :y)
+                  {:operation-type :y
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :z)
-                  {:gate-type :z
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :z)
+                  {:operation-type :z
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :h)
-                  {:gate-type :h
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :h)
+                  {:operation-type :h
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :s)
-                  {:gate-type :s
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :s)
+                  {:operation-type :s
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :t)
-                  {:gate-type :t
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :t)
+                  {:operation-type :t
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :cnot)
-                  {:gate-type :cnot
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :cnot)
+                  {:operation-type :cnot
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :cx)
-                  {:gate-type :cx
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :cx)
+                  {:operation-type :cx
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :cz)
-                  {:gate-type :cz
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :cz)
+                  {:operation-type :cz
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :cy)
-                  {:gate-type :cy
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :cy)
+                  {:operation-type :cy
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :s-dag)
-                  {:gate-type :s-dag
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :s-dag)
+                  {:operation-type :s-dag
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :t-dag)
-                  {:gate-type :t-dag
-                   :gate-params (select-keys gate-params [:target])}
+                  (= sub-operation-type :t-dag)
+                  {:operation-type :t-dag
+                   :operation-params (select-keys operation-params [:target])}
                   
-                  (= sub-gate-type :swap)
-                  {:gate-type :swap
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :swap)
+                  {:operation-type :swap
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :iswap)
-                  {:gate-type :iswap
-                   :gate-params (select-keys gate-params [:control :target])}
+                  (= sub-operation-type :iswap)
+                  {:operation-type :iswap
+                   :operation-params (select-keys operation-params [:control :target])}
                   
-                  (= sub-gate-type :phase)
-                  {:gate-type :phase
-                   :gate-params (select-keys gate-params [:target :angle])}
+                  (= sub-operation-type :phase)
+                  {:operation-type :phase
+                   :operation-params (select-keys operation-params [:target :angle])}
                   
-                  (= sub-gate-type :crx)
-                  {:gate-type :crx
-                   :gate-params (select-keys gate-params [:control :target :angle])}
+                  (= sub-operation-type :crx)
+                  {:operation-type :crx
+                   :operation-params (select-keys operation-params [:control :target :angle])}
                   
-                  (= sub-gate-type :cry)
-                  {:gate-type :cry
-                   :gate-params (select-keys gate-params [:control :target :angle])}
+                  (= sub-operation-type :cry)
+                  {:operation-type :cry
+                   :operation-params (select-keys operation-params [:control :target :angle])}
                   
-                  (= sub-gate-type :crz)
-                  {:gate-type :crz
-                   :gate-params (select-keys gate-params [:control :target :angle])}
+                  (= sub-operation-type :crz)
+                  {:operation-type :crz
+                   :operation-params (select-keys operation-params [:control :target :angle])}
                   
-                  (= sub-gate-type :toffoli)
-                  {:gate-type :toffoli
-                   :gate-params (select-keys gate-params [:control1 :control2 :target])}
+                  (= sub-operation-type :toffoli)
+                  {:operation-type :toffoli
+                   :operation-params (select-keys operation-params [:control1 :control2 :target])}
                   
-                  (= sub-gate-type :fredkin)
-                  {:gate-type :fredkin
-                   :gate-params (select-keys gate-params [:control :target1 :target2])}
+                  (= sub-operation-type :fredkin)
+                  {:operation-type :fredkin
+                   :operation-params (select-keys operation-params [:control :target1 :target2])}
                   
-                  ;; Default case for unknown gate types
-                  :else {:gate-type sub-gate-type
-                         :gate-params gate-params}))
+                  ;; Default case for unknown operation types
+                  :else {:operation-type sub-operation-type
+                         :operation-params operation-params}))
               decomposition)))))
 
-(defn- transform-gates
-  "Transform the gates in a circuit to use only backend-supported gates.
-  
+(defn- transform-operations
+  "Transform the operations in a circuit to use only supported operations.
+
   Parameters:
-  - gates: Original vector of gate maps
-  - backend: Quantum backend that defines supported gates
+  - operations: Original vector of operation maps
+  - supported-operations: Set of operation types supported
   - max-iterations: Maximum decomposition iterations to prevent infinite loops
   
   Returns:
-  A vector of transformed gates that are all supported by the backend or
-  gates that couldn't be further decomposed"
-  [gates backend max-iterations]
-  (loop [current-gates gates
+  A vector of transformed operations that are all supported or
+  operations that couldn't be further decomposed"
+  [operations supported-operations max-iterations]
+  (loop [current-operations operations
          iteration 0
-         processed-gates #{}]  ;; Track gates we've already tried to decompose
+         processed-operations #{}]  ;; Track operations we've already tried to decompose
     (if (>= iteration max-iterations)
       ;; Safety check to prevent infinite loops
       (throw (ex-info "Maximum iterations reached during circuit transformation" 
-                      {:gates current-gates
+                      {:operations current-operations
                        :iteration iteration}))
       
-      (let [supported-gates (qb/get-supported-gates backend)
-            ;; Find any gates that need decomposition
-            needs-decomposition? (fn [gate] 
-                                   (and (not (contains? processed-gates (:gate-type gate)))
-                                        (not (contains? supported-gates (:gate-type gate)))))
-            unsupported (filterv needs-decomposition? current-gates)]
+      (let [;; Find any operations that need decomposition
+            needs-decomposition? (fn [operation] 
+                                   (and (not (contains? processed-operations (:operation-type operation)))
+                                        (not (contains? supported-operations (:operation-type operation)))))
+            unsupported (filterv needs-decomposition? current-operations)]
         
         (if (empty? unsupported)
-          ;; All gates are either supported or can't be decomposed further
-          current-gates
+          ;; All operations are either supported or can't be decomposed further
+          current-operations
           
-          ;; Replace the first unsupported gate with its decomposition
-          (let [unsupported-gate (first unsupported)
-                gate-type (:gate-type unsupported-gate)
-                unsupported-index (.indexOf current-gates unsupported-gate)
-                decomposed-gates (decompose-gate unsupported-gate backend)
+          ;; Replace the first unsupported operation with its decomposition
+          (let [unsupported-operation (first unsupported)
+                operation-type (:operation-type unsupported-operation)
+                unsupported-index (.indexOf current-operations unsupported-operation)
+                decomposed-operations (decompose-operation unsupported-operation supported-operations)
                 
-                ;; Check if the gate was actually decomposed
-                was-decomposed? (not= [unsupported-gate] decomposed-gates)
+                ;; Check if the operation was actually decomposed
+                was-decomposed? (not= [unsupported-operation] decomposed-operations)
                 
-                ;; If the gate wasn't decomposed, mark it as processed so we don't try again
-                new-processed-gates (if was-decomposed?
-                                      processed-gates
-                                      (conj processed-gates gate-type))
+                ;; If the operation wasn't decomposed, mark it as processed so we don't try again
+                new-processed-operations (if was-decomposed?
+                                      processed-operations
+                                      (conj processed-operations operation-type))
                 
-                ;; Create new gates vector with decomposition replacing original gate
-                new-gates (into []
+                ;; Create new operations vector with decomposition replacing original operation
+                new-operations (into []
                                 (concat 
-                                 (subvec current-gates 0 unsupported-index)
-                                 decomposed-gates
-                                 (subvec current-gates (inc unsupported-index))))]
+                                 (subvec current-operations 0 unsupported-index)
+                                 decomposed-operations
+                                 (subvec current-operations (inc unsupported-index))))]
             
-            (recur new-gates (inc iteration) new-processed-gates)))))))
+            (recur new-operations (inc iteration) new-processed-operations)))))))
 
 (defn transform-circuit
-  "Transform a quantum circuit to use only gates supported by a given backend.
-  
-  This function takes a quantum circuit and a backend, and returns a new circuit
-  where all gates have been decomposed into gates supported by the backend.
+  "Transform a quantum circuit to use only operations supported by a given backend.
+
+  This function takes a quantum circuit and the supported operations, and returns a new circuit
+  where all operations have been decomposed into the supported operations.
   
   Parameters:
   - circuit: Quantum circuit to transform
-  - backend: Target backend for the transformation
+  - supported-operations: Set of operation types supported
   - options: Optional map with transformation options:
       :max-iterations - Maximum number of decomposition iterations (default: 100)
-      :transform-unsupported? - Whether to transform unsupported gates (default: true)
+      :transform-unsupported? - Whether to transform unsupported operations (default: true)
   
   Returns:
   A map containing:
   - :quantum-circuit - The transformed circuit
-  - :transformed-gates - Count of gates that were transformed
-  - :unsupported-gates - List of gate types that couldn't be transformed
+  - :transformed-operations - Count of operations that were transformed
+  - :unsupported-operations - List of operation types that couldn't be transformed
   
   Example:
-  (transform-circuit my-circuit backend)
-  ;=> {:quantum-circuit <transformed-circuit>, :transformed-gates 3, :unsupported-gates []}"
-  ([circuit backend]
-   (transform-circuit circuit backend {}))
+  (transform-circuit my-circuit #{:h :x :cnot} {:max-iterations 50})
+  ;=> {:quantum-circuit <transformed-circuit>, :transformed-operations 3, :unsupported-operations []}"
+  ([circuit supported-operations]
+   (transform-circuit circuit supported-operations {}))
   
-  ([circuit backend options]
-   {:pre [(s/valid? ::qc/quantum-circuit circuit)
-          (satisfies? org.soulspace.qclojure.application.backend/QuantumBackend backend)]}
+  ([circuit supported-operations options]
+   {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
    
    (let [max-iterations (get options :max-iterations 100)
          transform-unsupported? (get options :transform-unsupported? true)
          
-         original-gates (:gates circuit)
-         original-gate-count (count original-gates)
+         original-operations (:operations circuit)
+         original-operation-count (count original-operations)
          
          ;; Apply transformation
-         transformed-gates (if transform-unsupported?
-                             (transform-gates original-gates backend max-iterations)
-                             original-gates)
+         transformed-operations (if transform-unsupported?
+                             (transform-operations original-operations supported-operations max-iterations)
+                             original-operations)
          
-         ;; Create new circuit with transformed gates
-         transformed-circuit (assoc circuit :gates transformed-gates)
+         ;; Create new circuit with transformed operations
+         transformed-circuit (assoc circuit :operations transformed-operations)
          
          ;; Calculate stats for return value
-         new-types (frequencies (map :gate-type transformed-gates))
-         supported-gates (qb/get-supported-gates backend)
+         new-types (frequencies (map :operation-type transformed-operations))
          remaining-unsupported (into [] 
-                                     (filter #(not (contains? supported-gates %)) 
+                                     (filter #(not (contains? supported-operations %)) 
                                              (keys new-types)))]
      
      {:quantum-circuit transformed-circuit
-      :transformed-gates (- (count transformed-gates) original-gate-count)
-      :unsupported-gates remaining-unsupported})))
+      :transformed-operations (- (count transformed-operations) original-operation-count)
+      :unsupported-operations remaining-unsupported})))
 
 (defn get-transformation-summary
   "Get a human-readable summary of a circuit transformation.
@@ -287,25 +283,25 @@
   String with transformation summary"
   [transformation-result]
   (let [circuit (:quantum-circuit transformation-result)
-        transformed (:transformed-gates transformation-result)
-        unsupported (:unsupported-gates transformation-result)]
+        transformed (:transformed-operations transformation-result)
+        unsupported (:unsupported-operations transformation-result)]
     (str "Circuit transformation summary:\n"
-         "- Final gate count: " (count (:gates circuit)) "\n"
-         "- Gates transformed: " transformed "\n"
-         "- Unsupported gates: " (if (empty? unsupported) "None" (pr-str unsupported)))))
+         "- Final operation count: " (count (:operations circuit)) "\n"
+         "- operations transformed: " transformed "\n"
+         "- Unsupported operations: " (if (empty? unsupported) "None" (pr-str unsupported)))))
 
 ;; Circuit Optimization Functions
 
 (defn- extract-qubit-ids
-  "Extract all qubit IDs used by a gate.
+  "Extract all qubit IDs used by a operation.
   
   Parameters:
-  - gate: Gate map with gate-type and gate-params
+  - operation: operation map with operation-type and operation-params
   
   Returns:
-  Set of qubit IDs used by this gate"
-  [gate]
-  (let [params (:gate-params gate)
+  Set of qubit IDs used by this operation"
+  [operation]
+  (let [params (:operation-params operation)
         ;; Common qubit parameter names - only these should be treated as qubit IDs
         qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}]
     (into #{}
@@ -331,14 +327,14 @@
   [circuit]
   {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
   
-  (let [gates (:gates circuit)
+  (let [operations (:operations circuit)
         total-qubits (:num-qubits circuit)
         
-        ;; Extract all qubit IDs used in gates
-        used-qubits (reduce (fn [acc gate]
-                              (into acc (extract-qubit-ids gate)))
+        ;; Extract all qubit IDs used in operations
+        used-qubits (reduce (fn [acc operation]
+                              (into acc (extract-qubit-ids operation)))
                             #{}
-                            gates)
+                            operations)
         
         ;; Calculate unused qubits
         all-qubits (set (range total-qubits))
@@ -373,17 +369,17 @@
                          [old-id new-id])
                        sorted-qubits))))
 
-(defn- remap-gate-qubits
-  "Remap qubit IDs in a gate according to a qubit mapping.
+(defn- remap-operation-qubits
+  "Remap qubit IDs in a operation according to a qubit mapping.
   
   Parameters:
-  - gate: Gate map to remap
+  - operation: operation map to remap
   - qubit-mapping: Map from old qubit ID to new qubit ID
   
   Returns:
-  Gate map with remapped qubit IDs"
-  [gate qubit-mapping]
-  (let [params (:gate-params gate)
+  operation map with remapped qubit IDs"
+  [operation qubit-mapping]
+  (let [params (:operation-params operation)
         ;; Only remap parameters that are qubit IDs
         qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}
         remapped-params (into {}
@@ -394,7 +390,7 @@
                                         (get qubit-mapping param-value param-value)
                                         param-value)])
                                    params))]
-    (assoc gate :gate-params remapped-params)))
+    (assoc operation :operation-params remapped-params)))
 
 (defn optimize-qubit-usage
   "Optimize a circuit to use the minimum number of qubits.
@@ -430,15 +426,14 @@
         qubit-mapping (create-qubit-mapping used-qubits)
         optimized-qubits (count used-qubits)
         
-        ;; Remap all gates to use the new qubit IDs
-        optimized-gates (mapv #(remap-gate-qubits % qubit-mapping)
-                              (:gates circuit))
+        ;; Remap all operations to use the new qubit IDs
+        optimized-operations (mapv #(remap-operation-qubits % qubit-mapping)
+                              (:operations circuit))
         
         ;; Create optimized circuit
         optimized-circuit (assoc circuit
                                  :num-qubits optimized-qubits
-                                 :gates optimized-gates)
-        
+                                 :operations optimized-operations)
         qubits-saved (- original-qubits optimized-qubits)]
     
     {:quantum-circuit optimized-circuit
@@ -447,56 +442,54 @@
      :original-qubits original-qubits
      :optimized-qubits optimized-qubits}))
 
-(defn optimize-for-backend
-  "Comprehensive circuit optimization for a specific backend.
+(defn optimize
+  "Comprehensive circuit optimization for specific supported operations.
   
   This function combines multiple optimization strategies:
-  1. Transform gates to backend-supported equivalents
+  1. Transform operations to supported equivalents
   2. Optimize qubit usage to minimize qubit count
-  3. Optionally apply gate sequence optimizations
+  3. Optionally apply operation sequence optimizations
   
   Parameters:
   - circuit: Quantum circuit to optimize
-  - backend: Target backend for optimization
+  - supported-operations: Set of supported operations for optimization
   - options: Optional map with optimization options:
       :optimize-qubits? - Whether to optimize qubit usage (default: true)
-      :transform-gates? - Whether to transform unsupported gates (default: true)
+      :transform-operations? - Whether to transform unsupported operations (default: true)
       :max-iterations - Maximum decomposition iterations (default: 100)
   
   Returns:
   Map containing:
   - :quantum-circuit - The fully optimized circuit
-  - :transformation-result - Result from gate transformation
+  - :transformation-result - Result from operation transformation
   - :qubit-optimization-result - Result from qubit optimization (if enabled)
   - :optimization-summary - Human-readable summary of all optimizations
   
   Example:
-  (optimize-for-backend my-circuit backend {:optimize-qubits? true})
+  (optimize my-circuit #{:h :x :z :cnot} {:optimize-qubits? true})
   ;=> {:quantum-circuit <optimized-circuit>, 
   ;    :transformation-result {...}, 
   ;    :qubit-optimization-result {...},
   ;    :optimization-summary \"...\"}"
-  ([circuit backend]
-   (optimize-for-backend circuit backend {}))
+  ([circuit supported-operations]
+   (optimize circuit supported-operations {}))
   
-  ([circuit backend options]
-   {:pre [(s/valid? ::qc/quantum-circuit circuit)
-          (satisfies? org.soulspace.qclojure.application.backend/QuantumBackend backend)]}
+  ([circuit supported-operations options]
+   {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
    
    (let [optimize-qubits? (get options :optimize-qubits? true)
-         transform-gates? (get options :transform-gates? true)
+         transform-operations? (get options :transform-operations? true)
          
-         ;; Step 1: Transform gates to backend-supported equivalents
-         transformation-result (if transform-gates?
-                                 (transform-circuit circuit backend options)
-                                 ;; Even if not transforming, we should identify unsupported gates
-                                 (let [supported-gates (qb/get-supported-gates backend)
-                                       gate-types (map :gate-type (:gates circuit))
-                                       unsupported (filterv #(not (contains? supported-gates %)) gate-types)
+         ;; Step 1: Transform operations to supported equivalents
+         transformation-result (if transform-operations?
+                                 (transform-circuit circuit supported-operations options)
+                                 ;; Even if not transforming, we should identify unsupported operations
+                                 (let [operation-types (map :operation-type (:operation circuit))
+                                       unsupported (filterv #(not (contains? supported-operations %)) operation-types)
                                        unique-unsupported (vec (distinct unsupported))]
                                    {:quantum-circuit circuit
-                                    :transformed-gates 0
-                                    :unsupported-gates unique-unsupported}))
+                                    :transformed-operations 0
+                                    :unsupported-operations unique-unsupported}))
          
          transformed-circuit (:quantum-circuit transformation-result)
          
@@ -516,12 +509,12 @@
                       "- Original qubits: " (:num-qubits circuit) "\n"
                       "- Final qubits: " (:num-qubits final-circuit) "\n"
                       "- Qubits saved: " (:qubits-saved qubit-optimization-result) "\n"
-                      "- Original gates: " (count (:gates circuit)) "\n"
-                      "- Final gates: " (count (:gates final-circuit)) "\n"
-                      "- Gates transformed: " (:transformed-gates transformation-result) "\n"
-                      "- Unsupported gates: " (if (empty? (:unsupported-gates transformation-result))
+                      "- Original operation: " (count (:operations circuit)) "\n"
+                      "- Final operation: " (count (:operations final-circuit)) "\n"
+                      "- Operations transformed: " (:transformed-operation transformation-result) "\n"
+                      "- Unsupported operation: " (if (empty? (:unsupported-operation transformation-result))
                                                 "None"
-                                                (pr-str (:unsupported-gates transformation-result))))]
+                                                (pr-str (:unsupported-operation transformation-result))))]
      
      {:quantum-circuit final-circuit
       :transformation-result transformation-result

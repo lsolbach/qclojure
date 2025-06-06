@@ -3,16 +3,16 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]
+            [org.soulspace.qclojure.domain.operation-registry :as gr]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
-(deftest test-gate-registry
-  (testing "Gate catalog validation"
-    (is (contains? gr/gate-catalog :x))
-    (is (contains? gr/gate-catalog :cnot))
-    (is (contains? gr/gate-catalog :h))
-    (is (contains? gr/gate-catalog :rx)))
+(deftest test-operation-registry
+  (testing "Operation catalog validation"
+    (is (contains? gr/operation-catalog :x))
+    (is (contains? gr/operation-catalog :cnot))
+    (is (contains? gr/operation-catalog :h))
+    (is (contains? gr/operation-catalog :rx)))
   
   (testing "Gate set validation"
     (is (gr/validate-gate-set #{:x :y :z}))
@@ -20,8 +20,8 @@
   
   (testing "Gate information retrieval"
     (let [x-gate-info (gr/get-gate-info :x)]
-      (is (= :x (:gate-id x-gate-info)))
-      (is (= :single-qubit (:gate-type x-gate-info))))
+      (is (= :x (:operation-id x-gate-info)))
+      (is (= :single-qubit (:operation-type x-gate-info))))
     
     (is (nil? (gr/get-gate-info :nonexistent-gate))))
   

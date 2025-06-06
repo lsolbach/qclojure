@@ -3,41 +3,8 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.application.circuit-transformer :as ct]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]))
-
-;; Mock backend for testing
-(deftype MockBackend [supported-gates]
-  qb/QuantumBackend
-  (get-backend-info [_]
-    {:backend-type :simulator
-     :backend-name "Mock Backend"
-     :capabilities {:max-qubits 5}
-     :supported-gates supported-gates})
-
-  (get-supported-gates [_]
-    supported-gates)
-
-  (is-available? [_]
-    true)
-
-  (submit-circuit [_ _ _]
-    "mock-job-1")
-
-  (get-job-status [_ _]
-    :completed)
-
-  (get-job-result [_ _]
-    {:job-status :completed
-     :job-id "mock-job-1"
-     :measurement-results {"00" 500, "11" 500}})
-
-  (cancel-job [_ _]
-    true)
-
-  (get-queue-status [_]
-    {:queued 0 :running 0 :completed 0}))
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;;
 ;; Circuit Transformer Tests
@@ -50,17 +17,15 @@
                       (qc/y-gate 1)
                       (qc/cnot-gate 0 1))
 
-          ;; Create a backend that doesn't support Y gates
-          backend (->MockBackend #{:h :x :z :rx :rz :cnot})
-
+          ;; Use a set that doesn't support Y gates
           ;; Transform the circuit
-          result (ct/transform-circuit circuit backend)]
+          result (ct/transform-circuit circuit #{:h :x :z :rx :rz :cnot})]
 
       ;; Verify that the Y gate was transformed
-      (is (pos? (:transformed-gates result)))
+      (is (pos? (:transformed-operations result)))
 
-      ;; Verify that no unsupported gates remain
-      (is (empty? (:unsupported-gates result)))
+      ;; Verify that no unsupported operations remain
+      (is (empty? (:unsupported-operations result)))
 
       ;; Verify the circuit is valid
       (is (s/valid? ::qc/quantum-circuit (:quantum-circuit result)))))
@@ -70,14 +35,12 @@
           circuit (-> (qc/create-circuit 1)
                       (qc/add-gate :custom-gate :target 0))
 
-          ;; Create a backend with limited supported gates
-          backend (->MockBackend #{:x :h :cnot})
-
+          ;; Use a set with limited supported gates
           ;; Transform the circuit
-          result (ct/transform-circuit circuit backend)]
+          result (ct/transform-circuit circuit #{:x :h :cnot})]
 
       ;; Verify that the unsupported gate is reported
-      (is (seq (:unsupported-gates result))))))
+      (is (seq (:unsupported-operations result))))))
 
 (deftest test-transformation-options
   (testing "Non-transformation option"
@@ -85,18 +48,16 @@
           circuit (-> (qc/create-circuit 1)
                       (qc/y-gate 0))
 
-          ;; Create a backend that doesn't support Y gates
-          backend (->MockBackend #{:h :x :cnot})
-
+          ;; Use a set that doesn't support Y gates
           ;; Transform with transformation disabled
-          result (ct/transform-circuit circuit backend
+          result (ct/transform-circuit circuit #{:h :x :cnot}
                                        {:transform-unsupported? false})]
 
       ;; Verify the circuit was not transformed
-      (is (zero? (:transformed-gates result)))
+      (is (zero? (:transformed-operations result)))
 
       ;; Verify that the Y gate is reported as unsupported
-      (is (= [:y] (:unsupported-gates result))))))
+      (is (= [:y] (:unsupported-operations result))))))
 
 (deftest test-max-iterations
   (testing "Circuit transformation doesn't hit max iterations"
@@ -106,17 +67,15 @@
                       (qc/y-gate 1)    ;; Decomposes to rx, rz
                       (qc/y-gate 2))   ;; Decomposes to rx, rz
 
-          ;; Create a backend with limited gate support that forces decomposition
-          backend (->MockBackend #{:h :x :z :rz :cnot})
-
+          ;; Use a set with limited gate support that forces decomposition
           ;; Transform with a slightly higher max iterations to prevent hitting the limit
-          result (ct/transform-circuit circuit backend {:max-iterations 20})]
-
+          result (ct/transform-circuit circuit #{:h :x :z :rz :cnot} {:max-iterations 20})]
+      
       ;; The transformation should complete without hitting max iterations
-      ;; and should report the appropriate unsupported gates
+      ;; and should report the appropriate unsupported operations
       (is (some? result))
 
-      ;; If we're still seeing unsupported gates like :rx, that's OK
+      ;; If we're still seeing unsupported operations like :rx, that's OK
       ;; The important thing is that we don't hit an infinite loop
       (is (s/valid? ::qc/quantum-circuit (:quantum-circuit result))))))
 
@@ -130,21 +89,18 @@
                       (qc/cnot-gate 0 1)  ;; CNOT gate
                       (qc/cz-gate 1 2)) ;; Requires decomposition
 
-          ;; Create a backend that only supports universal gates
-          universal-backend (->MockBackend gr/universal-gate-set)
-
           ;; Transform the circuit
-          result (ct/transform-circuit circuit universal-backend)]
+          result (ct/transform-circuit circuit gr/universal-gate-set)]
 
       ;; Check that transformation succeeded
       (is (some? result))
 
       ;; Check that no unsupported gates remain
-      (is (empty? (:unsupported-gates result)))
+      (is (empty? (:unsupported-operations result)))
 
       ;; Check that all gates in the result are from the universal set
-      (is (every? #(contains? gr/universal-gate-set (:gate-type %))
-                  (:gates (:quantum-circuit result)))))))
+      (is (every? #(contains? gr/universal-gate-set (:operation-type %))
+                  (:operations (:quantum-circuit result)))))))
 
 (deftest test-universal-gate-set2
   (testing "Any circuit can be transformed to use only universal gates"
@@ -156,21 +112,19 @@
                       (qc/cnot-gate 0 1)  ;; CNOT gate
                       (qc/add-gate :swap {:control 1 :target 2})) ;; Using generic add-gate
 
-          ;; Create a backend that only supports universal gates
-          universal-backend (->MockBackend gr/universal-gate-set)
 
           ;; Transform the circuit
-          result (ct/transform-circuit circuit universal-backend)]
+          result (ct/transform-circuit circuit gr/universal-gate-set)]
 
       ;; Check that transformation succeeded
       (is (some? result))
 
       ;; Check that no unsupported gates remain
-      (is (empty? (:unsupported-gates result)))
+      (is (empty? (:unsupported-operations result)))
 
       ;; Check that all gates in the result are from the universal set
-      (is (every? #(contains? gr/universal-gate-set (:gate-type %))
-                  (:gates (:quantum-circuit result)))))))
+      (is (every? #(contains? gr/universal-gate-set (:operation-type %))
+                  (:operations (:quantum-circuit result)))))))
 
 (comment
   ;; Run tests
@@ -179,9 +133,8 @@
   ;; Specific testing for debugging
   (let [circuit (-> (qc/create-circuit 2)
                     (qc/h-gate 0)
-                    (qc/y-gate 1))
-        backend (->MockBackend #{:h :x :z :cnot})]
-    (ct/transform-circuit circuit backend)))
+                    (qc/y-gate 1))]
+    (ct/transform-circuit circuit #{:h :x :z :cnot})))
 
 ;;
 ;; Circuit Optimizer Tests
@@ -257,21 +210,20 @@
       ;; Check optimized circuit
       (let [optimized-circuit (:quantum-circuit result)]
         (is (= 3 (:num-qubits optimized-circuit)))
-        (is (= 4 (count (:gates optimized-circuit))))
+        (is (= 4 (count (:operations optimized-circuit))))
 
         ;; Check that gate qubits were remapped correctly
-        (let [gates (:gates optimized-circuit)]
+        (let [operations (:operations optimized-circuit)]
           ;; H gate on original qubit 0 -> new qubit 0
-          (is (= 0 (get-in (first gates) [:gate-params :target])))
+          (is (= 0 (get-in (first operations) [:operation-params :target])))
           ;; X gate on original qubit 3 -> new qubit 1
-          (is (= 1 (get-in (second gates) [:gate-params :target])))
+          (is (= 1 (get-in (second operations) [:operation-params :target])))
           ;; CNOT gates: (0,7) -> (0,2) and (3,7) -> (1,2)
-          (let [cnot1 (nth gates 2)
-                cnot2 (nth gates 3)]
-            (is (or (and (= 0 (get-in cnot1 [:gate-params :control]))
-                         (= 2 (get-in cnot1 [:gate-params :target])))
-                    (and (= 1 (get-in cnot1 [:gate-params :control]))
-                         (= 2 (get-in cnot1 [:gate-params :target]))))))))
+          (let [cnot1 (nth operations 2)]
+            (is (or (and (= 0 (get-in cnot1 [:operation-params :control]))
+                         (= 2 (get-in cnot1 [:operation-params :target])))
+                    (and (= 1 (get-in cnot1 [:operation-params :control]))
+                         (= 2 (get-in cnot1 [:operation-params :target]))))))))
 
       ;; Verify circuit is still valid
       (is (s/valid? ::qc/quantum-circuit (:quantum-circuit result)))))
@@ -307,7 +259,7 @@
       ;; Optimized circuit should have 0 qubits
       (let [optimized-circuit (:quantum-circuit result)]
         (is (= 0 (:num-qubits optimized-circuit)))
-        (is (empty? (:gates optimized-circuit)))))))
+        (is (empty? (:operations optimized-circuit)))))))
 
 (deftest test-optimize-for-backend
   (testing "Comprehensive backend optimization"
@@ -318,19 +270,17 @@
                       (qc/cnot-gate 0 5) ;; Uses sparse qubits
                       (qc/x-gate 5))
 
-          ;; Backend that doesn't support Y gates
-          backend (->MockBackend #{:h :x :z :rx :rz :cnot})
-
+          ;; Set that doesn't support Y gates
           ;; Perform comprehensive optimization
-          result (ct/optimize-for-backend circuit backend)]
+          result (ct/optimize circuit #{:h :x :z :rx :rz :cnot})]
 
       ;; Check that optimization succeeded
       (is (some? result))
 
       ;; Check transformation result
       (let [transformation (:transformation-result result)]
-        (is (pos? (:transformed-gates transformation)))
-        (is (empty? (:unsupported-gates transformation))))
+        (is (pos? (:transformed-operations transformation)))
+        (is (empty? (:unsupported-operations transformation))))
 
       ;; Check qubit optimization result
       (let [qubit-opt (:qubit-optimization-result result)]
@@ -344,24 +294,23 @@
 
       ;; Check summary
       (is (string? (:optimization-summary result)))
-      (is (not (empty? (:optimization-summary result))))))
+      (is (seq (:optimization-summary result)))))
 
   (testing "Optimization with options"
     (let [circuit (-> (qc/create-circuit 5 "Test Circuit")
                       (qc/h-gate 0)
                       (qc/y-gate 3))  ;; Sparse usage and unsupported gate
-          backend (->MockBackend #{:h :x :cnot})
 
           ;; Optimize with only qubit optimization enabled
-          result (ct/optimize-for-backend circuit backend
+          result (ct/optimize circuit #{:h :x :cnot}
                                           {:transform-gates? false
                                            :optimize-qubits? true})]
 
       ;; Should have optimized qubits but not transformed gates
       (let [transformation (:transformation-result result)
             qubit-opt (:qubit-optimization-result result)]
-        (is (zero? (:transformed-gates transformation)))
-        (is (seq (:unsupported-gates transformation))) ;; Y gate still unsupported
+        (is (zero? (:transformed-operations transformation)))
+        (is (seq (:unsupported-operations transformation))) ;; Y gate still unsupported
         (is (pos? (:qubits-saved qubit-opt))))))
 
   (testing "Optimization with no changes needed"
@@ -369,15 +318,12 @@
           circuit (-> (qc/create-circuit 2 "Perfect Circuit")
                       (qc/h-gate 0)
                       (qc/cnot-gate 0 1))
-          backend (->MockBackend #{:h :cnot})
-
-          result (ct/optimize-for-backend circuit backend)
-          ;; Should report no changes
+          result (ct/optimize circuit #{:h :cnot})
           transformation (:transformation-result result)
           qubit-opt (:qubit-optimization-result result)]
 
-      (is (zero? (:transformed-gates transformation)))
-      (is (empty? (:unsupported-gates transformation)))
+      (is (zero? (:transformed-operations transformation)))
+      (is (empty? (:unsupported-operations transformation)))
       (is (zero? (:qubits-saved qubit-opt)))
       (is (= 2 (:optimized-qubits qubit-opt))))))
 
@@ -392,16 +338,16 @@
           result (ct/optimize-qubit-usage circuit)
           ;; Check that parameters are preserved after qubit remapping
           optimized-circuit (:quantum-circuit result)
-          gates (:gates optimized-circuit)]
+          operations (:operations optimized-circuit)]
 
       (is (= 2 (:num-qubits optimized-circuit)))
-      (is (= 3 (count gates)))
+      (is (= 3 (count operations)))
 
       ;; Check that angle parameters are preserved
-      (doseq [gate gates]
-        (when (contains? (:gate-params gate) :angle)
-          (is (number? (get-in gate [:gate-params :angle])))
-          (is (pos? (get-in gate [:gate-params :angle])))))))
+      (doseq [operation operations]
+        (when (contains? (:operation-params operation) :angle)
+          (is (number? (get-in operation [:operation-params :angle])))
+          (is (pos? (get-in operation [:operation-params :angle])))))))
 
   (testing "Multi-qubit gate parameter remapping"
     (let [;; Circuit with multi-qubit gates using sparse qubits
@@ -416,24 +362,22 @@
       (is (= {0 0, 1 1, 3 2, 5 3} (:qubit-mapping result)))
 
       ;; Check that multi-qubit gate parameters were remapped correctly
-      (let [gates (:gates (:quantum-circuit result))]
-        (is (= 2 (count gates)))
+      (let [operations (:operations (:quantum-circuit result))]
+        (is (= 2 (count operations)))
 
         ;; Check Toffoli gate parameters
-        (let [toffoli-gate (first gates)]
-          (is (= :toffoli (:gate-type toffoli-gate)))
-          (is (= 1 (get-in toffoli-gate [:gate-params :control1])))
-          (is (= 2 (get-in toffoli-gate [:gate-params :control2])))
-          (is (= 3 (get-in toffoli-gate [:gate-params :target]))))
+        (let [toffoli-gate (first operations)]
+          (is (= :toffoli (:operation-type toffoli-gate)))
+          (is (= 1 (get-in toffoli-gate [:operation-params :control1])))
+          (is (= 2 (get-in toffoli-gate [:operation-params :control2])))
+          (is (= 3 (get-in toffoli-gate [:operation-params :target]))))
 
         ;; Check Fredkin gate parameters
-        (let [fredkin-gate (second gates)]
-          (is (= :fredkin (:gate-type fredkin-gate)))
-          (is (= 0 (get-in fredkin-gate [:gate-params :control])))
-          (is (= 1 (get-in fredkin-gate [:gate-params :target1])))
-          (is (= 3 (get-in fredkin-gate [:gate-params :target2]))))))))
-
-;; Existing tests continue below...
+        (let [fredkin-gate (second operations)]
+          (is (= :fredkin (:operation-type fredkin-gate)))
+          (is (= 0 (get-in fredkin-gate [:operation-params :control])))
+          (is (= 1 (get-in fredkin-gate [:operation-params :target1])))
+          (is (= 3 (get-in fredkin-gate [:operation-params :target2]))))))))
 
 (comment
   ;; Run tests
@@ -442,6 +386,5 @@
   ;; Specific testing for debugging
   (let [circuit (-> (qc/create-circuit 2)
                     (qc/h-gate 0)
-                    (qc/y-gate 1))
-        backend (->MockBackend #{:h :x :z :cnot})]
-    (ct/transform-circuit circuit backend)))
+                    (qc/y-gate 1))]
+    (ct/transform-circuit circuit #{:h :x :z :cnot})))

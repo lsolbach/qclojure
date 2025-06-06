@@ -8,7 +8,7 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.gate-registry :as gr]))
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Specs for hardware interface
 (s/def ::backend-type #{:simulator :hardware :cloud})
@@ -563,19 +563,19 @@
    circuit backend options))
 
 ;; Specs for utility functions
-(s/fdef supports-gate?
+(s/fdef supports-operation?
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gate keyword?)
+               :operation keyword?)
   :ret boolean?)
 
-(s/fdef supports-gates?
+(s/fdef supports-operations?
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gates (s/coll-of keyword?))
+               :operations (s/coll-of keyword?))
   :ret boolean?)
 
-(s/fdef get-unsupported-gates
+(s/fdef get-unsupported-operations
   :args (s/cat :backend #(satisfies? QuantumBackend %)
-               :gates (s/coll-of keyword?))
+               :operations (s/coll-of keyword?))
   :ret ::gr/gate-set)
 
 (s/fdef transform-circuit-for-backend

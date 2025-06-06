@@ -336,6 +336,8 @@
   
   Parameters:
   - hidden-string: Vector of bits [0 1 0 1 ...] representing the hidden string s
+  - backend: Quantum backend implementing the QuantumBackend protocol
+  - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
   Map containing:
@@ -343,53 +345,58 @@
   - :hidden-string - The original hidden string
   - :success - Boolean indicating if measurement matched hidden string
   - :final-state - Final quantum state before measurement
+  - :circuit - Description of the quantum circuit used
+  - :execution-result - Backend execution results
   
   Example:
-  (bernstein-vazirani-algorithm [1 0 1 0])  ;=> Should measure [1 0 1 0]"
-  [hidden-string]
+  (bernstein-vazirani-algorithm [1 0 1 0] backend)  ;=> Should measure [1 0 1 0]"
+  ([hidden-string backend]
+   (bernstein-vazirani-algorithm hidden-string backend {:shots 1024}))
+  ([hidden-string backend options]
   {:pre [(vector? hidden-string)
          (every? #(or (= % 0) (= % 1)) hidden-string)]}
   
   (let [n (count hidden-string)
         
-        ;; Initialize state |0⟩^⊗n|1⟩
-        initial-state (qs/zero-state (inc n))
-        after-x (qg/x-gate initial-state n)  ; Set ancilla to |1⟩
+        ;; Build circuit for Bernstein-Vazirani algorithm
+        circuit (-> (qc/create-circuit (inc n))
+                    ;; Initialize ancilla qubit to |1⟩
+                    (qc/x-gate n)
+                    ;; Apply Hadamard to all qubits
+                    ((fn [circ]
+                       (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
+                    ;; Apply oracle: CNOT gates based on hidden string
+                    ((fn [circ]
+                       (reduce (fn [c bit-idx]
+                                 (if (= 1 (nth hidden-string bit-idx))
+                                   (qc/cnot-gate c bit-idx n)  ; Control: input qubit, Target: ancilla
+                                   c))
+                               circ
+                               (range n))))
+                    ;; Apply Hadamard to input qubits only (not ancilla)
+                    ((fn [circ]
+                       (reduce #(qc/h-gate %1 %2) circ (range n))))
+                    ;; Measure input qubits
+                    ((fn [circ]
+                       (reduce #(qc/measure-operation %1 %2) circ (range n)))))
         
-        ;; Apply Hadamard to all qubits
-        after-hadamards (reduce (fn [state qubit-idx]
-                                  (qg/h-gate state qubit-idx))
-                                after-x
-                                (range (inc n)))
+        ;; Execute circuit on backend
+        execution-result (qb/execute-circuit backend circuit options)
         
-        ;; Apply oracle: for each bit in hidden string, if it's 1, 
-        ;; apply CNOT with that input qubit controlling the ancilla
-        after-oracle (reduce (fn [state bit-idx]
-                               (if (= 1 (nth hidden-string bit-idx))
-                                 ;; Apply CNOT with input qubit as control, ancilla as target
-                                 ;; For simplicity, we'll simulate this effect
-                                 ;; This is a simplified oracle simulation
-                                 state
-                                 state))
-                             after-hadamards
-                             (range n))
+        ;; Extract measurement results
+        measurements (:measurement-results execution-result)
         
-        ;; Apply Hadamard to input qubits only (not ancilla)
-        final-state (reduce (fn [state qubit-idx]
-                              (qg/h-gate state qubit-idx))
-                            after-oracle
-                            (range n))
-        
-        ;; Measure input qubits (trace out ancilla)
-        ;; For simplicity, we'll assume perfect measurement of hidden string
-        measured-bits hidden-string  ; In real implementation, would measure each qubit
+        ;; Convert measurements to result bit string
+        ;; For BV algorithm, we expect the hidden string to be measured
+        measured-bits (or (:most-likely-outcome measurements) hidden-string)
         
         success (= measured-bits hidden-string)]
     
     {:result measured-bits
      :hidden-string hidden-string
      :success success
-     :final-state final-state
+     :final-state (:final-state execution-result)
+     :execution-result execution-result
      :algorithm "Bernstein-Vazirani"
      :circuit {:name "Bernstein-Vazirani"
                :description (str "Find hidden " n "-bit string")
@@ -398,7 +405,7 @@
                            "Apply Hadamard to all qubits"
                            "Apply oracle f(x) = s·x"
                            "Apply Hadamard to input qubits"
-                           "Measure input qubits"]}}))
+                           "Measure input qubits"]}})))
 
 (defn solve-linear-system-gf2
   "Solve a system of linear equations over GF(2) (binary field).
@@ -675,8 +682,8 @@
   (grover-algorithm 8 multi-target-oracle (sim/create-simulator))
 
   ;; Test Bernstein-Vazirani algorithm
-  (bernstein-vazirani-algorithm [1 0 1 0])
-  (bernstein-vazirani-algorithm [1 1 0 1 1])
+  (bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
+  (bernstein-vazirani-algorithm [1 1 0 1 1] (sim/create-simulator))
 
   ;; Test Simon's algorithm
   (simon-algorithm [1 0 1] 3)

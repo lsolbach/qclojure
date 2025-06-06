@@ -1,28 +1,33 @@
 (ns org.soulspace.qclojure.domain.circuit
   "Quantum circuit representation and execution"
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]))
+            [org.soulspace.qclojure.domain.gate :as qg]
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Specs for quantum circuits
-(s/def ::gate-type keyword?)
+(s/def ::operation-kind keyword?)
+(s/def ::operation-type keyword?)
 (s/def ::qubit-target nat-int?)
 (s/def ::qubit-control nat-int?)
 (s/def ::angle number?)
 (s/def ::measurement-qubits (s/coll-of nat-int? :kind vector?))
-(s/def ::gate-params (s/keys :opt-un [::qubit-target ::qubit-control ::angle ::measurement-qubits]))
+(s/def ::operation-params (s/keys :opt-un [::qubit-target ::qubit-control ::angle ::measurement-qubits]))
 
-(s/def ::quantum-gate
-  (s/keys :req-un [::gate-type]
-          :opt-un [::gate-params]))
+;; Quantum operation (gates + measurements + other non-unitary operations)
+(s/def ::quantum-operation
+  (s/keys :req-un [::operation-kind
+                   ::operation-type]
+          :opt-un [::operation-params]))
 
 (s/def ::quantum-circuit
-  (s/keys :req-un [::gates ::num-qubits]
+  (s/keys :req-un [::operations ::num-qubits]
           :opt-un [::name ::description]))
 
-(s/def ::gates (s/coll-of ::quantum-gate :kind vector?))
+(s/def ::operations (s/coll-of ::quantum-operation :kind vector?))
 (s/def ::num-qubits pos-int?)
 (s/def ::name string?)
 (s/def ::description string?)
@@ -38,7 +43,7 @@
 (defn create-circuit
   "Create a new quantum circuit.
   
-  A quantum circuit is a data structure representing a sequence of quantum gates
+  A quantum circuit is a data structure representing a sequence of quantum operations
   to be applied to a quantum system. This function initializes an empty circuit
   with the specified number of qubits.
   
@@ -49,39 +54,59 @@
   
   Returns:
   A quantum circuit map containing:
-  - :gates - Empty vector to hold quantum gates
+  - :operations - Empty vector to hold quantum operations (gates + measurements)
   - :num-qubits - Number of qubits the circuit operates on
   - :name - Optional name for the circuit
   - :description - Optional description of the circuit's purpose
   
   Examples:
   (create-circuit 2)
-  ;=> {:gates [], :num-qubits 2}
+  ;=> {:operations [], :num-qubits 2}
   
   (create-circuit 3 \"My Circuit\")
-  ;=> {:gates [], :num-qubits 3, :name \"My Circuit\"}
+  ;=> {:operations [], :num-qubits 3, :name \"My Circuit\"}
   
   (create-circuit 2 \"Bell State\" \"Prepares entangled Bell state\")
-  ;=> {:gates [], :num-qubits 2, :name \"Bell State\", :description \"Prepares entangled Bell state\"}"
+  ;=> {:operations [], :num-qubits 2, :name \"Bell State\", :description \"Prepares entangled Bell state\"}"
   ([num-qubits]
-   {:gates []
+   {:operations []
     :num-qubits num-qubits})
   ([num-qubits name]
-   {:gates []
+   {:operations []
     :num-qubits num-qubits
     :name name})
   ([num-qubits name description]
-   {:gates []
+   {:operations []
     :num-qubits num-qubits
     :name name
     :description description}))
 
+(defn add-operation
+  "Add a quantum operation (gate or measurement) to a quantum circuit.
+  
+  This is the core function for building quantum circuits by appending operations
+  to the operation sequence. Operations can be either unitary gates or non-unitary
+  measurements.
+  
+  Parameters:
+  - circuit: A quantum circuit map (created with create-circuit)
+  - operation-type: Keyword identifying the type of operation (:x, :y, :z, :h, :cnot, :measure, etc.)
+  - params: Map of operation parameters
+  
+  Returns:
+  Updated quantum circuit with the new operation appended to the :operations vector"
+  [circuit operation-type params]
+  {:pre [(s/valid? ::quantum-circuit circuit)
+         (keyword? operation-type)]}
+  (let [operation {:operation-type operation-type
+                   :operation-params params}]
+    (update circuit :operations conj operation)))
+
 (defn add-gate
   "Add a quantum gate to a quantum circuit.
   
-  This is the core function for building quantum circuits by appending gates
-  to the gate sequence. Gates are represented as maps with a gate type and
-  optional parameters.
+  This function builds quantum circuits by appending unitary gates. Gates are
+  represented as operations with specific gate types and parameters.
   
   Parameters:
   - circuit: A quantum circuit map (created with create-circuit)
@@ -95,25 +120,28 @@
   - angle: (optional) Rotation angle for parameterized gates (in radians)
   
   Returns:
-  Updated quantum circuit with the new gate appended to the :gates vector
+  Updated quantum circuit with the new gate appended to the :operations vector
   
   Examples:
   (add-gate (create-circuit 2) :x :target 0)
-  ;=> {:gates [{:gate-type :x, :gate-params {:target 0}}], :num-qubits 2}
+  ;=> {:operations [{:operation-type :x, :operation-params {:target 0}}], :num-qubits 2}
   
   (add-gate (create-circuit 2) :cnot :control 0 :target 1)
-  ;=> {:gates [{:gate-type :cnot, :gate-params {:control 0, :target 1}}], :num-qubits 2}
+  ;=> {:operations [{:operation-type :cnot, :operation-params {:control 0, :target 1}}], :num-qubits 2}
   
   (add-gate (create-circuit 1) :rx :target 0 :angle 1.57)
-  ;=> {:gates [{:gate-type :rx, :gate-params {:target 0, :angle 1.57}}], :num-qubits 1}"
+  ;=> {:operations [{:operation-type :rx, :operation-params {:target 0, :angle 1.57}}], :num-qubits 1}"
   [circuit gate-type & {:keys [target target1 target2 control control1 control2 angle] :as params}]
   {:pre [(s/valid? ::quantum-circuit circuit)
-         (s/valid? ::gate-type gate-type)]}
-  (let [gate {:gate-type gate-type}
-        gate-with-params (if (seq params)
-                           (assoc gate :gate-params params)
-                           gate)]
-    (update circuit :gates conj gate-with-params)))
+         (keyword? gate-type)]}
+  (let [resolved-gate-type (gr/resolve-gate-alias gate-type)]
+    ;; Validate that the resolved gate type is known
+    (when-not (gr/get-gate-info-with-alias resolved-gate-type)
+      (throw (ex-info "Unknown gate type"
+                      {:operation-type gate-type
+                       :resolved-operation-type resolved-gate-type})))
+    ;; Add as an operation 
+    (add-operation circuit resolved-gate-type params)))
 
 ;; Common gate addition functions
 (defn x-gate
@@ -373,7 +401,7 @@
   ([circuit control target]
    (add-gate circuit :cnot :control control :target target)))
 
-(def cx-gate
+#_(def cx-gate
   "Alias for CNOT gate.
   
   The CX gate is another name for the CNOT gate, which flips the target qubit
@@ -465,7 +493,7 @@
   (controlled-gate (create-circuit 2) :z 0 1)
   ;=> Circuit with controlled-Z gate, control on qubit 0, target on qubit 1"
   ([circuit gate-type control target]
-   (add-gate circuit :controlled :control control :target target :gate-type gate-type)))
+   (add-gate circuit :controlled :control control :target target :operation-type gate-type)))
 
 (defn crx-gate
   "Add a controlled RX gate to the quantum circuit.
@@ -614,8 +642,49 @@
   ([circuit control target1 target2]
    (add-gate circuit :fredkin :control control :target1 target1 :target2 target2)))
 
+(defn measure-operation
+  "Add a measurement operation to the quantum circuit.
+  
+  The measurement operation performs a quantum measurement in the computational basis
+  on the specified qubits. This collapses the quantum state and produces classical
+  measurement outcomes. Unlike gates, measurements are non-unitary operations.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the measurement to
+  - qubits: Vector of qubit indices to measure (0-indexed)
+  
+  Returns:
+  Updated quantum circuit with measurement operation appended
+  
+  Example:
+  (measure-operation (create-circuit 2) [0 1])
+  ;=> Circuit with measurement of qubits 0 and 1"
+  ([circuit qubits]
+   (add-operation circuit :measure {:measurement-qubits qubits})))
+
+(defn measure-all-operation
+  "Add a measurement operation for all qubits in the circuit.
+  
+  Convenience function that measures all qubits in the quantum circuit.
+  This is equivalent to calling (measure-operation circuit (range num-qubits)).
+  
+  Parameters:
+  - circuit: Quantum circuit to add the measurement to
+  
+  Returns:
+  Updated quantum circuit with measurement of all qubits
+  
+  Example:
+  (measure-all-operation (create-circuit 3))
+  ;=> Circuit with measurement of qubits [0 1 2]"
+  ([circuit]
+   (let [num-qubits (:num-qubits circuit)]
+     (measure-operation circuit (vec (range num-qubits))))))
+
 (defn measure-gate
   "Add a measurement operation to the quantum circuit.
+  
+  DEPRECATED: Use measure-operation instead. This function is kept for backward compatibility.
   
   The measurement gate performs a quantum measurement in the computational basis
   on the specified qubits. This collapses the quantum state and produces classical
@@ -633,10 +702,12 @@
   (measure-gate (create-circuit 2) [0 1])
   ;=> Circuit with measurement of qubits 0 and 1"
   ([circuit qubits]
-   (add-gate circuit :measure :measurement-qubits qubits)))
+   (measure-operation circuit qubits)))
 
 (defn measure-all-gate
   "Add a measurement operation for all qubits in the circuit.
+  
+  DEPRECATED: Use measure-all-operation instead. This function is kept for backward compatibility.
   
   Convenience function that measures all qubits in the quantum circuit.
   This is equivalent to calling (measure-gate circuit (range num-qubits)).
@@ -651,8 +722,7 @@
   (measure-all-gate (create-circuit 3))
   ;=> Circuit with measurement of qubits [0 1 2]"
   ([circuit]
-   (let [num-qubits (:num-qubits circuit)]
-     (measure-gate circuit (vec (range num-qubits))))))
+   (measure-all-operation circuit)))
 
 (defn measure-subsystem
   "Measure specific qubits and return just the measurement outcome.
@@ -676,19 +746,21 @@
   into actual quantum gate operations on quantum states. It handles the
   mapping from gate types to the corresponding gate functions.
   
+  Note: This function only handles unitary gates, not measurements.
+  
   Parameters:
   - state: Quantum state to apply the gate to
-  - gate: Gate map containing :gate-type and optional :gate-params
+  - gate: Gate map containing :operation-type and optional :operation-params
   
   Returns:
   New quantum state after applying the gate
   
   Example:
-  (apply-gate-to-state |0⟩ {:gate-type :x, :gate-params {:target 0}})
+  (apply-gate-to-state |0⟩ {:operation-type :x, :operation-params {:target 0}})
   ;=> |1⟩ state"
   [state gate]
-  (let [gate-type (:gate-type gate)
-        params (:gate-params gate)
+  (let [gate-type (gr/resolve-gate-alias (:operation-type gate))
+        params (:operation-params gate)
         target (:target params)
         control (:control params)
         angle (:angle params)
@@ -763,26 +835,60 @@
                                    {:gate gate}))))
       :controlled (throw (ex-info "General controlled gates not yet implemented"
                                   {:gate gate}))
-      :measure (let [measurement-qubits (:measurement-qubits params)]
-                 (if measurement-qubits
-                   (:collapsed-state (qs/measure-specific-qubits state measurement-qubits))
-                   (throw (ex-info "Measure requires measurement-qubits parameter"
-                                   {:gate gate}))))
-      (throw (ex-info "Unknown gate type" {:gate-type gate-type})))))
+      (throw (ex-info "Unknown gate type" {:operation-type gate-type})))))
+
+(defn apply-measurement-to-state
+  "Apply a measurement operation to a quantum state.
+  
+  This function handles non-unitary measurement operations that collapse
+  the quantum state.
+  
+  Parameters:
+  - state: Quantum state to measure
+  - measurement: Measurement operation map
+  
+  Returns:
+  New quantum state after measurement collapse"
+  [state measurement]
+  (let [params (:operation-params measurement)
+        measurement-qubits (:measurement-qubits params)]
+    (if measurement-qubits
+      (:collapsed-state (qs/measure-specific-qubits state measurement-qubits))
+      (throw (ex-info "Measure requires measurement-qubits parameter"
+                      {:operation measurement})))))
+
+(defn apply-operation-to-state
+  "Apply a quantum operation (gate or measurement) to a quantum state.
+  
+  This function dispatches between unitary gates and non-unitary operations
+  like measurements.
+  
+  Parameters:
+  - state: Quantum state to apply the operation to
+  - operation: Operation map containing :operation-type and :operation-params
+  
+  Returns:
+  New quantum state after applying the operation"
+  [state operation]
+  (let [operation-type (:operation-type operation)]
+    (case operation-type
+      :measure (apply-measurement-to-state state operation)
+      ;; All other operations are treated as unitary gates
+      (apply-gate-to-state state operation))))
 
 (defn execute-circuit
   "Execute a quantum circuit on an initial quantum state.
   
-  Applies all gates in the circuit sequentially to transform the initial
+  Applies all operations in the circuit sequentially to transform the initial
   quantum state into the final state. This is the main function for
   running quantum computations.
   
   Parameters:
-  - circuit: Quantum circuit containing the sequence of gates to apply
+  - circuit: Quantum circuit containing the sequence of operations to apply
   - initial-state: Initial quantum state to start the computation from
   
   Returns:
-  Final quantum state after applying all gates in the circuit
+  Final quantum state after applying all operations in the circuit
   
   Throws:
   Exception if circuit and state have mismatched number of qubits
@@ -794,24 +900,24 @@
   {:pre [(s/valid? ::quantum-circuit circuit)
          (s/valid? ::qs/quantum-state initial-state)
          (= (:num-qubits circuit) (:num-qubits initial-state))]}
-  (reduce apply-gate-to-state initial-state (:gates circuit)))
+  (reduce apply-operation-to-state initial-state (:operations circuit)))
 
 ;; Circuit composition and transformation
 ;; Helper function for circuit composition
-(defn update-gate-params
-  "Update gate parameters based on a qubit mapping function.
+(defn update-operation-params
+  "Update operation parameters based on a qubit mapping function.
   
-  This function handles all types of quantum gates and updates any qubit
-  indices in their parameters based on the provided mapping function.
+  This function handles all types of quantum operations (gates and measurements) 
+  and updates any qubit indices in their parameters based on the provided mapping function.
   
   Parameters:
-  - gate: The quantum gate to update
+  - operation: The quantum operation to update
   - mapping-fn: Function that takes a qubit index and returns a new index
   
   Returns:
-  Updated gate with remapped qubit indices"
-  [gate mapping-fn]
-  (if-let [params (:gate-params gate)]
+  Updated operation with remapped qubit indices"
+  [operation mapping-fn]
+  (if-let [params (:operation-params operation)]
     (let [updated-params
           (reduce-kv (fn [m k v]
                        (cond
@@ -819,19 +925,31 @@
                          (#{:target :control :qubit1 :qubit2 :control1 :control2 :target1 :target2} k)
                          (assoc m k (mapping-fn v))
 
+                         ;; Handle measurement qubits vector
+                         (= k :measurement-qubits)
+                         (assoc m k (mapv mapping-fn v))
+
                          ;; Keep other parameters as they are
                          :else
                          (assoc m k v)))
                      {}
                      params)]
-      (assoc gate :gate-params updated-params))
-    gate))
+      (assoc operation :operation-params updated-params))
+    operation))
+
+(defn update-gate-params
+  "DEPRECATED: Use update-operation-params instead.
+  
+  Update gate parameters based on a qubit mapping function.
+  This function is kept for backward compatibility."
+  [gate mapping-fn]
+  (update-operation-params gate mapping-fn))
 
 (defn extend-circuit
   "Extend a quantum circuit to support a larger number of qubits.
   
   This function creates a new circuit with the specified number of qubits
-  while preserving all the gates of the original circuit. The original 
+  while preserving all the operations of the original circuit. The original 
   circuit operations will apply to the same qubits as before.
   
   With the optional qubit-mapping parameter, you can specify a function
@@ -856,13 +974,13 @@
   {:pre [(s/valid? ::quantum-circuit circuit)
          (>= new-num-qubits (:num-qubits circuit))]}
 
-  ;; Only update gate parameters if the qubit mapping is not identity
-  (let [gates (if (= qubit-mapping identity)
-                (:gates circuit)
-                (mapv #(update-gate-params % qubit-mapping) (:gates circuit)))]
+  ;; Only update operation parameters if the qubit mapping is not identity
+  (let [operations (if (= qubit-mapping identity)
+                     (:operations circuit)
+                     (mapv #(update-operation-params % qubit-mapping) (:operations circuit)))]
     (-> circuit
         (assoc :num-qubits new-num-qubits)
-        (assoc :gates gates)
+        (assoc :operations operations)
         (update :name #(str % (when % " ") "(extended to " new-num-qubits " qubits)")))))
 
 (defn compose-circuits
@@ -887,7 +1005,7 @@
     - :control-qubits-only - Boolean indicating circuit2 operates on control qubits only
   
   Returns:
-  New quantum circuit containing all gates from circuit1 followed by all gates from circuit2
+  New quantum circuit containing all operations from circuit1 followed by all operations from circuit2
   
   Examples:
   (compose-circuits (h-gate (create-circuit 1) 0) (x-gate (create-circuit 1) 0))
@@ -925,11 +1043,11 @@
                      :else
                      identity)
 
-        ;; Apply the mapping function to circuit2's gates
-        mapped-gates-2 (if (= mapping-fn identity)
-                         (:gates circuit2)
-                         (mapv #(update-gate-params % mapping-fn)
-                               (:gates circuit2)))
+        ;; Apply the mapping function to circuit2's operations
+        mapped-operations-2 (if (= mapping-fn identity)
+                              (:operations circuit2)
+                              (mapv #(update-operation-params % mapping-fn)
+                                    (:operations circuit2)))
 
         ;; Extend circuit1 if needed
         target-qubits (if (< num-qubits-1 max-qubits)
@@ -944,7 +1062,7 @@
 
     (-> circuit1
         (assoc :num-qubits target-qubits)
-        (update :gates #(into % mapped-gates-2))
+        (update :operations #(into % mapped-operations-2))
         (assoc :name circuit-name))))
 
 (defn inverse-gate
@@ -960,27 +1078,51 @@
   Gate map representing the inverse gate
   
   Example:
-  (inverse-gate {:gate-type :s, :gate-params {:target 0}})
-  ;=> {:gate-type :s-dagger, :gate-params {:target 0}}"
+  (inverse-gate {:operation-type :s, :operation-params {:target 0}})
+  ;=> {:operation-type :s-dagger, :operation-params {:target 0}}"
   [gate]
-  (let [gate-type (:gate-type gate)
-        params (:gate-params gate)]
+  (let [gate-type (:operation-type gate)]
     (case gate-type
       ;; Self-inverse gates
       (:x :y :z :h :cnot) gate
       ;; Gates with simple inverses
-      :s (assoc gate :gate-type :s-dagger)
-      :t (assoc gate :gate-type :t-dagger)
+      :s (assoc gate :operation-type :s-dagger)
+      :t (assoc gate :operation-type :t-dagger)
       ;; Rotation gates - negate angle
-      (:rx :ry :rz) (update-in gate [:gate-params :angle] -)
+      (:rx :ry :rz) (update-in gate [:operation-params :angle] -)
       ;; Default: assume self-inverse
       gate)))
+
+(defn inverse-operation
+  "Get the inverse (adjoint) of a quantum operation.
+  
+  For unitary gates, returns the inverse gate operation.
+  For measurements, returns nil as measurements cannot be inverted.
+  
+  Parameters:
+  - operation: Operation map containing :operation-type and optional :operation-params
+  
+  Returns:
+  Operation map representing the inverse operation, or nil for measurements"
+  [operation]
+  (let [operation-kind (:operation-kind operation)
+        operation-type (:operation-type operation)]
+    (case operation-kind
+      ;; Measurements cannot be inverted
+      :measurement nil
+      ;; For all other operations, treat as gates and invert
+      (let [as-gate {:operation-type operation-type 
+                     :operation-params (:operation-params operation)}
+            inverse-gate (inverse-gate as-gate)]
+        {:operation-type (:operation-type inverse-gate)
+         :operation-params (:operation-params inverse-gate)}))))
 
 (defn inverse-circuit
   "Create the inverse (adjoint) of a quantum circuit.
   
   The inverse circuit undoes the effect of the original circuit.
-  It applies the inverse of each gate in reverse order.
+  It applies the inverse of each unitary operation in reverse order.
+  Measurement operations are filtered out as they cannot be inverted.
   
   Parameters:
   - circuit: Quantum circuit to invert
@@ -993,27 +1135,46 @@
   ;=> Circuit that converts Bell state back to |00⟩"
   [circuit]
   {:pre [(s/valid? ::quantum-circuit circuit)]}
-  (let [inverse-gates (mapv inverse-gate (reverse (:gates circuit)))]
+  (let [;; Get inverse operations, filtering out measurements (nil values)
+        inverse-operations (->> (:operations circuit)
+                                (map inverse-operation)
+                                (filter some?)
+                                reverse
+                                vec)]
     (-> circuit
-        (assoc :gates inverse-gates)
+        (assoc :operations inverse-operations)
         (update :name #(str (or % "Circuit") " (inverse)")))))
 
 ;; Circuit analysis and utility functions
-(defn- gate-qubits
-  "Extract all qubit indices that a gate operates on."
-  [gate]
-  (let [params (:gate-params gate)]
-    (remove nil? [(:target params)
-                  (:control params)
-                  (:qubit1 params)
-                  (:qubit2 params)])))
+(defn- operation-qubits
+  "Extract all qubit indices that an operation operates on."
+  [operation]
+  (let [params (:operation-params operation)
+        operation-type (:operation-type operation)]
+    (case operation-type
+      :measure
+      ;; For measurements, return the qubits being measured
+      (or (:measurement-qubits params) [])
+      
+      ;; For gates, extract target, control, and other qubit parameters
+      (remove nil? [(:target params)
+                    (:control params)
+                    (:qubit1 params)
+                    (:qubit2 params)
+                    (:control1 params)
+                    (:control2 params)
+                    (:target1 params)
+                    (:target2 params)]))))
 
 (defn circuit-depth
-  "Calculate the depth (number of sequential gate layers) of a quantum circuit.
+  "Calculate the depth (number of sequential operation layers) of a quantum circuit.
   
   Circuit depth is the minimum number of time steps needed to execute the circuit,
-  assuming gates that operate on different qubits can be executed in parallel.
+  assuming operations that operate on different qubits can be executed in parallel.
   This is an important metric for circuit optimization and noise analysis.
+  
+  Note: Measurements are treated as operations that can be parallelized with gates
+  on different qubits but require their own time step.
   
   Parameters:
   - circuit: Quantum circuit to analyze
@@ -1026,42 +1187,80 @@
   ;=> 2 (H gate in layer 1, CNOT in layer 2)"
   [circuit]
   {:pre [(s/valid? ::quantum-circuit circuit)]}
-  (let [gates (:gates circuit)
+  (let [operations (:operations circuit)
         num-qubits (:num-qubits circuit)]
-    (if (empty? gates)
+    (if (empty? operations)
       0
       (let [qubit-last-layer (vec (repeat num-qubits 0))
-            final-layers (reduce (fn [last-layers gate]
-                                   (let [qubits-used (gate-qubits gate)
+            final-layers (reduce (fn [last-layers operation]
+                                   (let [qubits-used (operation-qubits operation)
                                          max-prev-layer (if (empty? qubits-used)
                                                           0
                                                           (apply max (map #(nth last-layers %) qubits-used)))
                                          new-layer (inc max-prev-layer)]
                                      (reduce #(assoc %1 %2 new-layer) last-layers qubits-used)))
                                  qubit-last-layer
-                                 gates)]
+                                 operations)]
         (apply max final-layers)))))
 
-(defn circuit-gate-count
-  "Count the total number of gates in a quantum circuit.
+(defn circuit-operation-count
+  "Count the total number of operations in a quantum circuit.
   
   Provides a simple metric for circuit complexity and resource requirements.
+  Includes both gates and measurements.
   
   Parameters:
   - circuit: Quantum circuit to analyze
   
   Returns:
-  Integer representing the total number of gates
+  Integer representing the total number of operations
+  
+  Example:
+  (circuit-operation-count bell-circuit)
+  ;=> 2 (H gate + CNOT gate)"
+  [circuit]
+  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  (count (:operations circuit)))
+
+(defn circuit-gate-count
+  "Count the number of gates (excluding measurements) in a quantum circuit.
+  
+  Provides a metric for unitary operation complexity.
+  
+  Parameters:
+  - circuit: Quantum circuit to analyze
+  
+  Returns:
+  Integer representing the number of gates (excluding measurements)
   
   Example:
   (circuit-gate-count bell-circuit)
   ;=> 2 (H gate + CNOT gate)"
   [circuit]
   {:pre [(s/valid? ::quantum-circuit circuit)]}
-  (count (:gates circuit)))
+  (count (filter #(not= (:operation-type %) :measure) (:operations circuit))))
+
+(defn circuit-operation-types
+  "Get a summary of operation types used in the circuit.
+  
+  Returns a map with operation types as keys and counts as values,
+  useful for analyzing circuit composition. Includes both gates and measurements.
+  
+  Parameters:
+  - circuit: Quantum circuit to analyze
+  
+  Returns:
+  Map of operation type keywords to counts
+  
+  Example:
+  (circuit-operation-types bell-circuit-with-measurement)
+  ;=> {:h 1, :cnot 1, :measure 1}"
+  [circuit]
+  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  (frequencies (map :operation-type (:operations circuit))))
 
 (defn circuit-gate-types
-  "Get a summary of gate types used in the circuit.
+  "Get a summary of gate types used in the circuit (excluding measurements).
   
   Returns a map with gate types as keys and counts as values,
   useful for analyzing circuit composition.
@@ -1077,37 +1276,53 @@
   ;=> {:h 1, :cnot 1}"
   [circuit]
   {:pre [(s/valid? ::quantum-circuit circuit)]}
-  (frequencies (map :gate-type (:gates circuit))))
+  (frequencies (map :operation-type 
+                    (filter #(not= (:operation-type %) :measure) (:operations circuit)))))
 
-(defn- gate-display
-  "Create a string representation of a gate for display purposes."
-  [gate-type params]
-  (case gate-type
-    :x (str "X(" (:target params) ")")
-    :y (str "Y(" (:target params) ")")
-    :z (str "Z(" (:target params) ")")
-    :h (str "H(" (:target params) ")")
-    :s (str "S(" (:target params) ")")
-    :s-dag (str "S†(" (:target params) ")")
-    :t (str "T(" (:target params) ")")
-    :t-dag (str "T†(" (:target params) ")")
-    :phase (str "P(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :rx (str "RX(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :ry (str "RY(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :rz (str "RZ(" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :cnot (str "CNOT(" (:control params) "→" (:target params) ")")
-    :cx (str "CX(" (:control params) "→" (:target params) ")")
-    :cy (str "CY(" (:control params) "→" (:target params) ")")
-    :cz (str "CZ(" (:control params) "→" (:target params) ")")
-    :crx (str "CRX(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :cry (str "CRY(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :crz (str "CRZ(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
-    :swap (str "SWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
-    :iswap (str "iSWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
-    :toffoli (str "TOFFOLI(" (:control1 params) "," (:control2 params) "→" (:target params) ")")
-    :fredkin (str "FREDKIN(" (:control params) "→" (:target1 params) "↔" (:target2 params) ")")
-    :controlled (str "C" (name (:gate-type params)) "(" (:control params) "→" (:target params) ")")
-    (str (name gate-type) "(" (pr-str params) ")")))
+(defn- operation-display
+  "Create a string representation of an operation (gate or measurement) for display purposes."
+  [operation]
+  (let [operation-type (:operation-type operation)
+        params (:operation-params operation)]
+    (case operation-type
+      ;; Measurement operations
+      :measure (let [qubits (:measurement-qubits params)]
+                 (if (= 1 (count qubits))
+                   (str "MEASURE(" (first qubits) ")")
+                   (str "MEASURE(" (str/join "," qubits) ")")))
+      
+      ;; Single-qubit gates
+      :x (str "X(" (:target params) ")")
+      :y (str "Y(" (:target params) ")")
+      :z (str "Z(" (:target params) ")")
+      :h (str "H(" (:target params) ")")
+      :s (str "S(" (:target params) ")")
+      :s-dag (str "S†(" (:target params) ")")
+      :t (str "T(" (:target params) ")")
+      :t-dag (str "T†(" (:target params) ")")
+      :phase (str "P(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :rx (str "RX(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :ry (str "RY(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :rz (str "RZ(" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      
+      ;; Two-qubit gates
+      :cnot (str "CNOT(" (:control params) "→" (:target params) ")")
+      :cx (str "CX(" (:control params) "→" (:target params) ")")
+      :cy (str "CY(" (:control params) "→" (:target params) ")")
+      :cz (str "CZ(" (:control params) "→" (:target params) ")")
+      :crx (str "CRX(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :cry (str "CRY(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :crz (str "CRZ(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :swap (str "SWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
+      :iswap (str "iSWAP(" (:qubit1 params) "↔" (:qubit2 params) ")")
+      
+      ;; Multi-qubit gates
+      :toffoli (str "TOFFOLI(" (:control1 params) "," (:control2 params) "→" (:target params) ")")
+      :fredkin (str "FREDKIN(" (:control params) "→" (:target1 params) "↔" (:target2 params) ")")
+      :controlled (str "C" (name (:gate-type params)) "(" (:control params) "→" (:target params) ")")
+      
+      ;; Default case for unknown operations
+      (str (name operation-type) "(" (pr-str params) ")"))))
 
 (defn print-circuit
   "Print a human-readable representation of a quantum circuit.
@@ -1132,16 +1347,14 @@
   (let [name (get circuit :name "Unnamed Circuit")
         description (get circuit :description "")
         num-qubits (:num-qubits circuit)
-        gates (:gates circuit)]
+        operations (:operations circuit)]
     (println (str name " (" num-qubits " qubits):"))
     (when (seq description)
       (println (str "  " description)))
-    (if (empty? gates)
+    (if (empty? operations)
       (println "  (empty circuit)")
-      (doseq [gate gates]
-        (let [gate-type (:gate-type gate)
-              params (:gate-params gate)]
-          (println (str "  " (gate-display gate-type params))))))))
+      (doseq [operation operations]
+        (println (str "  " (operation-display operation)))))))
 
 ;; Predefined quantum circuits
 (defn bell-state-circuit

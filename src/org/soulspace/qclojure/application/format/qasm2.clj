@@ -21,8 +21,8 @@
                     "creg c[" (:num-qubits circuit) "];\n\n")
 
         gate-to-qasm (fn [gate]
-                       (let [gate-type (:gate-type gate)
-                             params (:gate-params gate)]
+                       (let [gate-type (:operation-type gate)
+                             params (:operation-params gate)]
                          (case gate-type
                            :x (str "x q[" (:target params) "];")
                            :y (str "y q[" (:target params) "];")
@@ -48,7 +48,7 @@
                            :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
                            (str "// Unknown gate: " (name gate-type)))))
 
-        gates-qasm (str/join "\n" (map gate-to-qasm (:gates circuit)))
+        gates-qasm (str/join "\n" (map gate-to-qasm (:operations circuit)))
 
         footer "\nmeasure q -> c;"]
 

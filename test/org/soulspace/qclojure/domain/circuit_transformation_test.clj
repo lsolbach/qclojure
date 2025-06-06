@@ -112,7 +112,6 @@
                       (qc/cnot-gate 0 1)  ;; CNOT gate
                       (qc/add-gate :swap {:control 1 :target 2})) ;; Using generic add-gate
 
-
           ;; Transform the circuit
           result (ct/transform-circuit circuit gr/universal-gate-set)]
 

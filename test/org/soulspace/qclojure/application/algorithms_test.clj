@@ -105,7 +105,7 @@
     (let [target-item 3
           search-size 8
           oracle-fn #(= % target-item)
-          result (qa/grover-algorithm search-size oracle-fn  (sim/create-simulator))]
+          result (qa/grover-algorithm search-size oracle-fn (sim/create-simulator))]
       (is (contains? result :measurements))
       (is (contains? result :target-indices))
       (is (contains? result :probability))
@@ -136,7 +136,7 @@
                           [0 1 0]
                           [1]]
           test-hidden-string (fn [s]
-                               (let [result (qa/bernstein-vazirani-algorithm s)]
+                               (let [result (qa/bernstein-vazirani-algorithm s (sim/create-simulator))]
                                  (is (= (:hidden-string result) s))
                                  (is (contains? result :success))
                                  (is (contains? result :algorithm))
@@ -145,7 +145,7 @@
         (test-hidden-string s))))
   
   (testing "BV algorithm includes circuit information"
-    (let [result (qa/bernstein-vazirani-algorithm [1 0 1])]
+    (let [result (qa/bernstein-vazirani-algorithm [1 0 1] (sim/create-simulator))]
       (is (contains? result :circuit))
       (is (= (get-in result [:circuit :name]) "Bernstein-Vazirani"))
       (is (contains? (:circuit result) :qubits))
@@ -250,7 +250,7 @@
 
 (def bernstein-vazirani-correctness
   (prop/for-all [hidden-string (gen/not-empty (gen/vector (gen/elements [0 1]) 1 6))]
-    (let [result (qa/bernstein-vazirani-algorithm hidden-string)]
+    (let [result (qa/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))]
       (= (:hidden-string result) hidden-string))))
 
 (def simon-algorithm-valid-structure
@@ -282,7 +282,7 @@
 
           deutsch-result (qa/deutsch-algorithm constant-fn  (sim/create-simulator))
           grover-result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))
-          bv-result (qa/bernstein-vazirani-algorithm hidden-string)
+          bv-result (qa/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))
           simon-result (qa/simon-algorithm hidden-string 3)
           qpe-result (qa/quantum-phase-estimation phase 4)]
 
@@ -306,7 +306,7 @@
   (testing "Algorithm complexity metadata is consistent"
     (let [results [(qa/deutsch-algorithm identity (sim/create-simulator))
                    (qa/grover-algorithm 4 #(= % 1) (sim/create-simulator))
-                   (qa/bernstein-vazirani-algorithm [1 0])
+                   (qa/bernstein-vazirani-algorithm [1 0] (sim/create-simulator))
                    (qa/simon-algorithm [1 0] 2)
                    (qa/quantum-phase-estimation 0.5 3)]]
       
@@ -339,7 +339,7 @@
   ;; Manual algorithm verification
   (qa/deutsch-algorithm (constantly true)  (sim/create-simulator))
   (qa/grover-algorithm 8 #(= % 3) (sim/create-simulator))
-  (qa/bernstein-vazirani-algorithm [1 0 1 0])
+  (qa/bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
   (qa/simon-algorithm [1 0 1] 3)
   (qa/quantum-phase-estimation 0.375 4)
 

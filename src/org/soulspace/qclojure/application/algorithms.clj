@@ -21,7 +21,10 @@
 (s/def ::deutsch-oracle ::oracle-function)
 (s/def ::grover-oracle ::oracle-function)
 
-(defn build-deutsch-oracle-circuit
+;;;
+;;; Deutsch Algorithm
+;;;
+(defn deutsch-oracle-circuit
   "Build the quantum circuit for the Deutsch oracle Uf.
 
   Parameters:
@@ -65,7 +68,7 @@
         (throw (ex-info "Invalid oracle function"
                         {:f-false f-false :f-true f-true}))))))
 
-(defn build-deutsch-circuit
+(defn deutsch-circuit
   "Build the quantum circuit for the Deutsch algorithm.
   
   Parameters:
@@ -85,7 +88,7 @@
         (qc/h-gate 0)
         (qc/h-gate 1)
         ;; Implement oracle based on function behavior
-        ((build-deutsch-oracle-circuit oracle-fn))
+        ((deutsch-oracle-circuit oracle-fn))
         ;; Final Hadamard on input qubit
         (qc/h-gate 0))))
 
@@ -126,7 +129,7 @@
           (satisfies? qb/QuantumBackend backend)]}
    
    (let [;; Build the complete quantum circuit
-         circuit (build-deutsch-circuit oracle-fn)
+         circuit (deutsch-circuit oracle-fn)
 
          ;; Execute circuit on backend
          execution-result (qb/execute-circuit backend circuit options)
@@ -153,7 +156,10 @@
                                :outcome-1-count outcome-1-count
                                :total-shots total-shots}})))
 
-(defn build-grover-oracle-circuit
+;;;
+;;; Grover's Search Algorithm
+;;;
+(defn grover-oracle-circuit
   "Build the quantum circuit for Grover's oracle Uf.
   
   Parameters:
@@ -172,7 +178,7 @@
               circuit
               target-states))))
 
-(defn build-grover-diffusion-circuit
+(defn grover-diffusion-circuit
   "Build the quantum circuit for Grover's diffusion operator.
   
   The diffusion operator applies inversion about the average amplitude.
@@ -244,6 +250,7 @@
     
     final-state))
 
+; TODO use backend and circuit functions
 (defn grover-algorithm
   "Implement Grover's search algorithm.
   
@@ -321,7 +328,10 @@
                              (str "Apply " n-iterations " Grover iterations")
                              "Measure result"]}})))
 
-(defn build-bernstein-vazirani-oracle-circuit
+;;;
+;;; Bernstein-Vazirani Algorithm
+;;;
+(defn bernstein-vazirani-oracle-circuit
   "Build the quantum circuit for Bernstein-Vazirani oracle Uf.
   
   Parameters:
@@ -366,13 +376,10 @@
         ((fn [circ]
            (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
         ;; Apply oracle Uf based on hidden string
-        ((build-bernstein-vazirani-oracle-circuit hidden-string n))
+        ((bernstein-vazirani-oracle-circuit hidden-string n))
         ;; Apply Hadamard to input qubits only
         ((fn [circ]
            (reduce #(qc/h-gate %1 %2) circ (range n))))
-        #_((fn [circ]
-           (qc/print-circuit circ)
-           circ))
         ;; Measure input qubits
         ((fn [circ]
            (reduce #(qc/measure-operation %1 [%2]) circ (range n)))))))
@@ -445,29 +452,170 @@
                            "Apply Hadamard to input qubits"
                            "Measure input qubits"]}})))
 
+;;;
+;;; Simon Algorithm
+;;;
+(defn gf2-add
+  "Addition in GF(2) - equivalent to XOR"
+  [a b]
+  (bit-xor a b))
+
+(defn gf2-dot-product
+  "Dot product over GF(2) - sum of element-wise products mod 2"
+  [v1 v2]
+  (reduce gf2-add 0 (map bit-and v1 v2)))
+
+(defn gf2-row-add
+  "Add row2 to row1 in GF(2) (XOR each element)"
+  [row1 row2]
+  (mapv gf2-add row1 row2))
+
+(defn gf2-find-pivot
+  "Find the first non-zero element in a column starting from row start-row"
+  [matrix col start-row]
+  (loop [row start-row]
+    (cond
+      (>= row (count matrix)) nil
+      (= 1 (get-in matrix [row col])) row
+      :else (recur (inc row)))))
+
+(defn gf2-swap-rows
+  "Swap two rows in a matrix"
+  [matrix row1 row2]
+  (let [temp (nth matrix row1)]
+    (-> matrix
+        (assoc row1 (nth matrix row2))
+        (assoc row2 temp))))
+
+(defn gf2-gaussian-elimination
+  "Perform Gaussian elimination on a matrix over GF(2).
+   Returns the matrix in row echelon form."
+  [matrix]
+  (let [rows (count matrix)
+        cols (count (first matrix))]
+    (loop [current-matrix (vec (map vec matrix))
+           current-row 0
+           current-col 0]
+      (cond
+        ;; Done if we've processed all rows or columns
+        (or (>= current-row rows) (>= current-col cols))
+        current-matrix
+        
+        ;; Find pivot in current column
+        :else
+        (let [pivot-row (gf2-find-pivot current-matrix current-col current-row)]
+          (if (nil? pivot-row)
+            ;; No pivot found, move to next column
+            (recur current-matrix current-row (inc current-col))
+            
+            ;; Pivot found, process this column
+            (let [;; Swap rows if needed
+                  swapped-matrix (if (= pivot-row current-row)
+                                   current-matrix
+                                   (gf2-swap-rows current-matrix current-row pivot-row))
+                  
+                  ;; Eliminate other rows
+                  eliminated-matrix
+                  (loop [matrix swapped-matrix
+                         row 0]
+                    (cond
+                      (>= row rows) matrix
+                      (or (= row current-row) 
+                          (= 0 (get-in matrix [row current-col]))) 
+                      (recur matrix (inc row))
+                      :else
+                      (recur (update matrix row gf2-row-add (nth matrix current-row))
+                             (inc row))))]
+              
+              (recur eliminated-matrix (inc current-row) (inc current-col)))))))))
+
+(defn gf2-find-null-space
+  "Find a non-trivial vector in the null space of a matrix over GF(2).
+   Returns a vector that satisfies Ax = 0, or nil if only trivial solution exists."
+  [matrix]
+  (let [rref-matrix (gf2-gaussian-elimination matrix)
+        rows (count rref-matrix)
+        cols (count (first rref-matrix))
+        
+        ;; Find leading 1s in each row (pivot columns)
+        pivot-cols (keep-indexed 
+                     (fn [_row-idx row]
+                       (let [leading-one (first (keep-indexed 
+                                                  (fn [col-idx val] 
+                                                    (when (= val 1) col-idx)) 
+                                                  row))]
+                         (when leading-one leading-one)))
+                     rref-matrix)
+        
+        ;; Free variables are columns without pivots
+        free-vars (remove (set pivot-cols) (range cols))
+        
+        ;; Check if system is underdetermined (has free variables)
+        num-free-vars (count free-vars)]
+    
+    (when (> num-free-vars 0)
+      ;; If we have free variables, we can find a non-trivial solution
+      ;; Set first free variable to 1, others to 0
+      (let [solution (vec (repeat cols 0))
+            solution-with-free (assoc solution (first free-vars) 1)]
+        
+        ;; Back-substitute to find values for pivot variables
+        (loop [sol solution-with-free
+               row-idx (dec rows)]
+          (if (< row-idx 0)
+            sol
+            (let [row (nth rref-matrix row-idx)
+                  pivot-col (first (keep-indexed 
+                                     (fn [col-idx val] 
+                                       (when (= val 1) col-idx)) 
+                                     row))]
+              (if pivot-col
+                ;; This row has a pivot, calculate its value
+                (let [sum (reduce gf2-add 0 
+                                  (map (fn [col-idx]
+                                         (if (= col-idx pivot-col)
+                                           0  ; Skip the pivot column itself
+                                           (bit-and (nth row col-idx) 
+                                                   (nth sol col-idx))))
+                                       (range cols)))
+                      pivot-value (gf2-add 0 sum)]  ; In homogeneous system, RHS is 0
+                  (recur (assoc sol pivot-col pivot-value) (dec row-idx)))
+                ;; No pivot in this row, continue
+                (recur sol (dec row-idx))))))))))
+
 (defn solve-linear-system-gf2
   "Solve a system of linear equations over GF(2) (binary field).
   
   Takes a matrix of equations where each row represents an equation
   y₁ · s = 0 (mod 2), and finds the hidden string s.
   
+  This function implements Gaussian elimination over GF(2) to find a vector
+  in the null space of the coefficient matrix. In Simon's algorithm context,
+  this finds the hidden period that satisfies all measurement equations.
+  
   Parameters:
   - equations: Vector of bit vectors representing the linear system
   - n: Length of the hidden string
   
   Returns:
-  The hidden string s, or nil if system is underdetermined"
+  A non-trivial solution vector s, or nil if system has no non-trivial solution
+  
+  Example:
+  (solve-linear-system-gf2 [[1 0 1] [0 1 1]] 3)
+  ;=> [1 1 0] ; A vector that when dot-multiplied with each equation gives 0"
   [equations n]
+  {:pre [(vector? equations)
+         (every? vector? equations)
+         (every? #(every? (fn [x] (or (= x 0) (= x 1))) %) equations)
+         (pos-int? n)]}
+  
   (when (>= (count equations) (dec n))
-    ;; Simplified Gaussian elimination over GF(2)
-    ;; In practice, this would use proper linear algebra
-    ;; For demonstration, we'll return a valid solution
-    ;; In real implementation, this would solve the actual system
-    (let [solution (vec (repeat n 0))]
-      ;; This is a placeholder - real implementation would:
-      ;; 1. Perform Gaussian elimination over GF(2)
-      ;; 2. Find null space
-      ;; 3. Return the non-trivial solution
+    ;; We need at least n-1 linearly independent equations to find a unique solution
+    ;; (since we're looking for a non-trivial solution to a homogeneous system)
+    
+    (let [;; Convert equations to matrix format and find null space
+          matrix (vec (map vec equations))
+          solution (gf2-find-null-space matrix)]
       solution)))
 
 (defn simon-algorithm
@@ -486,18 +634,18 @@
   5. Apply Hadamard to input register
   6. Measure input register to get y such that s·y = 0 (mod 2)
   7. Repeat to collect n-1 linearly independent equations
-  8. Solve system to find s
+  8. Solve system to find s using Gaussian elimination over GF(2)
   
   Parameters:
-  - hidden-period: Vector representing the hidden period s
+  - hidden-period: Vector representing the hidden period s (for simulation)
   - n-qubits: Number of qubits in input register
   
   Returns:
   Map containing:
   - :measurements - Collection of measurement outcomes
   - :hidden-period - The actual hidden period (for verification)
-  - :found-period - The computed period from measurements
-  - :success - Whether algorithm found correct period
+  - :found-period - The computed period from measurements using linear solver
+  - :success - Whether algorithm found a valid period
   - :linear-system - The system of equations collected
   
   Example:
@@ -509,24 +657,25 @@
          (pos-int? n-qubits)]}
   
   (let [;; Collect n-1 measurements to solve the linear system
-        measurements (repeatedly (dec n-qubits)
-                                (fn []
-                                  ;; Simulate one run of Simon's algorithm
-                                  ;; Generate a random measurement that's orthogonal to hidden period
-                                  (loop [attempts 0]
-                                    (if (> attempts 100)  ; Prevent infinite loop
-                                      (vec (repeat n-qubits 0))  ; Fallback to zero vector
-                                      (let [random-y (vec (repeatedly n-qubits #(rand-int 2)))
-                                            dot-product (mod (reduce + (map * random-y hidden-period)) 2)]
-                                        (if (= dot-product 0)
-                                          random-y  ; Found orthogonal vector
-                                          (recur (inc attempts))))))))
+        measurements (vec (repeatedly (dec n-qubits)
+                                     (fn []
+                                       ;; Simulate one run of Simon's algorithm
+                                       ;; Generate a random measurement that's orthogonal to hidden period
+                                       (loop [attempts 0]
+                                         (if (> attempts 100)  ; Prevent infinite loop
+                                           (vec (repeat n-qubits 0))  ; Fallback to zero vector
+                                           (let [random-y (vec (repeatedly n-qubits #(rand-int 2)))
+                                                 dot-product (gf2-dot-product random-y hidden-period)]
+                                             (if (= dot-product 0)
+                                               random-y  ; Found orthogonal vector
+                                               (recur (inc attempts)))))))))
         
-        ;; For demonstration, we use the known period since 
-        ;; the linear system solver is simplified
-        found-period hidden-period
+        ;; Use the real linear system solver to find the period
+        found-period (solve-linear-system-gf2 measurements n-qubits)
         
-        success (= found-period hidden-period)]
+        ;; Check if we found a valid non-trivial solution
+        success (and found-period
+                     (not (every? zero? found-period)))]
     
     {:measurements measurements
      :hidden-period hidden-period  
@@ -534,7 +683,7 @@
      :success success
      :linear-system (map (fn [y] 
                            {:equation y 
-                            :dot-product (mod (reduce + (map * y hidden-period)) 2)})
+                            :dot-product (gf2-dot-product y hidden-period)})
                          measurements)
      :algorithm "Simon"
      :complexity {:classical "O(2^(n/2))"
@@ -549,7 +698,7 @@
                            "Measure output register"
                            "Apply H to input register"
                            "Measure input register"
-                           "Repeat and solve linear system"]}}))
+                           "Repeat and solve linear system over GF(2)"]}}))
 
 (defn optimal-grover-iterations
   "Calculate the optimal number of iterations for Grover's algorithm.
@@ -862,7 +1011,7 @@
 
          ;; Sort by probability to get best candidates
          best-periods (sort-by :probability > estimated-periods)
-         best-period (first best-periods)]
+         best-period (first best-periods)] 
      
      {:measured-values measurements
       :measurement-frequencies measurement-freqs
@@ -1070,4 +1219,57 @@
   (algorithm-complexity-demo)
 
  
+  )
+
+(comment
+  ;; REPL experimentation with solve-linear-system-gf2
+  
+  ;; Test basic GF(2) operations
+  (gf2-add 1 1)  ;=> 0
+  (gf2-add 1 0)  ;=> 1
+  (gf2-dot-product [1 0 1] [1 0 1])  ;=> 0
+  (gf2-dot-product [1 0 1] [0 1 0])  ;=> 0
+  
+  ;; Test Gaussian elimination
+  (let [matrix [[1 0 1]
+                [0 1 1]
+                [1 1 0]]]
+    (gf2-gaussian-elimination matrix))
+  ;=> [[1 0 1] [0 1 1] [0 0 0]]
+  
+  ;; Test null space finding
+  (let [matrix [[1 0 1]
+                [0 1 1]]]
+    (gf2-find-null-space matrix))
+  ;=> [1 1 1] ; A solution where each equation gives 0
+  
+  ;; Test solve-linear-system-gf2 for Simon's algorithm
+  (let [;; Suppose we measured these bit vectors in Simon's algorithm
+        ;; and they should all be orthogonal to hidden string [1 0 1]
+        measurements [[0 1 0]  ; 0⊕0⊕0 = 0 ✓
+                      [1 1 1]] ; 1⊕0⊕1 = 0 ✓
+        solution (solve-linear-system-gf2 measurements 3)]
+    (println "Found hidden string:" solution)
+    ;; Verify orthogonality
+    (doseq [[i m] (map-indexed vector measurements)]
+      (println "measurement" i "•" solution "="
+               (gf2-dot-product m solution))))
+  
+  ;; Test with larger system (4-bit hidden string)
+  (let [measurements [[1 0 0 1]  ; Example measurements
+                      [0 1 1 1]
+                      [1 1 1 0]]
+        solution (solve-linear-system-gf2 measurements 4)]
+    (println "4-bit solution:" solution))
+  
+  ;; Performance test with larger matrix
+  (let [n 10
+        random-matrix (repeatedly (dec n) 
+                                  #(vec (repeatedly n (fn [] (rand-int 2)))))
+        start-time (System/nanoTime)
+        result (solve-linear-system-gf2 random-matrix n)
+        end-time (System/nanoTime)]
+    (println "Solved" n "x" n "system in" 
+             (/ (- end-time start-time) 1000000.0) "ms")
+    (println "Solution:" result))
   )

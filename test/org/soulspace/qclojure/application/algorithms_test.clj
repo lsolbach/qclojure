@@ -6,7 +6,8 @@
             [clojure.test.check.properties :as prop]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.algorithms :as qa]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]
+            [clojure.string :as s]))
 
 ;; Test continued fraction expansion
 (deftest test-continued-fraction
@@ -156,7 +157,7 @@
 (deftest test-simon-algorithm
   (testing "Simon's algorithm structure and metadata"
     (let [hidden-period [1 0 1]
-          result (qa/simon-algorithm hidden-period 3)]
+          result (qa/simon-algorithm hidden-period (sim/create-simulator))]
       (is (= (:hidden-period result) hidden-period))
       (is (contains? result :measurements))
       (is (contains? result :found-period))
@@ -167,14 +168,14 @@
   (testing "Simon's algorithm with different period lengths"
     (let [periods [[1 0] [1 1 0 1] [0 1 0 1 0]]
           test-period (fn [p]
-                        (let [result (qa/simon-algorithm p (count p))]
+                        (let [result (qa/simon-algorithm p (sim/create-simulator))]
                           (is (= (:hidden-period result) p))
                           (is (= (count (:measurements result)) (dec (count p))))))]
       (doseq [p periods]
         (test-period p))))
   
   (testing "Simon's algorithm complexity information"
-    (let [result (qa/simon-algorithm [1 0 1] 3)]
+    (let [result (qa/simon-algorithm [1 0 1] (sim/create-simulator))]
       (is (= (get-in result [:complexity :classical]) "O(2^(n/2))"))
       (is (= (get-in result [:complexity :quantum]) "O(n)"))
       (is (= (get-in result [:complexity :speedup]) "Exponential")))))
@@ -257,7 +258,7 @@
 (def simon-algorithm-valid-structure
   (prop/for-all [period-length (gen/choose 2 4)]
     (let [period (vec (concat [1] (repeatedly (dec period-length) #(rand-int 2))))
-          result (qa/simon-algorithm period period-length)]
+          result (qa/simon-algorithm period (sim/create-simulator))]
       (and (= (:hidden-period result) period)
            (= (count (:measurements result)) (dec period-length))
            (= (:algorithm result) "Simon")))))
@@ -284,7 +285,7 @@
           deutsch-result (qa/deutsch-algorithm constant-fn  (sim/create-simulator))
           grover-result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))
           bv-result (qa/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))
-          simon-result (qa/simon-algorithm hidden-string 3)
+          simon-result (qa/simon-algorithm hidden-string (sim/create-simulator))
           qpe-result (qa/quantum-phase-estimation phase 4)]
 
       ;; Ensure all algorithms return valid results
@@ -308,7 +309,7 @@
     (let [results [(qa/deutsch-algorithm identity (sim/create-simulator))
                    (qa/grover-algorithm 4 #(= % 1) (sim/create-simulator))
                    (qa/bernstein-vazirani-algorithm [1 0] (sim/create-simulator))
-                   (qa/simon-algorithm [1 0] 2)
+                   (qa/simon-algorithm [1 0] (sim/create-simulator))
                    (qa/quantum-phase-estimation 0.5 3)]]
       
       ;; All results should have algorithm names
@@ -341,7 +342,7 @@
   (qa/deutsch-algorithm (constantly true)  (sim/create-simulator))
   (qa/grover-algorithm 8 #(= % 3) (sim/create-simulator))
   (qa/bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
-  (qa/simon-algorithm [1 0 1] 3)
+  (qa/simon-algorithm [1 0 1] (sim/create-simulator))
   (qa/quantum-phase-estimation 0.375 4)
 
   (qa/shor-algorithm 14)

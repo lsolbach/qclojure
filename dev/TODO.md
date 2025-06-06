@@ -1,13 +1,15 @@
 # TODOs
 
 ## Next steps
-* fix inconsistant usage of operations/gates
 
 ## Backlog
-* move circuit composition and extension to circuit-transformation
-* move math functions (e.g. continued-fractions) to math ns
 * make algorithms use a provided backend
+  * grover
+  * simon
+  * quantum fourier transformation
+  * quantum period finding
 * reduce code duplication
+* fix inconsistant usage of operations/gates
 * add validation/optimization for backend topology (e.g. [[0 1] [1 2] [2 3]])
 * fix vertical alignment of gates in ascii circuit visualization
 * add separation between text and graphics in svg visualization

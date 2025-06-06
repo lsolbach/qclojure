@@ -6,6 +6,7 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]
             [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit-transformation :as qct]
             [org.soulspace.qclojure.domain.modular-arithmetic :as qma]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.backend :as qb]
@@ -369,9 +370,12 @@
         ;; Apply Hadamard to input qubits only
         ((fn [circ]
            (reduce #(qc/h-gate %1 %2) circ (range n))))
+        #_((fn [circ]
+           (qc/print-circuit circ)
+           circ))
         ;; Measure input qubits
         ((fn [circ]
-           (reduce #(qc/measure-operation %1 %2) circ (range n)))))))
+           (reduce #(qc/measure-operation %1 [%2]) circ (range n)))))))
 
 (defn bernstein-vazirani-algorithm
   "Implement the Bernstein-Vazirani algorithm to find a hidden bit string.
@@ -732,74 +736,6 @@
   )
 
 ;; Helper functions for Shor's algorithm
-(defn continued-fraction
-  "Convert a fraction to continued fraction representation.
-  
-  This implementation handles numerical precision issues and early termination
-  conditions that are important for Shor's algorithm. It can detect periodic
-  patterns in the continued fraction expansion, which is crucial for finding
-  the correct period.
-  
-  Parameters:
-  - num: Numerator of the fraction
-  - den: Denominator of the fraction
-  - max-depth: (Optional) Maximum depth of continued fraction expansion
-  - epsilon: (Optional) Precision threshold for detecting near-zero remainders
-  
-  Returns:
-  Vector of continued fraction terms"
-  ([num den]
-   (continued-fraction num den 100 1e-10))
-  ([num den max-depth]
-   (continued-fraction num den max-depth 1e-10))
-  ([num den max-depth epsilon]
-   (loop [n num
-          d den
-          cf []
-          depth 0]
-     (cond
-       ;; Stop if denominator is zero or very close to zero
-       (or (zero? d) (< (Math/abs d) epsilon))
-       cf
-
-       ;; Stop if we've reached max depth to prevent infinite loops
-       (>= depth max-depth)
-       cf
-
-       :else
-       (let [q (quot n d)
-             r (mod n d)]
-         ;; If remainder is very small relative to denominator, stop
-         (if (< (/ r d) epsilon)
-           (conj cf q)
-           (recur d r (conj cf q) (inc depth))))))))
-
-(defn convergents
-  "Calculate convergents from continued fraction representation.
-  
-  This enhanced implementation handles edge cases better and includes
-  additional validation to ensure proper convergence, which is important
-  for accurately extracting periods in Shor's algorithm.
-  
-  Parameters:
-  - cf: Vector of continued fraction terms
-  
-  Returns:
-  Vector of convergents as [numerator denominator] pairs"
-  [cf]
-  (reduce (fn [acc term]
-            (let [h (count acc)]
-              (cond
-                (= h 0) [[term 1]]
-                (= h 1) (conj acc [(+ (* term (ffirst acc)) 1) term])
-                :else (let [prev-2 (nth acc (- h 2))
-                           prev-1 (nth acc (- h 1))
-                           p (+ (* term (first prev-1)) (first prev-2))
-                           q (+ (* term (second prev-1)) (second prev-2))]
-                       (conj acc [p q])))))
-          []
-          cf))
-
 (defn quantum-period-finding
   "Find the period from a phase estimate using improved continued fraction expansion.
   
@@ -820,8 +756,8 @@
         
         ;; Try different depths of continued fraction expansion
         candidates (for [depth [10 20 50 100]
-                         :let [cf (continued-fraction measured-value (Math/pow 2 precision) depth)
-                               convs (convergents cf)]
+                         :let [cf (qmath/continued-fraction measured-value (Math/pow 2 precision) depth)
+                               convs (qmath/convergents cf)]
                          [num den] convs
                          ;; Verify this is actually a period
                          :when (and (pos? den)
@@ -879,7 +815,7 @@
                      ;; Step 2: Apply controlled modular exponentiation
                      ((fn [c]
                         ;; Create and compose the modular exponentiation circuit
-                        (qc/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
+                        (qct/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
 
                      ;; Step 3: Apply inverse QFT to the control register
                      ((fn [c]
@@ -887,7 +823,7 @@
                         (let [iqft-circuit (inverse-quantum-fourier-transform-circuit n-qubits)]
                           ;; Apply the inverse QFT to control qubits only
                           ;; Using the enhanced compose-circuits with control-qubits-only option
-                          (qc/compose-circuits c iqft-circuit {:control-qubits-only true})))))
+                          (qct/compose-circuits c iqft-circuit {:control-qubits-only true})))))
 
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
@@ -909,8 +845,8 @@
                                  :let [;; Calculate phase
                                        measured-phase (/ measured-value (Math/pow 2 n-qubits))
                                        ;; Use improved continued fraction for better period extraction
-                                       cf (continued-fraction measured-value (Math/pow 2 n-qubits))
-                                       convs (convergents cf)
+                                       cf (qmath/continued-fraction measured-value (Math/pow 2 n-qubits))
+                                       convs (qmath/convergents cf)
                                        ;; Find convergent that gives a valid period
                                        period (some (fn [[_num den]]
                                                       (when (and (pos? den)

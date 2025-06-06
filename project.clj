@@ -9,6 +9,9 @@
                  [generateme/fastmath "3.0.0-alpha3"]
                  [hiccup "2.0.0-RC5"]]
 
+  :profiles {:clay {:dependencies [[org.scicloj/clay "2-beta45"]]
+                    :source-paths ["src" "notebook"]}}
+  
   :scm {:name "git" :url "https://github.com/lsolbach/QClojure"}
   :deploy-repositories [["clojars" {:sign-releases false :url "https://clojars.org/repo"}]]
   ;

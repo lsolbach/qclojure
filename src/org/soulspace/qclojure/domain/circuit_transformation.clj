@@ -7,8 +7,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Specs
 (s/def ::transformation-result

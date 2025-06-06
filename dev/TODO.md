@@ -1,13 +1,10 @@
 # TODOs
 
 ## Next steps
-* rename attributes from :gate* to :operation*
-* change usage of :gate* attributes
 * fix inconsistant usage of operations/gates
 
 ## Backlog
 * move circuit composition and extension to circuit-transformation
-* move circuit transformation to domain
 * move math functions (e.g. continued-fractions) to math ns
 * reduce code duplication
 * make algorithms use a provided backend

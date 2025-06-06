@@ -18,7 +18,7 @@
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
-(s/def ::supported-gates ::gr/gate-set)
+(s/def ::supported-gates ::gr/operation-set)
 
 ;; Enhanced specs for cloud backends
 (s/def ::authentication-token string?)
@@ -576,7 +576,7 @@
 (s/fdef get-unsupported-operations
   :args (s/cat :backend #(satisfies? QuantumBackend %)
                :operations (s/coll-of keyword?))
-  :ret ::gr/gate-set)
+  :ret ::gr/operation-set)
 
 (s/fdef transform-circuit-for-backend
   :args (s/cat :circuit ::qc/quantum-circuit

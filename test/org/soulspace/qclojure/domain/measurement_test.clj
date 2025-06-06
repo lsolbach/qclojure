@@ -107,7 +107,7 @@
   (testing "Simple circuit with measurement"
     (let [circuit (-> (qc/create-circuit 1 "Test")
                      (qc/h-gate 0)
-                     (qc/measure-gate [0]))
+                     (qc/measure-operation [0]))
           initial-state (qs/zero-state 1)]
       ;; Execute circuit
       (dotimes [_ 10]
@@ -123,7 +123,7 @@
     (let [circuit (-> (qc/create-circuit 2 "Bell Circuit")
                      (qc/h-gate 0)
                      (qc/cnot-gate 0 1)
-                     (qc/measure-gate [0]))  ; Measure only first qubit
+                     (qc/measure-operation [0]))  ; Measure only first qubit
           initial-state (qs/zero-state 2)]
       ;; Execute multiple times to see probabilistic behavior
       (dotimes [_ 10]
@@ -135,7 +135,7 @@
     (let [circuit (-> (qc/create-circuit 2 "Full Measurement")
                      (qc/h-gate 0)
                      (qc/h-gate 1)
-                     (qc/measure-all-gate))
+                     (qc/measure-all-operation))
           initial-state (qs/zero-state 2)]
       (dotimes [_ 5]
         (let [final-state (qc/execute-circuit circuit initial-state)
@@ -150,7 +150,7 @@
     (let [bell-circuit (-> (qc/create-circuit 2 "Bell State with Measurement")
                            (qc/h-gate 0)
                            (qc/cnot-gate 0 1)
-                           (qc/measure-gate [0 1]))
+                           (qc/measure-operation [0 1]))
           initial-state (qs/zero-state 2)
           final-state (qc/execute-circuit bell-circuit initial-state)
           state-vector (:state-vector final-state)
@@ -163,8 +163,8 @@
   (testing "Single qubit measurement in circuit"
     (let [circuit (-> (qc/create-circuit 2 "Partial Measurement")
                       (qc/h-gate 0)
-                      (qc/h-gate 1)  
-                      (qc/measure-gate [0]))
+                      (qc/h-gate 1)
+                      (qc/measure-operation [0]))
           initial-state (qs/zero-state 2)
           final-state (qc/execute-circuit circuit initial-state)
           state-vector (:state-vector final-state)
@@ -175,7 +175,7 @@
   (testing "Measurement gate with superposition collapse"
     (let [circuit (-> (qc/create-circuit 1 "Plus State Measurement")
                       (qc/h-gate 0)
-                      (qc/measure-gate [0]))
+                      (qc/measure-operation [0]))
           initial-state (qs/zero-state 1)
           final-state (qc/execute-circuit circuit initial-state)
           state-vector (:state-vector final-state)

@@ -99,9 +99,9 @@
 
 (deftest test-spec-validation
   (testing "Gate set specs"
-    (is (s/valid? ::gr/gate-set #{:x :y :z}))
-    (is (not (s/valid? ::gr/gate-set [:x :y :z]))) ; should be set, not vector
-    (is (not (s/valid? ::gr/gate-set #{"x" "y"}))) ; should be keywords
+    (is (s/valid? ::gr/operation-set #{:x :y :z}))
+    (is (not (s/valid? ::gr/operation-set [:x :y :z]))) ; should be set, not vector
+    (is (not (s/valid? ::gr/operation-set #{"x" "y"}))) ; should be keywords
     )
   
   (testing "Backend info specs"

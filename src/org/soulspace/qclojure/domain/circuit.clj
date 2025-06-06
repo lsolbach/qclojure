@@ -401,26 +401,6 @@
   ([circuit control target]
    (add-gate circuit :cnot :control control :target target)))
 
-#_(def cx-gate
-  "Alias for CNOT gate.
-  
-  The CX gate is another name for the CNOT gate, which flips the target qubit
-  if the control qubit is |1⟩. This function is provided for consistency with
-  other quantum programming languages.
-  
-  Parameters:
-  - circuit: Quantum circuit to add the gate to
-  - control: Integer index of the control qubit (0-indexed)
-  - target: Integer index of the target qubit (0-indexed)
-  
-  Returns:
-  Updated quantum circuit with CNOT gate appended
-  
-  Example:
-  (cx-gate (create-circuit 2) 0 1)
-  ;=> Circuit with CNOT gate, control on qubit 0, target on qubit 1"
-  cnot-gate)
-
 (defn cz-gate
   "Add a Controlled-Z gate to the quantum circuit.
   
@@ -681,63 +661,6 @@
    (let [num-qubits (:num-qubits circuit)]
      (measure-operation circuit (vec (range num-qubits))))))
 
-(defn measure-gate
-  "Add a measurement operation to the quantum circuit.
-  
-  DEPRECATED: Use measure-operation instead. This function is kept for backward compatibility.
-  
-  The measurement gate performs a quantum measurement in the computational basis
-  on the specified qubits. This collapses the quantum state and produces classical
-  measurement outcomes. The measurement is probabilistic based on the quantum
-  amplitudes.
-  
-  Parameters:
-  - circuit: Quantum circuit to add the measurement to
-  - qubits: Vector of qubit indices to measure (0-indexed)
-  
-  Returns:
-  Updated quantum circuit with measurement operation appended
-  
-  Example:
-  (measure-gate (create-circuit 2) [0 1])
-  ;=> Circuit with measurement of qubits 0 and 1"
-  ([circuit qubits]
-   (measure-operation circuit qubits)))
-
-(defn measure-all-gate
-  "Add a measurement operation for all qubits in the circuit.
-  
-  DEPRECATED: Use measure-all-operation instead. This function is kept for backward compatibility.
-  
-  Convenience function that measures all qubits in the quantum circuit.
-  This is equivalent to calling (measure-gate circuit (range num-qubits)).
-  
-  Parameters:
-  - circuit: Quantum circuit to add the measurement to
-  
-  Returns:
-  Updated quantum circuit with measurement of all qubits
-  
-  Example:
-  (measure-all-gate (create-circuit 3))
-  ;=> Circuit with measurement of qubits [0 1 2]"
-  ([circuit]
-   (measure-all-operation circuit)))
-
-(defn measure-subsystem
-  "Measure specific qubits and return just the measurement outcome.
-  
-  This is a convenience function that combines partial trace with measurement
-  for algorithms that only care about specific qubit outcomes."
-  [state qubit-indices]
-  (if (= (count qubit-indices) (:num-qubits state))
-    ;; Measuring all qubits - use direct measurement
-    (qs/measure-state state)
-    ;; Measuring subset - use partial trace approach
-    (let [other-qubits (remove (set qubit-indices) (range (:num-qubits state)))
-          traced-state (reduce qs/partial-trace state (reverse other-qubits))]
-      (qs/measure-state traced-state))))
-
 ;; Circuit execution
 (defn apply-gate-to-state
   "Apply a single quantum gate to a quantum state.
@@ -902,6 +825,21 @@
          (= (:num-qubits circuit) (:num-qubits initial-state))]}
   (reduce apply-operation-to-state initial-state (:operations circuit)))
 
+;; Convenience functions for measurement
+(defn measure-subsystem
+  "Measure specific qubits and return just the measurement outcome.
+  
+  This is a convenience function that combines partial trace with measurement
+  for algorithms that only care about specific qubit outcomes."
+  [state qubit-indices]
+  (if (= (count qubit-indices) (:num-qubits state))
+    ;; Measuring all qubits - use direct measurement
+    (qs/measure-state state)
+    ;; Measuring subset - use partial trace approach
+    (let [other-qubits (remove (set qubit-indices) (range (:num-qubits state)))
+          traced-state (reduce qs/partial-trace state (reverse other-qubits))]
+      (qs/measure-state traced-state))))
+
 ;; Circuit composition and transformation
 ;; Helper function for circuit composition
 (defn update-operation-params
@@ -936,14 +874,6 @@
                      params)]
       (assoc operation :operation-params updated-params))
     operation))
-
-(defn update-gate-params
-  "DEPRECATED: Use update-operation-params instead.
-  
-  Update gate parameters based on a qubit mapping function.
-  This function is kept for backward compatibility."
-  [gate mapping-fn]
-  (update-operation-params gate mapping-fn))
 
 (defn extend-circuit
   "Extend a quantum circuit to support a larger number of qubits.

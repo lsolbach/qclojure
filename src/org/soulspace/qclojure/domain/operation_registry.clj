@@ -323,7 +323,7 @@
   Returns: True if all gates are known (after alias resolution)
   
   Example:
-  (validate-gate-set-with-aliases #{:not :phase-flip :h}) ;=> true"
+  (validate-gate-set #{:not :phase-flip :h}) ;=> true"
   [gate-set]
   (let [resolved-gates (into #{} (map resolve-gate-alias gate-set))
         known-gates (into #{} (keys operation-catalog))]

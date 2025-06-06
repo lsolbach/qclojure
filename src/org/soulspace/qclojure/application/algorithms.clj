@@ -320,6 +320,59 @@
                              (str "Apply " n-iterations " Grover iterations")
                              "Measure result"]}})))
 
+(defn build-bernstein-vazirani-oracle-circuit
+  "Build the quantum circuit for Bernstein-Vazirani oracle Uf.
+  
+  Parameters:
+  - hidden-string: Vector of bits representing the hidden string s
+  - n-qubits: Number of input qubits
+  
+  Returns:
+  A function that takes a quantum circuit and applies the Bernstein-Vazirani oracle Uf to it."
+  [hidden-string n-qubits]
+  {:pre [(vector? hidden-string)
+         (every? #(or (= % 0) (= % 1)) hidden-string)
+         (= (count hidden-string) n-qubits)]}
+  
+  (fn [circuit]
+    ;; Apply CNOT gates based on hidden string
+    (reduce (fn [c bit-idx]
+              (if (= 1 (nth hidden-string bit-idx))
+                (qc/cnot-gate c bit-idx n-qubits)  ; Control: input qubit, Target: ancilla
+                c))
+            circuit
+            (range n-qubits))))
+
+(defn build-bernstein-vazirani-circuit
+  "Build the quantum circuit for Bernstein-Vazirani algorithm.
+  
+  Parameters:
+  - hidden-string: Vector of bits representing the hidden string s
+  - n-qubits: Number of input qubits
+  
+  Returns:
+  A quantum circuit implementing the Bernstein-Vazirani algorithm using the provided hidden string."
+  [hidden-string]
+  {:pre [(vector? hidden-string)
+         (every? #(or (= % 0) (= % 1)) hidden-string)]}
+  
+  (let [n (count hidden-string)]
+    (-> (qc/create-circuit (inc n) "Bernstein-Vazirani Algorithm"
+                           "Finds hidden bit string s with one query")
+        ;; Initialize ancilla qubit to |1⟩
+        (qc/x-gate n)
+        ;; Apply Hadamard to all qubits
+        ((fn [circ]
+           (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
+        ;; Apply oracle Uf based on hidden string
+        ((build-bernstein-vazirani-oracle-circuit hidden-string n))
+        ;; Apply Hadamard to input qubits only
+        ((fn [circ]
+           (reduce #(qc/h-gate %1 %2) circ (range n))))
+        ;; Measure input qubits
+        ((fn [circ]
+           (reduce #(qc/measure-operation %1 %2) circ (range n)))))))
+
 (defn bernstein-vazirani-algorithm
   "Implement the Bernstein-Vazirani algorithm to find a hidden bit string.
   
@@ -359,26 +412,7 @@
   (let [n (count hidden-string)
         
         ;; Build circuit for Bernstein-Vazirani algorithm
-        circuit (-> (qc/create-circuit (inc n))
-                    ;; Initialize ancilla qubit to |1⟩
-                    (qc/x-gate n)
-                    ;; Apply Hadamard to all qubits
-                    ((fn [circ]
-                       (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
-                    ;; Apply oracle: CNOT gates based on hidden string
-                    ((fn [circ]
-                       (reduce (fn [c bit-idx]
-                                 (if (= 1 (nth hidden-string bit-idx))
-                                   (qc/cnot-gate c bit-idx n)  ; Control: input qubit, Target: ancilla
-                                   c))
-                               circ
-                               (range n))))
-                    ;; Apply Hadamard to input qubits only (not ancilla)
-                    ((fn [circ]
-                       (reduce #(qc/h-gate %1 %2) circ (range n))))
-                    ;; Measure input qubits
-                    ((fn [circ]
-                       (reduce #(qc/measure-operation %1 %2) circ (range n)))))
+        circuit (build-bernstein-vazirani-circuit hidden-string)
         
         ;; Execute circuit on backend
         execution-result (qb/execute-circuit backend circuit options)

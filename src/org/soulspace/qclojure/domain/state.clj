@@ -11,7 +11,7 @@
 (s/def ::quantum-state (s/keys :req-un [::state-vector ::num-qubits]))
 
 ; Enable fastmath operator macros
-(m/use-primitive-operators)
+#_(m/use-primitive-operators)
 
 ;; Helper functions for complex number operations using fastmath
 (defn complex?
@@ -694,4 +694,4 @@
   )
 
 ; Disable fastmath operator macros to avoid conflicts
-(m/unuse-primitive-operators)
+#_(m/unuse-primitive-operators)

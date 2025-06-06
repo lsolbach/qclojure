@@ -12,7 +12,7 @@
 (s/def ::target-qubit ::qubit-index)
 
 ; Enable fastmath operator macros
-(m/use-primitive-operators)
+#_(m/use-primitive-operators)
 
 ;; High-level gate application functions - Convenient wrappers for common gatesns for quantum gates
 (defn matrix-vector-mult
@@ -989,4 +989,4 @@
             (recur (inc i) (update result i fc/add amplitude))))))))
 
 ; Disable fastmath operator macros to avoid conflicts
-(m/unuse-primitive-operators)
+#_(m/unuse-primitive-operators)

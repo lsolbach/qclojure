@@ -3,7 +3,7 @@
   (:require [fastmath.core :as m]))
 
 ; Enable fastmath operator macros
-(m/use-primitive-operators)
+#_(m/use-primitive-operators)
 
 (defn gcd
   "Calculate greatest common divisor using Euclidean algorithm."
@@ -109,4 +109,4 @@
       (double rounded))))
 
 ; Disable fastmath operator macros to avoid conflicts
-(m/unuse-primitive-operators)
+#_(m/unuse-primitive-operators)

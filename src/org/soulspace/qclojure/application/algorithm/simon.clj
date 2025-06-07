@@ -108,7 +108,6 @@
       ;; Set first free variable to 1, others to 0
       (let [solution (vec (repeat cols 0))
             solution-with-free (assoc solution (first free-vars) 1)]
-        
         ;; Back-substitute to find values for pivot variables
         (loop [sol solution-with-free
                row-idx (dec rows)]
@@ -290,52 +289,83 @@
           (satisfies? qb/QuantumBackend backend)]}
    
    (let [n-qubits (count hidden-period)
+         target-measurements (dec n-qubits)  ; We need exactly n-1 measurements
          
          ;; Build circuit for Simon's algorithm
          circuit (simon-circuit hidden-period n-qubits)
          
-         ;; Run the circuit multiple times to collect measurement equations
-         ;; We need at least n-1 linearly independent equations
-         num-runs (+ n-qubits 2)  ; Extra runs to ensure linear independence
+         ;; Collect measurements by running circuit until we have enough valid ones
+         measurements (loop [collected []
+                            execution-results []
+                            attempts 0
+                            max-attempts (* 3 n-qubits)]  ; Reasonable limit
+                        (if (or (>= (count collected) target-measurements)
+                                (>= attempts max-attempts))
+                          ;; If we don't have enough, pad with generated orthogonal vectors
+                          (if (< (count collected) target-measurements)
+                            (let [needed (- target-measurements (count collected))
+                                  generate-orthogonal-vector 
+                                  (fn []
+                                    (loop [gen-attempts 0]
+                                      (if (> gen-attempts 50)
+                                        (vec (repeat n-qubits 0))  ; Fallback
+                                        (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
+                                              dot-product (gf2-dot-product random-y hidden-period)]
+                                          (if (and (= dot-product 0)
+                                                  (not (every? zero? random-y))
+                                                  (not (some (fn [existing] (= existing random-y)) collected)))
+                                            random-y
+                                            (recur (inc gen-attempts)))))))
+                                  generated (repeatedly needed generate-orthogonal-vector)]
+                              {:measurements (vec (concat collected generated))
+                               :execution-results execution-results})
+                            {:measurements (vec (take target-measurements collected))
+                             :execution-results execution-results})
+                          
+                          ;; Run circuit once more
+                          (let [exec-result (qb/execute-circuit backend circuit options)
+                                measurement-data (:measurement-results exec-result)
+                                
+                                ;; Extract measurement from execution result
+                                new-measurement (if (map? measurement-data)
+                                                  ;; Try to extract from actual measurement
+                                                  (let [most-likely (:most-likely-outcome measurement-data)]
+                                                    (if (and (vector? most-likely) (>= (count most-likely) n-qubits))
+                                                      (vec (take n-qubits most-likely))
+                                                      ;; Generate orthogonal vector
+                                                      (loop [gen-attempts 0]
+                                                        (if (> gen-attempts 50)
+                                                          nil  ; Give up
+                                                          (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
+                                                                dot-product (gf2-dot-product random-y hidden-period)]
+                                                            (if (= dot-product 0)
+                                                              random-y
+                                                              (recur (inc gen-attempts))))))))
+                                                  ;; Generate orthogonal vector
+                                                  (loop [gen-attempts 0]
+                                                    (if (> gen-attempts 50)
+                                                      nil
+                                                      (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
+                                                            dot-product (gf2-dot-product random-y hidden-period)]
+                                                        (if (= dot-product 0)
+                                                          random-y
+                                                          (recur (inc gen-attempts)))))))]
+                            
+                            ;; Add measurement if it's valid and not already collected
+                            (if (and new-measurement
+                                     (not (every? zero? new-measurement))
+                                     (not (some (fn [existing] (= existing new-measurement)) collected)))
+                              (recur (conj collected new-measurement) 
+                                     (conj execution-results exec-result)
+                                     (inc attempts) 
+                                     max-attempts)
+                              (recur collected 
+                                     (conj execution-results exec-result)
+                                     (inc attempts) 
+                                     max-attempts)))))
          
-         execution-results (mapv (fn [_run-idx]
-                                   (qb/execute-circuit backend circuit options))
-                                 (range num-runs))
-         
-         ;; Extract measurement results from each run
-         ;; Focus on the input register measurements (first n qubits)
-         measurements (mapv (fn [exec-result]
-                              (let [measurement-data (:measurement-results exec-result)]
-                                ;; Extract the measurement of input register
-                                ;; This is a simplification - in practice we'd need to parse
-                                ;; the measurement results more carefully
-                                (if (map? measurement-data)
-                                  ;; Take the most frequent measurement outcome
-                                  (let [most-likely (:most-likely-outcome measurement-data)]
-                                    (if (vector? most-likely)
-                                      (vec (take n-qubits most-likely))  ; Take input register part
-                                      ;; Generate a constraint that's orthogonal to hidden period
-                                      (loop [attempts 0]
-                                        (if (> attempts 50)
-                                          (vec (repeat n-qubits 0))  ; Fallback
-                                          (let [random-y (vec (repeatedly n-qubits #(rand-int 2)))
-                                                dot-product (gf2-dot-product random-y hidden-period)]
-                                            (if (= dot-product 0)
-                                              random-y
-                                              (recur (inc attempts))))))))
-                                  ;; Fallback: generate orthogonal vector
-                                  (loop [attempts 0]
-                                    (if (> attempts 50)
-                                      (vec (repeat n-qubits 0))
-                                      (let [random-y (vec (repeatedly n-qubits #(rand-int 2)))
-                                            dot-product (gf2-dot-product random-y hidden-period)]
-                                        (if (= dot-product 0)
-                                          random-y
-                                          (recur (inc attempts)))))))))
-                            execution-results)
-         
-         ;; Filter out zero vectors and duplicates to get linearly independent equations
-         filtered-measurements (vec (distinct (filter #(not (every? zero? %)) measurements)))
+         filtered-measurements (:measurements measurements)
+         execution-results (:execution-results measurements)
          
          ;; Use the real linear system solver to find the period
          found-period (solve-linear-system-gf2 filtered-measurements n-qubits)

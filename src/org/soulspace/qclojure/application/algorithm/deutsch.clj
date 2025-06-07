@@ -67,18 +67,17 @@
   [oracle-fn]
   {:pre [(fn? oracle-fn)]}
 
-  (let [circuit (qc/create-circuit 2 "Deutsch Algorithm"
-                                   "Determines if function is constant or balanced")]
-    (-> circuit
-        ;; Initialize ancilla qubit to |1⟩
-        (qc/x-gate 1)
-        ;; Apply Hadamard to both qubits
-        (qc/h-gate 0)
-        (qc/h-gate 1)
-        ;; Implement oracle based on function behavior
-        ((deutsch-oracle-circuit oracle-fn))
-        ;; Final Hadamard on input qubit
-        (qc/h-gate 0))))
+  (-> (qc/create-circuit 2 "Deutsch Algorithm"
+                         "Determines if function is constant or balanced")
+      ;; Initialize ancilla qubit to |1⟩
+      (qc/x-gate 1)
+      ;; Apply Hadamard to both qubits
+      (qc/h-gate 0)
+      (qc/h-gate 1)
+      ;; Implement oracle based on function behavior
+      ((deutsch-oracle-circuit oracle-fn))
+      ;; Final Hadamard on input qubit
+      (qc/h-gate 0)))
 
 (defn deutsch-algorithm
   "Implement the Deutsch algorithm to determine if a function is constant or balanced.

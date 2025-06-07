@@ -1,6 +1,7 @@
 # TODOs
 
 ## Next steps
+* rename *-oracle-circuit fns to add-oracle
 * check shor's algorithm implementation
 * refactor algorithms to use a provided backend
   * grover

@@ -274,3 +274,26 @@ qg/hadamard
 ;; - [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm)
 ;; - [Quantum Fourier Transform](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
 ;; - [Quantum Phase Estimation](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
+;;
+;; ### Deutsch Algorithm
+;; The Deutsch algorithm is a quantum algorithm that determines whether a function is constant or balanced.
+;; It uses a quantum circuit to evaluate the function with only one query, compared to two queries needed for classical algorithms.
+;; The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.
+;;
+;; To examine the Deutsch algorithm, we need to require the `deutsch` namespace from the `application.algorithm` package.
+
+(require '[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])
+
+;; Lets define a constant function and a balanced function first.
+
+(def constant-fn (fn [x] true))  ; Constant function: f(x) = 1
+(def balanced-fn (fn [x] x))      ; Balanced function: f(x) = x
+
+;; Now we can create the oracle circuit for the Deutsch algorithm for the constant function.
+
+(def constant-deutsch-circuit
+  (deutsch/deutsch-oracle-circuit constant-fn))
+
+;; We can visualize the constant oracle circuit.
+
+ ;(kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))

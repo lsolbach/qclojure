@@ -6,6 +6,15 @@
             [clojure.test.check.properties :as prop]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.algorithms :as qa]
+            [org.soulspace.qclojure.application.algorithm.deutsch :as deutsch]
+            [org.soulspace.qclojure.application.algorithm.grover :as grover]
+            [org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv]
+            [org.soulspace.qclojure.application.algorithm.simon :as simon]
+            [org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe]
+            [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
+            [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]
+            [org.soulspace.qclojure.application.algorithm.modular-arithmetic :as ma]
+            [org.soulspace.qclojure.application.algorithm.shor :as shor]
             [org.soulspace.qclojure.adapter.backend.simulator :as sim]
             [clojure.string :as s]))
 
@@ -75,8 +84,8 @@
     (let [simulator (sim/create-simulator)
           constant-true (constantly true)
           constant-false (constantly false)
-          result-true (qa/deutsch-algorithm constant-true simulator)
-          result-false (qa/deutsch-algorithm constant-false simulator)]
+          result-true (deutsch/deutsch-algorithm constant-true simulator)
+          result-false (deutsch/deutsch-algorithm constant-false simulator)]
       (is (= (:result result-true) :constant))
       (is (= (:result result-false) :constant))
       (is (= (:measurement-outcome result-true) 0))
@@ -86,8 +95,8 @@
     (let [simulator (sim/create-simulator)
           identity-fn identity
           not-fn (comp not boolean)
-          result-id (qa/deutsch-algorithm identity-fn simulator)
-          result-not (qa/deutsch-algorithm not-fn simulator)]
+          result-id (deutsch/deutsch-algorithm identity-fn simulator)
+          result-not (deutsch/deutsch-algorithm not-fn simulator)]
       (is (= (:result result-id) :balanced))
       (is (= (:result result-not) :balanced))
       (is (= (:measurement-outcome result-id) 1))
@@ -95,7 +104,7 @@
   
   (testing "Deutsch algorithm includes proper metadata"
     (let [simulator (sim/create-simulator)
-          result (qa/deutsch-algorithm identity simulator)]
+          result (deutsch/deutsch-algorithm identity simulator)]
       (is (contains? result :circuit))
       (is (contains? result :execution-result))
       (is (contains? result :oracle-function))
@@ -107,7 +116,7 @@
     (let [target-item 3
           search-size 8
           oracle-fn #(= % target-item)
-          result (qa/grover-algorithm search-size oracle-fn (sim/create-simulator))]
+          result (grover/grover-algorithm search-size oracle-fn (sim/create-simulator))]
       (is (contains? result :measurements))
       (is (contains? result :target-indices))
       (is (contains? result :probability))
@@ -115,8 +124,8 @@
       (is (fn? (:oracle-function result)))))
   
   (testing "Grover search iterations calculation"
-    (let [n4-optimal (qa/optimal-grover-iterations 4 1)
-          n16-optimal (qa/optimal-grover-iterations 16 1)]
+    (let [n4-optimal (grover/optimal-grover-iterations 4 1)
+          n16-optimal (grover/optimal-grover-iterations 16 1)]
       ;; For N=4, optimal is π√N/4 ≈ π√4/4 = π/2 ≈ 1.57 → 2 iterations
       (is (>= n4-optimal 1))
       (is (<= n4-optimal 3))
@@ -126,7 +135,7 @@
   
   (testing "Grover search with multiple targets"
     (let [oracle-fn #(or (= % 1) (= % 3) (= % 5))
-          result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))]
+          result (grover/grover-algorithm 8 oracle-fn (sim/create-simulator))]
       (is (>= (:probability result) 0.0))
       (is (<= (:probability result) 1.0)))))
 
@@ -138,7 +147,7 @@
                           [0 1 0]
                           [1]]
           test-hidden-string (fn [s]
-                               (let [result (qa/bernstein-vazirani-algorithm s (sim/create-simulator))]
+                               (let [result (bv/bernstein-vazirani-algorithm s (sim/create-simulator))]
                                  (is (= (:hidden-string result) s))
                                  (is (contains? result :success))
                                  (is (contains? result :algorithm))
@@ -147,7 +156,7 @@
         (test-hidden-string s))))
   
   (testing "BV algorithm includes circuit information"
-    (let [result (qa/bernstein-vazirani-algorithm [1 0 1] (sim/create-simulator))]
+    (let [result (bv/bernstein-vazirani-algorithm [1 0 1] (sim/create-simulator))]
       (is (contains? result :circuit))
       (is (= (get-in result [:circuit :name]) "Bernstein-Vazirani"))
       (is (contains? (:circuit result) :qubits))
@@ -157,7 +166,7 @@
 (deftest test-simon-algorithm
   (testing "Simon's algorithm structure and metadata"
     (let [hidden-period [1 0 1]
-          result (qa/simon-algorithm hidden-period (sim/create-simulator))]
+          result (simon/simon-algorithm hidden-period (sim/create-simulator))]
       (is (= (:hidden-period result) hidden-period))
       (is (contains? result :measurements))
       (is (contains? result :found-period))
@@ -168,14 +177,14 @@
   (testing "Simon's algorithm with different period lengths"
     (let [periods [[1 0] [1 1 0 1] [0 1 0 1 0]]
           test-period (fn [p]
-                        (let [result (qa/simon-algorithm p (sim/create-simulator))]
+                        (let [result (simon/simon-algorithm p (sim/create-simulator))]
                           (is (= (:hidden-period result) p))
                           (is (= (count (:measurements result)) (dec (count p))))))]
       (doseq [p periods]
         (test-period p))))
   
   (testing "Simon's algorithm complexity information"
-    (let [result (qa/simon-algorithm [1 0 1] (sim/create-simulator))]
+    (let [result (simon/simon-algorithm [1 0 1] (sim/create-simulator))]
       (is (= (get-in result [:complexity :classical]) "O(2^(n/2))"))
       (is (= (get-in result [:complexity :quantum]) "O(n)"))
       (is (= (get-in result [:complexity :speedup]) "Exponential")))))
@@ -185,7 +194,7 @@
   (testing "QPE estimates simple phases correctly"
     (let [phases [0.0 0.25 0.5 0.75]
           test-phase (fn [φ]
-                       (let [result (qa/quantum-phase-estimation φ 4)]
+                       (let [result (qpe/quantum-phase-estimation φ 4)]
                          (is (= (:actual-phase result) φ))
                          (is (contains? result :estimated-phase))
                          (is (contains? result :error))
@@ -196,14 +205,14 @@
   
   (testing "QPE precision increases with more qubits"
     (let [phase 0.375  ; 3/8
-          result-3bit (qa/quantum-phase-estimation phase 3)
-          result-6bit (qa/quantum-phase-estimation phase 6)]
+          result-3bit (qpe/quantum-phase-estimation phase 3)
+          result-6bit (qpe/quantum-phase-estimation phase 6)]
       (is (<= (:error result-6bit) (:error result-3bit)))
       (is (= (:precision-qubits result-3bit) 3))
       (is (= (:precision-qubits result-6bit) 6))))
   
   (testing "QPE includes proper algorithm metadata"
-    (let [result (qa/quantum-phase-estimation 0.125 4)]
+    (let [result (qpe/quantum-phase-estimation 0.125 4)]
       (is (= (:algorithm result) "Quantum Phase Estimation"))
       (is (contains? result :complexity))
       (is (contains? result :circuit))
@@ -247,18 +256,18 @@
   (prop/for-all [input gen/boolean]
     (let [constant-fn (constantly input)
           simulator (sim/create-simulator)
-          result (qa/deutsch-algorithm constant-fn simulator)]
+          result (deutsch/deutsch-algorithm constant-fn simulator)]
       (= (:result result) :constant))))
 
 (def bernstein-vazirani-correctness
   (prop/for-all [hidden-string (gen/not-empty (gen/vector (gen/elements [0 1]) 1 6))]
-    (let [result (qa/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))]
+    (let [result (bv/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))]
       (= (:hidden-string result) hidden-string))))
 
 (def simon-algorithm-valid-structure
   (prop/for-all [period-length (gen/choose 2 4)]
     (let [period (vec (concat [1] (repeatedly (dec period-length) #(rand-int 2))))
-          result (qa/simon-algorithm period (sim/create-simulator))]
+          result (simon/simon-algorithm period (sim/create-simulator))]
       (and (= (:hidden-period result) period)
            (= (count (:measurements result)) (dec period-length))
            (= (:algorithm result) "Simon")))))
@@ -269,7 +278,7 @@
                                             (< % 1.0))
                                       (gen/double* {:min 0.0 :max 0.999 :NaN? false :infinite? false}))
                  precision-bits (gen/choose 2 6)]
-    (let [result (qa/quantum-phase-estimation phase precision-bits)]
+    (let [result (qpe/quantum-phase-estimation phase precision-bits)]
       (and (>= (:estimated-phase result) 0.0)
            (< (:estimated-phase result) 1.0)
            (= (:precision-qubits result) precision-bits)))))
@@ -282,11 +291,11 @@
           hidden-string [1 0 1]
           phase 0.25
 
-          deutsch-result (qa/deutsch-algorithm constant-fn  (sim/create-simulator))
-          grover-result (qa/grover-algorithm 8 oracle-fn  (sim/create-simulator))
-          bv-result (qa/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))
-          simon-result (qa/simon-algorithm hidden-string (sim/create-simulator))
-          qpe-result (qa/quantum-phase-estimation phase 4)]
+          deutsch-result (deutsch/deutsch-algorithm constant-fn  (sim/create-simulator))
+          grover-result (grover/grover-algorithm 8 oracle-fn  (sim/create-simulator))
+          bv-result (bv/bernstein-vazirani-algorithm hidden-string (sim/create-simulator))
+          simon-result (simon/simon-algorithm hidden-string (sim/create-simulator))
+          qpe-result (qpe/quantum-phase-estimation phase 4)]
 
       ;; Ensure all algorithms return valid results
       (is (contains? deutsch-result :result))
@@ -298,19 +307,19 @@
 ;; Benchmark and performance tests  
 (deftest test-algorithm-performance
   (testing "Grover iterations scale with square root"
-    (let [n4-iter (qa/optimal-grover-iterations 4 1)
-          n16-iter (qa/optimal-grover-iterations 16 1) 
-          n64-iter (qa/optimal-grover-iterations 64 1)]
+    (let [n4-iter (grover/optimal-grover-iterations 4 1)
+          n16-iter (grover/optimal-grover-iterations 16 1)
+          n64-iter (grover/optimal-grover-iterations 64 1)]
       ;; Check that iterations scale roughly as √N
       (is (< n4-iter (* 2 n16-iter)))   ; 4 vs 16 → 2x vs 4x
       (is (< n16-iter (* 2 n64-iter))))) ; 16 vs 64 → 4x vs 8x
   
   (testing "Algorithm complexity metadata is consistent"
-    (let [results [(qa/deutsch-algorithm identity (sim/create-simulator))
-                   (qa/grover-algorithm 4 #(= % 1) (sim/create-simulator))
-                   (qa/bernstein-vazirani-algorithm [1 0] (sim/create-simulator))
-                   (qa/simon-algorithm [1 0] (sim/create-simulator))
-                   (qa/quantum-phase-estimation 0.5 3)]]
+    (let [results [(deutsch/deutsch-algorithm identity (sim/create-simulator))
+                   (grover/grover-algorithm 4 #(= % 1) (sim/create-simulator))
+                   (bv/bernstein-vazirani-algorithm [1 0] (sim/create-simulator))
+                   (simon/simon-algorithm [1 0] (sim/create-simulator))
+                   (qpe/quantum-phase-estimation 0.5 3)]]
       
       ;; All results should have algorithm names
       (doseq [result results]
@@ -335,20 +344,20 @@
   (tc/quick-check 20 bernstein-vazirani-correctness)
 
   ;; Performance testing
-  (time (qa/grover-algorithm 256 #(= % 100) (sim/create-simulator)))
-  (time (qa/simon-algorithm [1 0 1 1 0] 5))
+  (time (grover/grover-algorithm 256 #(= % 100) (sim/create-simulator)))
+  (time (simon/simon-algorithm [1 0 1 1 0] 5))
 
   ;; Manual algorithm verification
-  (qa/deutsch-algorithm (constantly true)  (sim/create-simulator))
-  (qa/grover-algorithm 8 #(= % 3) (sim/create-simulator))
-  (qa/bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
-  (qa/simon-algorithm [1 0 1] (sim/create-simulator))
-  (qa/quantum-phase-estimation 0.375 4)
+  (deutsch/deutsch-algorithm (constantly true)  (sim/create-simulator))
+  (grover/grover-algorithm 8 #(= % 3) (sim/create-simulator))
+  (bv/bernstein-vazirani-algorithm [1 0 1 0] (sim/create-simulator))
+  (simon/simon-algorithm [1 0 1] (sim/create-simulator))
+  (qpe/quantum-phase-estimation 0.375 4)
 
-  (qa/shor-algorithm 14)
-  (qa/shor-algorithm 15)
-  (qa/shor-algorithm 21)
-  (qa/shor-algorithm 77)
+  (shor/shor-algorithm 14)
+  (shor/shor-algorithm 15)
+  (shor/shor-algorithm 21)
+  (shor/shor-algorithm 77)
   ;
   )
 

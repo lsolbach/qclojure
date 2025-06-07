@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.modular-arithmetic
+(ns org.soulspace.qclojure.application.algorithm.modular-arithmetic
   "Implementation of quantum modular arithmetic operations needed for Shor's algorithm.
    
    This namespace provides functions to create quantum circuits that implement

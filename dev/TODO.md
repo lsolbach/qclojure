@@ -1,11 +1,11 @@
 # TODOs
 
 ## Next steps
+* fix failures in simon algorithm test
 
 ## Backlog
 * make algorithms use a provided backend
   * grover
-  * simon
   * quantum fourier transformation
   * quantum period finding
 * reduce code duplication

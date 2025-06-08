@@ -52,9 +52,9 @@ This small example show the creation of a quantum circuit in a functional way
 and the execution on the simulator.
 
 ```clojure
-(require '[org.soulspace.qclojure.domain.quantum-circuit :as qc])
-(require '[org.soulspace.qclojure.application.quantum-backend :as qb])
-(require '[org.soulspace.qclojure.adapter.backend.quantum-simulator :as sim])
+(require '[org.soulspace.qclojure.domain.circuit :as qc])
+(require '[org.soulspace.qclojure.application.backend :as qb])
+(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
 
 ;; Create a simple circuit
 (def circuit (-> (qc/create-circuit 2)

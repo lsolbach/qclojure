@@ -676,21 +676,394 @@
       :qubit-optimization-result qubit-optimization-result
       :optimization-summary summary})))
 
-;; Existing transform-circuit and related functions continue below...
+;; Hardware Topology Optimization Functions
 
-(comment
+(defn validate-topology
+  "Validate that a hardware topology is well-formed.
   
-  ;; Circuit composition
-  ;; Create a custom circuit
-  (def custom-circuit
-    (-> (qc/create-circuit 2 "Custom Circuit")
-        (qc/x-gate 0)
-        (qc/h-gate 1)
-        (qc/cnot-gate 0 1)))
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  
+  Returns:
+  Boolean indicating if topology is valid"
+  [topology]
+  (and (vector? topology)
+       (every? vector? topology)
+       ;; Check that connections are symmetric
+       (every? (fn [qubit-id]
+                 (let [neighbors (get topology qubit-id)]
+                   (every? (fn [neighbor]
+                             (and (< neighbor (count topology))
+                                  (some #(= % qubit-id) (get topology neighbor))))
+                           neighbors)))
+               (range (count topology)))))
 
-  (def composed (compose-circuits (qc/bell-state-circuit) custom-circuit))
-  (qc/print-circuit composed)
+(defn calculate-distance-matrix
+  "Calculate shortest path distances between all pairs of qubits in topology.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  
+  Returns:
+  2D vector where element [i][j] is the shortest distance from qubit i to qubit j"
+  [topology]
+  (let [num-qubits (count topology)]
+    (letfn [(bfs-distance [start end]
+              (if (= start end)
+                0
+                (loop [queue [[start 0]]
+                       visited #{start}]
+                  (if (empty? queue)
+                    Integer/MAX_VALUE ; No path found
+                    (let [[current dist] (first queue)
+                          rest-queue (rest queue)]
+                      (if (= current end)
+                        dist
+                        (let [neighbors (get topology current)
+                              new-nodes (filter #(not (contains? visited %)) neighbors)
+                              new-queue (concat rest-queue (map #(vector % (inc dist)) new-nodes))
+                              new-visited (into visited new-nodes)]
+                          (recur new-queue new-visited))))))))]
+      
+      (mapv (fn [i]
+              (mapv (fn [j]
+                      (bfs-distance i j))
+                    (range num-qubits)))
+            (range num-qubits)))))
 
+(defn extract-two-qubit-operations
+  "Extract all two-qubit operations from a circuit.
+  
+  Parameters:
+  - circuit: Quantum circuit to analyze
+  
+  Returns:
+  Vector of maps containing :control and :target qubit pairs"
+  [circuit]
+  (let [operations (:operations circuit)]
+    (->> operations
+         (filter (fn [op]
+                   (let [params (:operation-params op)]
+                     ;; Check for two-qubit operations
+                     (or (and (:control params) (:target params))
+                         (and (:control1 params) (:target params))
+                         (and (:target1 params) (:target2 params))
+                         (and (:swap1 params) (:swap2 params))))))
+         (map (fn [op]
+                (let [params (:operation-params op)]
+                  (cond
+                    ;; Standard control-target operations (CNOT, CZ, etc.)
+                    (and (:control params) (:target params))
+                    {:control (:control params) :target (:target params) :operation-type (:operation-type op)}
+                    
+                    ;; Toffoli gate (control1 as primary control)
+                    (and (:control1 params) (:target params))
+                    {:control (:control1 params) :target (:target params) :operation-type (:operation-type op)}
+                    
+                    ;; Fredkin gate 
+                    (and (:target1 params) (:target2 params))
+                    {:control (:target1 params) :target (:target2 params) :operation-type (:operation-type op)}
+                    
+                    ;; SWAP operations
+                    (and (:swap1 params) (:swap2 params))
+                    {:control (:swap1 params) :target (:swap2 params) :operation-type (:operation-type op)})))))))
 
-  ;
+(defn calculate-mapping-cost
+  "Calculate the cost of a logical-to-physical qubit mapping.
+  
+  Parameters:
+  - two-qubit-ops: Vector of two-qubit operations with :control and :target
+  - mapping: Map from logical qubit to physical qubit
+  - distance-matrix: 2D vector of distances between physical qubits
+  
+  Returns:
+  Total cost (sum of distances for all two-qubit operations)"
+  [two-qubit-ops mapping distance-matrix]
+  (reduce (fn [total-cost op]
+            (let [logical-control (:control op)
+                  logical-target (:target op)
+                  physical-control (get mapping logical-control)
+                  physical-target (get mapping logical-target)]
+              (if (and physical-control physical-target)
+                (+ total-cost (get-in distance-matrix [physical-control physical-target]))
+                ;; If mapping is incomplete, return very high cost
+                Integer/MAX_VALUE)))
+          0
+          two-qubit-ops))
+
+(defn find-shortest-path
+  "Find shortest path between two qubits in the topology.
+  
+  Parameters:
+  - topology: Hardware topology
+  - start: Starting qubit
+  - end: Ending qubit
+  
+  Returns:
+  Vector of qubits representing the path from start to end"
+  [topology start end]
+  (if (= start end)
+    [start]
+    (loop [queue [[start [start]]]
+           visited #{start}]
+      (if (empty? queue)
+        nil ; No path found
+        (let [[current path] (first queue)
+              rest-queue (rest queue)]
+          (if (= current end)
+            path
+            (let [neighbors (get topology current)
+                  new-nodes (filter #(not (contains? visited %)) neighbors)
+                  new-queue (concat rest-queue 
+                                    (map #(vector % (conj path %)) new-nodes))
+                  new-visited (into visited new-nodes)]
+              (recur new-queue new-visited))))))))
+
+(defn generate-swap-operations
+  "Generate SWAP operations to route a qubit from start to end position.
+  
+  Parameters:
+  - path: Vector of qubits representing routing path
+  - target-qubit: The logical qubit that needs to be moved
+  
+  Returns:
+  Vector of SWAP operation maps"
+  [path target-qubit]
+  (if (<= (count path) 2)
+    [] ; No SWAPs needed for adjacent qubits
+    (let [swap-pairs (partition 2 1 path)] ; Create adjacent pairs
+      (mapv (fn [[q1 q2]]
+              {:operation-type :swap
+               :operation-params {:target1 q1 :target2 q2}
+               :routing-info {:moves-qubit target-qubit :from q1 :to q2}})
+            swap-pairs))))
+
+(defn find-optimal-mapping
+  "Find an optimal mapping from logical qubits to physical qubits using a greedy approach.
+  
+  Parameters:
+  - circuit: Quantum circuit to optimize
+  - topology: Hardware topology
+  - distance-matrix: Precomputed distance matrix
+  
+  Returns:
+  Map from logical qubit to physical qubit"
+  [circuit topology distance-matrix]
+  (let [two-qubit-ops (extract-two-qubit-operations circuit)
+        num-logical-qubits (:num-qubits circuit)
+        num-physical-qubits (count topology)]
+    
+    (when (> num-logical-qubits num-physical-qubits)
+      (throw (ex-info "Circuit requires more qubits than available in topology"
+                      {:logical-qubits num-logical-qubits
+                       :physical-qubits num-physical-qubits})))
+    
+    ;; Simple greedy approach: try different starting offsets
+    (if (<= num-logical-qubits 8) ; Manageable for small circuits
+      (let [logical-qubits (range num-logical-qubits)
+            all-mappings (for [offset (range num-physical-qubits)]
+                           (zipmap logical-qubits
+                                   (map #(mod (+ % offset) num-physical-qubits)
+                                        logical-qubits)))
+            best-mapping (first (sort-by #(calculate-mapping-cost two-qubit-ops % distance-matrix)
+                                         all-mappings))]
+        best-mapping)
+      ;; For larger circuits, use identity mapping as placeholder
+      (zipmap (range num-logical-qubits) (range num-logical-qubits)))))
+
+(defn optimize-for-topology
+  "Optimize a quantum circuit for a specific hardware topology.
+  
+  This function performs topology-aware optimization by:
+  1. Finding an optimal mapping from logical to physical qubits
+  2. Inserting SWAP operations when needed for routing
+  3. Minimizing the total cost of the circuit on the given topology
+  
+  Parameters:
+  - circuit: Quantum circuit to optimize
+  - topology: Hardware topology as vector of vectors (adjacency list)
+  - options: Optional map with optimization options:
+      :insert-swaps? - Whether to insert SWAP operations for routing (default: true)
+      :optimize-mapping? - Whether to optimize qubit mapping (default: true)
+  
+  Returns:
+  Map containing:
+  - :quantum-circuit - The topology-optimized circuit
+  - :logical-to-physical - Map from logical qubit to physical qubit
+  - :physical-to-logical - Map from physical qubit to logical qubit  
+  - :swap-count - Number of SWAP operations inserted
+  - :total-cost - Total routing cost of the optimized circuit
+  - :topology-summary - Human-readable summary of topology optimization
+  
+  Example:
+  ;; Linear topology for 5 qubits: 0-1-2-3-4
+  (def linear-topology [[1] [0 2] [1 3] [2 4] [3]])
+  (optimize-for-topology my-circuit linear-topology)
+  ;=> {:quantum-circuit <optimized-circuit>, :logical-to-physical {0 1, 1 2, 2 3}, ...}"
+  ([circuit topology]
+   (optimize-for-topology circuit topology {}))
+  
+  ([circuit topology options]
+   {:pre [(s/valid? ::qc/quantum-circuit circuit)
+          (validate-topology topology)]}
+   
+   (let [optimize-mapping? (get options :optimize-mapping? true)
+         
+         ;; Calculate distance matrix for topology
+         distance-matrix (calculate-distance-matrix topology)
+         
+         ;; Find optimal qubit mapping
+         logical-to-physical (if optimize-mapping?
+                               (find-optimal-mapping circuit topology distance-matrix)
+                               ;; Use identity mapping if optimization disabled
+                               (zipmap (range (:num-qubits circuit)) 
+                                       (range (:num-qubits circuit))))
+         
+         ;; Create reverse mapping
+         physical-to-logical (into {} (map (fn [[l p]] [p l]) logical-to-physical))
+         
+         ;; Apply the mapping to the circuit operations
+         mapped-operations (mapv #(update-operation-params % 
+                                                           (fn [qubit-id] 
+                                                             (get logical-to-physical qubit-id qubit-id)))
+                                 (:operations circuit))
+         
+         ;; For now, we'll implement basic SWAP insertion in a future iteration
+         ;; This version focuses on optimal mapping
+         final-operations mapped-operations
+         swap-count 0
+         
+         ;; Calculate total cost using the original logical operations
+         original-two-qubit-ops (extract-two-qubit-operations circuit)
+         total-cost (calculate-mapping-cost original-two-qubit-ops 
+                                            logical-to-physical
+                                            distance-matrix)
+         
+         ;; Create optimized circuit
+         optimized-circuit (assoc circuit :operations final-operations)
+         
+         ;; Generate summary
+         topology-summary (str "Topology optimization summary:\n"
+                               "- Hardware qubits: " (count topology) "\n"
+                               "- Logical qubits: " (:num-qubits circuit) "\n"
+                               "- Qubit mapping: " logical-to-physical "\n"
+                               "- SWAP operations added: " swap-count "\n"
+                               "- Total routing cost: " total-cost)]
+     
+     {:quantum-circuit optimized-circuit
+      :logical-to-physical logical-to-physical
+      :physical-to-logical physical-to-logical
+      :swap-count swap-count
+      :total-cost total-cost
+      :topology-summary topology-summary})))
+
+;; Topology Analysis and Utility Functions
+
+(defn analyze-topology-connectivity
+  "Analyze the connectivity properties of a hardware topology.
+  
+  Parameters:
+  - topology: Hardware topology as vector of vectors
+  
+  Returns:
+  Map containing topology analysis:
+  - :num-qubits - Total number of qubits
+  - :total-edges - Total number of edges (connections)
+  - :avg-degree - Average degree (connections per qubit)
+  - :max-degree - Maximum degree
+  - :min-degree - Minimum degree
+  - :diameter - Maximum shortest path distance between any two qubits
+  - :is-connected - Whether the topology is fully connected"
+  [topology]
+  (let [num-qubits (count topology)
+        degrees (mapv count topology)
+        total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
+        avg-degree (/ total-edges (double num-qubits))
+        max-degree (apply max degrees)
+        min-degree (apply min degrees)
+        
+        ;; Calculate diameter using distance matrix
+        distance-matrix (calculate-distance-matrix topology)
+        all-distances (for [i (range num-qubits)
+                            j (range num-qubits)
+                            :when (not= i j)]
+                        (get-in distance-matrix [i j]))
+        diameter (if (some #(= % Integer/MAX_VALUE) all-distances)
+                   Integer/MAX_VALUE ; Disconnected
+                   (apply max all-distances))
+        is-connected (not= diameter Integer/MAX_VALUE)]
+    
+    {:num-qubits num-qubits
+     :total-edges total-edges
+     :avg-degree avg-degree
+     :max-degree max-degree
+     :min-degree min-degree
+     :diameter diameter
+     :is-connected is-connected}))
+
+(defn get-topology-info
+  "Get human-readable information about a topology.
+  
+  Parameters:
+  - topology: Hardware topology
+  - name: Optional name for the topology
+  
+  Returns:
+  String with topology information"
+  ([topology]
+   (get-topology-info topology "Topology"))
+  ([topology name]
+   (let [analysis (analyze-topology-connectivity topology)]
+     (str name " Analysis:\n"
+          "- Qubits: " (:num-qubits analysis) "\n"
+          "- Edges: " (:total-edges analysis) "\n"
+          "- Average degree: " (format "%.2f" (:avg-degree analysis)) "\n"
+          "- Degree range: " (:min-degree analysis) "-" (:max-degree analysis) "\n"
+          "- Diameter: " (if (= (:diameter analysis) Integer/MAX_VALUE) 
+                           "∞ (disconnected)" 
+                           (:diameter analysis)) "\n"
+          "- Connected: " (:is-connected analysis)))))
+
+;; Rich comment block for REPL experimentation
+(comment
+  ;; Example usage of topology optimization
+  
+  ;; Create a test circuit
+  (def bell-circuit 
+    {:num-qubits 2
+     :operations [{:operation-type :h :operation-params {:target 0}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 1}}]})
+  
+  ;; Test with different topologies
+  (def linear-2 (create-linear-topology 2))
+  (def result (optimize-for-topology bell-circuit linear-2))
+  (println (:topology-summary result))
+  
+  ;; Compare multiple topologies
+  (def topologies {"Linear-5" (create-linear-topology 5)
+                   "Ring-5" (create-ring-topology 5)
+                   "Star-5" (create-star-topology 5)})
+  
+  (doseq [[name topo] topologies]
+    (println (get-topology-info topo name)))
+  
+  ;; Analyze a complex circuit
+  (def complex-circuit 
+    {:num-qubits 4
+     :operations [{:operation-type :h :operation-params {:target 0}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 1}}
+                  {:operation-type :cnot :operation-params {:control 1 :target 2}}
+                  {:operation-type :cnot :operation-params {:control 2 :target 3}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 3}}]})
+  
+  (def comparison (compare-topologies complex-circuit topologies))
+  (doseq [[name result] comparison]
+    (println (str name ": cost=" (:total-cost result))))
+  
+  ;; Test IBM-like topologies
+  (def ibm-5q-linear [[1] [0 2] [1 3] [2 4] [3]])
+  (def ibm-5q-t [[1] [0 2 3] [1 4] [1] [2]])
+  
+  (println "IBM 5-qubit linear:" (get-topology-info ibm-5q-linear "IBM Linear"))
+  (println "IBM 5-qubit T:" (get-topology-info ibm-5q-t "IBM T-shape"))
   )

@@ -1035,16 +1035,29 @@
                                                        physical-target (get @current-mapping logical-target)
                                                        distance (get-in distance-matrix [physical-control physical-target])]
                                                    (if (> distance 1) ; Not adjacent, need SWAPs
+                                                     ;; Find where to move the control qubit to be adjacent to target
                                                      (let [path (find-shortest-path topology physical-control physical-target)
-                                                           swap-ops (generate-swap-operations path logical-control)]
-                                                       ;; Add SWAP operations
+                                                           ;; Move control to the position adjacent to target (second-to-last in path)
+                                                           adjacent-position (nth path (- (count path) 2))
+                                                           ;; Generate SWAPs to move from current control position to adjacent position
+                                                           swap-path (find-shortest-path topology physical-control adjacent-position)
+                                                           swap-ops (if (> (count swap-path) 2)
+                                                                      (generate-swap-operations swap-path logical-control)
+                                                                      ;; For adjacent moves, manually create the SWAP
+                                                                      (if (= (count swap-path) 2)
+                                                                        [{:operation-type :swap
+                                                                          :operation-params {:target1 (first swap-path) 
+                                                                                           :target2 (second swap-path)}
+                                                                          :routing-info {:moves-qubit logical-control 
+                                                                                       :from (first swap-path) 
+                                                                                       :to (second swap-path)}}]
+                                                                        []))]
+                                                       ;; Add SWAP operations FIRST
                                                        (swap! total-swaps + (count swap-ops))
-                                                       (swap! result-operations concat swap-ops)
-                                                       ;; Update current mapping to reflect SWAP movements
-                                                       ;; For now, we'll add the original operation after SWAPs
-                                                       ;; A full implementation would track qubit movements through SWAPs
+                                                       (swap! result-operations into swap-ops)
+                                                       ;; After SWAPs, control is at adjacent position
                                                        (let [final-op {:operation-type (:operation-type op)
-                                                                      :operation-params {:control physical-control
+                                                                      :operation-params {:control adjacent-position
                                                                                        :target physical-target}}]
                                                          (swap! result-operations conj final-op)))
                                                      ;; Adjacent qubits, no SWAPs needed

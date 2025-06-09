@@ -367,7 +367,7 @@
       (is (= 2 (:optimized-qubits qubit-opt))))))
 
 (deftest test-circuit-optimizer-edge-cases
-  (testing "Circuit with complex gate parameters"
+  (testing "Circuit with rotation gates that have angle parameters"
     (let [;; Circuit with rotation gates that have angle parameters
           circuit (-> (qc/create-circuit 4 "Rotation Circuit")
                       (qc/rx-gate 0 (/ Math/PI 2))
@@ -417,6 +417,239 @@
           (is (= 0 (get-in fredkin-gate [:operation-params :control])))
           (is (= 1 (get-in fredkin-gate [:operation-params :target1])))
           (is (= 3 (get-in fredkin-gate [:operation-params :target2]))))))))
+
+;;
+;; Topology Optimization Tests
+;;
+
+(deftest test-topology-creation
+  (testing "Linear topology creation"
+    (let [linear-3 (ct/create-linear-topology 3)]
+      (is (= 3 (count linear-3)))
+      (is (= [[1] [0 2] [1]] linear-3))))
+
+  (testing "Ring topology creation"
+    (let [ring-4 (ct/create-ring-topology 4)]
+      (is (= 4 (count ring-4)))
+      (is (= [[3 1] [0 2] [1 3] [2 0]] ring-4))))
+
+  (testing "Grid topology creation"
+    (let [grid-2x2 (ct/create-grid-topology 2 2)]
+      (is (= 4 (count grid-2x2)))
+      ;; Each qubit should have 2 neighbors in a 2x2 grid
+      (is (= 2 (count (nth grid-2x2 0))))
+      (is (= 2 (count (nth grid-2x2 1))))
+      (is (= 2 (count (nth grid-2x2 2))))
+      (is (= 2 (count (nth grid-2x2 3))))))
+
+  (testing "Star topology creation"
+    (let [star-5 (ct/create-star-topology 5)]
+      (is (= 5 (count star-5)))
+      ;; Center qubit (0) should connect to all others
+      (is (= 4 (count (nth star-5 0))))
+      ;; Peripheral qubits should only connect to center
+      (is (= 1 (count (nth star-5 1))))
+      (is (= 1 (count (nth star-5 2))))
+      (is (= 1 (count (nth star-5 3))))
+      (is (= 1 (count (nth star-5 4)))))))
+
+(deftest test-topology-validation
+  (testing "Valid topology validation"
+    (is (ct/validate-topology [[1] [0 2] [1]]))
+    (is (ct/validate-topology [[3 1] [0 2] [1 3] [2 0]]))
+    (is (ct/validate-topology [[1 2 3 4] [0] [0] [0] [0]])))
+
+  (testing "Invalid topology validation"
+    ;; Asymmetric topology
+    (is (not (ct/validate-topology [[1] [2] [0]])))
+    ;; Self-connections
+    (is (not (ct/validate-topology [[0 1] [0]])))
+    ;; Out-of-bounds connections
+    (is (not (ct/validate-topology [[1 5] [0]])))))
+
+(deftest test-distance-matrix-calculation
+  (testing "Linear topology distances"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)]
+      (is (= [[0 1 2] [1 0 1] [2 1 0]] distances))))
+
+  (testing "Ring topology distances"
+    (let [ring-4 (ct/create-ring-topology 4)
+          distances (ct/calculate-distance-matrix ring-4)]
+      (is (= [[0 1 2 1] [1 0 1 2] [2 1 0 1] [1 2 1 0]] distances))))
+
+  (testing "Star topology distances"
+    (let [star-5 (ct/create-star-topology 5)
+          distances (ct/calculate-distance-matrix star-5)]
+      ;; Center to all others: distance 1
+      (is (= [0 1 1 1 1] (nth distances 0)))
+      ;; Peripheral to center: distance 1, to others: distance 2
+      (is (= [1 0 2 2 2] (nth distances 1))))))
+
+(deftest test-two-qubit-operation-extraction
+  (testing "Bell circuit extraction"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          ops (ct/extract-two-qubit-operations bell-circuit)]
+      (is (= 1 (count ops)))
+      (is (= {:control 0 :target 1 :operation-type :cnot} (first ops)))))
+
+  (testing "GHZ circuit extraction"
+    (let [ghz-circuit (-> (qc/create-circuit 3 "GHZ")
+                          (qc/h-gate 0)
+                          (qc/cnot-gate 0 1)
+                          (qc/cnot-gate 0 2))
+          ops (ct/extract-two-qubit-operations ghz-circuit)]
+      (is (= 2 (count ops)))
+      (is (= {:control 0 :target 1 :operation-type :cnot} (first ops)))
+      (is (= {:control 0 :target 2 :operation-type :cnot} (second ops)))))
+
+  (testing "Single qubit circuit extraction"
+    (let [single-circuit (-> (qc/create-circuit 2 "Single")
+                             (qc/h-gate 0)
+                             (qc/x-gate 1))
+          ops (ct/extract-two-qubit-operations single-circuit)]
+      (is (= 0 (count ops))))))
+
+(deftest test-mapping-cost-calculation
+  (testing "Identity mapping cost"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)
+          bell-ops [{:control 0 :target 1 :operation-type :cnot}]
+          identity-mapping {0 0 1 1}
+          cost (ct/calculate-mapping-cost bell-ops identity-mapping distances)]
+      (is (= 1 cost))))
+
+  (testing "Swapped mapping cost"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)
+          bell-ops [{:control 0 :target 1 :operation-type :cnot}]
+          swapped-mapping {0 1 1 0}
+          cost (ct/calculate-mapping-cost bell-ops swapped-mapping distances)]
+      (is (= 1 cost))))
+
+  (testing "Distant mapping cost"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)
+          bell-ops [{:control 0 :target 1 :operation-type :cnot}]
+          distant-mapping {0 0 1 2}
+          cost (ct/calculate-mapping-cost bell-ops distant-mapping distances)]
+      (is (= 2 cost))))
+
+  (testing "Incomplete mapping cost"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)
+          bell-ops [{:control 0 :target 1 :operation-type :cnot}]
+          incomplete-mapping {0 0}  ; missing mapping for qubit 1
+          cost (ct/calculate-mapping-cost bell-ops incomplete-mapping distances)]
+      (is (= Integer/MAX_VALUE cost)))))
+
+(deftest test-optimal-mapping-finding
+  (testing "Bell circuit optimal mapping"
+    (let [linear-3 (ct/create-linear-topology 3)
+          distances (ct/calculate-distance-matrix linear-3)
+          bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          bell-ops (ct/extract-two-qubit-operations bell-circuit)
+          mapping (ct/find-optimal-mapping bell-ops 3 distances)]
+      (is (= 2 (count mapping)))
+      (is (contains? mapping 0))
+      (is (contains? mapping 1))))
+
+  (testing "GHZ circuit optimal mapping"
+    (let [star-5 (ct/create-star-topology 5)
+          distances (ct/calculate-distance-matrix star-5)
+          ghz-circuit (-> (qc/create-circuit 3 "GHZ")
+                          (qc/h-gate 0)
+                          (qc/cnot-gate 0 1)
+                          (qc/cnot-gate 0 2))
+          ghz-ops (ct/extract-two-qubit-operations ghz-circuit)
+          mapping (ct/find-optimal-mapping ghz-ops 5 distances)]
+      (is (= 3 (count mapping)))
+      (is (contains? mapping 0))
+      (is (contains? mapping 1))
+      (is (contains? mapping 2))
+      ;; In star topology, qubit 0 should ideally map to center (physical 0)
+      ;; for optimal cost
+      (is (= 0 (get mapping 0))))))
+
+(deftest test-full-topology-optimization
+  (testing "Bell circuit optimization on linear topology"
+    (let [linear-3 (ct/create-linear-topology 3)
+          bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          result (ct/optimize-for-topology bell-circuit linear-3)]
+      (is (contains? result :quantum-circuit))
+      (is (contains? result :logical-to-physical))
+      (is (contains? result :physical-to-logical))
+      (is (contains? result :total-cost))
+      (is (contains? result :swap-count))
+      (is (= 0 (:swap-count result)))  ; No SWAPs needed for Bell circuit
+      (is (= 1 (:total-cost result)))))  ; Adjacent qubits
+
+  (testing "GHZ circuit optimization on star topology"
+    (let [star-5 (ct/create-star-topology 5)
+          ghz-circuit (-> (qc/create-circuit 3 "GHZ")
+                          (qc/h-gate 0)
+                          (qc/cnot-gate 0 1)
+                          (qc/cnot-gate 0 2))
+          result (ct/optimize-for-topology ghz-circuit star-5)]
+      (is (contains? result :quantum-circuit))
+      (is (contains? result :logical-to-physical))
+      (is (contains? result :physical-to-logical))
+      (is (contains? result :total-cost))
+      (is (contains? result :swap-count))
+      (is (= 0 (:swap-count result)))  ; No SWAPs needed
+      (is (= 2 (:total-cost result))))))  ; Two operations, each distance 1
+
+(deftest test-topology-comparison
+  (testing "Compare topologies for same circuit"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          ring-4 (ct/create-ring-topology 4)
+          star-5 (ct/create-star-topology 5)
+          comparison (ct/compare-topologies bell-circuit 
+                                            {"linear-3" linear-3
+                                             "ring-4" ring-4
+                                             "star-5" star-5})]
+      (is (= 3 (count comparison)))
+      (is (contains? (first comparison) :topology-name))
+      (is (contains? (first comparison) :total-cost))
+      (is (contains? (first comparison) :swap-count))
+      ;; All should have same cost (1) for Bell circuit
+      (is (every? #(= 1 (:total-cost %)) comparison)))))
+
+(deftest test-topology-analysis
+  (testing "Analyze linear topology connectivity"
+    (let [linear-3 (ct/create-linear-topology 3)
+          analysis (ct/analyze-topology-connectivity linear-3)]
+      (is (contains? analysis :num-qubits))
+      (is (contains? analysis :total-edges))
+      (is (contains? analysis :avg-degree))
+      (is (contains? analysis :diameter))
+      (is (= 3 (:num-qubits analysis)))
+      (is (= 2 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))))
+
+  (testing "Analyze star topology connectivity"
+    (let [star-5 (ct/create-star-topology 5)
+          analysis (ct/analyze-topology-connectivity star-5)]
+      (is (= 5 (:num-qubits analysis)))
+      (is (= 4 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))  ; Star has diameter 2
+      (is (= 1.6 (:avg-degree analysis)))))  ; 4*2/5 = 1.6
+
+  (testing "Get topology info"
+    (let [ring-4 (ct/create-ring-topology 4)
+          info (ct/get-topology-info ring-4)]
+      (is (string? info))
+      (is (re-find #"Qubits: 4" info))
+      (is (re-find #"Edges: 4" info)))))
 
 (comment
   ;; Run tests

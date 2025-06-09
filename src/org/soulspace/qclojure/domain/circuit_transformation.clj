@@ -676,6 +676,84 @@
       :qubit-optimization-result qubit-optimization-result
       :optimization-summary summary})))
 
+;; Hardware Topology Creation Functions
+
+(defn create-linear-topology
+  "Create a linear hardware topology where qubits are connected in a line.
+  
+  Parameters:
+  - num-qubits: Number of qubits in the topology
+  
+  Returns:
+  Vector of vectors representing adjacency list for linear topology"
+  [num-qubits]
+  (cond
+    (< num-qubits 1) []
+    (= num-qubits 1) [[]]
+    :else
+    (vec (for [i (range num-qubits)]
+           (vec (cond
+                  (= i 0) [1]                     ; First qubit connects to second
+                  (= i (dec num-qubits)) [(dec i)] ; Last qubit connects to second-to-last
+                  :else [(dec i) (inc i)]))))))   ; Middle qubits connect to neighbors
+
+(defn create-ring-topology
+  "Create a ring hardware topology where qubits are connected in a circle.
+  
+  Parameters:
+  - num-qubits: Number of qubits in the topology
+  
+  Returns:
+  Vector of vectors representing adjacency list for ring topology"
+  [num-qubits]
+  (cond
+    (< num-qubits 3) (create-linear-topology num-qubits) ; Ring needs at least 3 qubits
+    :else
+    (vec (for [i (range num-qubits)]
+           (let [prev (mod (dec i) num-qubits)
+                 next (mod (inc i) num-qubits)]
+             [prev next])))))
+
+(defn create-star-topology
+  "Create a star hardware topology with one central qubit connected to all others.
+  
+  Parameters:
+  - num-qubits: Number of qubits in the topology
+  
+  Returns:
+  Vector of vectors representing adjacency list for star topology"
+  [num-qubits]
+  (cond
+    (< num-qubits 1) []
+    (= num-qubits 1) [[]]
+    :else
+    (vec (cons (vec (range 1 num-qubits))  ; Center qubit (0) connects to all others
+               (repeat (dec num-qubits) [0]))))) ; All other qubits connect only to center
+
+(defn create-grid-topology
+  "Create a grid hardware topology with qubits arranged in a rectangular grid.
+  
+  Parameters:
+  - rows: Number of rows in the grid
+  - cols: Number of columns in the grid
+  
+  Returns:
+  Vector of vectors representing adjacency list for grid topology"
+  [rows cols]
+  (let [num-qubits (* rows cols)]
+    (vec (for [i (range num-qubits)]
+           (let [row (quot i cols)
+                 col (mod i cols)]
+             (vec (concat
+                   ;; Up neighbor
+                   (when (> row 0) [(- i cols)])
+                   ;; Down neighbor  
+                   (when (< row (dec rows)) [(+ i cols)])
+                   ;; Left neighbor
+                   (when (> col 0) [(dec i)])
+                   ;; Right neighbor
+                   (when (< col (dec cols)) [(inc i)]))))))))
+
 ;; Hardware Topology Optimization Functions
 
 (defn validate-topology
@@ -689,6 +767,11 @@
   [topology]
   (and (vector? topology)
        (every? vector? topology)
+       ;; Check that no qubit connects to itself
+       (every? (fn [qubit-id]
+                 (let [neighbors (get topology qubit-id)]
+                   (not (some #(= % qubit-id) neighbors))))
+               (range (count topology)))
        ;; Check that connections are symmetric
        (every? (fn [qubit-id]
                  (let [neighbors (get topology qubit-id)]
@@ -842,16 +925,23 @@
   "Find an optimal mapping from logical qubits to physical qubits using a greedy approach.
   
   Parameters:
-  - circuit: Quantum circuit to optimize
-  - topology: Hardware topology
-  - distance-matrix: Precomputed distance matrix
+  - When called with 3 args [circuit topology distance-matrix]:
+    - circuit: Quantum circuit to optimize
+    - topology: Hardware topology
+    - distance-matrix: Precomputed distance matrix
+  - When called with 3 args [two-qubit-ops num-physical-qubits distance-matrix] (legacy):
+    - two-qubit-ops: Vector of two-qubit operations
+    - num-physical-qubits: Number of physical qubits available
+    - distance-matrix: Precomputed distance matrix
   
   Returns:
   Map from logical qubit to physical qubit"
-  [circuit topology distance-matrix]
-  (let [two-qubit-ops (extract-two-qubit-operations circuit)
-        num-logical-qubits (:num-qubits circuit)
-        num-physical-qubits (count topology)]
+  [arg1 arg2 arg3]
+  (let [;; Detect which signature is being used
+        [two-qubit-ops num-logical-qubits num-physical-qubits distance-matrix] 
+        (if (map? arg1) ; First arg is circuit
+          [(extract-two-qubit-operations arg1) (:num-qubits arg1) (count arg2) arg3]
+          [arg1 (count (set (concat (map :control arg1) (map :target arg1)))) arg2 arg3])]
     
     (when (> num-logical-qubits num-physical-qubits)
       (throw (ex-info "Circuit requires more qubits than available in topology"
@@ -978,7 +1068,7 @@
   (let [num-qubits (count topology)
         degrees (mapv count topology)
         total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
-        avg-degree (/ total-edges (double num-qubits))
+        avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
         max-degree (apply max degrees)
         min-degree (apply min degrees)
         
@@ -1023,6 +1113,30 @@
                            "∞ (disconnected)" 
                            (:diameter analysis)) "\n"
           "- Connected: " (:is-connected analysis)))))
+
+(defn compare-topologies
+  "Compare multiple hardware topologies for a given circuit.
+  
+  Parameters:
+  - circuit: Quantum circuit to optimize
+  - topologies: Map of topology-name to topology
+  
+  Returns:
+  Vector of maps sorted by total cost, each containing:
+  - :topology-name - Name of the topology
+  - :total-cost - Total routing cost
+  - :swap-count - Number of SWAP operations needed
+  - :logical-to-physical - Optimal qubit mapping"
+  [circuit topologies]
+  (->> topologies
+       (map (fn [[name topology]]
+              (let [result (optimize-for-topology circuit topology)]
+                {:topology-name name
+                 :total-cost (:total-cost result)
+                 :swap-count (:swap-count result)
+                 :logical-to-physical (:logical-to-physical result)})))
+       (sort-by :total-cost)
+       vec))
 
 ;; Rich comment block for REPL experimentation
 (comment

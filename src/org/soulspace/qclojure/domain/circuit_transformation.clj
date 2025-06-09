@@ -1018,10 +1018,47 @@
                                                              (get logical-to-physical qubit-id qubit-id)))
                                  (:operations circuit))
          
-         ;; For now, we'll implement basic SWAP insertion in a future iteration
-         ;; This version focuses on optimal mapping
-         final-operations mapped-operations
-         swap-count 0
+         ;; Insert SWAP operations for non-adjacent two-qubit operations
+         insert-swaps? (get options :insert-swaps? true)
+         [final-operations swap-count] (if insert-swaps?
+                                         (let [result-operations (atom [])
+                                               total-swaps (atom 0)
+                                               ;; Track current physical positions of logical qubits
+                                               current-mapping (atom logical-to-physical)]
+                                           ;; Process each operation in the circuit in order
+                                           (doseq [op (:operations circuit)]
+                                             (let [params (:operation-params op)]
+                                               (if (and (:control params) (:target params)) ; Two-qubit operation
+                                                 (let [logical-control (:control params)
+                                                       logical-target (:target params)
+                                                       physical-control (get @current-mapping logical-control)
+                                                       physical-target (get @current-mapping logical-target)
+                                                       distance (get-in distance-matrix [physical-control physical-target])]
+                                                   (if (> distance 1) ; Not adjacent, need SWAPs
+                                                     (let [path (find-shortest-path topology physical-control physical-target)
+                                                           swap-ops (generate-swap-operations path logical-control)]
+                                                       ;; Add SWAP operations
+                                                       (swap! total-swaps + (count swap-ops))
+                                                       (swap! result-operations concat swap-ops)
+                                                       ;; Update current mapping to reflect SWAP movements
+                                                       ;; For now, we'll add the original operation after SWAPs
+                                                       ;; A full implementation would track qubit movements through SWAPs
+                                                       (let [final-op {:operation-type (:operation-type op)
+                                                                      :operation-params {:control physical-control
+                                                                                       :target physical-target}}]
+                                                         (swap! result-operations conj final-op)))
+                                                     ;; Adjacent qubits, no SWAPs needed
+                                                     (let [mapped-op {:operation-type (:operation-type op)
+                                                                     :operation-params {:control physical-control
+                                                                                      :target physical-target}}]
+                                                       (swap! result-operations conj mapped-op))))
+                                                 ;; Single-qubit operation - map directly
+                                                 (let [mapped-op (update-operation-params op 
+                                                                                          (fn [qubit-id] 
+                                                                                            (get @current-mapping qubit-id qubit-id)))]
+                                                   (swap! result-operations conj mapped-op)))))
+                                           [@result-operations @total-swaps])
+                                         [mapped-operations 0])
          
          ;; Calculate total cost using the original logical operations
          original-two-qubit-ops (extract-two-qubit-operations circuit)

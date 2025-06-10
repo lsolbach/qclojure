@@ -1168,7 +1168,7 @@
            transformation-result (if transform-operations?
                                    (transform-circuit circuit supported-operations options)
                                    ;; Even if not transforming, we should identify unsupported operations
-                                   (let [operation-types (map :operation-type (:operation circuit))
+                                   (let [operation-types (map :operation-type (:operations circuit))
                                          unsupported (filterv #(not (contains? supported-operations %)) operation-types)
                                          unique-unsupported (vec (distinct unsupported))]
                                      {:quantum-circuit circuit
@@ -1190,7 +1190,7 @@
 
            ;; Step 3: Optimize for topology (routing with SWAPs)
            topology-optimization-result (if optimize-topology?
-                                          (optimize-for-topology qubit-optimized-circuit topology)
+                                          (optimize-for-topology qubit-optimized-circuit topology options)
                                           {:quantum-circuit qubit-optimized-circuit
                                            :logical-to-physical {}
                                            :physical-to-logical {}

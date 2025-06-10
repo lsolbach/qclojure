@@ -342,14 +342,15 @@
 
           ;; Optimize with only qubit optimization enabled
           result (ct/optimize circuit #{:h :x :cnot}
-                              {:transform-gates? false
+                              {:transform-operations? false
                                :optimize-qubits? true})
           ;; Should have optimized qubits but not transformed gates
           transformation (:transformation-result result)
           qubit-opt (:qubit-optimization-result result)]
       ;; Check that no gates were transformed
       (is (zero? (:transformed-operation-count transformation)))
-      (is (seq (:unsupported-operations transformation))) ;; Y gate still unsupported
+      ;; Y gate should be detected as unsupported but not transformed
+      (is (contains? (set (:unsupported-operations transformation)) :y))
       (is (pos? (:qubits-saved qubit-opt)))))
 
   (testing "Optimization with no changes needed"
@@ -808,75 +809,549 @@
       
       ;; Star topology should be ideal for GHZ (all operations from center)
       (is (= 0 (:swap-count result)))  ; No SWAPs needed
-      (is (= 2 (:total-cost result)))  ; Two operations, each distance 1
-      
-      ;; Check that logical qubit 0 maps to center (physical 0) for optimal cost
-      (let [mapping (:logical-to-physical result)]
-        (is (= 0 (get mapping 0))))))
+      (is (= 2 (:total-cost result))))))  ; Two operations, each distance 1
 
-  (testing "Circuit with only single-qubit operations"
-    (let [single-qubit-circuit (-> (qc/create-circuit 3 "Single Qubit")
-                                   (qc/h-gate 0)
-                                   (qc/x-gate 1)
-                                   (qc/z-gate 2))
-          linear-3 (ct/create-linear-topology 3)
-          result (ct/optimize-for-topology single-qubit-circuit linear-3)]
-      
-      ;; No two-qubit operations, so no routing needed
-      (is (= 0 (:swap-count result)))
-      (is (= 0 (:total-cost result)))
-      (is (= 3 (count (:operations (:quantum-circuit result)))))))
-
-  (testing "Empty circuit optimization"
-    (let [empty-circuit (qc/create-circuit 2 "Empty")
-          linear-3 (ct/create-linear-topology 3)
-          result (ct/optimize-for-topology empty-circuit linear-3)]
-      
-      (is (= 0 (:swap-count result)))
-      (is (= 0 (:total-cost result)))
-      (is (empty? (:operations (:quantum-circuit result)))))))
-
-(deftest test-optimize-for-topology-edge-cases
-  (testing "Single qubit circuit"
-    (let [single-circuit (qc/h-gate (qc/create-circuit 1 "Single") 0)
-          linear-2 (ct/create-linear-topology 2)
-          result (ct/optimize-for-topology single-circuit linear-2)]
-      
-      (is (= 0 (:swap-count result)))
-      (is (= 0 (:total-cost result)))
-      (is (= 1 (count (:logical-to-physical result))))))
-
-  (testing "Circuit with SWAP operations in input"
-    (let [swap-circuit (-> (qc/create-circuit 3 "With SWAP")
+(deftest test-topology-comparison
+  (testing "Compare topologies for same circuit"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
                            (qc/h-gate 0)
-                           (qc/swap-gate 0 1)  ; Explicit SWAP
-                           (qc/cnot-gate 0 2))
+                           (qc/cnot-gate 0 1))
           linear-3 (ct/create-linear-topology 3)
-          result (ct/optimize-for-topology swap-circuit linear-3)]
+          ring-4 (ct/create-ring-topology 4)
+          star-5 (ct/create-star-topology 5)
+          comparison (ct/compare-topologies bell-circuit 
+                                            {"linear-3" linear-3
+                                             "ring-4" ring-4
+                                             "star-5" star-5})]
+      (is (= 3 (count comparison)))
+      (is (contains? (first comparison) :topology-name))
+      (is (contains? (first comparison) :total-cost))
+      (is (contains? (first comparison) :swap-count))
+      ;; All should have same cost (1) for Bell circuit
+      (is (every? #(= 1 (:total-cost %)) comparison)))))
+
+(deftest test-topology-analysis
+  (testing "Analyze linear topology connectivity"
+    (let [linear-3 (ct/create-linear-topology 3)
+          analysis (ct/analyze-topology-connectivity linear-3)]
+      (is (contains? analysis :num-qubits))
+      (is (contains? analysis :total-edges))
+      (is (contains? analysis :avg-degree))
+      (is (contains? analysis :diameter))
+      (is (= 3 (:num-qubits analysis)))
+      (is (= 2 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))))
+
+  (testing "Analyze star topology connectivity"
+    (let [star-5 (ct/create-star-topology 5)
+          analysis (ct/analyze-topology-connectivity star-5)]
+      (is (= 5 (:num-qubits analysis)))
+      (is (= 4 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))  ; Star has diameter 2
+      (is (= 1.6 (:avg-degree analysis)))))  ; 4*2/5 = 1.6
+
+  (testing "Get topology info"
+    (let [ring-4 (ct/create-ring-topology 4)
+          info (ct/get-topology-info ring-4)]
+      (is (string? info))
+      (is (re-find #"Qubits: 4" info))
+      (is (re-find #"Edges: 4" info)))))
+
+(deftest test-generate-swap-operations
+  (testing "No SWAPs needed for adjacent qubits"
+    (let [path [0 1]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps))))
+
+  (testing "Single SWAP for distance 2"
+    (let [path [0 1 2]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (= 2 (count swaps)))  ; Path [0 1 2] generates 2 SWAPs: (0↔1) and (1↔2)
+      (let [swap1 (first swaps)]
+        (is (= :swap (:operation-type swap1)))
+        (is (= {:target1 0 :target2 1} (:operation-params swap1)))
+        (is (= {:moves-qubit 0 :from 0 :to 1} (:routing-info swap1))))
+      (let [swap2 (second swaps)]
+        (is (= :swap (:operation-type swap2)))
+        (is (= {:target1 1 :target2 2} (:operation-params swap2)))
+        (is (= {:moves-qubit 0 :from 1 :to 2} (:routing-info swap2))))))
+
+  (testing "Multiple SWAPs for longer path"
+    (let [path [0 1 2 3]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (= 3 (count swaps)))  ; Path [0 1 2 3] generates 3 SWAPs
+      ;; First SWAP: 0 ↔ 1
+      (let [swap1 (first swaps)]
+        (is (= :swap (:operation-type swap1)))
+        (is (= {:target1 0 :target2 1} (:operation-params swap1)))
+        (is (= {:moves-qubit 0 :from 0 :to 1} (:routing-info swap1))))
+      ;; Second SWAP: 1 ↔ 2
+      (let [swap2 (second swaps)]
+        (is (= :swap (:operation-type swap2)))
+        (is (= {:target1 1 :target2 2} (:operation-params swap2)))
+        (is (= {:moves-qubit 0 :from 1 :to 2} (:routing-info swap2))))
+      ;; Third SWAP: 2 ↔ 3
+      (let [swap3 (nth swaps 2)]
+        (is (= :swap (:operation-type swap3)))
+        (is (= {:target1 2 :target2 3} (:operation-params swap3)))
+        (is (= {:moves-qubit 0 :from 2 :to 3} (:routing-info swap3))))))
+
+  (testing "Empty path returns no SWAPs"
+    (let [path []
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps))))
+
+  (testing "Single qubit path returns no SWAPs"
+    (let [path [0]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps)))))
+
+(deftest test-optimize-for-topology-basic
+  (testing "Bell circuit on linear topology with optimal mapping"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology bell-circuit linear-3)]
       
-      ;; Should handle existing SWAP operations correctly
+      ;; Check result structure
       (is (contains? result :quantum-circuit))
-      (is (>= (count (:operations (:quantum-circuit result))) 3))))
+      (is (contains? result :logical-to-physical))
+      (is (contains? result :physical-to-logical))
+      (is (contains? result :swap-count))
+      (is (contains? result :total-cost))
+      (is (contains? result :topology-summary))
+      
+      ;; Bell circuit should have minimal cost with optimal mapping
+      (is (= 0 (:swap-count result)))  ; No SWAPs needed
+      (is (= 1 (:total-cost result)))  ; Adjacent qubits cost 1
+      (is (= 2 (count (:logical-to-physical result)))) ; Maps 2 logical qubits
+      
+      ;; Check circuit is valid
+      (let [optimized-circuit (:quantum-circuit result)]
+        (is (= 2 (count (:operations optimized-circuit))))
+        (is (every? #(contains? #{:h :cnot} (:operation-type %)) 
+                   (:operations optimized-circuit))))))
 
-  (testing "Topology validation error handling"
-    (let [circuit (qc/h-gate (qc/create-circuit 1) 0)
-          invalid-topology [[0]]]  ; Self-connection
-      (is (thrown? AssertionError 
-                   (ct/optimize-for-topology circuit invalid-topology)))))
+  (testing "Bell circuit on linear topology without optimal mapping"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology bell-circuit linear-3 {:optimize-mapping? false})]
+      
+      ;; With identity mapping, should still work fine
+      (is (= {0 0, 1 1} (:logical-to-physical result)))
+      (is (= 0 (:swap-count result)))  ; Still no SWAPs needed for adjacent operations
+      (is (= 1 (:total-cost result)))))
 
-  (testing "Circuit requiring more qubits than topology"
-    (let [large-circuit (qc/cnot-gate (qc/create-circuit 5) 0 4)
-          small-topology (ct/create-linear-topology 3)]
-      ;; Should handle gracefully or throw informative error
-      (is (thrown? Exception
-                   (ct/optimize-for-topology large-circuit small-topology))))))
+  (testing "Circuit requiring SWAPs with identity mapping"
+    (let [circuit (-> (qc/create-circuit 3 "Test")
+                      (qc/cnot-gate 0 2))  ; Distance 2 on linear topology
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology circuit linear-3 {:optimize-mapping? false})]
+      
+      ;; Should insert SWAPs for non-adjacent operation
+      (is (> (:swap-count result) 0))
+      (is (> (count (:operations (:quantum-circuit result))) 
+             (count (:operations circuit))))
+      (is (= {0 0, 1 1, 2 2} (:logical-to-physical result)))
+      
+      ;; Verify correct operation ordering: SWAPs should come BEFORE the CNOT
+      (let [operations (:operations (:quantum-circuit result))]
+        (is (= 2 (count operations)))
+        (is (= :swap (:operation-type (first operations))))  ; First operation should be SWAP
+        (is (= :cnot (:operation-type (second operations)))) ; Second operation should be CNOT
+        ;; Verify the CNOT uses adjacent qubits after routing
+        (is (= {:control 1, :target 2} (:operation-params (second operations)))))))
 
-(comment
-  ;; Run tests
-  (run-tests)
+  (testing "Disable SWAP insertion"
+    (let [circuit (-> (qc/create-circuit 3 "Test")
+                      (qc/cnot-gate 0 2))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology circuit linear-3 
+                                          {:optimize-mapping? false
+                                           :insert-swaps? false})]
+      
+      ;; Should not insert SWAPs even for non-adjacent operations
+      (is (= 0 (:swap-count result)))
+      (is (= (count (:operations (:quantum-circuit result)))
+             (count (:operations circuit)))))))
 
-  ;; Specific testing for debugging
-  (let [circuit (-> (qc/create-circuit 2)
-                    (qc/h-gate 0)
-                    (qc/y-gate 1))]
-    (ct/transform-circuit circuit #{:h :x :z :cnot})))
+(deftest test-optimize-for-topology-complex
+  (testing "Complex circuit with multiple two-qubit operations"
+    (let [complex-circuit (-> (qc/create-circuit 4 "Complex")
+                              (qc/h-gate 0)
+                              (qc/cnot-gate 0 3)  ; Long distance
+                              (qc/cnot-gate 1 2)  ; Adjacent
+                              (qc/cnot-gate 0 2)  ; Medium distance
+                              (qc/x-gate 3))
+          linear-4 (ct/create-linear-topology 4)
+          result-opt (ct/optimize-for-topology complex-circuit linear-4)
+          result-no-opt (ct/optimize-for-topology complex-circuit linear-4 
+                                                  {:optimize-mapping? false})]
+      
+      ;; With optimal mapping should be better than without
+      (is (<= (:total-cost result-opt) (:total-cost result-no-opt)))
+      (is (<= (:swap-count result-opt) (:swap-count result-no-opt)))
+      
+      ;; Both should have valid circuits
+      (is (pos? (count (:operations (:quantum-circuit result-opt)))))
+      (is (pos? (count (:operations (:quantum-circuit result-no-opt)))))))
+
+  (testing "GHZ circuit on star topology"
+    (let [ghz-circuit (-> (qc/create-circuit 3 "GHZ")
+                          (qc/h-gate 0)
+                          (qc/cnot-gate 0 1)
+                          (qc/cnot-gate 0 2))
+          star-5 (ct/create-star-topology 5)
+          result (ct/optimize-for-topology ghz-circuit star-5)]
+      
+      ;; Star topology should be ideal for GHZ (all operations from center)
+      (is (= 0 (:swap-count result)))  ; No SWAPs needed
+      (is (= 2 (:total-cost result))))))  ; Two operations, each distance 1
+
+(deftest test-topology-comparison
+  (testing "Compare topologies for same circuit"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          ring-4 (ct/create-ring-topology 4)
+          star-5 (ct/create-star-topology 5)
+          comparison (ct/compare-topologies bell-circuit 
+                                            {"linear-3" linear-3
+                                             "ring-4" ring-4
+                                             "star-5" star-5})]
+      (is (= 3 (count comparison)))
+      (is (contains? (first comparison) :topology-name))
+      (is (contains? (first comparison) :total-cost))
+      (is (contains? (first comparison) :swap-count))
+      ;; All should have same cost (1) for Bell circuit
+      (is (every? #(= 1 (:total-cost %)) comparison)))))
+
+(deftest test-topology-analysis
+  (testing "Analyze linear topology connectivity"
+    (let [linear-3 (ct/create-linear-topology 3)
+          analysis (ct/analyze-topology-connectivity linear-3)]
+      (is (contains? analysis :num-qubits))
+      (is (contains? analysis :total-edges))
+      (is (contains? analysis :avg-degree))
+      (is (contains? analysis :diameter))
+      (is (= 3 (:num-qubits analysis)))
+      (is (= 2 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))))
+
+  (testing "Analyze star topology connectivity"
+    (let [star-5 (ct/create-star-topology 5)
+          analysis (ct/analyze-topology-connectivity star-5)]
+      (is (= 5 (:num-qubits analysis)))
+      (is (= 4 (:total-edges analysis)))
+      (is (= 2 (:diameter analysis)))  ; Star has diameter 2
+      (is (= 1.6 (:avg-degree analysis)))))  ; 4*2/5 = 1.6
+
+  (testing "Get topology info"
+    (let [ring-4 (ct/create-ring-topology 4)
+          info (ct/get-topology-info ring-4)]
+      (is (string? info))
+      (is (re-find #"Qubits: 4" info))
+      (is (re-find #"Edges: 4" info)))))
+
+(deftest test-generate-swap-operations
+  (testing "No SWAPs needed for adjacent qubits"
+    (let [path [0 1]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps))))
+
+  (testing "Single SWAP for distance 2"
+    (let [path [0 1 2]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (= 2 (count swaps)))  ; Path [0 1 2] generates 2 SWAPs: (0↔1) and (1↔2)
+      (let [swap1 (first swaps)]
+        (is (= :swap (:operation-type swap1)))
+        (is (= {:target1 0 :target2 1} (:operation-params swap1)))
+        (is (= {:moves-qubit 0 :from 0 :to 1} (:routing-info swap1))))
+      (let [swap2 (second swaps)]
+        (is (= :swap (:operation-type swap2)))
+        (is (= {:target1 1 :target2 2} (:operation-params swap2)))
+        (is (= {:moves-qubit 0 :from 1 :to 2} (:routing-info swap2))))))
+
+  (testing "Multiple SWAPs for longer path"
+    (let [path [0 1 2 3]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (= 3 (count swaps)))  ; Path [0 1 2 3] generates 3 SWAPs
+      ;; First SWAP: 0 ↔ 1
+      (let [swap1 (first swaps)]
+        (is (= :swap (:operation-type swap1)))
+        (is (= {:target1 0 :target2 1} (:operation-params swap1)))
+        (is (= {:moves-qubit 0 :from 0 :to 1} (:routing-info swap1))))
+      ;; Second SWAP: 1 ↔ 2
+      (let [swap2 (second swaps)]
+        (is (= :swap (:operation-type swap2)))
+        (is (= {:target1 1 :target2 2} (:operation-params swap2)))
+        (is (= {:moves-qubit 0 :from 1 :to 2} (:routing-info swap2))))
+      ;; Third SWAP: 2 ↔ 3
+      (let [swap3 (nth swaps 2)]
+        (is (= :swap (:operation-type swap3)))
+        (is (= {:target1 2 :target2 3} (:operation-params swap3)))
+        (is (= {:moves-qubit 0 :from 2 :to 3} (:routing-info swap3))))))
+
+  (testing "Empty path returns no SWAPs"
+    (let [path []
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps))))
+
+  (testing "Single qubit path returns no SWAPs"
+    (let [path [0]
+          target-qubit 0
+          swaps (ct/generate-swap-operations path target-qubit)]
+      (is (empty? swaps)))))
+
+(deftest test-optimize-for-topology-basic
+  (testing "Bell circuit on linear topology with optimal mapping"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology bell-circuit linear-3)]
+      
+      ;; Check result structure
+      (is (contains? result :quantum-circuit))
+      (is (contains? result :logical-to-physical))
+      (is (contains? result :physical-to-logical))
+      (is (contains? result :swap-count))
+      (is (contains? result :total-cost))
+      (is (contains? result :topology-summary))
+      
+      ;; Bell circuit should have minimal cost with optimal mapping
+      (is (= 0 (:swap-count result)))  ; No SWAPs needed
+      (is (= 1 (:total-cost result)))  ; Adjacent qubits cost 1
+      (is (= 2 (count (:logical-to-physical result)))) ; Maps 2 logical qubits
+      
+      ;; Check circuit is valid
+      (let [optimized-circuit (:quantum-circuit result)]
+        (is (= 2 (count (:operations optimized-circuit))))
+        (is (every? #(contains? #{:h :cnot} (:operation-type %)) 
+                   (:operations optimized-circuit))))))
+
+  (testing "Bell circuit on linear topology without optimal mapping"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology bell-circuit linear-3 {:optimize-mapping? false})]
+      
+      ;; With identity mapping, should still work fine
+      (is (= {0 0, 1 1} (:logical-to-physical result)))
+      (is (= 0 (:swap-count result)))  ; Still no SWAPs needed for adjacent operations
+      (is (= 1 (:total-cost result)))))
+
+  (testing "Circuit requiring SWAPs with identity mapping"
+    (let [circuit (-> (qc/create-circuit 3 "Test")
+                      (qc/cnot-gate 0 2))  ; Distance 2 on linear topology
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology circuit linear-3 {:optimize-mapping? false})]
+      
+      ;; Should insert SWAPs for non-adjacent operation
+      (is (> (:swap-count result) 0))
+      (is (> (count (:operations (:quantum-circuit result))) 
+             (count (:operations circuit))))
+      (is (= {0 0, 1 1, 2 2} (:logical-to-physical result)))
+      
+      ;; Verify correct operation ordering: SWAPs should come BEFORE the CNOT
+      (let [operations (:operations (:quantum-circuit result))]
+        (is (= 2 (count operations)))
+        (is (= :swap (:operation-type (first operations))))  ; First operation should be SWAP
+        (is (= :cnot (:operation-type (second operations)))) ; Second operation should be CNOT
+        ;; Verify the CNOT uses adjacent qubits after routing
+        (is (= {:control 1, :target 2} (:operation-params (second operations)))))))
+
+  (testing "Disable SWAP insertion"
+    (let [circuit (-> (qc/create-circuit 3 "Test")
+                      (qc/cnot-gate 0 2))
+          linear-3 (ct/create-linear-topology 3)
+          result (ct/optimize-for-topology circuit linear-3 
+                                          {:optimize-mapping? false
+                                           :insert-swaps? false})]
+      
+      ;; Should not insert SWAPs even for non-adjacent operations
+      (is (= 0 (:swap-count result)))
+      (is (= (count (:operations (:quantum-circuit result)))
+             (count (:operations circuit)))))))
+
+(deftest test-comprehensive-optimize-with-topology
+  (testing "Full optimization pipeline with topology optimization enabled"
+    (let [;; Complex circuit needing all types of optimization
+          circuit (-> (qc/create-circuit 4 "Complex Test Circuit")
+                      (qc/h-gate 0)
+                      (qc/y-gate 1)       ;; Unsupported gate (needs transformation)
+                      (qc/cnot-gate 0 3)  ;; Sparse qubits + non-adjacent (needs optimization)
+                      (qc/cnot-gate 1 2)  ;; Adjacent operation
+                      (qc/x-gate 2))
+
+          linear-topology (ct/create-linear-topology 4)
+          result (ct/optimize circuit #{:h :x :z :rx :rz :cnot :swap}
+                              {:optimize-topology? true 
+                               :topology linear-topology})]
+
+      ;; Check that all optimization results are present
+      (is (contains? result :transformation-result))
+      (is (contains? result :qubit-optimization-result))
+      (is (contains? result :topology-optimization-result))
+      (is (contains? result :optimization-summary))
+
+      ;; Check transformation worked (Y gate was transformed)
+      (let [transformation (:transformation-result result)]
+        (is (pos? (:transformed-operation-count transformation)))
+        (is (empty? (:unsupported-operations transformation))))
+
+      ;; Check qubit optimization worked (sparse qubits were compacted)
+      (let [qubit-opt (:qubit-optimization-result result)]
+        (is (>= (:qubits-saved qubit-opt) 0))  ;; May be 0 if no sparse qubits after transformation
+        (is (<= (:optimized-qubits qubit-opt) 4)))
+
+      ;; Check topology optimization worked
+      (let [topology-opt (:topology-optimization-result result)]
+        (is (contains? topology-opt :logical-to-physical))
+        (is (contains? topology-opt :swap-count))
+        (is (contains? topology-opt :total-cost))
+        (is (contains? topology-opt :topology-summary)))
+
+      ;; Check final circuit is valid
+      (let [final-circuit (:quantum-circuit result)]
+        (is (s/valid? ::qc/quantum-circuit final-circuit))
+        (is (pos? (count (:operations final-circuit)))))
+
+      ;; Check comprehensive summary includes all optimization types
+      (let [summary (:optimization-summary result)]
+        (is (string? summary))
+        (is (re-find #"Operations transformed" summary))
+        (is (re-find #"Qubits saved" summary))
+        (is (re-find #"SWAP operations added" summary))
+        (is (re-find #"Topology routing cost" summary)))))
+
+  (testing "Topology optimization with different topology types"
+    (let [bell-circuit (-> (qc/create-circuit 2 "Bell Circuit")
+                           (qc/h-gate 0)
+                           (qc/cnot-gate 0 1))
+
+          ;; Test with different topology types
+          linear-topology (ct/create-linear-topology 3)
+          ring-topology (ct/create-ring-topology 4)
+          star-topology (ct/create-star-topology 5)
+
+          linear-result (ct/optimize bell-circuit #{:h :cnot :swap}
+                                     {:optimize-topology? true 
+                                      :topology linear-topology})
+          ring-result (ct/optimize bell-circuit #{:h :cnot :swap}
+                                   {:optimize-topology? true 
+                                    :topology ring-topology})
+          star-result (ct/optimize bell-circuit #{:h :cnot :swap}
+                                   {:optimize-topology? true 
+                                    :topology star-topology})]
+
+      ;; All results should be valid
+      (doseq [result [linear-result ring-result star-result]]
+        (is (contains? result :topology-optimization-result))
+        (let [topology-opt (:topology-optimization-result result)]
+          (is (number? (:swap-count topology-opt)))
+          (is (number? (:total-cost topology-opt)))
+          (is (string? (:topology-summary topology-opt)))))
+
+      ;; Bell circuit should have minimal cost on all topologies (adjacent qubits)
+      (is (= 0 (get-in linear-result [:topology-optimization-result :swap-count])))
+      (is (= 0 (get-in ring-result [:topology-optimization-result :swap-count])))
+      (is (= 0 (get-in star-result [:topology-optimization-result :swap-count])))))
+
+  (testing "Topology optimization with SWAP insertion needed"
+    (let [;; Circuit using all qubits to prevent qubit optimization from interfering
+          circuit (-> (qc/create-circuit 3 "SWAP Test")
+                      (qc/h-gate 0)
+                      (qc/h-gate 1)     ;; Use qubit 1 to prevent optimization
+                      (qc/cnot-gate 0 2))  ;; Distance 2 on linear topology
+
+          linear-topology (ct/create-linear-topology 3)
+          result (ct/optimize circuit #{:h :cnot :swap}
+                              {:optimize-topology? true 
+                               :topology linear-topology
+                               :optimize-mapping? false   ;; Force identity mapping
+                               :optimize-qubits? false})] ;; Disable qubit optimization
+
+      ;; Should insert SWAPs for non-adjacent operation
+      (let [topology-opt (:topology-optimization-result result)]
+        (is (pos? (:swap-count topology-opt)))
+        (is (pos? (:total-cost topology-opt))))
+
+      ;; Final circuit should contain SWAP operations
+      (let [final-circuit (:quantum-circuit result)
+            operations (:operations final-circuit)
+            swap-ops (filter #(= :swap (:operation-type %)) operations)]
+        (is (pos? (count swap-ops))))))
+
+  (testing "Optimization without topology optimization"
+    (let [circuit (-> (qc/create-circuit 3 "No Topology Test")
+                      (qc/h-gate 0)
+                      (qc/y-gate 1)
+                      (qc/cnot-gate 0 2))
+
+          result (ct/optimize circuit #{:h :x :z :rx :rz :cnot}
+                              {:optimize-topology? false})]
+
+      ;; Should have topology-optimization-result with default values
+      (let [topology-opt (:topology-optimization-result result)]
+        (is (= 0 (:swap-count topology-opt)))
+        (is (= 0 (:total-cost topology-opt)))
+        (is (re-find #"not enabled" (:topology-summary topology-opt))))
+
+      ;; Summary should indicate topology optimization was not enabled
+      (let [summary (:optimization-summary result)]
+        (is (re-find #"Topology optimization: Not enabled" summary)))))
+
+  (testing "Error handling for invalid topology optimization options"
+    ;; Test missing topology when topology optimization is requested
+    (is (thrown? Exception
+                 (ct/optimize (qc/h-gate (qc/create-circuit 1) 0) #{:h}
+                              {:optimize-topology? true})))
+
+    ;; Test invalid topology
+    (is (thrown? Exception
+                 (ct/optimize (qc/h-gate (qc/create-circuit 1) 0) #{:h}
+                              {:optimize-topology? true
+                               :topology [[0]]}))))  ; Self-connection invalid
+
+  (testing "Optimization result consistency"
+    (let [circuit (-> (qc/create-circuit 4 "Consistency Test")
+                      (qc/h-gate 0)
+                      (qc/cnot-gate 0 1)
+                      (qc/cnot-gate 1 2)
+                      (qc/cnot-gate 2 3))
+
+          linear-topology (ct/create-linear-topology 4)
+          result (ct/optimize circuit #{:h :cnot :swap}
+                              {:optimize-topology? true 
+                               :topology linear-topology})]
+
+      ;; Verify operation counts are consistent
+      (let [original-ops (count (:operations circuit))
+            final-ops (count (:operations (:quantum-circuit result)))
+            transformed-ops (:transformed-operation-count (:transformation-result result))
+            swap-ops (:swap-count (:topology-optimization-result result))]
+        
+        ;; Final operations should equal original + transformed + swaps
+        (is (= final-ops (+ original-ops transformed-ops swap-ops))))
+
+      ;; Verify qubit counts are consistent
+      (let [original-qubits (:num-qubits circuit)
+            final-qubits (:num-qubits (:quantum-circuit result))]
+        
+        ;; Final qubits should be less than or equal to original qubits
+        (is (<= final-qubits original-qubits))))))

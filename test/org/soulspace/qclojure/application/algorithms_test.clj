@@ -52,7 +52,7 @@
     (let [target-item 3
           search-size 8
           oracle-fn #(= % target-item)
-          result (grover/grover-algorithm search-size oracle-fn (sim/create-simulator))]
+          result (grover/grover-algorithm (sim/create-simulator) search-size oracle-fn)]
       (is (contains? result :measurements))
       (is (contains? result :target-indices))
       (is (contains? result :probability))
@@ -71,7 +71,7 @@
   
   (testing "Grover search with multiple targets"
     (let [oracle-fn #(or (= % 1) (= % 3) (= % 5))
-          result (grover/grover-algorithm 8 oracle-fn (sim/create-simulator))]
+          result (grover/grover-algorithm (sim/create-simulator) 8 oracle-fn)]
       (is (>= (:probability result) 0.0))
       (is (<= (:probability result) 1.0)))))
 
@@ -158,7 +158,7 @@
           hidden-string [1 0 1]
 
           deutsch-result (deutsch/deutsch-algorithm (sim/create-simulator) constant-fn)
-          grover-result (grover/grover-algorithm 8 oracle-fn (sim/create-simulator))
+          grover-result (grover/grover-algorithm (sim/create-simulator) 8 oracle-fn)
           bv-result (bv/bernstein-vazirani-algorithm (sim/create-simulator) hidden-string)
           simon-result (simon/simon-algorithm (sim/create-simulator) hidden-string)]
 
@@ -180,7 +180,7 @@
   
   (testing "Algorithm complexity metadata is consistent"
     (let [results [(deutsch/deutsch-algorithm (sim/create-simulator) identity)
-                   (grover/grover-algorithm 4 #(= % 1) (sim/create-simulator))
+                   (grover/grover-algorithm (sim/create-simulator) 4 #(= % 1))
                    (bv/bernstein-vazirani-algorithm (sim/create-simulator) [1 0])
                    (simon/simon-algorithm (sim/create-simulator) [1 0])]]
       
@@ -207,7 +207,7 @@
 
   ;; Manual algorithm verification
   (deutsch/deutsch-algorithm (sim/create-simulator) (constantly true))
-  (grover/grover-algorithm 8 #(= % 3) (sim/create-simulator))
+  (grover/grover-algorithm (sim/create-simulator) 8 #(= % 3))
   (bv/bernstein-vazirani-algorithm (sim/create-simulator) [1 0 1 0])
   (simon/simon-algorithm (sim/create-simulator) [1 0 1])
 

@@ -108,5 +108,43 @@
           rounded (.setScale bd scale java.math.RoundingMode/HALF_UP)]
       (double rounded))))
 
+(defn find-period
+  "Find the period from a phase estimate using improved continued fraction expansion.
+  
+  This function implements a more robust version of period extraction from
+  a phase measurement, which is critical for Shor's algorithm.
+  
+  Parameters:
+  - measured-value: The value from quantum measurement
+  - precision: Number of bits used in phase estimation
+  - N: Modulus for period finding
+  - a: Base for modular exponentiation
+  
+  Returns:
+  Most likely period or nil if no valid period found"
+  [measured-value precision N a]
+  (let [;; Calculate phase from measurement
+        phase (/ measured-value (Math/pow 2 precision))
+
+        ;; Try different depths of continued fraction expansion
+        candidates (for [depth [10 20 50 100]
+                         :let [cf (continued-fraction measured-value (Math/pow 2 precision) depth)
+                               convs (convergents cf)]
+                         [num den] convs
+                         ;; Verify this is actually a period
+                         :when (and (pos? den)
+                                    (<= den N)
+                                    (= 1 (mod-exp a den N)))]
+                     {:period den
+                      :fraction [num den]
+                      :error (Math/abs (- phase (/ num (Math/pow 2 precision))))})
+
+        ;; Sort by error (lowest first) and then by period (smallest valid first)
+        sorted-candidates (sort-by (juxt :error :period) candidates)]
+
+    ;; Return the best candidate's period, or nil if none found
+    (when (seq sorted-candidates)
+      (:period (first sorted-candidates)))))
+
 ; Disable fastmath operator macros to avoid conflicts
 #_(m/unuse-primitive-operators)

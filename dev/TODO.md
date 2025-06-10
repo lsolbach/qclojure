@@ -8,7 +8,6 @@
   * quantum fourier transformation
   * quantum period finding
   * shor
-* check validation/optimization for backend topology (e.g. [[0 1] [1 2] [2 3]])
 
 ## Backlog
 * reduce code duplication

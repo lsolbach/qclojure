@@ -7,45 +7,49 @@
    [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
    [org.soulspace.qclojure.domain.circuit-transformation :as qct]))
 
-(defn quantum-period-finding
-  "Find the period from a phase estimate using improved continued fraction expansion.
+
+(defn quantum-period-circuit
+  "Create a quantum circuit for period finding using quantum phase estimation.
   
-  This function implements a more robust version of period extraction from
-  a phase measurement, which is critical for Shor's algorithm.
+  This circuit implements the quantum subroutine for Shor's algorithm to find
+  the period of the function f(x) = a^x mod N. It uses controlled modular
+  exponentiation and the Quantum Fourier Transform (QFT).
   
   Parameters:
-  - measured-value: The value from quantum measurement
-  - precision: Number of bits used in phase estimation
-  - N: Modulus for period finding
-  - a: Base for modular exponentiation
+  - n-qubits: Number of qubits in the control register (should be ~2*log₂(N))
+  - n-target-qubits: Number of qubits in the target register (should be ~log₂(N))
+  - a: Base for the function f(x) = a^x mod N
+  - N: Modulus
   
   Returns:
-  Most likely period or nil if no valid period found"
-  [measured-value precision N a]
-  (let [;; Calculate phase from measurement
-        phase (/ measured-value (Math/pow 2 precision))
+  A complete quantum circuit implementing the period finding subroutine."
+  [n-qubits n-target-qubits a N]
+  {:pre [(pos-int? n-qubits) (pos-int? n-target-qubits) (pos-int? a) (pos-int? N)]}
+  
+  ;; Create the complete circuit with both control and target registers
+  (let [total-qubits (+ n-qubits n-target-qubits)
+        circuit (qc/create-circuit total-qubits
+                                   "Period Finding"
+                                   "Quantum period finding for Shor's algorithm")]
+    (-> circuit
+        ;; Step 1: Put control register in superposition
+        ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
+        
+        ;; Step 2: Apply controlled modular exponentiation
+        ((fn [c]
+           ;; Create and compose the modular exponentiation circuit
+           (qct/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
+        
+        ;; Step 3: Apply inverse QFT to the control register
+        ((fn [c]
+           ;; Create inverse QFT circuit for the control qubits only
+           (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit n-qubits)]
+             ;; Apply the inverse QFT to control qubits only
+             ;; Using the enhanced compose-circuits with control-qubits-only option
+             (qct/compose-circuits c iqft-circuit {:control-qubits-only true})))))))
 
-        ;; Try different depths of continued fraction expansion
-        candidates (for [depth [10 20 50 100]
-                         :let [cf (qmath/continued-fraction measured-value (Math/pow 2 precision) depth)
-                               convs (qmath/convergents cf)]
-                         [num den] convs
-                         ;; Verify this is actually a period
-                         :when (and (pos? den)
-                                    (<= den N)
-                                    (= 1 (qmath/mod-exp a den N)))]
-                     {:period den
-                      :fraction [num den]
-                      :error (Math/abs (- phase (/ num (Math/pow 2 precision))))})
-
-        ;; Sort by error (lowest first) and then by period (smallest valid first)
-        sorted-candidates (sort-by (juxt :error :period) candidates)]
-
-    ;; Return the best candidate's period, or nil if none found
-    (when (seq sorted-candidates)
-      (:period (first sorted-candidates)))))
-
-(defn enhanced-period-finding
+;; TODO add backend parameter to execute the circuit on different quantum backends
+(defn quantum-period-finding
   "Quantum subroutine for finding the period of f(x) = a^x mod N.
   
   This is the quantum heart of Shor's algorithm. It uses quantum phase
@@ -66,7 +70,7 @@
   - :success - Whether a valid period was found
   - :confidence - Statistical confidence in the result (only with multiple measurements)"
   ([a N n-qubits]
-   (enhanced-period-finding a N n-qubits 1))
+   (quantum-period-finding a N n-qubits 1))
   ([a N n-qubits n-measurements]
    {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
 
@@ -76,25 +80,7 @@
 
          ;; Create the complete circuit with both control and target registers
          total-qubits (+ n-qubits n-target-qubits)
-         circuit (-> (qc/create-circuit total-qubits
-                                        "Period Finding"
-                                        "Quantum period finding for Shor's algorithm")
-
-                     ;; Step 1: Put control register in superposition
-                     ((fn [c] (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
-
-                     ;; Step 2: Apply controlled modular exponentiation
-                     ((fn [c]
-                        ;; Create and compose the modular exponentiation circuit
-                        (qct/compose-circuits c (qma/controlled-modular-exponentiation-circuit n-qubits n-target-qubits a N))))
-
-                     ;; Step 3: Apply inverse QFT to the control register
-                     ((fn [c]
-                        ;; Create inverse QFT circuit for the control qubits only
-                        (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit n-qubits)]
-                          ;; Apply the inverse QFT to control qubits only
-                          ;; Using the enhanced compose-circuits with control-qubits-only option
-                          (qct/compose-circuits c iqft-circuit {:control-qubits-only true})))))
+         circuit (quantum-period-circuit n-qubits n-target-qubits a N)
 
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements

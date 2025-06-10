@@ -3,7 +3,6 @@
    [clojure.spec.alpha :as s]
    [org.soulspace.qclojure.application.algorithms :as qa]
    [org.soulspace.qclojure.application.backend :as qb]
-   [org.soulspace.qclojure.adapter.backend.simulator :as sim]
    [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Oracle function type - takes computational basis state index, returns boolean
@@ -12,7 +11,7 @@
 ;;;
 ;;; Deutsch Algorithm
 ;;;
-(defn deutsch-oracle-circuit
+(defn add-oracle-fn
   "Build the quantum circuit for the Deutsch oracle Uf.
 
   Parameters:
@@ -75,7 +74,7 @@
       (qc/h-gate 0)
       (qc/h-gate 1)
       ;; Implement oracle based on function behavior
-      ((deutsch-oracle-circuit oracle-fn))
+      ((add-oracle-fn oracle-fn))
       ;; Final Hadamard on input qubit
       (qc/h-gate 0)))
 

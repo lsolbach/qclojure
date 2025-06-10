@@ -15,7 +15,7 @@
 ;;;
 ;;; Grover's Search Algorithm
 ;;;
-(defn grover-oracle-circuit
+(defn add-oracle-fn
   "Build the quantum circuit for Grover's oracle Uf.
   
   Parameters:
@@ -137,9 +137,9 @@
   
   Example:
   (grover-algorithm 4 #(= % 2))  ; Search for item at index 2 in 4-item space"
-  ([search-space-size oracle-fn backend]
-   (grover-algorithm search-space-size oracle-fn backend {:shots 1024}))
-  ([search-space-size oracle-fn _backend _options]
+  ([backend search-space-size oracle-fn]
+   (backend grover-algorithm search-space-size oracle-fn {:shots 1024}))
+  ([backend search-space-size oracle-fn _options]
    {:pre [(pos-int? search-space-size)
           (= search-space-size (bit-shift-left 1 (m/log2int search-space-size)))  ; Power of 2
           (fn? oracle-fn)]}

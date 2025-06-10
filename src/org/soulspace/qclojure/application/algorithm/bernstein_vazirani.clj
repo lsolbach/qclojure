@@ -5,7 +5,7 @@
 ;;;
 ;;; Bernstein-Vazirani Algorithm
 ;;;
-(defn bernstein-vazirani-oracle-circuit
+(defn add-oracle-fn
   "Build the quantum circuit for Bernstein-Vazirani oracle Uf.
   
   Parameters:
@@ -50,7 +50,7 @@
         ((fn [circ]
            (reduce #(qc/h-gate %1 %2) circ (range (inc n)))))
         ;; Apply oracle Uf based on hidden string
-        ((bernstein-vazirani-oracle-circuit hidden-string n))
+        ((add-oracle-fn hidden-string n))
         ;; Apply Hadamard to input qubits only
         ((fn [circ]
            (reduce #(qc/h-gate %1 %2) circ (range n))))

@@ -170,7 +170,7 @@
 ;;;
 ;;; Simon's Algorithm Circuit Creation Functions
 ;;;
-(defn simon-oracle-circuit
+(defn add-oracle-fn
   "Build the quantum circuit for Simon's oracle Uf.
   
   Creates an oracle that implements f(x) = f(x ⊕ s) for a hidden period s.
@@ -232,7 +232,7 @@
            (reduce #(qc/h-gate %1 %2) c (range n-qubits))))
         
         ;; Step 3: Apply oracle Uf
-        ((simon-oracle-circuit hidden-period n-qubits))
+        ((add-oracle-fn hidden-period n-qubits))
         
         ;; Step 4: Measure output register (will be handled by backend)
         ((fn [c]

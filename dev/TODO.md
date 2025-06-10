@@ -2,12 +2,10 @@
 
 ## Next steps
 * backend should be the first parameter for algorithms
-* rename *-oracle-circuit fns to add-oracle
 * check shor's algorithm implementation
 * refactor algorithms to use a provided backend
   * grover
   * quantum fourier transformation
-  * quantum period finding
   * shor
 
 ## Backlog

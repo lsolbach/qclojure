@@ -265,8 +265,8 @@
   8. Solve system to find s using Gaussian elimination over GF(2)
   
   Parameters:
+  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
   - hidden-period: Vector representing the hidden period s (for oracle construction)
-  - backend: Quantum backend implementing the QuantumBackend protocol
   - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
@@ -281,9 +281,9 @@
   
   Example:
   (simon-algorithm [1 0 1] backend)  ;=> Finds period [1 0 1]"
-  ([hidden-period backend]
-   (simon-algorithm hidden-period backend {:shots 1024}))
-  ([hidden-period backend options]
+  ([backend hidden-period]
+   (simon-algorithm backend hidden-period {:shots 1024}))
+  ([backend hidden-period options]
    {:pre [(vector? hidden-period)
           (every? #(or (= % 0) (= % 1)) hidden-period)
           (satisfies? qb/QuantumBackend backend)]}

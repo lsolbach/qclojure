@@ -73,8 +73,8 @@
   5. Measure input qubits to get s directly
   
   Parameters:
+  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
   - hidden-string: Vector of bits [0 1 0 1 ...] representing the hidden string s
-  - backend: Quantum backend implementing the QuantumBackend protocol
   - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
@@ -88,9 +88,9 @@
   
   Example:
   (bernstein-vazirani-algorithm [1 0 1 0] backend)  ;=> Should measure [1 0 1 0]"
-  ([hidden-string backend]
-   (bernstein-vazirani-algorithm hidden-string backend {:shots 1024}))
-  ([hidden-string backend options]
+  ([backend hidden-string]
+   (bernstein-vazirani-algorithm backend hidden-string {:shots 1024}))
+  ([backend hidden-string options]
   {:pre [(vector? hidden-string)
          (every? #(or (= % 0) (= % 1)) hidden-string)]}
   

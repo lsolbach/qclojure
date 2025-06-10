@@ -94,9 +94,9 @@
   5. Measure input qubit: 0 = constant, 1 = balanced
   
   Parameters:
+  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
   - oracle-fn: Function that takes a boolean input and returns boolean output
                Represents the quantum oracle Uf
-  - backend: Quantum backend implementing the QuantumBackend protocol
   - options: Optional map with execution options (default: {:shots 1024})
   
   Returns:
@@ -109,9 +109,9 @@
   Example:
   (deutsch-algorithm (fn [x] true) simulator)     ;=> {:result :constant}
   (deutsch-algorithm (fn [x] x) simulator)        ;=> {:result :balanced}"
-  ([oracle-fn backend]
-   (deutsch-algorithm oracle-fn backend {:shots 1024}))
-  ([oracle-fn backend options]
+  ([backend oracle-fn]
+   (deutsch-algorithm backend oracle-fn {:shots 1024}))
+  ([backend oracle-fn options]
    {:pre [(fn? oracle-fn)
           (satisfies? qb/QuantumBackend backend)]}
    

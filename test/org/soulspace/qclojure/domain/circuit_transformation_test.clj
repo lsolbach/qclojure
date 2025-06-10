@@ -342,15 +342,15 @@
 
           ;; Optimize with only qubit optimization enabled
           result (ct/optimize circuit #{:h :x :cnot}
-                                          {:transform-gates? false
-                                           :optimize-qubits? true})]
-
-      ;; Should have optimized qubits but not transformed gates
-      (let [transformation (:transformation-result result)
-            qubit-opt (:qubit-optimization-result result)]
-        (is (zero? (:transformed-operation-count transformation)))
-        (is (seq (:unsupported-operations transformation))) ;; Y gate still unsupported
-        (is (pos? (:qubits-saved qubit-opt))))))
+                              {:transform-gates? false
+                               :optimize-qubits? true})
+          ;; Should have optimized qubits but not transformed gates
+          transformation (:transformation-result result)
+          qubit-opt (:qubit-optimization-result result)]
+      ;; Check that no gates were transformed
+      (is (zero? (:transformed-operation-count transformation)))
+      (is (seq (:unsupported-operations transformation))) ;; Y gate still unsupported
+      (is (pos? (:qubits-saved qubit-opt)))))
 
   (testing "Optimization with no changes needed"
     (let [;; Perfect circuit: all qubits used sequentially, all gates supported

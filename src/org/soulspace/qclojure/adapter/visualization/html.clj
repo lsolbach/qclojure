@@ -3,8 +3,6 @@
   (:require [hiccup2.core :as h]
             [org.soulspace.qclojure.util.io :as qio]
             [org.soulspace.qclojure.adapter.visualization :as viz]
-            [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-            [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
             [org.soulspace.qclojure.adapter.visualization.common :as common]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 

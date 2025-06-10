@@ -11,7 +11,6 @@
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
-            [org.soulspace.qclojure.adapter.visualization.html :as html]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
 

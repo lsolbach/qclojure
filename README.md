@@ -18,7 +18,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 3. **Quantum Algorithm Implementations**
 
-   Built-in implementations of classic quantum algorithms including Deutsch, Grover's search, Bernstein-Vazirani, and Simon's algorithms
+   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon and Grover's search algorithms
 
 5. **Extensible Backend System**
 
@@ -26,7 +26,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 6. **Circuit Transformation & Optimization**
 
-   Automatic gate decomposition and circuit transformation to match backend-supported gate sets
+   Automatic gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
 7. **Local Quantum Simulator Backend**
 

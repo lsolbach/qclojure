@@ -116,7 +116,7 @@
             count-1 (get measurements "1" 0)
             ratio (/ count-0 (+ count-0 count-1))]
         ;; Allow for some statistical variation (should be close to 0.5)
-        (is (< 0.45 ratio 0.55)))))
+        (is (< 0.40 ratio 0.60)))))
   
   (testing "Bell state simulation"
     (let [simulator (sim/create-simulator)

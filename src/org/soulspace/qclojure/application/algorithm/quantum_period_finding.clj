@@ -5,7 +5,8 @@
    [org.soulspace.qclojure.domain.state :as qs]
    [org.soulspace.qclojure.application.algorithm.modular-arithmetic :as qma]
    [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
-   [org.soulspace.qclojure.domain.circuit-transformation :as qct]))
+   [org.soulspace.qclojure.domain.circuit-transformation :as qct]
+   [org.soulspace.qclojure.application.backend :as qb]))
 
 
 (defn quantum-period-circuit
@@ -56,6 +57,7 @@
   estimation with the QFT to find the period r such that a^r ≡ 1 (mod N).
   
   Parameters:
+  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
   - a: Base for the function f(x) = a^x mod N
   - N: Modulus
   - n-qubits: Number of qubits for the quantum register (should be ~2*log₂(N))
@@ -69,9 +71,9 @@
   - :circuit - The quantum circuit used
   - :success - Whether a valid period was found
   - :confidence - Statistical confidence in the result (only with multiple measurements)"
-  ([a N n-qubits]
-   (quantum-period-finding a N n-qubits 1))
-  ([a N n-qubits n-measurements]
+  ([backend a N n-qubits]
+   (quantum-period-finding backend a N n-qubits 1))
+  ([backend a N n-qubits n-measurements]
    {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
 
    ;; Calculate number of qubits needed for target register
@@ -86,7 +88,7 @@
          measurements (repeatedly n-measurements
                                   (fn []
                                     (let [initial-state (qs/zero-state total-qubits)
-                                          final-state (qc/execute-circuit circuit initial-state)
+                                          final-state (qb/execute-circuit backend circuit initial-state)
                                           ;; Measure only the control register qubits using measure-subsystem
                                           phase-qubits (range n-qubits)
                                           measurement (qc/measure-subsystem final-state phase-qubits)]

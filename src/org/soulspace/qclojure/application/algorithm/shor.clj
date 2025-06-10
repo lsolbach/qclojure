@@ -22,6 +22,7 @@
   4. Classical post-processing: Extract factors from the period
   
   Parameters:
+  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
   - N: Integer to factor (should be composite)
   - options: (Optional) Map containing:
     - :n-qubits - Number of qubits for quantum period finding (default: 2*⌈log₂(N)⌉)
@@ -41,8 +42,8 @@
   Example:
   (shor-algorithm 15)    ;=> {:factors [3 5], :success true, :N 15, ...}
   (shor-algorithm 21 {:hardware-compatible true})   ;=> {:factors [3 7], :success true, ...}"
-  ([N] (shor-algorithm N {}))
-  ([N options]
+  ([backend N] (shor-algorithm backend N {}))
+  ([backend N options]
    {:pre [(> N 1)]}
 
    (let [;; Extract options with defaults
@@ -119,7 +120,7 @@
                                  :n-measurements 0}})
 
                  ;; Try quantum period finding with our improved implementation
-                 (let [period-result (qpf/quantum-period-finding a N n-qubits)
+                 (let [period-result (qpf/quantum-period-finding backend a N n-qubits)
                        period (:estimated-period period-result)]
 
                    (when (map? period-result)

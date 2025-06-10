@@ -44,7 +44,9 @@
    [org.soulspace.qclojure.domain.gate :as qg]
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.adapter.visualization :as viz]))
+   [org.soulspace.qclojure.adapter.visualization.html :as html]
+   [org.soulspace.qclojure.adapter.visualization :as viz]
+   [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a quantum system.
@@ -289,11 +291,39 @@ qg/hadamard
 (def constant-fn (fn [x] true))  ; Constant function: f(x) = 1
 (def balanced-fn (fn [x] x))      ; Balanced function: f(x) = x
 
-;; Now we can create the oracle circuit for the Deutsch algorithm for the constant function.
+;; Now we can create the circuit for the Deutsch algorithm for the constant function.
 
 (def constant-deutsch-circuit
-  (deutsch/deutsch-oracle-circuit constant-fn))
+  (deutsch/deutsch-circuit constant-fn))
 
-;; We can visualize the constant oracle circuit.
+;; We can visualize the circuit for the constant oracle.
 
- ;(kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))
+(kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))
+
+;; The circuit shows that the Hadamard gate is applied to the input qubit, followed by the oracle function Uf.
+;; The oracle function Uf is implemented as a series of quantum gates that applies the constant function.
+;; Now we can execute the Deutsch algorithm with the constant function.
+;; We use the simulator backend to execute the circuit.
+
+(def deutsch-constant-result
+  (deutsch/deutsch-algorithm (sim/create-simulator) constant-fn))
+
+;; The result of the Deutsch algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+deutsch-constant-result
+
+;; The result shows that the Deutsch algorithm correctly identifies the constant function.
+;; The measurement outcome is 0, which indicates that the function is constant.
+
+; (kind/html (viz/visualize-algorithm-summary :html deutsch-constant-result))
+
+;; For the balanced function, we can create the circuit for the Deutsch algorithm.
+
+(def balanced-deutsch-circuit
+  (deutsch/deutsch-circuit balanced-fn))
+
+;; We can visualize the circuit for the balanced oracle.
+
+(kind/html (viz/visualize-circuit :svg balanced-deutsch-circuit))
+
+
+

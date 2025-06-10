@@ -1,141 +1,289 @@
 (ns org.soulspace.qclojure.application.algorithm.quantum-phase-estimation
-  (:require [org.soulspace.qclojure.domain.circuit :as circuit]
-            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]))
+  "Quantum Phase Estimation (QPE) algorithm implementation.
+  
+  The Quantum Phase Estimation algorithm is a fundamental quantum algorithm that estimates
+  the eigenvalue of a unitary operator. Given a unitary operator U and one of its 
+  eigenstates |ψ⟩ such that U|ψ⟩ = e^(iφ)|ψ⟩, QPE estimates the phase φ.
+  
+  Algorithm Overview:
+  1. Initialize precision qubits in superposition (|+⟩ states)
+  2. Prepare eigenstate qubit in a known eigenstate of U
+  3. Apply controlled-U^(2^k) operations for k = 0 to n-1
+  4. Apply inverse Quantum Fourier Transform to precision qubits
+  5. Measure precision qubits to extract phase estimate
+  
+  The precision of the phase estimate depends on the number of precision qubits used.
+  With n precision qubits, the phase can be estimated to within 2π/2^n.
+  
+  Key Functions:
+  - quantum-phase-estimation-circuit: Build QPE circuit
+  - quantum-phase-estimation: Execute complete QPE algorithm
+  - parse-measurement-to-phase: Convert measurement results to phase estimates
+  - analyze-qpe-results: Analyze QPE measurement statistics
+  
+  Example Usage:
+  (def simulator (create-simulator))
+  (def result (quantum-phase-estimation simulator (/ Math/PI 4) 3 :plus))
+  (:estimated-phase (:result result)) ; => ~0.7854 (π/4)"
+  (:require [clojure.spec.alpha :as s]
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit-transformation :as qct]
+            [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
+            [org.soulspace.qclojure.application.backend :as qb]))
 
-(defn ^:private initialize-eigenstate 
-  "Initialize the eigenstate qubit"
-  [circuit eigenstate-type]
-  (case eigenstate-type
-    :default circuit  ; |0⟩ eigenstate
-    :plus (circuit/add-gate circuit :h :target 0)  ; |+⟩ eigenstate
-    (circuit/add-gate circuit :x :target 0)))  ; |1⟩ eigenstate (default for phase)
-
-(defn ^:private apply-hadamard-to-counting-qubits 
-  "Apply Hadamard gates to counting qubits to create superposition"
-  [circuit precision-qubits]
-  (reduce (fn [c qubit-idx]
-            (circuit/add-gate c :h :target qubit-idx))
-          circuit
-          (range 1 (inc precision-qubits))))
-
-(defn ^:private apply-controlled-unitaries 
-  "Apply controlled unitary operations for quantum phase estimation"
-  [circuit precision-qubits _phase]
-  (reduce (fn [c j]
-            ;; For j-th counting qubit, apply controlled-U^(2^j)
-            ;; This adds phase (2^j) * φ * 2π to the eigenstate when control qubit is |1⟩
-            ;; We simulate this with a controlled-Z gate
-            (let [control-qubit (inc j)  ; counting qubits are 1, 2, 3, ...
-                  target-qubit 0]        ; eigenstate qubit
-              ;; For simplicity, we'll use CZ gates to simulate controlled phase operations
-              (circuit/add-gate c :cz :control control-qubit :target target-qubit)))
-          circuit
-          (range precision-qubits)))
-
-(defn ^:private apply-inverse-qft 
-  "Apply inverse QFT to counting qubits (qubits 1 to precision-qubits)"
-  [circuit precision-qubits]
-  (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)
-        ;; Create a mapping function that maps IQFT qubits (0,1,2) to counting qubits (1,2,3)
-        qubit-mapping (fn [iqft-qubit] (+ iqft-qubit 1))]
-    ;; Compose the circuits with the proper qubit mapping
-    (ct/compose-circuits circuit iqft-circuit {:qubit-mapping qubit-mapping})))
-
-(defn ^:private add-qpe-measurements 
-  "Add measurement operations for counting qubits"
-  [circuit precision-qubits]
-  (let [counting-qubits (vec (range 1 (inc precision-qubits)))]
-    (circuit/measure-operation circuit counting-qubits)))
-
-(defn ^:private quantum-phase-estimation-circuit
-  "Create initial circuit for quantum phase estimation with counting qubits + eigenstate qubit"
+(defn quantum-phase-estimation-circuit
+  "Build a quantum phase estimation circuit.
+   
+   Parameters:
+   - precision-qubits: Number of qubits for phase precision
+   - eigenstate-type: Type of eigenstate preparation (:default, :plus, :one)
+   - phase: The phase to estimate (for simulation purposes)
+   
+   Returns: Quantum circuit implementing QPE"
   [precision-qubits eigenstate-type phase]
-  (-> (circuit/create-circuit (inc precision-qubits))
-      (initialize-eigenstate eigenstate-type)
-      (apply-hadamard-to-counting-qubits precision-qubits)
-      (apply-controlled-unitaries precision-qubits phase)
-      (apply-inverse-qft precision-qubits)
-      (add-qpe-measurements precision-qubits)))
+  (let [total-qubits (+ precision-qubits 1) ; +1 for the eigenstate qubit
+        eigenstate-qubit precision-qubits   ; Last qubit is the eigenstate
+        circuit (qc/create-circuit total-qubits "Quantum Phase Estimation")]
+    
+    (-> circuit
+        ;; Step 1: Prepare eigenstate qubit
+        (as-> c
+          (case eigenstate-type
+            :plus (qc/h-gate c eigenstate-qubit)
+            :one  (qc/x-gate c eigenstate-qubit)
+            :default c)) ; |0⟩ state
+        
+        ;; Step 2: Initialize precision qubits in superposition
+        (as-> c 
+          (reduce (fn [circuit qubit]
+                    (qc/h-gate circuit qubit))
+                  c
+                  (range precision-qubits)))
+        
+        ;; Step 3: Apply controlled-U^(2^k) operations
+        ;; Using controlled-RZ as our unitary operation
+        (as-> c
+          (reduce (fn [circuit k]
+                    ;; Apply controlled-U^(2^k) with control qubit k
+                    (let [power-phase (* phase (Math/pow 2 k))]
+                      (qc/crz-gate circuit k eigenstate-qubit power-phase)))
+                  c
+                  (range precision-qubits)))
+        
+        ;; Step 4: Apply inverse QFT to precision qubits
+        ;; Apply proper inverse QFT circuit composition
+        (as-> c
+          (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
+            ;; Compose the main circuit with the IQFT circuit using control-qubits-only option
+            ;; This ensures IQFT is applied only to the first precision-qubits qubits
+            (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
+
+(defn parse-measurement-to-phase
+  "Convert measurement string to phase estimate.
+   
+   Parameters:
+   - measurement: Binary measurement string (e.g., '001')
+   - precision-qubits: Number of precision qubits
+   
+   Returns: Map with binary value and estimated phase"
+  [measurement precision-qubits]
+  (let [;; Extract precision bits (first precision-qubits bits) 
+        precision-bits (take precision-qubits measurement)
+        ;; Convert binary string to decimal
+        binary-val (reduce +
+                          (map-indexed 
+                           (fn [i bit-char]
+                             (let [bit (Character/digit bit-char 10)]
+                               (* bit (Math/pow 2 (- precision-qubits 1 i)))))
+                           precision-bits))
+        ;; Convert to phase estimate: φ = 2π * (binary_val / 2^n)
+        estimated-phase (* 2 Math/PI binary-val (/ 1 (Math/pow 2 precision-qubits)))]
+    {:binary-value binary-val
+     :estimated-phase estimated-phase}))
+
+(defn analyze-qpe-results
+  "Analyze QPE measurement results to extract phase estimate.
+   
+   Parameters:
+   - measurements: Map of measurement outcomes to counts
+   - precision-qubits: Number of precision qubits used
+   - actual-phase: Actual phase value (for comparison)
+   
+   Returns: Map with analysis results"
+  [measurements precision-qubits actual-phase]
+  (let [phase-estimates (for [[measurement count] measurements]
+                         (let [parsed (parse-measurement-to-phase measurement precision-qubits)]
+                           (assoc parsed 
+                                  :measurement measurement
+                                  :count count
+                                  :probability (/ count (reduce + (vals measurements))))))
+        
+        ;; Find most likely estimate
+        best-estimate (apply max-key :count phase-estimates)
+        
+        ;; Calculate statistics
+        total-shots (reduce + (vals measurements))
+        weighted-phase (/ (reduce + (map #(* (:estimated-phase %) (:count %)) phase-estimates))
+                         total-shots)]
+    
+    {:phase-estimates phase-estimates
+     :best-estimate best-estimate
+     :weighted-average-phase weighted-phase
+     :actual-phase actual-phase
+     :best-error (Math/abs (- (:estimated-phase best-estimate) actual-phase))
+     :weighted-error (Math/abs (- weighted-phase actual-phase))
+     :total-shots total-shots}))
 
 (defn quantum-phase-estimation
-  "Implement quantum phase estimation algorithm.
-  
-  The quantum phase estimation algorithm estimates the phase φ such that
-  U|ψ⟩ = e^(2πiφ)|ψ⟩ where U is a unitary operator and |ψ⟩ is an eigenstate.
-  
-  This is a fundamental subroutine used in many quantum algorithms including
-  Shor's factoring algorithm and quantum simulation.
-  
-  Algorithm steps:
-  1. Initialize n counting qubits in |0⟩ and eigenstate |ψ⟩
-  2. Apply Hadamard to counting qubits
-  3. Apply controlled-U^(2^j) operations
-  4. Apply inverse QFT to counting qubits
-  5. Measure counting qubits to get phase estimate
-  
-  Parameters:
-  - backend: Quantum backend implementing the QuantumBackend protocol to execute the circuit
-  - phase: The actual phase φ to estimate (for simulation)
-  - precision-qubits: Number of qubits for phase precision
-  - eigenstate-type: (optional) Type of eigenstate to prepare (:default, :plus, or :eigenstate)
-  
-  Returns:
-  Map containing the quantum circuit and phase estimation results
-  
-  Example:
-  (quantum-phase-estimation 0.25 4)  ;=> Estimates phase φ = 1/4"
+  "Execute quantum phase estimation to estimate the phase of a unitary operator.
+   
+   The quantum phase estimation algorithm estimates the eigenvalue of a unitary
+   operator U when given an eigenstate. For a unitary U with eigenvalue e^(iφ),
+   QPE estimates the phase φ.
+   
+   Algorithm steps:
+   1. Prepare eigenstate qubit (|+⟩, |1⟩, or |0⟩)
+   2. Initialize precision qubits in superposition with Hadamard gates
+   3. Apply controlled-U^(2^k) operations for k = 0 to precision-qubits-1
+   4. Apply inverse quantum Fourier transform to precision qubits
+   5. Measure precision qubits to extract phase estimate
+   
+   Parameters:
+   - backend: Quantum backend to execute the circuit
+   - phase: Phase to estimate (for simulation purposes)
+   - precision-qubits: Number of qubits for phase precision (affects accuracy)
+   - eigenstate-type: Type of eigenstate preparation (:default, :plus, :one)
+   - options: Execution options (shots, etc.)
+   
+   Returns: Map with comprehensive phase estimation results"
   ([backend phase precision-qubits]
-   (quantum-phase-estimation backend phase precision-qubits :eigenstate))
+   (quantum-phase-estimation backend phase precision-qubits :default))
   ([backend phase precision-qubits eigenstate-type]
-   {:pre [(number? phase)
-          (>= phase 0) (< phase 1)  ; Phase in [0, 1)
-          (pos-int? precision-qubits)]}
-
-   (let [;; Build the actual quantum circuit step by step
-         qpe-circuit (quantum-phase-estimation-circuit precision-qubits eigenstate-type phase)
-
-         ;; For simulation, estimate what the measurement would yield
-         max-phase-value (bit-shift-left 1 precision-qubits)
-         estimated-phase-value (Math/round (* phase max-phase-value))
-         estimated-phase (/ estimated-phase-value max-phase-value)
+   (quantum-phase-estimation backend phase precision-qubits eigenstate-type {:shots 1024}))
+  ([backend phase precision-qubits eigenstate-type options]
+   {:pre [(satisfies? qb/QuantumBackend backend)
+          (pos-int? precision-qubits)
+          (keyword? eigenstate-type)]}
+   
+   (let [;; Build the QPE circuit
+         circuit (quantum-phase-estimation-circuit precision-qubits eigenstate-type phase)
          
-         ;; Convert to binary representation
-         binary-phase (vec (map #(if (bit-test estimated-phase-value %)
-                                   1 0)
-                                (range (dec precision-qubits) -1 -1)))
+         ;; Execute the circuit
+         execution-result (qb/execute-circuit backend circuit options)
+         
+         ;; Extract measurement results
+         measurements (:measurement-results execution-result)
+         
+         ;; Analyze results
+         analysis (analyze-qpe-results measurements precision-qubits phase)]
+     
+     {:result {:estimated-phase (:estimated-phase (:best-estimate analysis))
+               :actual-phase phase
+               :phase-error (:best-error analysis)
+               :precision-qubits precision-qubits
+               :success-probability (:probability (:best-estimate analysis))}
+      :analysis analysis
+      :measurement-results measurements
+      :circuit circuit
+      :execution-result execution-result})))
 
-         error (abs (- phase estimated-phase))
-         success (< error (/ 1 max-phase-value))]
+;; Specs for quantum phase estimation
+(s/def ::precision-qubits pos-int?)
+(s/def ::eigenstate-type #{:default :plus :one})
+(s/def ::phase number?)
+(s/def ::backend #(satisfies? qb/QuantumBackend %))
 
-     {:actual-phase phase
-      :estimated-phase estimated-phase
-      :estimated-bits binary-phase
-      :error error
-      :success success
-      :precision-qubits precision-qubits
-      :eigenstate-type eigenstate-type
-      :algorithm "Quantum Phase Estimation"
-      :complexity {:classical "No known efficient classical algorithm"
-                   :quantum (str "O(" precision-qubits ")")
-                   :speedup "Exponential for many problems"}
-      :quantum-circuit qpe-circuit
-      :circuit {:name "Quantum Phase Estimation"
-                :description (str "Estimate phase with " precision-qubits "-bit precision")
-                :qubits (inc precision-qubits)  ; Counting qubits + eigenstate
-                :operations (mapv (fn [op]
-                                    (let [op-type (:operation-type op)]
-                                      (case op-type
-                                        :x "X gate for eigenstate initialization"
-                                        :h "Hadamard gate for superposition"
-                                        :cz "Controlled-Z for phase kickback"
-                                        :crz "Controlled rotation in inverse QFT"
-                                        :swap "SWAP gate in inverse QFT"
-                                        :measure "Measurement of counting qubits"
-                                        (str (name op-type) " gate"))))
-                                  (:operations qpe-circuit))}
-      :circuit-stats {:total-operations (circuit/circuit-operation-count qpe-circuit)
-                      :gate-count (circuit/circuit-gate-count qpe-circuit)
-                      :qubits (inc precision-qubits)
-                      :depth (circuit/circuit-depth qpe-circuit)}})))
+(s/def ::qpe-result 
+  (s/keys :req-un [::result ::analysis ::measurement-results ::circuit ::execution-result]))
+
+(s/def ::phase-estimate-result
+  (s/keys :req-un [::estimated-phase ::actual-phase ::phase-error 
+                   ::precision-qubits ::success-probability]))
+
+(s/fdef quantum-phase-estimation-circuit
+  :args (s/cat :precision-qubits ::precision-qubits
+               :eigenstate-type ::eigenstate-type  
+               :phase ::phase)
+  :ret map?)
+
+(s/fdef quantum-phase-estimation
+  :args (s/alt :three-args (s/cat :backend ::backend 
+                                  :phase ::phase
+                                  :precision-qubits ::precision-qubits)
+               :four-args (s/cat :backend ::backend
+                                :phase ::phase  
+                                :precision-qubits ::precision-qubits
+                                :eigenstate-type ::eigenstate-type)
+               :five-args (s/cat :backend ::backend
+                                :phase ::phase
+                                :precision-qubits ::precision-qubits  
+                                :eigenstate-type ::eigenstate-type
+                                :options map?))
+  :ret ::qpe-result)
+
+(comment
+  ;; Example usage and testing of the quantum phase estimation algorithm
+  
+  ;; Create a simulator
+  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (def simulator (sim/create-simulator {:max-qubits 10}))
+  
+  ;; Basic usage - estimate phase π/4
+  (def result (quantum-phase-estimation simulator (/ Math/PI 4) 3 :plus {:shots 1000}))
+  
+  ;; Extract results
+  (get-in result [:result :estimated-phase])  ; => ~0.7854 (π/4)
+  (get-in result [:result :phase-error])      ; => error from actual phase
+  (get-in result [:result :success-probability]) ; => probability of best estimate
+  
+  ;; Test with various phases
+  (def test-phases [(/ Math/PI 8) (/ Math/PI 4) (/ Math/PI 2) Math/PI])
+  
+  (doseq [phase test-phases]
+    (let [result (quantum-phase-estimation simulator phase 3 :plus {:shots 1000})]
+      (println (format "Testing phase %.4f:" phase))
+      (println (format "  Estimated: %.4f" (get-in result [:result :estimated-phase])))
+      (println (format "  Error: %.4f" (get-in result [:result :phase-error])))
+      (println (format "  Success prob: %.3f" (get-in result [:result :success-probability])))
+      (println)))
+  
+  ;; Test different precision levels (more qubits = higher precision)
+  (let [test-phase (/ Math/PI 4)]
+    (doseq [precision [2 3 4 5]]
+      (let [result (quantum-phase-estimation simulator test-phase precision :plus {:shots 1000})]
+        (println (format "Precision %d qubits -> Error: %.4f" 
+                         precision 
+                         (get-in result [:result :phase-error]))))))
+  
+  ;; Analyze the circuit structure
+  (def sample-circuit (quantum-phase-estimation-circuit 3 :plus (/ Math/PI 4)))
+  (println "Circuit has" (count (:operations sample-circuit)) "operations")
+  (println "Operations:")
+  (doseq [op (:operations sample-circuit)]
+    (println "  " (:operation-type op) (:operation-params op)))
+  
+  ;; Compare different eigenstate preparations
+  (let [test-phase (/ Math/PI 4)]
+    (doseq [eigenstate [:default :plus :one]]
+      (let [result (quantum-phase-estimation simulator test-phase 3 eigenstate {:shots 1000})]
+        (println (format "Eigenstate %s -> Error: %.4f" 
+                         (name eigenstate)
+                         (get-in result [:result :phase-error]))))))
+  
+  ;; Advanced: Analyze detailed measurement statistics
+  (let [result (quantum-phase-estimation simulator (/ Math/PI 4) 4 :plus {:shots 2000})
+        analysis (:analysis result)]
+    (println "Top 5 measurement outcomes:")
+    (->> (:phase-estimates analysis)
+         (sort-by :count >)
+         (take 5)
+         (map #(println (format "  %s: count=%d, phase=%.4f, prob=%.3f"
+                               (:measurement %)
+                               (:count %)
+                               (:estimated-phase %)
+                               (:probability %))))))
+  
+  ;; Performance testing
+  (time (quantum-phase-estimation simulator (/ Math/PI 4) 3 :plus {:shots 1000}))
+  )
 

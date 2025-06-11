@@ -8,6 +8,8 @@
   * shor
 
 ## Backlog
+* track qubit mapping on circuit tansformations
+  * use qubit mapping on measure operations
 * reduce code duplication
 * check for inconsistant usage of operations/gates
 * check order of the optimizations (what if backend doesn't support SWAP)

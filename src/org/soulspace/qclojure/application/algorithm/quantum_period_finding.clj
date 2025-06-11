@@ -1,4 +1,7 @@
 (ns org.soulspace.qclojure.application.algorithm.quantum-period-finding
+  "Contains the quantum algorithm for period finding, e.g. for Shor's algorithm.
+   This algorithm uses quantum phase estimation to find the period of a
+   modular exponentiation function."
   (:require
    [org.soulspace.qclojure.domain.math :as qmath]
    [org.soulspace.qclojure.domain.circuit :as qc]
@@ -7,7 +10,6 @@
    [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
    [org.soulspace.qclojure.domain.circuit-transformation :as qct]
    [org.soulspace.qclojure.application.backend :as qb]))
-
 
 (defn quantum-period-circuit
   "Create a quantum circuit for period finding using quantum phase estimation.
@@ -25,7 +27,7 @@
   Returns:
   A complete quantum circuit implementing the period finding subroutine."
   [n-qubits n-target-qubits a N]
-  {:pre [(pos-int? n-qubits) (pos-int? n-target-qubits) (pos-int? a) (pos-int? N)]}
+  {:pre [(pos-int? n-qubits) (pos-int? n-target-qubits) (pos-int? a) (pos-int? N) (< a N) (> a 1)]}
   
   ;; Create the complete circuit with both control and target registers
   (let [total-qubits (+ n-qubits n-target-qubits)
@@ -87,8 +89,10 @@
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
                                   (fn []
-                                    (let [initial-state (qs/zero-state total-qubits)
-                                          final-state (qb/execute-circuit backend circuit initial-state)
+                                    (let [initial-state (qs/zero-state total-qubits) 
+                                          job-result (qb/execute-circuit backend circuit initial-state)
+                                          final-state (:final-state job-result)
+                                          
                                           ;; Measure only the control register qubits using measure-subsystem
                                           phase-qubits (range n-qubits)
                                           measurement (qc/measure-subsystem final-state phase-qubits)]

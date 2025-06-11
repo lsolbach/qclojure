@@ -1,7 +1,8 @@
+^:kindly/hide-code
 (ns qclojure)
 
 ;; # QClojure
-;; QClojure is a Clojure library for quantum computing, providing the tools for building and simulating quantum circuits.
+;; QClojure is a Clojure library for building and simulating quantum algorithms.
 ;; 
 ;; ## Usage
 ;; To use QClojure, you can include it in your Clojure project as a dependency.

@@ -1,3 +1,4 @@
+^:kindly/hide-code
 (ns quantum-computing)
 
 ;; # Quantum Computing
@@ -15,5 +16,3 @@
 ;; - **Quantum Superposition**: The ability of qubits to exist in multiple states simultaneously, enabling parallelism in quantum computations.
 ;; - **Quantum Decoherence**: The loss of quantum coherence due to interaction with the environment, which can lead to errors in quantum computations.
 ;; - **Quantum Error Correction**: Techniques to protect quantum information from errors due to decoherence and other noise.
-
-

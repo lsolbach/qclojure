@@ -2,9 +2,11 @@
   (:require [scicloj.clay.v2.api :as clay]))
 
 (clay/make! {:base-source-path "notebook"
-             :source-path ["tutorial.clj"]
+             :source-path ["qclojure.clj"
+                           "quantum_computing.clj"
+                           "tutorial.clj"]
              :format [:html]
-             :title "QCLojure Docs"
+             :title "QClojure Docs"
              :hide-ui-header true
              :hide-info-line true
              ;:live-reload true

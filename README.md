@@ -32,9 +32,9 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    High-performance local simulator with job submission, status tracking, and statistical measurement results with configurable shot counts
 
-4. **OpenQASM 2.0 Integration**
+4. **OpenQASM Integration**
 
-   Bidirectional conversion between quantum circuits and OpenQASM format for interoperability with other quantum computing platforms
+   Bidirectional conversion between quantum circuits and OpenQASM 2/3 formats for interoperability with other quantum computing platforms
 
 4. **Visualization**
 
@@ -44,9 +44,10 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
 
-
 ## Usage
 QClojure is a library to be used in programs or interactive within the REPL.
+
+To use QClojure, add a dependency to your project definition.
 
 This small example show the creation of a quantum circuit in a functional way
 and the execution on the simulator.

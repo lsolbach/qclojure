@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.application.algorithm.shors-algorithm-test
+(ns org.soulspace.qclojure.application.algorithm.shor-test
   "Tests for Shor's factoring algorithm implementation"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.domain.math :as qmath]

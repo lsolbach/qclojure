@@ -17,6 +17,7 @@
 (s/def ::backend-config map?)
 (s/def ::job-id string?)
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
+(s/def ::initial-state (s/nilable ::qc/quantum-state))
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
 (s/def ::supported-gates ::gr/operation-set)
@@ -70,13 +71,15 @@
 (s/def ::cost-per-shot number?)
 
 (s/def ::execution-options
-  (s/keys :opt-un [::shots ::backend-info ::device-id ::priority]))
+  (s/keys :opt-un [::shots ::initial-state ::backend-info ::device-id ::priority]))
 
 (s/def ::priority #{:low :normal :high})
 
 (s/def ::job-result
   (s/keys :req-un [::job-id ::job-status]
           :opt-un [::measurement-results ::error-message ::execution-time-ms ::final-state]))
+
+;; TODO add option to initialize backend with an initial state
 
 ;; Protocol for quantum hardware backends
 (defprotocol QuantumBackend

@@ -9,6 +9,8 @@
   * grover
 
 ## Backlog
+* use :operation-registry/operation-id instead of ::operation-type in circuit
+  and other namespaces
 * track qubit mapping on circuit tansformations
   * use qubit mapping on measure operations
 * reduce code duplication

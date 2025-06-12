@@ -49,16 +49,20 @@ QClojure is a library to be used in programs or interactive within the REPL.
 
 To use QClojure, add a dependency to your project definition.
 
-This small example show the creation of a quantum circuit in a functional way
-and the execution on the simulator.
+This small example shows the creation of a quantum circuit in a functional way,
+the execution of the circuit on the simulator. It also prints the final state
+and the measurement outcomes and generates SVG images of the circuit and the
+final state.
 
 ```clojure
 (require '[org.soulspace.qclojure.domain.circuit :as qc])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
-;; Create a simple circuit
-(def circuit (-> (qc/create-circuit 2)
+;; Create a Bell state circuit
+(def circuit (-> (qc/create-circuit 2 "Bell Circuit" "Creates a Bell state")
                  (qc/h-gate 0)
                  (qc/cnot-gate 0 1)))
 
@@ -69,7 +73,15 @@ and the execution on the simulator.
 ;; Examine the results
 (:final-state result)
 (:measurement-results result)
+
+;; Create SVG visualizations for the circuit and the final state
+(spit "bell-circuit.svg" (vis/visualize-circuit :svg circuit))
+(spit "bell-state.svg" (vis/visualize-quantum-state :svg (:final-state result)))
 ```
+
+### Visualizations of the Bell Circuit and State
+![Visualization of the Bell circuit](/doc/images/bell-circuit.svg)
+![Visualization of the probabilities of the Bell state](/doc/images/bell-state.svg)
 
 ## Examples
 Some examples are provided in the [examples](/examples) folder.
@@ -87,6 +99,11 @@ Run the test suite with:
 ```
 lein test
 ```
+
+## Known Issues
+* Grover algorithm doesn't use the provided backend
+* Error handling on backend failure missing, e.g. timeouts on Shor algorithm
+* missing state initialization on backend
 
 ## Copyright
 © 2025 Ludger Solbach

@@ -1,7 +1,24 @@
-(ns org.soulspace.qclojure.application.algorithm.bernstein-vazirani 
+(ns org.soulspace.qclojure.application.algorithm.bernstein-vazirani
+  "Bernstein-Vazirani Algorithm
+   
+   The Bernstein-Vazirani algorithm is a quantum algorithm that efficiently
+   determines a hidden bit string s using only one query to a quantum oracle.
+   It is a foundational example of quantum speedup over classical algorithms,
+   demonstrating how quantum circuits can solve specific problems more
+   efficiently than their classical counterparts.
+   
+   This implementation builds the quantum circuit for the Bernstein-Vazirani
+   algorithm and executes it on a specified quantum backend.
+   
+   The algorithm uses a quantum oracle Uf that computes f(x) = s·x (mod 2),
+   where s is the hidden string and x is the input bit string.
+   
+   The algorithm requires only one query to the oracle to determine the hidden
+   string s, while classical algorithms would require n queries for an n-bit
+   string."
   (:require
-    [org.soulspace.qclojure.domain.circuit :as qc]
-    [org.soulspace.qclojure.application.backend :as qb]))
+   [org.soulspace.qclojure.domain.circuit :as qc]
+   [org.soulspace.qclojure.application.backend :as qb]))
 ;;;
 ;;; Bernstein-Vazirani Algorithm
 ;;;

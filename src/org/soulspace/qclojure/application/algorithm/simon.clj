@@ -1,4 +1,19 @@
-(ns org.soulspace.qclojure.application.algorithm.simon 
+(ns org.soulspace.qclojure.application.algorithm.simon
+  "Simon's Algorithm
+   
+   Simon's algorithm solves the hidden subgroup problem for the group (Z₂)ⁿ.
+   Given a function f: {0,1}ⁿ → {0,1}ⁿ that is either one-to-one or two-to-one,
+   and if two-to-one then f(x) = f(x ⊕ s) for some hidden string s ≠ 0ⁿ,
+   the algorithm finds s with exponential speedup over classical methods.
+
+   This implementation builds the quantum circuit for Simon's algorithm
+   and executes it on a specified quantum backend.
+   
+   The algorithm uses a quantum oracle Uf that computes f(x) = f(x ⊕ s),
+   where s is the hidden period and x is the input bit string.
+   
+   The algorithm requires only O(n) quantum operations to find the hidden period,
+   while classical algorithms would require O(2^(n/2)) queries to find s."
   (:require
     [org.soulspace.qclojure.domain.circuit :as qc]
     [org.soulspace.qclojure.application.backend :as qb]))
@@ -216,12 +231,12 @@
   
   Returns:
   A quantum circuit implementing Simon's algorithm using the provided hidden period."
-  [hidden-period n-qubits]
+  [hidden-period]
   {:pre [(vector? hidden-period)
-         (every? #(or (= % 0) (= % 1)) hidden-period)
-         (= (count hidden-period) n-qubits)]}
+         (every? #(or (= % 0) (= % 1)) hidden-period)]}
   
-  (let [total-qubits (* 2 n-qubits)  ; Input and output registers
+  (let [n-qubits (count hidden-period)
+        total-qubits (* 2 n-qubits)  ; Input and output registers
         circuit (qc/create-circuit total-qubits "Simon's Algorithm"
                                    (str "Find hidden period of length " n-qubits))]
     (-> circuit
@@ -271,6 +286,7 @@
   
   Returns:
   Map containing:
+  - :result - The computed period from measurements using linear solver
   - :measurements - Collection of measurement outcomes from multiple runs
   - :hidden-period - The actual hidden period (for verification)
   - :found-period - The computed period from measurements using linear solver
@@ -290,21 +306,21 @@
    
    (let [n-qubits (count hidden-period)
          target-measurements (dec n-qubits)  ; We need exactly n-1 measurements
-         
+
          ;; Build circuit for Simon's algorithm
-         circuit (simon-circuit hidden-period n-qubits)
-         
+         circuit (simon-circuit hidden-period)
+
          ;; Collect measurements by running circuit until we have enough valid ones
          measurements (loop [collected []
-                            execution-results []
-                            attempts 0
-                            max-attempts (* 3 n-qubits)]  ; Reasonable limit
+                             execution-results []
+                             attempts 0
+                             max-attempts (* 3 n-qubits)]  ; Reasonable limit
                         (if (or (>= (count collected) target-measurements)
                                 (>= attempts max-attempts))
                           ;; If we don't have enough, pad with generated orthogonal vectors
                           (if (< (count collected) target-measurements)
                             (let [needed (- target-measurements (count collected))
-                                  generate-orthogonal-vector 
+                                  generate-orthogonal-vector
                                   (fn []
                                     (loop [gen-attempts 0]
                                       (if (> gen-attempts 50)
@@ -312,8 +328,8 @@
                                         (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
                                               dot-product (gf2-dot-product random-y hidden-period)]
                                           (if (and (= dot-product 0)
-                                                  (not (every? zero? random-y))
-                                                  (not (some (fn [existing] (= existing random-y)) collected)))
+                                                   (not (every? zero? random-y))
+                                                   (not (some (fn [existing] (= existing random-y)) collected)))
                                             random-y
                                             (recur (inc gen-attempts)))))))
                                   generated (repeatedly needed generate-orthogonal-vector)]
@@ -321,11 +337,11 @@
                                :execution-results execution-results})
                             {:measurements (vec (take target-measurements collected))
                              :execution-results execution-results})
-                          
+
                           ;; Run circuit once more
                           (let [exec-result (qb/execute-circuit backend circuit options)
                                 measurement-data (:measurement-results exec-result)
-                                
+
                                 ;; Extract measurement from execution result
                                 new-measurement (if (map? measurement-data)
                                                   ;; Try to extract from actual measurement
@@ -350,36 +366,38 @@
                                                         (if (= dot-product 0)
                                                           random-y
                                                           (recur (inc gen-attempts)))))))]
-                            
+
                             ;; Add measurement if it's valid and not already collected
                             (if (and new-measurement
                                      (not (every? zero? new-measurement))
                                      (not (some (fn [existing] (= existing new-measurement)) collected)))
-                              (recur (conj collected new-measurement) 
+                              (recur (conj collected new-measurement)
                                      (conj execution-results exec-result)
-                                     (inc attempts) 
+                                     (inc attempts)
                                      max-attempts)
-                              (recur collected 
+                              (recur collected
                                      (conj execution-results exec-result)
-                                     (inc attempts) 
+                                     (inc attempts)
                                      max-attempts)))))
-         
+
          filtered-measurements (:measurements measurements)
          execution-results (:execution-results measurements)
-         
+
          ;; Use the real linear system solver to find the period
          found-period (solve-linear-system-gf2 filtered-measurements n-qubits)
-         
+
          ;; Check if we found a valid non-trivial solution
          success (and found-period
                       (not (every? zero? found-period)))]
-     
+
      {:measurements filtered-measurements
-      :hidden-period hidden-period  
+      :result found-period
+      :hidden-period hidden-period
       :found-period found-period
+
       :success success
-      :linear-system (map (fn [y] 
-                            {:equation y 
+      :linear-system (map (fn [y]
+                            {:equation y
                              :dot-product (gf2-dot-product y hidden-period)})
                           filtered-measurements)
       :execution-results execution-results
@@ -391,12 +409,12 @@
                 :description (str "Find hidden period of length " n-qubits)
                 :qubits (* 2 n-qubits)  ; Input and output registers
                 :operations ["Initialize |0⟩ⁿ|0⟩ⁿ"
-                            "Apply H to input register" 
-                            "Apply oracle Uf"
-                            "Measure output register"
-                            "Apply H to input register"
-                            "Measure input register"
-                            "Repeat and solve linear system over GF(2)"]}})))
+                             "Apply H to input register"
+                             "Apply oracle Uf"
+                             "Measure output register"
+                             "Apply H to input register"
+                             "Measure input register"
+                             "Repeat and solve linear system over GF(2)"]}})))
 
 ;; Legacy function for backward compatibility - delegates to new implementation
 (defn simon-algorithm-legacy

@@ -1,4 +1,12 @@
 (ns org.soulspace.qclojure.application.algorithm.deutsch
+  "Deutsch Algorithm
+   
+   The Deutsch algorithm is a quantum algorithm that determines whether a given
+   function f: {0,1} → {0,1} is constant (f(0) = f(1)) or balanced (f(0) ≠ f(1))
+   using only one quantum query, compared to 2 classical queries needed.
+   
+   This implementation builds the quantum circuit for the Deutsch algorithm
+   and executes it on a specified quantum backend."
   (:require
    [clojure.spec.alpha :as s]
    [org.soulspace.qclojure.application.algorithms :as qa]

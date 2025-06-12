@@ -28,7 +28,7 @@
             circuit
             (range n-qubits))))
 
-(defn build-bernstein-vazirani-circuit
+(defn bernstein-vazirani-circuit
   "Build the quantum circuit for Bernstein-Vazirani algorithm.
   
   Parameters:
@@ -97,7 +97,7 @@
   (let [n (count hidden-string)
         
         ;; Build circuit for Bernstein-Vazirani algorithm
-        circuit (build-bernstein-vazirani-circuit hidden-string)
+        circuit (bernstein-vazirani-circuit hidden-string)
         
         ;; Execute circuit on backend
         execution-result (qb/execute-circuit backend circuit options)

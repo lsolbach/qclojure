@@ -7,6 +7,7 @@
   different quantum computing providers and simulators."
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
+            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
@@ -17,7 +18,7 @@
 (s/def ::backend-config map?)
 (s/def ::job-id string?)
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
-(s/def ::initial-state (s/nilable ::qc/quantum-state))
+(s/def ::initial-state (s/nilable ::qs/quantum-state))
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
 (s/def ::supported-gates ::gr/operation-set)
@@ -224,7 +225,7 @@
       :error-message "Backend is not available"}
      
      (let [job-id (submit-circuit backend circuit options)]
-       (println "Waiting for job" job-id "to complete...")
+       ;(println "Waiting for job" job-id "to complete...")
        (loop [max-retries 2000
               retry-count 0]
          (if (>= retry-count max-retries)

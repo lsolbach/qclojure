@@ -206,11 +206,11 @@
   Parameters:
   - backend: An implementation of QuantumBackend protocol
   - circuit: Quantum circuit to execute
-  - options: Execution options (defaults: 1024 shots)
-  
+  - options: Execution options (defaults: {:shots 512})
+
   Returns: Job result map with measurement outcomes"
   ([backend circuit]
-   (execute-circuit backend circuit {:shots 1024}))
+   (execute-circuit backend circuit {:shots 512}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::qc/quantum-circuit circuit)
@@ -221,7 +221,8 @@
       :error-message "Backend is not available"}
      
      (let [job-id (submit-circuit backend circuit options)]
-       (loop [max-retries 100
+       (println "Waiting for job" job-id "to complete...")
+       (loop [max-retries 2000
               retry-count 0]
          (if (>= retry-count max-retries)
            {:job-status :failed
@@ -231,10 +232,10 @@
              (case status
                :completed (get-job-result backend job-id)
                :failed {:job-status :failed
-                       :job-id job-id
-                       :error-message "Job execution failed"}
+                        :job-id job-id
+                        :error-message "Job execution failed"}
                :cancelled {:job-status :cancelled
-                          :job-id job-id}
+                           :job-id job-id}
                ;; Still running or queued, wait and retry
                (do
                  (Thread/sleep 100) ; Wait 100ms

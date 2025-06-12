@@ -300,21 +300,27 @@ qg/hadamard
 
 (kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))
 
-;; The circuit shows that the Hadamard gate is applied to the input qubit, followed by the oracle function Uf.
-;; The oracle function Uf is implemented as a series of quantum gates that applies the constant function.
+;; The circuit shows that the Hadamard gate is applied to the input qubit, followed
+;; by the oracle function Uf. The oracle function Uf is implemented as a series
+;; of quantum gates that applies the constant function.
 ;; Now we can execute the Deutsch algorithm with the constant function.
 ;; We use the simulator backend to execute the circuit.
 
 (def deutsch-constant-result
   (deutsch/deutsch-algorithm (sim/create-simulator) constant-fn))
 
-;; The result of the Deutsch algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+;; The result of the Deutsch algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 deutsch-constant-result
 
 ;; The result shows that the Deutsch algorithm correctly identifies the constant function.
 ;; The measurement outcome is 0, which indicates that the function is constant.
+(:result deutsch-constant-result)
 
-; (kind/html (viz/visualize-algorithm-summary :html deutsch-constant-result))
+;; Lets visualize the final quantum state after executing the Deutsch algorithm
+;; with the constant function. It is contained in the execution result of the algorithm.
+
+(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :final-state])))
 
 ;; For the balanced function, we can create the circuit for the Deutsch algorithm.
 
@@ -325,5 +331,66 @@ deutsch-constant-result
 
 (kind/html (viz/visualize-circuit :svg balanced-deutsch-circuit))
 
+;; Execute the Deutsch algorithm with the balanced function.
+(def deutsch-balanced-result
+  (deutsch/deutsch-algorithm (sim/create-simulator) balanced-fn))
 
+;; The result of the Deutsch algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+deutsch-balanced-result
 
+;; The result shows that the Deutsch algorithm correctly identifies the balanced function.
+(:result deutsch-balanced-result)
+
+;; Lets visualize the final quantum state after executing the Deutsch algorithm
+;; with the balanced function.
+(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :final-state])))
+
+;; ### Bernstein-Vazirani Algorithm
+;; The Bernstein-Vazirani algorithm is a powerful quantum algorithm that can be
+;; used to solve problems that are difficult for classical computers.
+;; It is a quantum algorithm that determines a hidden binary string using a
+;; quantum circuit to evaluate the function with only one query, compared to
+;; n queries needed for classical algorithms.
+;;
+;; The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.
+;; To examine the Bernstein-Vazirani algorithm, we need to require the `bernstein-vazirani` namespace from the `application.algorithm` package.
+
+(require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
+
+;; Let's define a hidden binary string first.
+
+(def hidden-string [1 1 0 1])  ; Hidden binary string: 1101
+
+;; Now we can create the circuit for the Bernstein-Vazirani algorithm.
+
+(def bv-circuit
+  (bv/bernstein-vazirani-circuit hidden-string))
+
+;; We can visualize the circuit for the Bernstein-Vazirani algorithm.
+
+(kind/html (viz/visualize-circuit :svg bv-circuit))
+
+;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
+;; by the oracle function Uf. The oracle function Uf is implemented as a series
+;; of quantum gates that applies the hidden binary string.
+;; Now we can execute the Bernstein-Vazirani algorithm with the hidden binary string.
+
+(def bv-result
+  (bv/bernstein-vazirani-algorithm (sim/create-simulator) hidden-string))
+
+;; The result of the Bernstein-Vazirani algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+
+bv-result
+;; The result shows that the Bernstein-Vazirani algorithm correctly identifies the hidden binary string.
+
+(:result bv-result)
+
+;; The measurement outcome is the hidden binary string, which is 1101.
+;; Lets visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
+
+(kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
+
+;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly identifies the hidden binary string.
+;; The final quantum state is a superposition of the states that represent the hidden binary string.

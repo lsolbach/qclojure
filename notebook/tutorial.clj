@@ -57,8 +57,22 @@
 ;; A classic bit can be in one of two states, 0 or 1, but a qubit can be in a superposition of both states.
 ;; This means that a qubit can represent 0, 1, or both at the same time, with different probabilities.
 ;;
+;; ## Measurement
+;; Measurement is the process of extracting classical information from a quantum state.
+;; The measurement process is probabilistic, and the probability of measuring
+;; a certain state depends on the amplitudes of the basis states in the quantum state.
+;; When we measure a quantum state, we collapse it to one of the basis states
+;; with a certain probability. After measurement, the quantum state is no longer
+;; in a superposition, but in one of the basis states.
+;;
+;; The result of the measurement is a classical bit, which can be either 0 or 1.
+;; The measurement process is a fundamental aspect of quantum mechanics and is
+;; described by the [Born rule](https://en.wikipedia.org/wiki/Born_rule).
+;; The Born rule states that the probability of measuring a certain state is equal
+;; to the square of the amplitude of that state in the quantum state vector.
+;;
 ;; ### Basic Quantum States
-;; The *qs* namespace defines several basic quantum states.
+;; The *qs* namespace defines some basic quantum states.
 ;; Let's look at the quantum state |0⟩, which is the ground state of a qubit.
 
 qs/|0⟩
@@ -190,7 +204,8 @@ qg/hadamard
 
 ;; The circuit shows that the Hadamard gate is applied to the qubit 0.
 ;;
-;; We can execute the circuit on the state |0⟩ to create the Hadamard state.
+;; We can execute the circuit with the `qc/execute-circuit` function
+;; on the state |0⟩ to create the Hadamard state.
 
 (def hadamard-circuit-state
   (qc/execute-circuit simple-circuit qs/|0⟩))
@@ -199,7 +214,8 @@ qg/hadamard
 
 (kind/html (viz/visualize-quantum-state :svg hadamard-circuit-state))
 
-;; The probability distribution shows that the Hadamard circuit state is in a superposition of the ground and excited states.
+;; The probability distribution shows that the Hadamard circuit state is
+;; in a superposition of the ground and excited states.
 
 (kind/html (viz/visualize-bloch-sphere :svg hadamard-circuit-state))
 
@@ -215,8 +231,10 @@ qg/hadamard
 
 (kind/html (viz/visualize-circuit :svg bell-circuit))
 
-;; The Bell circuit shows that the Hadamard gate is applied to the first qubit, followed by a CNOT gate between the first and second qubits.
-;; The Bell state is a two-qubit state that is [entangled](https://en.wikipedia.org/wiki/Entanglement).
+;; The Bell circuit shows that the Hadamard gate is applied to the first qubit,
+;; followed by a CNOT gate between the first and second qubits.
+;; The Bell state is a two-qubit state that is
+;;[entangled](https://en.wikipedia.org/wiki/Entanglement).
 
 (def bell-state
   (qc/execute-circuit bell-circuit (qs/zero-state 2)))
@@ -227,7 +245,8 @@ qg/hadamard
 ;; The *qc* namespace also has some predefined circuits for multi-qubit states.
 ;; These circuits can be used to create entangled states with more than two qubits.
 ;;
-;; For example, the `qc/ghz-circuit` creates a circuit that prepares a Greenberger-Horne-Zeilinger (GHZ) state.
+;; For example, the `qc/ghz-circuit` creates a circuit that prepares
+;; a Greenberger-Horne-Zeilinger ([GHZ](https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state)) state.
 
 (def ghz-circuit
   (qc/ghz-state-circuit 3))
@@ -239,8 +258,7 @@ qg/hadamard
 ;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit, followed by CNOT gates between the first and second qubits, and between the second and third qubits.
 ;; The GHZ state is a multi-qubit state that is entangled.
 ;;
-;; We can apply the [GHZ](https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state)
-;; circuit, named after Greenberger, Horne and Zeilinger, to the state |000⟩ to create the GHZ state.
+;; We can apply the GHZ circuit to the state |000⟩ to create the GHZ state.
 
 (def ghz-state
   (qc/execute-circuit ghz-circuit (qs/zero-state 3)))
@@ -250,14 +268,6 @@ qg/hadamard
 (kind/html (viz/visualize-quantum-state :svg ghz-state))
 
 ;; The probability distribution shows that the GHZ state is in a superposition of the states |000⟩, |111⟩, and |110⟩.
-;;
-;; ### Measurement
-;; Measurement is the process of extracting classical information from a quantum state.
-;; The measurement process is probabilistic, and the probability of measuring a certain state depends on the amplitudes of the basis states in the quantum state.
-;; When we measure a quantum state, we collapse it to one of the basis states with a certain probability.
-;; The result of the measurement is a classical bit, which can be either 0 or 1.
-
-;;
 ;;
 ;; ## Backends
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.

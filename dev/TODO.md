@@ -1,8 +1,10 @@
 # TODOs
 
 ## Next steps
-* check shor's algorithm implementation
+* add state initalization in backend
 * handle backend job failures in algorithms
+* check shor's algorithm implementation and quantum period finding
+  * fix TODOs
 * refactor algorithms to use a provided backend
   * grover
 

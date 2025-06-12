@@ -94,10 +94,12 @@
 
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
+                                  ;; TODO Extract the measurement logic into a function
                                   (fn []
                                     (let [initial-state (qs/zero-state total-qubits)
                                           phase-qubits (range n-qubits)
                                           job-result (qb/execute-circuit backend circuit (merge options {:initial-state initial-state}))
+                                          ;; TODO Handle job-result errors gracefully
                                           _ (println "Period finding execution result:" job-result)
                                           final-state (:final-state job-result)
                                           ;; Measure only the control register qubits using measure-subsystem 

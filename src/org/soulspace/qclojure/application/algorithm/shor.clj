@@ -120,7 +120,7 @@
                                  :n-measurements 0}})
 
                  ;; Try quantum period finding with our improved implementation
-                 (let [period-result (qpf/quantum-period-finding backend a N n-qubits)
+                 (let [period-result (qpf/quantum-period-finding backend a N n-qubits n-measurements {:shots 10})
                        period (:estimated-period period-result)]
 
                    (when (map? period-result)

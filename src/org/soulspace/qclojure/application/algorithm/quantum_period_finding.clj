@@ -65,6 +65,8 @@
   - n-qubits: Number of qubits for the quantum register (should be ~2*log₂(N))
   - hardware-compatible: (optional) Use hardware-compatible implementation
   - n-measurements: (optional) Number of measurements to perform for statistical analysis
+  - options: (optional) Map containing additional backend options:
+    - :shots - Number of shots for each measurement (default: 512)
   
   Returns:
   Map containing:
@@ -74,8 +76,12 @@
   - :success - Whether a valid period was found
   - :confidence - Statistical confidence in the result (only with multiple measurements)"
   ([backend a N n-qubits]
-   (quantum-period-finding backend a N n-qubits 1))
+   (quantum-period-finding backend a N n-qubits 1 {}))
+
   ([backend a N n-qubits n-measurements]
+   (quantum-period-finding backend a N n-qubits n-measurements {}))
+
+  ([backend a N n-qubits n-measurements options]
    {:pre [(pos-int? a) (pos-int? N) (pos-int? n-qubits) (< a N) (pos-int? n-measurements)]}
 
    ;; Calculate number of qubits needed for target register
@@ -89,12 +95,12 @@
          ;; Execute circuit and perform measurements multiple times for statistical analysis
          measurements (repeatedly n-measurements
                                   (fn []
-                                    (let [initial-state (qs/zero-state total-qubits) 
-                                          job-result (qb/execute-circuit backend circuit initial-state)
-                                          final-state (:final-state job-result)
-                                          
-                                          ;; Measure only the control register qubits using measure-subsystem
+                                    (let [initial-state (qs/zero-state total-qubits)
                                           phase-qubits (range n-qubits)
+                                          job-result (qb/execute-circuit backend circuit (merge options {:initial-state initial-state}))
+                                          _ (println "Period finding execution result:" job-result)
+                                          final-state (:final-state job-result)
+                                          ;; Measure only the control register qubits using measure-subsystem 
                                           measurement (qc/measure-subsystem final-state phase-qubits)]
                                       (:outcome measurement))))
 

@@ -2,10 +2,9 @@
 
 ## Next steps
 * check shor's algorithm implementation
+* handle backend job failures in algorithms
 * refactor algorithms to use a provided backend
   * grover
-  * quantum fourier transformation
-  * shor
 
 ## Backlog
 * track qubit mapping on circuit tansformations

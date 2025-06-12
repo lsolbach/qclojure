@@ -404,3 +404,49 @@ bv-result
 
 ;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly identifies the hidden binary string.
 ;; The final quantum state is a superposition of the states that represent the hidden binary string.
+;;
+;; ### Simon's Algorithm
+;; Simon's algorithm solves the hidden subgroup problem for the group (Z₂)ⁿ.
+;; Given a function f: {0,1}ⁿ → {0,1}ⁿ that is either one-to-one or two-to-one,
+;; and if two-to-one then f(x) = f(x ⊕ s) for some hidden string s ≠ 0ⁿ,
+;; the algorithm finds s with exponential speedup over classical methods.
+;;
+;; The quantum circuit uses an oracle to implement the function and applies a
+;; Hadamard gate to the input qubits.
+(require '[org.soulspace.qclojure.application.algorithm.simon :as simon])
+;; Let's define a hidden binary string first.
+
+(def hidden-string-simon [1 0 1])  ; Hidden binary string: 101
+
+;; Now we can create the circuit for Simon's algorithm.
+
+(def simon-circuit
+  (simon/simon-circuit hidden-string-simon))
+
+;; We can visualize the circuit for Simon's algorithm.
+
+(kind/html (viz/visualize-circuit :svg simon-circuit))
+
+;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
+;; by the oracle function Uf. The oracle function Uf is implemented as a series
+;; of quantum gates that applies the hidden binary string.
+;;
+;; Now we can execute Simon's algorithm with the hidden binary string.
+
+(def simon-result
+  (simon/simon-algorithm (sim/create-simulator) hidden-string-simon))
+
+;; The result of Simon's algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+
+simon-result
+
+;; The result shows that Simon's algorithm correctly identifies the hidden binary string.
+
+(:result simon-result)
+
+;; Lets visualize the final quantum states after executing Simon's algorithm.
+;; As Simon's algorithm can return multiple results, depending on the size of the hidden
+;; string, we visualize the final states.
+
+(mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))

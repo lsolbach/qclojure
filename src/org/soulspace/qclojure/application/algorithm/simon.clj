@@ -5,15 +5,15 @@
    Given a function f: {0,1}ⁿ → {0,1}ⁿ that is either one-to-one or two-to-one,
    and if two-to-one then f(x) = f(x ⊕ s) for some hidden string s ≠ 0ⁿ,
    the algorithm finds s with exponential speedup over classical methods.
+   
+   The algorithm requires only O(n) quantum operations to find the hidden period,
+   while classical algorithms would require O(2^(n/2)) queries to find s.
 
    This implementation builds the quantum circuit for Simon's algorithm
    and executes it on a specified quantum backend.
    
    The algorithm uses a quantum oracle Uf that computes f(x) = f(x ⊕ s),
-   where s is the hidden period and x is the input bit string.
-   
-   The algorithm requires only O(n) quantum operations to find the hidden period,
-   while classical algorithms would require O(2^(n/2)) queries to find s."
+   where s is the hidden period and x is the input bit string."
   (:require
     [org.soulspace.qclojure.domain.circuit :as qc]
     [org.soulspace.qclojure.application.backend :as qb]))

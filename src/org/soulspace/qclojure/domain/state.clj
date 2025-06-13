@@ -214,6 +214,32 @@
                              (* bit (bit-shift-left 1 (- n 1 i))))
                            bits))))
 
+(defn index-to-bits
+  "Convert an index to its binary bit representation.
+  
+  For a given index, this function computes the corresponding vector of bits
+  representing the computational basis state. The bits are ordered from most
+  significant to least significant (left to right).
+  
+  Parameters:
+  - index: Integer index (0 to 2^n - 1)
+  - n: Number of qubits (determines bit vector length)
+  
+  Returns:
+  Vector of bits [b₀ b₁ ... bₙ₋₁] representing the computational basis state
+  
+  Examples:
+  (index-to-bits 0 3) ;=> [0 0 0]  ; |000⟩ corresponds to index 0
+  (index-to-bits 1 3) ;=> [0 0 1]  ; |001⟩ corresponds to index 1
+  (index-to-bits 5 3) ;=> [1 0 1]  ; |101⟩ corresponds to index 5"
+  [index n]
+  {:pre [(integer? index)
+         (>= index 0)
+         (< index (bit-shift-left 1 n))
+         (pos-int? n)]}
+  (vec (for [i (range n)]
+         (bit-and (bit-shift-right index (- n 1 i)) 1))))
+
 (defn computational-basis-state
   "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
   
@@ -237,7 +263,8 @@
   
   Examples:
   (computational-basis-state 3 [0 0 0])  ;=> |000⟩ state (same as zero-state)
-  (computational-basis-state 3 [1 0 1])  ;=> |101⟩ state  
+  (computational-basis-state 3 [1 0 1])  ;=> |101⟩ state
+  (computational-basis-state 3 [0 1 1])  ;=> |011⟩ state
   (computational-basis-state 2 [1 1])    ;=> |11⟩ state"
   [n bits]
   {:pre [(pos-int? n)
@@ -690,6 +717,10 @@
 
   (measure-state |+⟩)
 
+  (bits-to-index [1 1 0])
+  (index-to-bits 6 3) ;=> [1 1 0]
+  (computational-basis-state 3 [1 1 0]) ;=> |110⟩ state
+  (measure-state (computational-basis-state 3 [1 1 0]))
   ;
   )
 

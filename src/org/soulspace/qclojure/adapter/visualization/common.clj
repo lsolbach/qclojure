@@ -395,7 +395,7 @@
 
 (comment
   ;; REPL testing of common utilities
-  (require '[qclojure.domain.quantum-state :as qs])
+  (require '[org.soulspace.qclojure.domain.state :as qs])
   
   ;; Test state preparation
   (def test-state (qs/zero-state 2))

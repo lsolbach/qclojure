@@ -2,7 +2,8 @@
   "Core quantum state representation and operations"
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
-            [fastmath.complex :as fc]))
+            [fastmath.complex :as fc]
+            [clojure.string :as str]))
 
 ;; Specs for quantum states
 (s/def ::complex-amplitude #(instance? fastmath.vector.Vec2 %))
@@ -34,6 +35,80 @@
   ;=> false"
   [z]
   (instance? fastmath.vector.Vec2 z))
+
+(defn basis-label
+  "Generate a string representation of a computational basis state.
+   For a given value, this function produces the corresponding basis state label
+   in the form |b₀b₁...bₙ₋₁⟩ where bᵢ are the bits of the state.
+   If value is an integer, it is interpreted as the index of the state in the computational basis.
+   
+   Parameters:
+   - value: Integer, vector of bits, or string representing the computational basis state.
+   
+   Returns:
+   String representation of the computational basis state."
+  [value]
+  (cond (number? value)
+        (let [binary-str (Long/toBinaryString value)]
+          (str "|" (apply str (repeat (- 2 (count binary-str)) "0")) binary-str "⟩"))
+        (vector? value)
+        (let [binary-str (apply str (map #(if (= % 0) "0" "1") value))]
+          (str "|" binary-str "⟩"))
+        (string? value)
+        (if (str/starts-with? value "|")
+          value
+          (str "|" value "⟩"))))
+
+(defn bits-to-index
+  "Convert a vector of bits to the corresponding state vector index.
+  
+  For n qubits with bits [b0, b1, ..., b(n-1)], the index is:
+  index = b0*2^(n-1) + b1*2^(n-2) + ... + b(n-1)*2^0
+  
+  This maps computational basis states to their positions in the state vector.
+  
+  Parameters:
+  - bits: Vector of 0s and 1s representing the computational basis state
+  
+  Returns:
+  Integer index into the state vector (0 to 2^n - 1)
+  
+  Examples:
+  (bits-to-index [0 0 0]) ;=> 0  ; |000⟩ corresponds to index 0
+  (bits-to-index [0 0 1]) ;=> 1  ; |001⟩ corresponds to index 1  
+  (bits-to-index [1 0 1]) ;=> 5  ; |101⟩ corresponds to index 5"
+  [bits]
+  (let [n (count bits)]
+    (reduce + (map-indexed (fn [i bit]
+                             (* bit (bit-shift-left 1 (- n 1 i))))
+                           bits))))
+
+(defn index-to-bits
+  "Convert an index to its binary bit representation.
+  
+  For a given index, this function computes the corresponding vector of bits
+  representing the computational basis state. The bits are ordered from most
+  significant to least significant (left to right).
+  
+  Parameters:
+  - index: Integer index (0 to 2^n - 1)
+  - n: Number of qubits (determines bit vector length)
+  
+  Returns:
+  Vector of bits [b₀ b₁ ... bₙ₋₁] representing the computational basis state
+  
+  Examples:
+  (index-to-bits 0 3) ;=> [0 0 0]  ; |000⟩ corresponds to index 0
+  (index-to-bits 1 3) ;=> [0 0 1]  ; |001⟩ corresponds to index 1
+  (index-to-bits 5 3) ;=> [1 0 1]  ; |101⟩ corresponds to index 5"
+  [index n]
+  {:pre [(integer? index)
+         (>= index 0)
+         (< index (bit-shift-left 1 n))
+         (pos-int? n)]}
+  (vec (for [i (range n)]
+         (bit-and (bit-shift-right index (- n 1 i)) 1))))
+
 
 ;; Quantum state creation functions
 (defn single-qubit-state
@@ -189,56 +264,6 @@
   (let [sqrt2-inv (/ 1 (Math/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
-
-(defn bits-to-index
-  "Convert a vector of bits to the corresponding state vector index.
-  
-  For n qubits with bits [b0, b1, ..., b(n-1)], the index is:
-  index = b0*2^(n-1) + b1*2^(n-2) + ... + b(n-1)*2^0
-  
-  This maps computational basis states to their positions in the state vector.
-  
-  Parameters:
-  - bits: Vector of 0s and 1s representing the computational basis state
-  
-  Returns:
-  Integer index into the state vector (0 to 2^n - 1)
-  
-  Examples:
-  (bits-to-index [0 0 0]) ;=> 0  ; |000⟩ corresponds to index 0
-  (bits-to-index [0 0 1]) ;=> 1  ; |001⟩ corresponds to index 1  
-  (bits-to-index [1 0 1]) ;=> 5  ; |101⟩ corresponds to index 5"
-  [bits]
-  (let [n (count bits)]
-    (reduce + (map-indexed (fn [i bit]
-                             (* bit (bit-shift-left 1 (- n 1 i))))
-                           bits))))
-
-(defn index-to-bits
-  "Convert an index to its binary bit representation.
-  
-  For a given index, this function computes the corresponding vector of bits
-  representing the computational basis state. The bits are ordered from most
-  significant to least significant (left to right).
-  
-  Parameters:
-  - index: Integer index (0 to 2^n - 1)
-  - n: Number of qubits (determines bit vector length)
-  
-  Returns:
-  Vector of bits [b₀ b₁ ... bₙ₋₁] representing the computational basis state
-  
-  Examples:
-  (index-to-bits 0 3) ;=> [0 0 0]  ; |000⟩ corresponds to index 0
-  (index-to-bits 1 3) ;=> [0 0 1]  ; |001⟩ corresponds to index 1
-  (index-to-bits 5 3) ;=> [1 0 1]  ; |101⟩ corresponds to index 5"
-  [index n]
-  {:pre [(integer? index)
-         (>= index 0)
-         (< index (bit-shift-left 1 n))
-         (pos-int? n)]}
-  (vec (for [i (range n)]
-         (bit-and (bit-shift-right index (- n 1 i)) 1))))
 
 (defn computational-basis-state
   "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
@@ -705,6 +730,9 @@
   (tensor-product |1⟩ |1⟩))
 
 (comment
+
+  (basis-label 4)
+
   ;; Test normalization
   (def |0⟩-norm (normalize-state |0⟩))
   (def |1⟩-norm (normalize-state |1⟩))
@@ -721,6 +749,7 @@
   (index-to-bits 6 3) ;=> [1 1 0]
   (computational-basis-state 3 [1 1 0]) ;=> |110⟩ state
   (measure-state (computational-basis-state 3 [1 1 0]))
+
   ;
   )
 

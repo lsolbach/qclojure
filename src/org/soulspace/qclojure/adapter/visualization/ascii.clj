@@ -22,6 +22,38 @@
 ;;
 ;; Result formatting and display
 ;;
+(defn format-complex-number
+  "Format a complex number for human-readable display.
+   
+   Parameters:
+   - z: Complex number to format
+   - format: :cartesian or :polar (default :cartesian)
+   - precision: Number of decimal places (default 3)
+   - threshold: Minimum amplitude to display (default 0.001)
+   Returns:
+   Formatted string representation of the complex number"
+  ([z]
+   (format-complex-number z :cartesian 3 0.001))
+  ([z format precision]
+   (format-complex-number z format precision 0.001))
+  ([z format precision threshold]
+   (case format
+     :cartesian (let [r (fc/re z)
+                      i (fc/im z)]
+                  (cond
+                    (and (< (abs r) threshold) (< (abs i) threshold)) "0"
+                    (< (abs i) threshold) (str (qmath/round-precision r precision))
+                    (< (abs r) threshold) (str (qmath/round-precision i precision) "i")
+                    :else (str (qmath/round-precision r precision)
+                               (if (>= i 0) "+" "")
+                               (qmath/round-precision i precision) "i")))
+     :polar (let [mag (fc/abs z)
+                  phase (fc/arg z)]
+              (if (< mag threshold)
+                "0"
+                (str (qmath/round-precision mag precision)
+                     "∠" (qmath/round-precision (m/degrees phase) 1) "°"))))))
+
 (defn format-quantum-state
   "Format quantum state for human-readable display.
   
@@ -40,24 +72,6 @@
   (let [amplitudes (:state-vector state)
         n-qubits (:num-qubits state)
 
-        format-complex (fn [z]
-                         (case format
-                           :cartesian (let [r (fc/re z)
-                                            i (fc/im z)]
-                                        (cond
-                                          (and (< (abs r) threshold) (< (abs i) threshold)) "0"
-                                          (< (abs i) threshold) (str (qmath/round-precision r precision))
-                                          (< (abs r) threshold) (str (qmath/round-precision i precision) "i")
-                                          :else (str (qmath/round-precision r precision)
-                                                     (if (>= i 0) "+" "")
-                                                     (qmath/round-precision i precision) "i")))
-                           :polar (let [mag (fc/abs z)
-                                        phase (fc/arg z)]
-                                    (if (< mag threshold)
-                                      "0"
-                                      (str (qmath/round-precision mag precision)
-                                           "∠" (qmath/round-precision (m/degrees phase) 1) "°")))))
-
         basis-labels (for [i (range (bit-shift-left 1 n-qubits))]
                        (str "|" (format (str "%0" n-qubits "d")
                                         (Long/parseLong (Integer/toBinaryString i) 2)) "⟩"))
@@ -70,7 +84,7 @@
       "|0⟩"
       (str/join " + "
                 (map (fn [[amp label]]
-                       (let [formatted-amp (format-complex amp)]
+                       (let [formatted-amp (format-complex-number amp format precision threshold)]
                          (cond
                            (= formatted-amp "1") label
                            (= formatted-amp "-1") (str "-" label)

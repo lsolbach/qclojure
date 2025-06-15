@@ -152,36 +152,36 @@
         control-qubits (vec (range n-control))
         target-qubits (vec (range n-control (+ n-control n-target)))
         circuit (qc/create-circuit total-qubits
-                                  "Controlled Modular Exponentiation"
-                                  (str "Implements |x⟩|y⟩ -> |x⟩|y * " a "^x mod " N "⟩"))]
-    
-    ;; Initialize target register to |1⟩
-    ;; For |1⟩ we set the least significant bit (highest index in LSB-first representation)
-    (let [circuit-with-target (qc/x-gate circuit (last target-qubits))]
-      
-      ;; For each control qubit, apply controlled modular multiplication
-      ;; The strategy is to decompose a^x into products of a^(2^j) for each bit j in x
-      (reduce (fn [c control-idx]
-                (let [control-qubit (nth control-qubits control-idx)
-                      power (bit-shift-left 1 control-idx)
-                      ;; Calculate a^(2^j) mod N
-                      factor (qmath/mod-exp a power N)]
-                  
-                  ;; Create a controlled operation that multiplies target by factor when control is |1⟩
-                  ;; In a real quantum computer, we would implement this using basic gates
-                  ;; For simulation purposes, we use a more direct approach with controlled rotations
-                  (reduce (fn [circuit bit-idx]
-                            ;; Apply controlled rotation based on the effect this multiplication would have
-                            (qc/crz-gate circuit
-                                         control-qubit
-                                         (nth target-qubits bit-idx)
-                                         (* 2 Math/PI 
-                                            (/ (mod (* factor (bit-shift-left 1 bit-idx)) N)
-                                               (Math/pow 2 n-target)))))
-                          c
-                          (range n-target))))
-              circuit-with-target
-              (range n-control)))))
+                                   "Controlled Modular Exponentiation"
+                                   (str "Implements |x⟩|y⟩ -> |x⟩|y * " a "^x mod " N "⟩"))
+        
+        ;; Initialize target register to |1⟩
+        ;; For |1⟩ we set the least significant bit (highest index in LSB-first representation)
+        circuit-with-target (qc/x-gate circuit (last target-qubits))]
+
+    ;; For each control qubit, apply controlled modular multiplication
+    ;; The strategy is to decompose a^x into products of a^(2^j) for each bit j in x
+    (reduce (fn [c control-idx]
+              (let [control-qubit (nth control-qubits control-idx)
+                    power (bit-shift-left 1 control-idx)
+                    ;; Calculate a^(2^j) mod N
+                    factor (qmath/mod-exp a power N)]
+                
+                ;; Create a controlled operation that multiplies target by factor when control is |1⟩
+                ;; In a real quantum computer, we would implement this using basic gates
+                ;; For simulation purposes, we use a more direct approach with controlled rotations
+                (reduce (fn [circuit bit-idx]
+                          ;; Apply controlled rotation based on the effect this multiplication would have
+                          (qc/crz-gate circuit
+                                       control-qubit
+                                       (nth target-qubits bit-idx)
+                                       (* 2 Math/PI 
+                                          (/ (mod (* factor (bit-shift-left 1 bit-idx)) N)
+                                             (Math/pow 2 n-target)))))
+                        c
+                        (range n-target))))
+            circuit-with-target
+            (range n-control))))
 
 (defn optimized-modular-exponentiation-circuit
   "Create an optimized quantum circuit for modular exponentiation.
@@ -202,54 +202,37 @@
         control-qubits (vec (range n-control))
         target-qubits (vec (range n-control (+ n-control n-target)))
         circuit (qc/create-circuit total-qubits
-                                  "Optimized Modular Exponentiation"
-                                  (str "Implements |x⟩|y⟩ -> |x⟩|y * " a "^x mod " N "⟩"))]
+                                   "Optimized Modular Exponentiation"
+                                   (str "Implements |x⟩|y⟩ -> |x⟩|y * " a "^x mod " N "⟩"))
+        ;; Initialize target register to |1⟩ 
+        circuit-with-target (qc/x-gate circuit (last target-qubits))]
     
-    ;; Initialize target register to |1⟩
-    (let [circuit-with-target (qc/x-gate circuit (last target-qubits))]
-      
-      ;; Apply controlled modular multiplication in reverse order for better optimization
-      ;; This reduces the overall circuit depth
-      (reduce (fn [c control-idx]
-                (let [control-qubit (nth control-qubits (- n-control control-idx 1))
-                      power (bit-shift-left 1 (- n-control control-idx 1))
-                      factor (qmath/mod-exp a power N)]
-                  
-                  ;; Implement a more efficient version of controlled multiplication
-                  ;; Use a pattern of gates that minimizes the circuit depth
-                  ;; For simulation, we still use controlled rotations as a simplified model
-                  (reduce (fn [circuit bit-idx]
-                            ;; Apply optimized controlled rotation
-                            ;; In practice, this would be further decomposed into CNOT, H, T and other gates
-                            (let [rotation-angle (* 2 Math/PI 
+    ;; Apply controlled modular multiplication in reverse order for better optimization
+    ;; This reduces the overall circuit depth
+    (reduce (fn [c control-idx]
+              (let [control-qubit (nth control-qubits (- n-control control-idx 1))
+                    power (bit-shift-left 1 (- n-control control-idx 1))
+                    factor (qmath/mod-exp a power N)]
+
+                ;; Implement a more efficient version of controlled multiplication
+                ;; Use a pattern of gates that minimizes the circuit depth
+                ;; For simulation, we still use controlled rotations as a simplified model
+                (reduce (fn [circuit bit-idx]
+                          ;; Apply optimized controlled rotation
+                          ;; In practice, this would be further decomposed into CNOT, H, T and other gates
+                          (let [rotation-angle (* 2 Math/PI
                                                   (/ (mod (* factor (bit-shift-left 1 bit-idx)) N)
                                                      (Math/pow 2 n-target)))]
-                              
-                              ;; Apply controlled rotation with optimized angle
-                              (qc/crz-gate circuit
-                                           control-qubit
-                                           (nth target-qubits bit-idx)
-                                           rotation-angle)))
-                          c
-                          (range n-target))))
-              circuit-with-target
-              (range n-control)))))
 
-;; Helper function to convert a number to its binary qubit representation
-(defn binary-representation
-  "Convert number to binary representation with n bits.
-   
-   Parameters:
-   - num: Number to convert
-   - n: Number of bits in representation
-   
-   Returns:
-   Vector of 0s and 1s"
-  [num n]
-  (let [binary-str (Integer/toString num 2)
-        padding (apply str (repeat (max 0 (- n (count binary-str))) "0"))
-        padded-binary (str padding binary-str)]
-    (mapv #(Integer/parseInt (str %)) padded-binary)))
+                            ;; Apply controlled rotation with optimized angle
+                            (qc/crz-gate circuit
+                                         control-qubit
+                                         (nth target-qubits bit-idx)
+                                         rotation-angle)))
+                        c
+                        (range n-target))))
+            circuit-with-target
+            (range n-control))))
 
 ;; Function to create an ancilla-assisted modular exponentiation circuit
 (defn ancilla-assisted-mod-exp-circuit

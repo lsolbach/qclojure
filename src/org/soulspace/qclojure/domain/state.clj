@@ -36,6 +36,34 @@
   [z]
   (instance? fastmath.vector.Vec2 z))
 
+(defn basis-string
+  "Generate a string representation of a computational basis state.
+   For a given value, this function produces the corresponding binary string
+   representation of the computational basis state.
+   If value is an integer, it is interpreted as the index of the state in the computational basis.
+   
+   Parameters:
+   - value: Integer, vector of bits, or string representing the computational basis state.
+   - n-qubits: (optional) Number of qubits for the state, defaults to length of binary string.
+
+   Returns:
+   String representation of the computational basis state in binary format."
+  ([value]
+   (if (number? value)
+     (basis-string value (m/log2int value))
+     (basis-string value (count value))))
+  ([value n-qubits]
+   (let [binary-string (cond (number? value)
+                             (Long/toBinaryString value)
+                             (vector? value)
+                             (apply str (map #(if (= % 0) "0" "1") value))
+                             (string? value)
+                             (if (and (str/starts-with? value "|")
+                                      (str/ends-with? value "⟩"))
+                               (subs value 1 (- (count value) 1))
+                               value))]
+     (str (str/join (repeat (- n-qubits (count binary-string)) "0")) binary-string))))
+
 (defn basis-label
   "Generate a string representation of a computational basis state.
    For a given value, this function produces the corresponding basis state label
@@ -44,20 +72,14 @@
    
    Parameters:
    - value: Integer, vector of bits, or string representing the computational basis state.
-   
+   - n-qubits: (optional) Number of qubits for the state, defaults to length of binary string.
+
    Returns:
-   String representation of the computational basis state."
-  [value]
-  (cond (number? value)
-        (let [binary-str (Long/toBinaryString value)]
-          (str "|" (apply str (repeat (- 2 (count binary-str)) "0")) binary-str "⟩"))
-        (vector? value)
-        (let [binary-str (apply str (map #(if (= % 0) "0" "1") value))]
-          (str "|" binary-str "⟩"))
-        (string? value)
-        (if (str/starts-with? value "|")
-          value
-          (str "|" value "⟩"))))
+   String representation of the computational basis state in ket |b₀b₁...bₙ₋₁⟩ form."
+  ([value]
+   (str "|" (basis-string value) "⟩"))
+  ([value n-qubits]
+   (str "|" (basis-string value n-qubits) "⟩")))
 
 (defn bits-to-index
   "Convert a vector of bits to the corresponding state vector index.
@@ -108,6 +130,25 @@
          (pos-int? n)]}
   (vec (for [i (range n)]
          (bit-and (bit-shift-right index (- n 1 i)) 1))))
+
+(comment
+
+  (basis-label 4)
+  (basis-label [1 0 0])
+  (basis-label "100")
+  (basis-label "001")
+  (basis-label [0 0 1])
+  (basis-label 15)
+
+  (basis-label 1 4)
+  (basis-label "001" 4)
+  (basis-label [0 0 1] 4)
+  (basis-label 4 4)
+  (basis-label "100" 4)
+  (basis-label [1 0 0] 4)
+  
+  ; 
+  )
 
 
 ;; Quantum state creation functions
@@ -730,8 +771,6 @@
   (tensor-product |1⟩ |1⟩))
 
 (comment
-
-  (basis-label 4)
 
   ;; Test normalization
   (def |0⟩-norm (normalize-state |0⟩))

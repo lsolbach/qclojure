@@ -31,20 +31,6 @@
   (str "sim_job_" (swap! job-counter inc) "_" (System/currentTimeMillis)))
 
 ;; Helper functions for measurement simulation
-(defn- index-to-basis-string
-  "Convert a basis state index to its binary string representation.
-  
-  Parameters:
-  - index: Integer index of the basis state  
-  - num-qubits: Number of qubits in the system
-  
-  Returns: String representation like '00', '01', '10', '11' for 2 qubits"
-  [index num-qubits]
-  (let [binary-str (Integer/toBinaryString index)
-        padding-needed (- num-qubits (count binary-str))
-        padding (apply str (repeat padding-needed "0"))]
-    (str padding binary-str)))
-
 (defn- get-measurement-probabilities
   "Get measurement probabilities for all basis states.
   
@@ -67,8 +53,8 @@
   Returns: Map of measurement outcomes to counts"
   [state shots num-qubits]
   (let [probabilities (get-measurement-probabilities state)
-        ;; Convert to computational basis state strings
-        basis-states (map #(index-to-basis-string % num-qubits) 
+        ;; Convert to computational basis state labels
+        basis-states (map #(qs/basis-string % num-qubits) 
                          (range (count probabilities)))
         outcomes (into {} (map vector basis-states probabilities))]
     

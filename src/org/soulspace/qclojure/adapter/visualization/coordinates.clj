@@ -20,20 +20,20 @@
   Map with :spherical {:theta θ :phi φ} and :cartesian {:x x :y y :z z}"
   [state]
   {:pre [(= (:num-qubits state) 1)]}
-  
+
   (let [amplitudes (:state-vector state)
         α (first amplitudes)   ; amplitude for |0⟩
         β (second amplitudes)  ; amplitude for |1⟩
-        
+
         ;; Calculate Bloch sphere coordinates
         θ (* 2 (m/acos (fc/abs α)))  ; polar angle
         φ (fc/arg β)                 ; azimuthal angle  
-        
+
         ;; Cartesian coordinates
         x (* (m/sin θ) (m/cos φ))
         y (* (m/sin θ) (m/sin φ))
         z (m/cos θ)]
-    
+
     {:spherical {:theta θ :phi φ}
      :cartesian {:x x :y y :z z}}))
 
@@ -53,12 +53,12 @@
         ;; Use standard isometric angles for proper axis alignment
         angle-x-rad (/ m/PI 6) ; 30 degrees
         angle-y-rad (/ m/PI 6) ; 30 degrees
-        
+
         ;; Map axes properly (X right, Y upper-left, Z upper)
         x-proj (- (* x3d (m/cos angle-x-rad)) (* y3d (m/cos angle-y-rad)))
         y-proj (- (* z3d -0.8) ; Scale Z for better height balance
-                 (+ (* x3d (m/sin angle-x-rad)) 
-                    (* y3d (m/sin angle-y-rad))))]
+                  (+ (* x3d (m/sin angle-x-rad))
+                     (* y3d (m/sin angle-y-rad))))]
     [(+ cx (* scale x-proj))
      (+ cy (* scale y-proj))]))
 
@@ -115,7 +115,7 @@
                         [(* circle-radius (m/cos lon-angle))
                          (* circle-radius (m/sin lon-angle))
                          circle-z]))))
-        
+
         meridians (for [i (range n-meridians)]
                     (let [lon-angle (* (/ i n-meridians) 2 m/PI)]
                       (for [j (range (inc n-points))]
@@ -123,24 +123,21 @@
                           [(* (m/sin lat-angle) (m/cos lon-angle))
                            (* (m/sin lat-angle) (m/sin lon-angle))
                            (m/cos lat-angle)]))))]
-    
+
     {:circles circles
      :meridians meridians}))
 
 ;; Reference point calculations
-(defn reference-state-coordinates
-  "Get Bloch sphere coordinates for common reference states.
-  
-  Returns:
-  Map from state labels to {:cartesian {:x x :y y :z z}} coordinates"
-  []
-  {"|0⟩"   {:cartesian {:x 0 :y 0 :z 1}}      ; North pole
-   "|1⟩"   {:cartesian {:x 0 :y 0 :z -1}}     ; South pole  
+(def reference-state-coordinates
+  "Map from state labels to {:cartesian {:x x :y y :z z}} coordinates"
+  {"|0⟩"   {:cartesian {:x 0 :y 0 :z 1}}      ; +Z axis, North pole
+   "|1⟩"   {:cartesian {:x 0 :y 0 :z -1}}     ; -Z axis, South pole
    "|+⟩"   {:cartesian {:x 1 :y 0 :z 0}}      ; +X axis
    "|-⟩"   {:cartesian {:x -1 :y 0 :z 0}}     ; -X axis
    "|+i⟩"  {:cartesian {:x 0 :y 1 :z 0}}      ; +Y axis
-   "|-i⟩"  {:cartesian {:x 0 :y -1 :z 0}}})   ; -Y axis
-
+   "|-i⟩"  {:cartesian {:x 0 :y -1 :z 0}}     ; -Y axis
+   })
+         
 ;; Distance and similarity calculations
 (defn bloch-distance
   "Calculate Euclidean distance between two points on Bloch sphere.
@@ -165,34 +162,32 @@
   
   Returns:
   Vector [state-label distance] of closest reference state"
-  [coords]
-  (let [reference-states (reference-state-coordinates)
-        distances (map (fn [[label ref-coords]]
-                        [label (bloch-distance coords ref-coords)])
-                      reference-states)]
+  [reference-state-coordinates coords]
+  (let [distances (map (fn [[label ref-coords]]
+                         [label (bloch-distance coords ref-coords)])
+                       reference-state-coordinates)]
     (first (sort-by second distances))))
 
 (comment
   ;; REPL examples for coordinate transformations
-  
+
   ;; Test Bloch coordinate calculation
   (require '[qclojure.domain.quantum-state :as qs])
-  
+
   (def plus-coords (quantum-state-to-bloch-coordinates qs/|+⟩))
   (println "Plus state coordinates:" plus-coords)
-  
+
   ;; Test projections
   (let [coords (:cartesian plus-coords)
         center [200 200]
         scale 100]
     (println "Isometric:" (isometric-projection (:x coords) (:y coords) (:z coords) center scale))
     (println "Orthographic:" (orthographic-projection (:x coords) (:y coords) (:z coords) center scale)))
-  
+
   ;; Generate sphere wireframe
   (def wireframe (generate-sphere-wireframe 6 8 16))
   (println "Generated" (count (:circles wireframe)) "circles and" (count (:meridians wireframe)) "meridians")
-  
+
   ;; Test reference state finding
-  (def closest (find-closest-reference-state plus-coords))
-  (println "Closest reference state to |+⟩:" closest)
-  )
+  (def closest (find-closest-reference-state reference-state-coordinates plus-coords))
+  (println "Closest reference state to |+⟩:" closest))

@@ -12,8 +12,8 @@
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
-            [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
-            [org.soulspace.qclojure.adapter.visualization.common :as common]))
+            [org.soulspace.qclojure.adapter.visualization.coordinates :as vcoord]
+            [org.soulspace.qclojure.adapter.visualization.common :as vcommon]))
 
 (s/def ::quantum-data (s/or :state ::qs/quantum-state
                             :circuit ::qc/quantum-circuit
@@ -72,9 +72,7 @@
   (let [amplitudes (:state-vector state)
         n-qubits (:num-qubits state)
 
-        basis-labels (for [i (range (bit-shift-left 1 n-qubits))]
-                       (str "|" (format (str "%0" n-qubits "d")
-                                        (Long/parseLong (Integer/toBinaryString i) 2)) "⟩"))
+        basis-labels (vcommon/generate-basis-labels n-qubits)
 
         non-zero-terms (filter (fn [[amp label]]
                                  (> (fc/abs amp) threshold))
@@ -90,6 +88,31 @@
                            (= formatted-amp "-1") (str "-" label)
                            :else (str formatted-amp label))))
                      non-zero-terms)))))
+
+(defn format-outcome
+  "Format a measurement outcome for display.
+  
+  Parameters:
+  - outcome: Measurement outcome (e.g., |0⟩, |1⟩, etc.)
+  
+  Returns:
+  Formatted string representation of the outcome"
+  [outcome]
+  (if (number? outcome)
+    (str "|" outcome "⟩")
+    (str outcome)))
+
+(defn format-history-line-fn
+  [freq-map total-measurements]
+  (fn [outcome]
+    (let [count (freq-map outcome)
+          percentage (/ count total-measurements)
+          bar-length (int (* percentage 50))
+          bar (str/join (repeat bar-length "█"))]
+      (str (format-outcome outcome) ": "
+           count " ("
+           (qmath/round-precision (* percentage 100) 1) "%) "
+           bar))))
 
 (defn format-measurement-result
   "Format quantum measurement results for display.
@@ -107,21 +130,8 @@
         total-measurements (count measurements)
         sorted-outcomes (sort (keys freq-map))
 
-        format-outcome (fn [outcome]
-                         (if (number? outcome)
-                           (str "|" outcome "⟩")
-                           (str outcome)))
-
         histogram-lines (when show-histogram
-                          (map (fn [outcome]
-                                 (let [count (freq-map outcome)
-                                       percentage (/ count total-measurements)
-                                       bar-length (int (* percentage 50))
-                                       bar (str/join (repeat bar-length "█"))]
-                                   (str (format-outcome outcome) ": "
-                                        count " ("
-                                        (qmath/round-precision (* percentage 100) 1) "%) "
-                                        bar)))
+                          (map (format-history-line-fn freq-map total-measurements)
                                sorted-outcomes))
 
         probability-lines (when show-probabilities
@@ -149,6 +159,40 @@
   ;
   )
 
+(defn- format-phase-info
+  "Format phase information for display.
+   
+   Parameters:
+   - state: Quantum state
+   - chart-data: Map containing indices and labels for phases
+
+   Returns:
+   Formatted string with phase details"
+  [state [indices labels]]
+  (let [phase-details (vcommon/calculate-phase-info state indices labels)]
+    (str "\nPhases:\n"
+         (str/join "\n"
+                   (map (fn [detail]
+                          (str (:label detail) ": " (:phase-degrees detail) "°"))
+                        phase-details)))))
+
+(defn- format-amplitude-info
+  "Format amplitude information for display.
+   
+   Parameters:
+   - state: Quantum state
+   - chart-data: Map containing indices and labels for amplitudes
+
+   Returns:
+   Formatted string with amplitude details"
+  [state [indices labels]]
+  (let [amp-details (vcommon/extract-amplitude-info state indices labels)]
+    (str "\nAmplitudes:\n"
+         (str/join "\n"
+                   (map (fn [detail]
+                          (str (:label detail) ": " (:amplitude detail)))
+                        amp-details)))))
+
 ;;; 
 ;;; ASCII Format Implementations
 ;;; 
@@ -163,28 +207,16 @@
                                             :max-bars max-bars)
 
         ;; Additional information when requested
-        chart-data (common/prepare-bar-chart-data state
+        chart-data (vcommon/prepare-bar-chart-data state
                                                   :threshold threshold
                                                   :max-bars max-bars)
-        indices (:indices chart-data)
-        filtered-labels (:labels chart-data)
         summary (:summary chart-data)
 
         amplitude-info (when show-amplitudes
-                         (let [amp-details (common/extract-amplitude-info state indices filtered-labels)]
-                           (str "\nAmplitudes:\n"
-                                (str/join "\n"
-                                          (map (fn [detail]
-                                                 (str (:label detail) ": " (:amplitude detail)))
-                                               amp-details)))))
+                         (format-amplitude-info state chart-data))
 
         phase-info (when show-phases
-                     (let [phase-details (common/calculate-phase-info state indices filtered-labels)]
-                       (str "\nPhases:\n"
-                            (str/join "\n"
-                                      (map (fn [detail]
-                                             (str (:label detail) ": " (:phase-degrees detail) "°"))
-                                               phase-details)))))
+                     (format-phase-info state chart-data))
 
         summary-text (str "\nState Summary:\n"
                           "Total qubits: " (:num-qubits summary) "\n"
@@ -202,7 +234,7 @@
   [_format state & _options]
   {:pre [(= (:num-qubits state) 1)]}
 
-  (let [coords (coord/quantum-state-to-bloch-coordinates state)
+  (let [coords (vcoord/quantum-state-to-bloch-coordinates state)
         {x :x z :z} (:cartesian coords)
 
         ;; Sphere rendering parameters
@@ -235,13 +267,13 @@
         sphere-string (str/join "\n" (map #(str/join "" %) sphere-chars))
 
         ;; Use common utilities for display data
-        display-data (common/prepare-bloch-display-data state coords
+        display-data (vcommon/prepare-bloch-display-data state coords
                                                         :show-coordinates true
                                                         :show-distances true
                                                         :precision 3
                                                         :format :ascii)
         
-        distance-text (str "Distances: " (common/format-reference-distances (:distances display-data)))]
+        distance-text (str "Distances: " (vcommon/format-reference-distances (:distances display-data)))]
 
     (str "Bloch Sphere Visualization:\n\n"
          sphere-string "\n\n"
@@ -466,7 +498,7 @@
                     :or {width 40 threshold 0.001 max-bars 16}}]
 
   (let [;; Use common utilities for data extraction and filtering
-        chart-data (common/prepare-bar-chart-data state
+        chart-data (vcommon/prepare-bar-chart-data state
                                                   :threshold threshold
                                                   :max-bars max-bars)
         probabilities (:probabilities chart-data)

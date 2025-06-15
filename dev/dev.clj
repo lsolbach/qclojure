@@ -4,6 +4,13 @@
 
 (comment ; code exploration
   
+  ; All namespaces in the project
+  (all-ns)
+  (first (all-ns))
+
+  ; The symbol of the namespace
+  (ns-name 'org.soulspace.qclojure.domain.state)
+
   ; Aliases of the required namespaces
   (ns-aliases 'org.soulspace.qclojure.domain.state)
 

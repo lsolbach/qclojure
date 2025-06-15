@@ -8,6 +8,7 @@
             [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]))
 
 ;;
@@ -38,10 +39,7 @@
   (generate-basis-labels 2) ;=> [|00⟩ |01⟩ |10⟩ |11⟩]"
   [n-qubits]
   (when (and n-qubits (pos? n-qubits))
-    (mapv (fn [i]
-            (let [binary-str (Long/toBinaryString i)
-                  padded-binary (str (apply str (repeat (- n-qubits (count binary-str)) "0")) binary-str)]
-              (str "|" padded-binary "⟩")))
+    (mapv #(qs/basis-label % n-qubits)
           (range (bit-shift-left 1 n-qubits)))))
 
 (defn filter-significant-probabilities
@@ -111,12 +109,12 @@
   
   Parameters:
   - state: Quantum state
-  - filtered-data: Result from filter-significant-probabilities
+  - significant-probabilities: Result from filter-significant-probabilities
   
   Returns:
   Map with summary statistics"
-  [state filtered-data]
-  (let [{:keys [total-shown n-hidden]} filtered-data
+  [state significant-probabilities]
+  (let [{:keys [total-shown n-hidden]} significant-probabilities
         n-qubits (:num-qubits state)]
     {:num-qubits n-qubits
      :total-probability-shown total-shown

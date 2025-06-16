@@ -53,7 +53,7 @@
           search-size 8
           oracle-fn #(= % target-item)
           result (grover/grover-algorithm (sim/create-simulator) search-size oracle-fn)]
-      (is (contains? result :measurements))
+      (is (contains? result :result))
       (is (contains? result :target-indices))
       (is (contains? result :probability))
       (is (= (:search-space-size result) search-size))
@@ -164,9 +164,9 @@
 
       ;; Ensure all algorithms return valid results
       (is (contains? deutsch-result :result))
-      (is (contains? grover-result :measurements))
-      (is (contains? bv-result :success))
-      (is (contains? simon-result :found-period)))))
+      (is (contains? grover-result :result))
+      (is (contains? bv-result :result))
+      (is (contains? simon-result :result)))))
 
 ;; Benchmark and performance tests  
 (deftest test-algorithm-performance

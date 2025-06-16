@@ -20,27 +20,27 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon and Grover's search algorithms
 
-5. **Extensible Backend System**
+4. **Extensible Backend System**
 
    Protocol-based architecture allowing integration with different quantum simulators and hardware backends
 
-6. **Circuit Transformation & Optimization**
+5. **Circuit Transformation & Optimization**
 
    Automatic gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
-7. **Local Quantum Simulator Backend**
+6. **Local Quantum Simulator Backend**
 
    High-performance local simulator with job submission, status tracking, and statistical measurement results with configurable shot counts
 
-4. **OpenQASM Integration**
+7. **OpenQASM Integration**
 
    Bidirectional conversion between quantum circuits and OpenQASM 2/3 formats for interoperability with other quantum computing platforms
 
-4. **Visualization**
+8. **Visualization**
 
    Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML.
 
-8. **Comprehensive Testing & Validation**
+9. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
 
@@ -90,6 +90,7 @@ Some examples are provided in the [examples](/examples) folder.
 QClojure is currently build with [Leiningen](https://leiningen.org/).
 
 Compile the code with:
+
 ```
 lein compile
 ```

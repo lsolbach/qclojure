@@ -671,6 +671,7 @@
   (mapv #(let [amp-mag (fc/abs %)] (* amp-mag amp-mag)) 
         (:state-vector state)))
 
+; TODO duplicate to index-to-bits, remove?
 (defn measurement-outcomes-to-bits
   "Convert a measurement outcome integer to its binary bit representation.
   

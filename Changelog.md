@@ -1,5 +1,7 @@
 # Changelog
 
+## Version (NEXT)
+
 ## Version 0.1.0
 * implemented quantom states, quantum gates, gate registry and quantum cirquits
 * implemented quantum backend protocol with a simulator implementation

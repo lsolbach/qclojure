@@ -12,7 +12,7 @@
   :profiles {:clay {:dependencies [[org.scicloj/clay "2-beta45"]]
                     :source-paths ["src" "notebook"]}}
   
-  :scm {:name "git" :url "https://github.com/lsolbach/QClojure"}
+  :scm {:name "git" :url "https://github.com/lsolbach/qclojure"}
   :deploy-repositories [["clojars" {:sign-releases false :url "https://clojars.org/repo"}]]
   ;
   )

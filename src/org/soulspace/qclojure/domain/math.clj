@@ -146,5 +146,54 @@
     (when (seq sorted-candidates)
       (:period (first sorted-candidates)))))
 
+(defn perfect-power-factor
+  "Check if N is a perfect power and return its base factor.
+  
+  A perfect power is a number that can be expressed as a^k for some integers a and k where k > 1.
+  This function finds the smallest base a such that N = a^k for some k > 1.
+  
+  This is used in Shor's algorithm for classical preprocessing - if N is a perfect power,
+  we can factor it classically without needing quantum period finding.
+  
+  Examples:
+  - perfect-power-factor(8) = 2 (since 8 = 2^3)
+  - perfect-power-factor(9) = 3 (since 9 = 3^2)
+  - perfect-power-factor(15) = 1 (since 15 is not a perfect power)
+  
+  Parameters:
+  - N: The number to check for perfect power
+  
+  Returns:
+  Base factor a if N = a^k for some k > 1, otherwise returns 1"
+  [N]
+  {:pre [(pos? N)]}
+  
+  (if (<= N 1)
+    1  ; Handle edge cases
+    (loop [k 2]
+      (if (> k (Math/ceil (/ (Math/log N) (Math/log 2))))  ; Check up to log_2(N)
+        1  ; Not a perfect power
+        (let [root (Math/round (Math/pow N (/ 1.0 k)))]
+          (cond
+            ;; Check if root^k equals N (accounting for floating point precision)
+            (and (> root 1)
+                 (let [power (long (Math/pow root k))]
+                   (= power N)))
+            root  ; Found perfect power base
+            
+            ;; Also check root-1 and root+1 due to floating point precision issues
+            (and (> (dec root) 1)
+                 (let [power (long (Math/pow (dec root) k))]
+                   (= power N)))
+            (dec root)
+            
+            (and (> (inc root) 1)
+                 (let [power (long (Math/pow (inc root) k))]
+                   (= power N)))
+            (inc root)
+            
+            :else
+            (recur (inc k))))))))
+
 ; Disable fastmath operator macros to avoid conflicts
 #_(m/unuse-primitive-operators)

@@ -11,8 +11,8 @@
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;; Simulator state management
-(defonce ^:private job-counter (atom 0))
-(defonce ^:private active-jobs (atom {}))
+(defonce ^:private state (atom {:job-counter 0
+                                :active-jobs {}}))
 
 ;; Specs for simulator
 (s/def ::simulator-config
@@ -28,7 +28,8 @@
 
 ;; Helper functions
 (defn- generate-job-id []
-  (str "sim_job_" (swap! job-counter inc) "_" (System/currentTimeMillis)))
+  (let [new-counter (:job-counter (swap! state update :job-counter inc))]
+    (str "sim_job_" new-counter "_" (System/currentTimeMillis))))
 
 ;; Helper functions for measurement simulation
 (defn- get-measurement-probabilities
@@ -139,7 +140,7 @@
                              (System/currentTimeMillis) nil)]
       
       ;; Store job and start execution in background
-      (swap! active-jobs assoc job-id job)
+      (swap! state assoc-in [:active-jobs job-id] job)
       
       ;; Execute immediately (could be made async with future)
       (future
@@ -148,17 +149,17 @@
                                   :status (:job-status result)
                                   :result result
                                   :completed-at (System/currentTimeMillis))]
-          (swap! active-jobs assoc job-id completed-job)))
+          (swap! state assoc-in [:active-jobs job-id] completed-job)))
       
       job-id))
   
   (get-job-status [_this job-id]
-    (if-let [job (get @active-jobs job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (:status job)
       :not-found))
   
   (get-job-result [_this job-id]
-    (if-let [job (get @active-jobs job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
         {:job-id job-id
@@ -169,10 +170,10 @@
        :error-message "Job not found"}))
   
   (cancel-job [_this job-id]
-    (if-let [job (get @active-jobs job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! active-jobs assoc job-id 
+          (swap! state assoc-in [:active-jobs job-id] 
                 (assoc job :status :cancelled 
                           :completed-at (System/currentTimeMillis)))
           :cancelled)
@@ -180,7 +181,7 @@
       :not-found))
   
   (get-queue-status [_this]
-    (let [jobs (vals @active-jobs)
+    (let [jobs (vals (:active-jobs @state))
           queued (count (filter #(= (:status %) :queued) jobs))
           running (count (filter #(= (:status %) :running) jobs))
           completed (count (filter #(= (:status %) :completed) jobs))]
@@ -252,7 +253,7 @@
     ;; Submit each circuit individually and track as batch
     (let [batch-id (str "batch_" (System/currentTimeMillis))
           job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! active-jobs assoc batch-id
+      (swap! state assoc-in [:active-jobs batch-id]
              {:batch-id batch-id
               :job-ids job-ids
               :status :queued
@@ -260,7 +261,7 @@
       batch-id))
   
   (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get @active-jobs batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             statuses (map #(qb/get-job-status this %) job-ids)
             status-counts (frequencies statuses)]
@@ -276,7 +277,7 @@
        :status :not-found}))
   
   (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get @active-jobs batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             results (into {} (map (fn [job-id]
                                    [job-id (qb/get-job-result this job-id)])
@@ -324,15 +325,16 @@
   
   This is useful for testing and development."
   []
-  (reset! active-jobs {})
-  (reset! job-counter 0))
+  (reset! state {:job-counter 0
+                 :active-jobs {}}))
 
 (defn get-simulator-stats
   "Get statistics about the simulator usage.
   
   Returns: Map with job statistics and performance metrics"
   []
-  (let [jobs (vals @active-jobs)
+  (let [current-state @state
+        jobs (vals (:active-jobs current-state))
         completed-jobs (filter #(= (:status %) :completed) jobs)
         execution-times (keep #(let [start (:created-at %)
                                      end (:completed-at %)]
@@ -346,7 +348,7 @@
                                (/ (reduce + execution-times) 
                                   (count execution-times))
                                0)
-     :job-counter @job-counter}))
+     :job-counter (:job-counter current-state)}))
 
 (comment
   ;; Example usage:

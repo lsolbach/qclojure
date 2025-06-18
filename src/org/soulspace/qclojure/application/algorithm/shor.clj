@@ -107,7 +107,6 @@
          ;; Step 2-4: Try quantum period finding with different values of 'a'
          (loop [attempt 0
                 remaining-values coprime-values]
-           (println "Attempt:" attempt)
            (if (or (>= attempt max-attempts)
                    (empty? remaining-values))
              ;; Failed to find factors or exhausted all values
@@ -124,7 +123,6 @@
              ;; Use the next unique a value
              (let [a (first remaining-values)
                    gcd-a-N (qmath/gcd a N)]
-               (println "Chosen a:" a "gcd(a,N):" gcd-a-N)
 
                ;; Check if gcd(a,N) gives us a factor
                (if (> gcd-a-N 1)

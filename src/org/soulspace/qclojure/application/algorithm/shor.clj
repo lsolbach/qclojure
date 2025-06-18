@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.application.algorithm.shor
   (:require
    [org.soulspace.qclojure.domain.math :as qmath]
-   [org.soulspace.qclojure.application.algorithm.quantum.period-finding :as qpf]))
+   [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]))
 
 (defn generate-unique-coprime-values 
   "Generate all values a where 2 <= a < N and gcd(a,N) = 1, in random order.
@@ -54,14 +54,29 @@
   ([backend N options]
    {:pre [(> N 1)]}
 
-   (let [;; Extract options with defaults
+   (let [;; Extract options with defaults - use smaller defaults for better performance
          n-qubits (get options :n-qubits
                        (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2))))))
-         n-measurements (get options :n-measurements 10)
-         max-attempts (get options :max-attempts 10)]
+         n-measurements (get options :n-measurements 3)  ; Reduced from 10 to 3
+         max-attempts (get options :max-attempts 5)      ; Reduced from 10 to 5
+         ;; Simple primality test since qmath/is-prime? doesn't exist
+         is-prime? (fn [n] (and (> n 1)
+                               (not-any? #(zero? (mod n %)) 
+                                        (range 2 (inc (int (Math/sqrt n)))))))]
 
      ;; Step 1: Classical preprocessing
      (cond
+       ;; Check if N is prime (can't be factored)
+       (is-prime? N) {:factors []
+                      :success false
+                      :N N
+                      :attempts []
+                      :method :classical-prime-check
+                      :message "Cannot factor prime numbers"
+                      :statistics {:runtime 0
+                                   :attempts 0
+                                   :n-measurements 0}}
+
        ;; Check if N is even
        (even? N) {:factors [2 (/ N 2)]
                   :success true

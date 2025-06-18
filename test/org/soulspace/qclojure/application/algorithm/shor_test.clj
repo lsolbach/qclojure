@@ -10,7 +10,7 @@
   (testing "Factoring N=15"
     (let [N 15
           expected-factors #{3 5}
-          result (shor/shor-algorithm (sim/create-simulator) N)]
+          result (shor/shor-algorithm (sim/create-simulator) N {:shots 100})]
       
       (is (:success result) "Factorization should succeed")
       (is (= 2 (count (:factors result))) "Should find 2 factors")
@@ -19,7 +19,7 @@
   (testing "Factoring N=21"
     (let [N 21
           expected-factors #{3 7}
-          result (shor/shor-algorithm (sim/create-simulator) N)]
+          result (shor/shor-algorithm (sim/create-simulator) N {:shots 10})]
 
       (is (:success result) "Factorization should succeed")
       (is (= 2 (count (:factors result))) "Should find 2 factors")
@@ -28,7 +28,7 @@
   (testing "Factoring even number N=14"
     (let [N 14
           expected-factors #{2 7}
-          result (shor/shor-algorithm (sim/create-simulator) N)]
+          result (shor/shor-algorithm (sim/create-simulator) N {:shots 10})]
 
       (is (:success result) "Factorization should succeed")
       (is (= 2 (count (:factors result))) "Should find 2 factors")
@@ -37,7 +37,7 @@
   
   (testing "Perfect power factorization N=27"
     (let [N 27  ; 3^3
-          result (shor/shor-algorithm (sim/create-simulator) N)]
+          result (shor/shor-algorithm (sim/create-simulator) N {:shots 10})]
 
       (is (:success result) "Factorization should succeed")
       (is (= [3 3 3] (:factors result)) "Should find factors [3 3 3]"))))

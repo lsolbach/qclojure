@@ -1,7 +1,15 @@
 (ns org.soulspace.qclojure.application.algorithm.shor
   (:require
    [org.soulspace.qclojure.domain.math :as qmath]
-   [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]))
+   [org.soulspace.qclojure.application.algorithm.quantum.period-finding :as qpf]))
+
+(defn generate-unique-coprime-values 
+  "Generate all values a where 2 <= a < N and gcd(a,N) = 1, in random order.
+   This ensures no duplicate values are attempted during factorization."
+  [N]
+  (->> (range 2 N)
+       (filter #(= 1 (qmath/gcd % N)))
+       (shuffle)))
 
 (defn shor-algorithm
   "Shor's algorithm for integer factorization.
@@ -59,22 +67,16 @@
                   :success true
                   :N N
                   :attempts []
-                  :method :classical-even}
+                  :method :classical-even
+                  :statistics {:runtime 0
+                               :attempts 0
+                               :n-measurements 0}}
 
-       ;; Check if N is a perfect power - try to find if N = m^k for some m,k>1
-       (some (fn [k]
-               (let [root (Math/pow N (/ 1 k))
-                     int-root (int root)]
-                 (when (= N (int (Math/pow int-root k)))
-                   {:base int-root :power k})))
-             (range 2 (inc (int (/ (Math/log N) (Math/log 2))))))
-       (let [{:keys [base power]} (some (fn [k]
-                                          (let [root (Math/pow N (/ 1 k))
-                                                int-root (int root)]
-                                            (when (= N (int (Math/pow int-root k)))
-                                              {:base int-root :power k})))
-                                        (range 2 (inc (int (/ (Math/log N) (Math/log 2))))))]
-         {:factors (repeat power base)
+       ;; Check if N is a perfect power
+       (let [perfect-power-factor (qmath/perfect-power-factor N)]
+         (> perfect-power-factor 1))
+       (let [factor (qmath/perfect-power-factor N)]
+         {:factors [factor (/ N factor)]
           :success true
           :N N
           :attempts []
@@ -83,27 +85,31 @@
        ;; Continue with quantum period finding
        :else
        (let [attempts (atom [])
-             start-time (System/currentTimeMillis)]
+             start-time (System/currentTimeMillis)
+             ;; Generate unique coprime values to avoid trying the same 'a' multiple times
+             coprime-values (generate-unique-coprime-values N)]
 
          ;; Step 2-4: Try quantum period finding with different values of 'a'
-         (loop [attempt 0]
-           (if (>= attempt max-attempts)
-             ;; Failed to find factors
+         (loop [attempt 0
+                remaining-values coprime-values]
+           (println "Attempt:" attempt)
+           (if (or (>= attempt max-attempts)
+                   (empty? remaining-values))
+             ;; Failed to find factors or exhausted all values
              {:factors []
               :success false
               :N N
               :attempts @attempts
-              :method :quantum-failed
+              :method (if (empty? remaining-values) :exhausted-values :quantum-failed)
               :statistics {:runtime (- (System/currentTimeMillis) start-time)
                            :attempts attempt
-                           :n-measurements n-measurements}}
+                           :n-measurements n-measurements
+                           :total-coprime-values (count coprime-values)}}
 
-             ;; Choose random a coprime to N
-             (let [a (loop [candidate (+ 2 (rand-int (- N 2)))]
-                       (if (= (qmath/gcd candidate N) 1)
-                         candidate
-                         (recur (+ 2 (rand-int (- N 2))))))
+             ;; Use the next unique a value
+             (let [a (first remaining-values)
                    gcd-a-N (qmath/gcd a N)]
+               (println "Chosen a:" a "gcd(a,N):" gcd-a-N)
 
                ;; Check if gcd(a,N) gives us a factor
                (if (> gcd-a-N 1)
@@ -120,7 +126,7 @@
                                  :n-measurements 0}})
 
                  ;; Try quantum period finding with our improved implementation
-                 (let [period-result (qpf/quantum-period-finding backend a N n-qubits n-measurements {:shots 10})
+                 (let [period-result (qpf/quantum-period-finding backend a N n-qubits n-measurements options)
                        period (:estimated-period period-result)]
 
                    (when (map? period-result)
@@ -164,8 +170,15 @@
 
                          ;; Period didn't give useful factors, try again
                          :else
-                         (recur (inc attempt))))
+                         (recur (inc attempt) (rest remaining-values))))
 
                      ;; Invalid period or quantum step failed, try again
-                     (recur (inc attempt)))))))))))))
+                     (recur (inc attempt) (rest remaining-values)))))))))))))
 
+(comment
+  
+  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (shor-algorithm (sim/create-simulator) 5 {:shots 1})
+
+  ;
+  )

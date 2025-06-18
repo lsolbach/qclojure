@@ -8,7 +8,7 @@
 * fixed edge cases for quantum phase estimation
 * fixed coprime selection in shor
 * refactored tests for quantum period finding
-* added prime? function
+* added prime? and complete-factorization functions
 * added more tests for the math namespace
 * added prime check in shor
 

@@ -203,6 +203,19 @@
             :else
             (recur (inc k))))))))
 
+(defn complete-factorization
+  "Complete factorization of a vector of partial factors, e.g. [3 9]."
+  [factors]
+  {:pre [(seq factors)]}
+  (reduce (fn [acc factor]
+            (let [base (perfect-power-factor factor)]
+              (if (= base 1)
+                (conj acc factor)  ; Not a perfect power, keep as is
+                (let [power (int (/ factor base))]
+                  (concat acc (repeat power base))))))
+          []
+          factors))
+
 (comment ;
 
   (gcd 48 18) ; => 6
@@ -213,7 +226,8 @@
   (find-period 5 3 15 2) ; => 4
   (perfect-power-factor 27) ; => 3
   (perfect-power-factor 16) ; => 2
-
+  (complete-factorization [3 9]) ; => [3 3 3]
+  (complete-factorization [2 4 8]) ; => [2 2 2 2 2 2]   
   ;
   )
 

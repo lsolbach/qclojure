@@ -73,15 +73,16 @@
    - eigenstate-prep-fn: Function to prepare the eigenstate (receives circuit and eigenstate qubit range)
    - controlled-unitary-fn: Function to apply controlled U^(2^k) operations
                             (receives circuit, control qubit, power, and eigenstate qubit range)
-   - options: Map containing additional backend options (e.g., :shots)
+   - options: Map containing additional backend options (e.g., :shots, :n-measurements)
    
    Returns:
    Map containing:
-   - :measurements - Measurement results from the precision qubits
+   - :measurements - Combined measurement results from all executions
    - :circuit - The quantum circuit used for QPE
-   - :execution-result - Result from executing the circuit on the backend
+   - :execution-results - Results from all circuit executions
    - :precision-qubits - Number of precision qubits used
-   - :eigenstate-qubits - Number of eigenstate qubits used"
+   - :eigenstate-qubits - Number of eigenstate qubits used
+   - :n-measurements - Number of measurements performed"
   [backend precision-qubits eigenstate-qubits eigenstate-prep-fn controlled-unitary-fn options]
   {:pre [(satisfies? qb/QuantumBackend backend)
          (pos-int? precision-qubits)
@@ -89,10 +90,11 @@
          (fn? eigenstate-prep-fn)
          (fn? controlled-unitary-fn)]}
   
-  (let [total-qubits (+ precision-qubits eigenstate-qubits)
+  (let [n-measurements (get options :n-measurements 1)
+        total-qubits (+ precision-qubits eigenstate-qubits)
         eigenstate-qubit-range (range precision-qubits (+ precision-qubits eigenstate-qubits))
         
-        ;; Build the generalized QPE circuit
+        ;; Build the generalized QPE circuit once
         circuit (-> (qc/create-circuit total-qubits "Generalized Quantum Phase Estimation")
                     
                     ;; Step 1: Prepare eigenstate qubits
@@ -117,17 +119,23 @@
                       (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
                         (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))
         
-        ;; Execute the circuit
-        execution-result (qb/execute-circuit backend circuit options)
+        ;; Execute the circuit n-measurements times
+        execution-results (repeatedly n-measurements
+                                     #(qb/execute-circuit backend circuit options))
         
-        ;; Extract measurement results
-        measurements (:measurement-results execution-result)]
+        ;; Combine all measurement results
+        all-measurements (reduce (fn [combined-measurements execution-result]
+                                  (let [measurements (:measurement-results execution-result)]
+                                    (merge-with + combined-measurements measurements)))
+                                {}
+                                execution-results)]
     
-    {:measurements measurements
+    {:measurements all-measurements
      :circuit circuit
-     :execution-result execution-result
+     :execution-results execution-results
      :precision-qubits precision-qubits
-     :eigenstate-qubits eigenstate-qubits}))
+     :eigenstate-qubits eigenstate-qubits
+     :n-measurements n-measurements}))
 
 (defn quantum-period-finding
   "Find the period of f(x) = a^x mod N using quantum phase estimation.
@@ -188,33 +196,31 @@
                                        phase (* 2 Math/PI (/ power N))]
                                    (qc/crz-gate circuit control-qubit target-qubit phase)))
          
-         ;; Perform multiple QPE measurements for statistical analysis
-         qpe-results (repeatedly n-measurements
-                                (fn []
-                                  (quantum-phase-estimation-with-custom-unitary
-                                   backend 
-                                   precision-qubits
-                                   eigenstate-qubits
-                                   eigenstate-prep-fn
-                                   controlled-unitary-fn
-                                   options)))
+         ;; Add n-measurements to options and perform QPE once
+         qpe-options (assoc options :n-measurements n-measurements)
+         qpe-result (quantum-phase-estimation-with-custom-unitary
+                     backend 
+                     precision-qubits
+                     eigenstate-qubits
+                     eigenstate-prep-fn
+                     controlled-unitary-fn
+                     qpe-options)
          
          ;; Extract and analyze measurement results
-         all-measurements (mapcat :measurements qpe-results)
-         measurement-counts (frequencies (keys all-measurements))
+         all-measurements (:measurements qpe-result)
          
          ;; Convert measurements to phase estimates and then to period estimates
-         period-candidates (for [measurement (keys measurement-counts)
+         period-candidates (for [measurement (keys all-measurements)
                                 :let [phase-result (qpe/parse-measurement-to-phase measurement precision-qubits)
                                       phase (:estimated-phase phase-result)
                                       period-result (phase-to-period phase precision-qubits N a)]
                                 :when period-result]
                             (assoc period-result 
                                    :measurement measurement
-                                   :frequency (measurement-counts measurement)))
+                                   :frequency (all-measurements measurement)))
          
          ;; Calculate probabilities for each period
-         total-measurements (reduce + (vals measurement-counts))
+         total-measurements (reduce + (vals all-measurements))
          enhanced-candidates (map #(assoc % :probability (/ (:frequency %) total-measurements))
                                  period-candidates)
          
@@ -224,11 +230,11 @@
      
      {:estimated-period (when best-period (:period best-period))
       :period-candidates enhanced-candidates
-      :qpe-results qpe-results
+      :qpe-result qpe-result
       :n-measurements n-measurements
       :success (boolean (seq period-candidates))
       :confidence (if best-period (:probability best-period) 0.0)
-      :circuit (:circuit (first qpe-results))})))
+      :circuit (:circuit qpe-result)})))
 
 ;; Specs for quantum period finding
 (s/def ::precision-qubits pos-int?)
@@ -242,8 +248,8 @@
   (s/keys :req-un [::period ::measured-value ::phase ::probability ::frequency]))
 
 (s/def ::period-finding-result
-  (s/keys :req-un [::estimated-period ::period-candidates ::qpe-results 
-                   ::phase-estimates ::n-measurements ::success ::confidence]))
+  (s/keys :req-un [::estimated-period ::period-candidates ::qpe-result 
+                   ::n-measurements ::success ::confidence]))
 
 (s/fdef phase-to-period
   :args (s/cat :phase ::phase

@@ -4,6 +4,7 @@
 * use a single state atom in simulator
 * added perfect power factor to math
 * generalized quantum phase estimation and integrated in quantum-period-finding
+* phase estimation handles the number of measurements, reduced the number of circuit creations 
 * fixed coprime selection in shor
 * added prime check in shor
 

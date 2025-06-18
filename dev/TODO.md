@@ -1,10 +1,10 @@
 # TODOs
 
 ## Next steps
+* check for missing type hinds in calculations to improve simulator performance
 * add state initalization in backend
 * handle backend job failures in algorithms
-* check shor's algorithm implementation and quantum period finding
-  * fix TODOs
+* optimize shor's algorithm implementation and quantum period finding
 * refactor algorithms to use a provided backend
   * grover
 

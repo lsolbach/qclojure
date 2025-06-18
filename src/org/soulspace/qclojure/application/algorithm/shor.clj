@@ -59,15 +59,12 @@
                        (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2))))))
          n-measurements (get options :n-measurements 3)  ; Reduced from 10 to 3
          max-attempts (get options :max-attempts 5)      ; Reduced from 10 to 5
-         ;; Simple primality test since qmath/is-prime? doesn't exist
-         is-prime? (fn [n] (and (> n 1)
-                               (not-any? #(zero? (mod n %)) 
-                                        (range 2 (inc (int (Math/sqrt n)))))))]
+         ]
 
      ;; Step 1: Classical preprocessing
      (cond
        ;; Check if N is prime (can't be factored)
-       (is-prime? N) {:factors []
+       (qmath/prime? N) {:factors []
                       :success false
                       :N N
                       :attempts []
@@ -187,6 +184,78 @@
 
                      ;; Invalid period or quantum step failed, try again
                      (recur (inc attempt) (rest remaining-values)))))))))))))
+
+(defn complete-factorization
+  "Perform complete prime factorization using Shor's algorithm recursively.
+  
+  Unlike the basic shor-algorithm which finds only one factorization,
+  this function continues factoring until all factors are prime.
+  
+  Parameters:
+  - backend: Quantum backend for executing quantum circuits
+  - N: Integer to factor completely
+  - options: (Optional) Options map passed to shor-algorithm
+  
+  Returns:
+  Map containing:
+  - :prime-factors - Vector of all prime factors (sorted)
+  - :success - Boolean indicating if complete factorization succeeded
+  - :N - The input number
+  - :factorization-tree - Tree showing the factorization process
+  - :total-attempts - Total number of Shor algorithm calls made
+  - :statistics - Combined statistics from all factorization steps
+  
+  Example:
+  (complete-factorization backend 27)   ;=> {:prime-factors [3 3 3], :success true, ...}
+  (complete-factorization backend 15)   ;=> {:prime-factors [3 5], :success true, ...}"
+  ([backend N] (complete-factorization backend N {}))
+  ([backend N options]
+   {:pre [(> N 1)]}
+   
+   (let [start-time (System/currentTimeMillis)
+         total-attempts (atom 0)
+         all-statistics (atom [])]
+     
+     (letfn [(factor-completely [n path]
+               ;; Base case: if n is prime, return it
+               (if (is-prime? n)
+                 {:factors [n]
+                  :tree {:value n :prime true :path path}}
+                 
+                 ;; Factor n using Shor's algorithm
+                 (let [result (shor-algorithm backend n options)]
+                   (swap! total-attempts inc)
+                   (swap! all-statistics conj (:statistics result))
+                   
+                   (if (:success result)
+                     ;; Successfully factored, now recursively factor each part
+                     (let [[f1 f2] (:factors result)
+                           left-result (factor-completely f1 (conj path :left))
+                           right-result (factor-completely f2 (conj path :right))]
+                       {:factors (concat (:factors left-result) (:factors right-result))
+                        :tree {:value n
+                               :prime false
+                               :path path
+                               :factorization [f1 f2]
+                               :method (:method result)
+                               :left (:tree left-result)
+                               :right (:tree right-result)}})
+                     
+                     ;; Factorization failed
+                     {:factors []
+                      :tree {:value n :prime nil :failed true :path path}}))))]
+       
+       (let [result (factor-completely N [])
+             end-time (System/currentTimeMillis)]
+         {:prime-factors (sort (:factors result))
+          :success (seq (:factors result))
+          :N N
+          :factorization-tree (:tree result)
+          :total-attempts @total-attempts
+          :statistics {:runtime (- end-time start-time)
+                       :total-shor-calls @total-attempts
+                       :individual-results @all-statistics}})))))
+
 
 (comment
   

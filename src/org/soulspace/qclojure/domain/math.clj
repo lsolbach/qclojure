@@ -5,6 +5,13 @@
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
 
+(defn prime?
+  "Simple primality test for small numbers."
+  [n]
+  (and (> n 1)
+       (not-any? #(zero? (mod n %))
+                 (range 2 (inc (int (m/sqrt n)))))))
+
 (defn gcd
   "Calculate greatest common divisor using Euclidean algorithm."
   [a b]
@@ -131,11 +138,12 @@
                          :let [cf (continued-fraction measured-value (Math/pow 2 precision) depth)
                                convs (convergents cf)]
                          [num den] convs
+                         :let [period (int den)]  ; Ensure period is an integer
                          ;; Verify this is actually a period
-                         :when (and (pos? den)
-                                    (<= den N)
-                                    (= 1 (mod-exp a den N)))]
-                     {:period den
+                         :when (and (pos? period)
+                                    (<= period N)
+                                    (= 1 (mod-exp a period N)))]
+                     {:period period
                       :fraction [num den]
                       :error (Math/abs (- phase (/ num (Math/pow 2 precision))))})
 
@@ -194,6 +202,20 @@
             
             :else
             (recur (inc k))))))))
+
+(comment ;
+
+  (gcd 48 18) ; => 6
+  (mod-exp 2 10 1000) ; => 24
+  (continued-fraction 22 7) ; => [3 7 15]
+  (convergents [3 7 15]) ; => [[3 1] [22 7] [45 16]]
+  (round-precision 3.14159 2) ; => 3.14
+  (find-period 5 3 15 2) ; => 4
+  (perfect-power-factor 27) ; => 3
+  (perfect-power-factor 16) ; => 2
+
+  ;
+  )
 
 ; Disable fastmath operator macros to avoid conflicts
 #_(m/unuse-primitive-operators)

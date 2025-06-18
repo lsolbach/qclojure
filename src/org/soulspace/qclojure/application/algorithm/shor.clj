@@ -218,7 +218,7 @@
      
      (letfn [(factor-completely [n path]
                ;; Base case: if n is prime, return it
-               (if (is-prime? n)
+               (if (qmath/prime? n)
                  {:factors [n]
                   :tree {:value n :prime true :path path}}
                  

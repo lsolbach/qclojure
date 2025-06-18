@@ -39,25 +39,80 @@
    Returns:
    Map with period estimate or nil if no valid period found"
   [phase precision-qubits N a]
-  (let [;; Convert phase to a fraction: phase = 2π * (measured_value / 2^n)
-        ;; So measured_value = phase * 2^n / (2π)
-        measured-value (/ (* phase (Math/pow 2 precision-qubits)) (* 2 Math/PI))
-        
-        ;; Use continued fractions to find best rational approximation
-        cf (qmath/continued-fraction measured-value (Math/pow 2 precision-qubits))
-        convergents (qmath/convergents cf)
-        
-        ;; Find convergent that gives a valid period
-        valid-periods (for [[_num den] convergents
-                           :let [period (int den)]  ; Ensure period is an integer
-                           :when (and (pos? period)
-                                     (<= period N)
-                                     (= 1 (qmath/mod-exp a period N)))]
-                       {:period period
-                        :measured-value measured-value  
-                        :phase phase})]
-    
-    (first valid-periods))) ; Return the first (and likely best) valid period
+  ;; Validate parameters: a must be less than N for valid period finding
+  (when (and (< a N) (> a 1))
+    (let [;; Convert phase to a fraction: phase = 2π * (measured_value / 2^n)
+          ;; So measured_value = phase * 2^n / (2π)
+          measured-value (/ (* phase (Math/pow 2 precision-qubits)) (* 2 Math/PI))
+          
+          ;; Use continued fractions to find best rational approximation
+          cf (qmath/continued-fraction measured-value (Math/pow 2 precision-qubits))
+          convergents (qmath/convergents cf)
+          
+          ;; Find convergent that gives a valid period
+          valid-periods (for [[_num den] convergents
+                             ;; Safely convert denominator to integer, handling overflow
+                             :let [period (try
+                                            (int den)
+                                            (catch ArithmeticException _
+                                              ;; If denominator is too large, skip this convergent
+                                              nil))]
+                             :when (and period  ; Only proceed if conversion succeeded
+                                       (pos? period)
+                                       (<= period N)
+                                       (= 1 (qmath/mod-exp a period N)))]
+                         {:period period
+                          :measured-value measured-value  
+                          :phase phase})]
+      
+      (first valid-periods)))) ; Return the first (and likely best) valid period
+
+(defn quantum-phase-estimation-circuit
+  "Create a quantum circuit for phase estimation with specified precision and eigenstate qubits.
+   
+   This function builds the quantum circuit for phase estimation, including:
+   1. Preparing the eigenstate qubits
+   2. Initializing precision qubits in superposition
+   3. Applying controlled unitary operations
+   4. Applying inverse quantum Fourier transform (QFT)
+   
+   Parameters:
+   - precision-qubits: Number of qubits for phase precision
+   - eigenstate-qubits: Number of qubits for eigenstate preparation
+   
+   Returns:
+   Quantum circuit ready for execution"
+  [precision-qubits eigenstate-qubits eigenstate-prep-fn controlled-unitary-fn]
+  {:pre [(pos-int? precision-qubits)
+         (pos-int? eigenstate-qubits)
+         (fn? eigenstate-prep-fn)
+         (fn? controlled-unitary-fn)]}
+  (let [total-qubits (+ precision-qubits eigenstate-qubits)
+        eigenstate-qubit-range (range precision-qubits (+ precision-qubits eigenstate-qubits))
+        ]
+   (-> (qc/create-circuit total-qubits "Generalized Quantum Phase Estimation")
+
+      ;; Step 1: Prepare eigenstate qubits
+      (eigenstate-prep-fn eigenstate-qubit-range)
+
+      ;; Step 2: Initialize precision qubits in superposition
+      (as-> c
+            (reduce (fn [circuit qubit]
+                      (qc/h-gate circuit qubit))
+                    c
+                    (range precision-qubits)))
+
+      ;; Step 3: Apply controlled-U^(2^k) operations
+      (as-> c
+            (reduce (fn [circuit k]
+                      (controlled-unitary-fn circuit k (Math/pow 2 k) eigenstate-qubit-range))
+                    c
+                    (range precision-qubits)))
+
+      ;; Step 4: Apply inverse QFT to precision qubits
+      (as-> c
+            (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
+              (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
 
 (defn quantum-phase-estimation-with-custom-unitary
   "Perform generalized quantum phase estimation with custom unitary operations.
@@ -91,33 +146,13 @@
          (fn? controlled-unitary-fn)]}
   
   (let [n-measurements (get options :n-measurements 1)
-        total-qubits (+ precision-qubits eigenstate-qubits)
-        eigenstate-qubit-range (range precision-qubits (+ precision-qubits eigenstate-qubits))
         
         ;; Build the generalized QPE circuit once
-        circuit (-> (qc/create-circuit total-qubits "Generalized Quantum Phase Estimation")
-                    
-                    ;; Step 1: Prepare eigenstate qubits
-                    (eigenstate-prep-fn eigenstate-qubit-range)
-                    
-                    ;; Step 2: Initialize precision qubits in superposition
-                    (as-> c 
-                      (reduce (fn [circuit qubit]
-                                (qc/h-gate circuit qubit))
-                              c
-                              (range precision-qubits)))
-                    
-                    ;; Step 3: Apply controlled-U^(2^k) operations
-                    (as-> c
-                      (reduce (fn [circuit k]
-                                (controlled-unitary-fn circuit k (Math/pow 2 k) eigenstate-qubit-range))
-                              c
-                              (range precision-qubits)))
-                    
-                    ;; Step 4: Apply inverse QFT to precision qubits
-                    (as-> c
-                      (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
-                        (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))
+        circuit (quantum-phase-estimation-circuit
+                  precision-qubits
+                  eigenstate-qubits
+                  eigenstate-prep-fn
+                  controlled-unitary-fn)
         
         ;; Execute the circuit n-measurements times
         execution-results (repeatedly n-measurements
@@ -229,7 +264,7 @@
          best-period (first best-candidates)]
      
      {:estimated-period (when best-period (:period best-period))
-      :period-candidates enhanced-candidates
+      :period-candidates (vec enhanced-candidates)  ; Convert to vector
       :qpe-result qpe-result
       :n-measurements n-measurements
       :success (boolean (seq period-candidates))

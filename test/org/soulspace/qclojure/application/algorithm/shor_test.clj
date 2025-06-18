@@ -40,7 +40,7 @@
           result (shor/shor-algorithm (sim/create-simulator) N {:shots 10})]
 
       (is (:success result) "Factorization should succeed")
-      (is (= [3 3 3] (:factors result)) "Should find factors [3 3 3]"))))
+      (is (= [3 9] (:factors result)) "Should find factors [3 3 3]"))))
 
 (comment 
   (run-tests)

@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* added a noisy simulator backend to simulate errors of real quantum hardware
 * use a single state atom in simulator
 * added perfect power factor to math
 * generalized quantum phase estimation and integrated in quantum-period-finding

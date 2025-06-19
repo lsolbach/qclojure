@@ -30,7 +30,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 6. **Local Quantum Simulator Backend**
 
-   High-performance local simulator with job submission, status tracking, and statistical measurement results with configurable shot counts
+   Local simulators (ideal/noisy) with job submission, status tracking, and statistical measurement results with configurable shot counts
 
 7. **OpenQASM Integration**
 

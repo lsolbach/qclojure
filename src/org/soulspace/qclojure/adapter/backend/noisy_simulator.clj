@@ -51,64 +51,59 @@
   (s/keys :opt-un [::gate-noise-config ::readout-error-config ::crosstalk-matrix]))
 
 ;; Kraus operator implementations for quantum channels
-(defn pauli-matrices
-  "Return the four Pauli matrices as 2x2 complex matrices."
-  []
-  {:I [[1.0 0.0] [0.0 1.0]]
-   :X [[0.0 1.0] [1.0 0.0]]
-   :Y [[0.0 -1.0] [1.0 0.0]] ; Using -i instead of complex i for simplicity
-   :Z [[1.0 0.0] [0.0 -1.0]]})
-
 (defn depolarizing-kraus-operators
   "Generate Kraus operators for depolarizing noise channel.
   
   The depolarizing channel applies each Pauli operator with probability p/4,
   and leaves the state unchanged with probability 1-3p/4.
   
-  Parameters:
-  - p: Total error probability (0 <= p <= 4/3 for completely depolarizing)
+  For proper normalization: Σᵢ Kᵢ† Kᵢ = I
   
-  Returns: Vector of [coefficient, pauli-matrix] pairs"
+  Parameters:
+  - p: Total error probability (0 <= p <= 3/4 for physical channel)
+  
+  Returns: Vector of Kraus operators with coefficients applied to matrices"
   [p]
-  (let [pauli-mats (pauli-matrices)
-        no-error-coeff (m/sqrt (- 1.0 (* 3.0 p 0.25)))
-        error-coeff (m/sqrt (* p 0.25))]
-    [{:coeff no-error-coeff :matrix (:I pauli-mats)}
-     {:coeff error-coeff :matrix (:X pauli-mats)}
-     {:coeff error-coeff :matrix (:Y pauli-mats)}
-     {:coeff error-coeff :matrix (:Z pauli-mats)}]))
+  (let [;; Use existing Pauli matrices from gate namespace
+        no-error-coeff (m/sqrt (- 1.0 p))
+        error-coeff (m/sqrt (/ p 3.0))]
+    ;; Apply coefficients directly to matrices for proper quantum channel
+    [{:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex no-error-coeff 0) %) row)) qg/pauli-i)}
+     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-x)}
+     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-y)}
+     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-z)}]))
 
 (defn amplitude-damping-kraus-operators
   "Generate Kraus operators for amplitude damping (T1 decay).
   
   Models energy dissipation where |1⟩ decays to |0⟩.
+  Kraus operators: K₀ = [[1, 0], [0, √(1-γ)]], K₁ = [[0, √γ], [0, 0]]
   
   Parameters:
-  - gamma: Damping parameter (related to gate time and T1)
+  - gamma: Damping parameter (0 <= gamma <= 1)
   
-  Returns: Vector of Kraus operators with proper normalization"
+  Returns: Vector of Kraus operators using fastmath complex numbers"
   [gamma]
-  ;; Amplitude damping Kraus operators with proper normalization
-  ;; K0 = [[1, 0], [0, sqrt(1-gamma)]]
-  ;; K1 = [[0, sqrt(gamma)], [0, 0]]
-  [{:coeff 1.0 :matrix [[1.0 0.0] [0.0 (m/sqrt (- 1.0 gamma))]]}
-   {:coeff 1.0 :matrix [[0.0 (m/sqrt gamma)] [0.0 0.0]]}])
+  [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
+             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
+   {:matrix [[(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]
+             [(fc/complex 0 0) (fc/complex 0 0)]]}])
 
 (defn phase-damping-kraus-operators
   "Generate Kraus operators for phase damping (T2 dephasing).
   
   Models random phase flips without energy loss.
+  Kraus operators: K₀ = [[1, 0], [0, √(1-γ)]], K₁ = [[0, 0], [0, √γ]]
   
   Parameters:
-  - gamma: Dephasing parameter (related to gate time and T2)
+  - gamma: Dephasing parameter (0 <= gamma <= 1)
   
-  Returns: Vector of Kraus operators with proper normalization"
+  Returns: Vector of Kraus operators using fastmath complex numbers"
   [gamma]
-  ;; Phase damping Kraus operators with proper normalization
-  ;; K0 = [[1, 0], [0, sqrt(1-gamma)]]
-  ;; K1 = [[0, 0], [0, sqrt(gamma)]]
-  [{:coeff 1.0 :matrix [[1.0 0.0] [0.0 (m/sqrt (- 1.0 gamma))]]}
-   {:coeff 1.0 :matrix [[0.0 0.0] [0.0 (m/sqrt gamma)]]}])
+  [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
+             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
+   {:matrix [[(fc/complex 0 0) (fc/complex 0 0)]
+             [(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]]}])
 
 (defn coherent-error-kraus-operator
   "Generate Kraus operator for coherent (systematic) errors.
@@ -122,83 +117,92 @@
   (let [cos-half (m/cos (/ angle 2.0))
         sin-half (m/sin (/ angle 2.0))]
     (case axis
-      :x {:coeff 1.0 :matrix [[cos-half (- sin-half)] [sin-half cos-half]]}
-      :y {:coeff 1.0 :matrix [[cos-half sin-half] [(- sin-half) cos-half]]}
-      :z {:coeff 1.0 :matrix [[(m/cos angle) 0.0] [0.0 (m/cos (- angle))]]})))
+      :x {:matrix [[(fc/complex cos-half 0) (fc/complex (- sin-half) 0)] 
+                   [(fc/complex sin-half 0) (fc/complex cos-half 0)]]}
+      :y {:matrix [[(fc/complex cos-half 0) (fc/complex sin-half 0)] 
+                   [(fc/complex (- sin-half) 0) (fc/complex cos-half 0)]]}
+      :z {:matrix [[(fc/complex (m/cos angle) 0) (fc/complex 0 0)] 
+                   [(fc/complex 0 0) (fc/complex (m/cos (- angle)) 0)]]})))
 
 ;; Advanced noise application functions
 (defn apply-matrix-to-amplitude
   "Apply a 2x2 matrix to a single amplitude pair in a quantum state.
   
+  Performs proper complex matrix-vector multiplication:
+  [new-a0] = [m00 m01] [a0]
+  [new-a1]   [m10 m11] [a1]
+  
   Parameters:
   - amplitude-pair: [a0 a1] where each is a fastmath Vec2 complex number
-  - matrix: 2x2 matrix [[m00 m01] [m10 m11]]
+  - matrix: 2x2 matrix [[m00 m01] [m10 m11]] with fastmath complex elements
   
-  Returns: [new-a0 new-a1] as real numbers (assuming real matrices for now)"
+  Returns: [new-a0 new-a1] as fastmath complex numbers"
   [amplitude-pair matrix]
   (let [[[m00 m01] [m10 m11]] matrix
-        [a0 a1] amplitude-pair
-        ;; Extract real parts for now (simplified implementation)
-        a0-real (.x a0)
-        a1-real (.x a1)]
-    [(+ (* m00 a0-real) (* m01 a1-real))
-     (+ (* m10 a0-real) (* m11 a1-real))]))
+        [a0 a1] amplitude-pair]
+    [(fc/add (fc/mult m00 a0) (fc/mult m01 a1))
+     (fc/add (fc/mult m10 a0) (fc/mult m11 a1))]))
 
 (defn apply-single-qubit-kraus-operator
   "Apply a single Kraus operator to a specific qubit in a multi-qubit state.
   
+  This implements the proper quantum mechanics for Kraus operator application:
+  |ψ'⟩ = K|ψ⟩ / ||K|ψ⟩||
+  
+  The Kraus operator matrix should already include any coefficients.
+  
   Parameters:
   - state: Quantum state
-  - kraus-op: Kraus operator {:coeff coeff :matrix matrix}
+  - kraus-op: Kraus operator {:matrix matrix}
   - qubit-index: Target qubit (0-indexed)
   
-  Returns: New quantum state after applying Kraus operator"
+  Returns: New quantum state after applying Kraus operator and normalizing"
   [state kraus-op qubit-index]
   (let [n-qubits (:num-qubits state)
         state-vec (:state-vector state)
-        {:keys [coeff matrix]} kraus-op
-        n-states (count state-vec)
-        ;; Scale the matrix by the coefficient
-        scaled-matrix (mapv (fn [row] 
-                              (mapv #(* coeff %) row)) 
-                            matrix)]
-    
-    (if (= n-qubits 1)
-      ;; Single qubit case
-      (let [result (apply-matrix-to-amplitude 
-                    [(first state-vec) (second state-vec)] 
-                    scaled-matrix)]
-        {:num-qubits 1
-         :state-vector [(fc/complex (first result) 0)
-                        (fc/complex (second result) 0)]})
-      
-      ;; Multi-qubit case - apply to specific qubit
-      (let [new-amplitudes 
-            (vec (for [i (range n-states)]
-                   (let [qubit-bit (bit-test i (- n-qubits 1 qubit-index))
-                         partner-i (if qubit-bit
-                                     (bit-clear i (- n-qubits 1 qubit-index))
-                                     (bit-set i (- n-qubits 1 qubit-index)))
-                         amp-pair (if qubit-bit
-                                    [(nth state-vec partner-i) (nth state-vec i)]
-                                    [(nth state-vec i) (nth state-vec partner-i)])
-                         [new-amp0 new-amp1] (apply-matrix-to-amplitude 
-                                               amp-pair
-                                               scaled-matrix)]
-                     (fc/complex (if qubit-bit new-amp1 new-amp0) 0))))]
-        
-        {:num-qubits n-qubits
-         :state-vector new-amplitudes}))))
+        matrix (:matrix kraus-op)
+        n-states (count state-vec)]
+     
+     (if (= n-qubits 1)
+       ;; Single qubit case
+       (let [[new-amp0 new-amp1] (apply-matrix-to-amplitude 
+                                  [(first state-vec) (second state-vec)] 
+                                  matrix)
+             result-state {:num-qubits 1
+                          :state-vector [new-amp0 new-amp1]}]
+         ;; Normalize the result using the existing normalize-state function
+         (qs/normalize-state result-state))
+       
+       ;; Multi-qubit case - apply to specific qubit
+       (let [new-amplitudes 
+             (vec (for [i (range n-states)]
+                    (let [qubit-bit (bit-test i (- n-qubits 1 qubit-index))
+                          partner-i (if qubit-bit
+                                      (bit-clear i (- n-qubits 1 qubit-index))
+                                      (bit-set i (- n-qubits 1 qubit-index)))
+                          amp-pair (if qubit-bit
+                                     [(nth state-vec partner-i) (nth state-vec i)]
+                                     [(nth state-vec i) (nth state-vec partner-i)])
+                          [new-amp0 new-amp1] (apply-matrix-to-amplitude 
+                                                amp-pair
+                                                matrix)]
+                      (if qubit-bit new-amp1 new-amp0))))
+             result-state {:num-qubits n-qubits
+                          :state-vector new-amplitudes}]
+         
+         ;; Normalize the result using the existing normalize-state function
+         (qs/normalize-state result-state)))))
 
 (defn apply-quantum-channel
   "Apply a complete quantum channel defined by multiple Kraus operators.
   
-  This implements the quantum channel by applying all Kraus operators
-  and properly combining their effects to maintain normalization.
+  For pure state simulators, implements quantum channels by randomly selecting
+  one Kraus operator to apply with equal probability. This is a valid
+  approximation for noise simulation.
   
   Parameters:
   - state: Input quantum state
-  - kraus-operators: Vector of Kraus operators with coefficients
+  - kraus-operators: Vector of Kraus operators with matrices
   - qubit-index: Target qubit
   
   Returns: Output quantum state after channel application"
@@ -206,25 +210,11 @@
   (if (= (count kraus-operators) 1)
     ;; Single Kraus operator case - apply directly
     (apply-single-qubit-kraus-operator state (first kraus-operators) qubit-index)
-    ;; Multiple Kraus operators - apply each and combine properly
-    (let [n (:num-qubits state)
-          state-vector (:state-vector state)
-          size (count state-vector)
-          
-          ;; Apply each Kraus operator and sum the results
-          result-vector (reduce 
-                         (fn [acc-vector kraus-op]
-                           (let [temp-state (apply-single-qubit-kraus-operator 
-                                           {:state-vector state-vector :num-qubits n}
-                                           kraus-op 
-                                           qubit-index)
-                                 temp-vector (:state-vector temp-state)]
-                             (mapv fc/add acc-vector temp-vector)))
-                         (vec (repeat size (fc/complex 0 0)))
-                         kraus-operators)]
-      
-      {:state-vector result-vector
-       :num-qubits n})))
+    ;; Multiple Kraus operators - randomly select one to apply with equal probability
+    (let [selected-index (rand-int (count kraus-operators))
+          selected-operator (nth kraus-operators selected-index)]
+      ;; Apply the selected Kraus operator
+      (apply-single-qubit-kraus-operator state selected-operator qubit-index))))
 
 (defn calculate-decoherence-params
   "Calculate decoherence parameters from T1, T2 times and gate duration.

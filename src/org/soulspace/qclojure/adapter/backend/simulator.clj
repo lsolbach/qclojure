@@ -92,16 +92,18 @@
     (let [start-time (System/currentTimeMillis)
           num-qubits (:num-qubits circuit)
           shots (get options :shots 1024)
-          
+
           ;; Create initial state and execute the circuit
-          initial-state (qs/zero-state num-qubits)
+          initial-state (if (:initial-state options)
+                          (:initial-state options)
+                          (qs/zero-state num-qubits))
           final-state (qc/execute-circuit circuit initial-state)
-          
+
           ;; Perform measurements
-          measurement-results (measure-quantum-state 
-                             final-state
-                             shots
-                             num-qubits)]
+          measurement-results (measure-quantum-state
+                               final-state
+                               shots
+                               num-qubits)]
       
       {:job-status :completed
        :measurement-results measurement-results

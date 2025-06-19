@@ -278,7 +278,7 @@
   (plus-state)
   ;=> {:state-vector [0.707+0i, 0.707+0i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (Math/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
      :num-qubits 1}))
 
@@ -302,7 +302,7 @@
   (minus-state)
   ;=> {:state-vector [0.707+0i, -0.707+0i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (Math/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
 
@@ -629,20 +629,20 @@
           ;; 2-qubit case: trace out specified qubit
           (if (= trace-qubit 1)
             ;; Trace out second qubit: |00⟩ + |01⟩ -> |0⟩, |10⟩ + |11⟩ -> |1⟩
-            (let [amp0 (Math/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
+            (let [amp0 (m/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
                                      (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
-                  amp1 (Math/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
+                  amp1 (m/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
                                      (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)])
             ;; Trace out first qubit: |00⟩ + |10⟩ -> |0⟩, |01⟩ + |11⟩ -> |1⟩  
-            (let [amp0 (Math/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
+            (let [amp0 (m/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
                                      (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
-                  amp1 (Math/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
+                  amp1 (m/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
                                      (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)]))
           ;; For higher dimensions, use a simplified approach
           ;; This is a placeholder - full implementation would handle general case
-          [(fc/complex (/ 1 (Math/sqrt 2)) 0) (fc/complex (/ 1 (Math/sqrt 2)) 0)])]
+          [(fc/complex (/ 1 (m/sqrt 2)) 0) (fc/complex (/ 1 (m/sqrt 2)) 0)])]
 
     {:state-vector (vec reduced-amplitudes)
      :num-qubits (dec n-qubits)}))

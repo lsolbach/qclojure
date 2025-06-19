@@ -35,7 +35,7 @@
       ;; Check normalization (amplitude squared sum = 1)
       (let [amplitudes (:state-vector |+⟩)
             norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-        (is (< (Math/abs (- norm 1.0)) 1e-10)))))
+        (is (< (m/abs (- norm 1.0)) 1e-10)))))
 
   (testing "Minus state creation"
     (let [|-⟩ (qs/minus-state)]
@@ -87,16 +87,16 @@
           |+0⟩ (qs/tensor-product |+⟩ |0⟩)]
       (is (= (:num-qubits |+0⟩) 2))
       ;; Should be in state (|00⟩ + |10⟩)/√2
-      (let [expected-amp (/ 1.0 (Math/sqrt 2))
+      (let [expected-amp (/ 1.0 (m/sqrt 2))
             [[a0-real a0-imag] [a1-real a1-imag] [a2-real a2-imag] [a3-real a3-imag]] (:state-vector |+0⟩)]
-        (is (< (Math/abs (- a0-real expected-amp)) 1e-10))
-        (is (< (Math/abs a0-imag) 1e-10))
-        (is (< (Math/abs a1-real) 1e-10))
-        (is (< (Math/abs a1-imag) 1e-10))
-        (is (< (Math/abs (- a2-real expected-amp)) 1e-10))
-        (is (< (Math/abs a2-imag) 1e-10))
-        (is (< (Math/abs a3-real) 1e-10))
-        (is (< (Math/abs a3-imag) 1e-10))))))
+        (is (< (m/abs (- a0-real expected-amp)) 1e-10))
+        (is (< (m/abs a0-imag) 1e-10))
+        (is (< (m/abs a1-real) 1e-10))
+        (is (< (m/abs a1-imag) 1e-10))
+        (is (< (m/abs (- a2-real expected-amp)) 1e-10))
+        (is (< (m/abs a2-imag) 1e-10))
+        (is (< (m/abs a3-real) 1e-10))
+        (is (< (m/abs a3-imag) 1e-10))))))
 
 ;; State normalization tests
 (deftest test-normalization

@@ -145,7 +145,7 @@
   
   The Hadamard gate is self-inverse: H² = I, and represents a rotation
   by π around the axis (X+Z)/√2 on the Bloch sphere."
-  (let [sqrt2-inv (/ 1 (Math/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
     [[(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
      [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]]))
 

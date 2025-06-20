@@ -3,24 +3,35 @@
   
   This adapter provides a local simulation of quantum circuits using
   the domain layer's quantum state and circuit functionality. It serves
-  as both a reference implementation and a testing backend."
+  as both a reference implementation and a testing backend.
+   
+  This simulator implements an ideal quantum computer without noise,
+  simulating quantum gates and measurements using matrix operations.
+   
+  The simulator supports asynchronous job management, allowing
+  users to submit circuits and retrieve results later. It can be used
+  for testing algorithms, circuit designs, and quantum operations
+  without requiring access to actual quantum hardware.
+   
+  It also implements the CloudQuantumBackend protocol for mock cloud
+  backend functionality, allowing it to be used in a cloud-like
+  environment for testing purposes."
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
+;; Specs for simulator
+(s/def ::max-qubits pos-int?)
+(s/def ::seed int?)
+
+(s/def ::simulator-config
+  (s/keys :opt-un [::max-qubits ::seed]))
+
 ;; Simulator state management
 (defonce ^:private state (atom {:job-counter 0
                                 :active-jobs {}}))
-
-;; Specs for simulator
-(s/def ::simulator-config
-  (s/keys :opt-un [::max-qubits ::noise-model ::seed]))
-
-(s/def ::max-qubits pos-int?)
-(s/def ::noise-model map?)
-(s/def ::seed int?)
 
 ;; Job state record
 (defrecord SimulatorJob
@@ -308,18 +319,6 @@
   ([config]
    {:pre [(map? config)]}
    (->LocalQuantumSimulator config)))
-
-(defn create-noisy-simulator
-  "Create a quantum simulator with noise modeling.
-  
-  This is a placeholder for future noise model implementation.
-  
-  Parameters:
-  - noise-config: Configuration for noise modeling
-  
-  Returns: LocalQuantumSimulator with noise"
-  [noise-config]
-  (create-simulator {:noise-model noise-config}))
 
 ;; Utility functions for testing and debugging
 (defn reset-simulator-state!

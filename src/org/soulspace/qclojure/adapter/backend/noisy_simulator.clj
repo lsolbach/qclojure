@@ -1,13 +1,48 @@
 (ns org.soulspace.qclojure.adapter.backend.noisy-simulator
-  "Advanced noisy quantum simulator implementing realistic quantum device simulation.
-  
+  "Advanced noisy quantum simulator backend implementing realistic
+  quantum computing device simulation with comprehensive noise modeling.
+
+  This backend provides local simulation of quantum devices with noise
+  using the domain layer's quantum state and circuit functionality.
+  It serves as both a reference implementation and testing backend for
+  quantum algorithms under realistic noise conditions.
+ 
   This simulator models various types of quantum noise including:
   - Depolarizing noise using Kraus operators
-  - Amplitude damping (T1 decay)  
-  - Phase damping (T2 dephasing)
-  - Readout errors
-  - Coherent errors and systematic biases
-  - Crosstalk between qubits"
+  - Amplitude damping (T1 decay) modeling energy dissipation  
+  - Phase damping (T2 dephasing) modeling pure dephasing
+  - Readout errors with configurable bit-flip probabilities
+  - Coherent errors and systematic rotation biases
+  - Gate-specific noise parameters based on real device calibration
+  - Comprehensive Amazon Braket quantum hardware noise models
+
+  The noise model can be configured with parameters such as T1 and T2
+  times, gate operation times, and noise strengths. It supports
+  advanced noise configurations including correlated readout errors
+  and coherent errors with specific rotation angles and axes.
+  The simulator applies noise during gate operations and measurements,
+  simulating realistic quantum device behavior.
+
+  The noise model map has the following structure:
+  ```clojure
+  {:gate-noise {
+    :h {:noise-type :depolarizing :noise-strength 0.01}
+    :x {:noise-type :amplitude-damping :noise-strength 0.02}
+    :cnot {:noise-type :phase-damping :noise-strength 0.03}
+    ...}
+   :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.02}}
+  ```
+  
+  Note: The simulator currently doesn't model crosstalk between qubits.
+
+  The simulator supports asynchronous job management, allowing
+  users to submit circuits and retrieve results later. It can be used
+  for testing algorithms, circuit designs, and quantum operations
+  without requiring access to actual quantum hardware.
+   
+  It also implements the CloudQuantumBackend protocol for mock cloud
+  backend functionality, allowing it to be used in a cloud-like
+  environment for testing purposes."
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
@@ -399,44 +434,44 @@
 ;; Advanced Simulator Implementation  
 (deftype AdvancedNoisyQuantumSimulator [noise-model config]
   qb/QuantumBackend
-  
+
   (get-backend-info [_this]
     {:backend-type :advanced-noisy-simulator
      :backend-name "Advanced Noisy Quantum Simulator"
      :description "Realistic quantum simulator with comprehensive noise modeling"
      :noise-model noise-model
      :config config
-     :capabilities #{:depolarizing-noise :amplitude-damping :phase-damping 
+     :capabilities #{:depolarizing-noise :amplitude-damping :phase-damping
                      :coherent-errors :readout-errors :decoherence-modeling}
      :version "1.0.0"})
-  
+
   (get-supported-gates [_this] #{:x :y :z :h :cnot :rx :ry :rz})
   (is-available? [_this] true)
-  
+
   (submit-circuit [_this circuit options]
     (let [job-id (generate-noisy-job-id)
-          job (->NoisySimulatorJob job-id circuit options noise-model :queued nil 
+          job (->NoisySimulatorJob job-id circuit options noise-model :queued nil
                                    (System/currentTimeMillis) nil)]
-      
+
       ;; Store job and start execution in background
       (swap! noisy-state assoc-in [:active-jobs job-id] job)
-      
+
       ;; Execute immediately in future (async execution)
       (future
         (let [result (execute-noisy-circuit-simulation circuit options noise-model)
-              completed-job (assoc job 
-                                  :status (:job-status result)
-                                  :result result
-                                  :completed-at (System/currentTimeMillis))]
+              completed-job (assoc job
+                                   :status (:job-status result)
+                                   :result result
+                                   :completed-at (System/currentTimeMillis))]
           (swap! noisy-state assoc-in [:active-jobs job-id] completed-job)))
-      
+
       job-id))
-  
+
   (get-job-status [_this job-id]
     (if-let [job (get (:active-jobs @noisy-state) job-id)]
       (:status job)
       :not-found))
-  
+
   (get-job-result [_this job-id]
     (if-let [job (get (:active-jobs @noisy-state) job-id)]
       (if (= (:status job) :completed)
@@ -447,25 +482,109 @@
       {:job-id job-id
        :job-status :not-found
        :error-message "Job not found"}))
-  
+
   (cancel-job [_this job-id]
     (if-let [job (get (:active-jobs @noisy-state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! noisy-state assoc-in [:active-jobs job-id] 
-                (assoc job :status :cancelled 
-                          :completed-at (System/currentTimeMillis)))
+          (swap! noisy-state assoc-in [:active-jobs job-id]
+                 (assoc job :status :cancelled
+                        :completed-at (System/currentTimeMillis)))
           :cancelled)
         :already-completed)
       :not-found))
-  
+
   (get-queue-status [_this]
     (let [jobs (vals (:active-jobs @noisy-state))
           active-count (count (filter #(#{:queued :running} (:status %)) jobs))
           completed-count (count (filter #(= :completed (:status %)) jobs))]
       {:total-jobs (count jobs)
-       :active-jobs active-count  
-       :completed-jobs completed-count})))
+       :active-jobs active-count
+       :completed-jobs completed-count}))
+
+  ;; Add CloudQuantumBackend implementation
+  qb/CloudQuantumBackend
+
+  (authenticate [_this _credentials]
+    {:status :authenticated
+     :session-id (str "noisy_sim_session_" (System/currentTimeMillis))
+     :expires-at (+ (System/currentTimeMillis) (* 24 60 60 1000))})
+
+  (get-session-info [_this]
+    {:status :authenticated
+     :backend-type :advanced-noisy-simulator
+     :session-id "noisy_sim_session_mock"
+     :authenticated-at (System/currentTimeMillis)})
+
+  (list-available-devices [_this]
+    [{:device-id "noisy-simulator-1"
+      :device-name "Advanced Noisy Quantum Simulator"
+      :device-status :online
+      :max-qubits (get config :max-qubits 20)
+      :backend-type :advanced-noisy-simulator
+      :noise-model noise-model}])
+
+  (get-device-topology [_this device-id]
+    (let [max-qubits (get config :max-qubits 20)
+          coupling-map (for [i (range max-qubits)
+                             j (range max-qubits)
+                             :when (not= i j)]
+                         [i j])]
+      {:device-id device-id
+       :device-name "Advanced Noisy Quantum Simulator"
+       :coupling-map coupling-map
+       :max-qubits max-qubits
+       :noise-model noise-model}))
+
+  (get-calibration-data [_this device-id]
+    {:device-id device-id
+     :timestamp (java.time.Instant/now)
+     :noise-model noise-model
+     :coherence-times (vec (repeat (get config :max-qubits 20) 100000))})
+
+  (estimate-cost [_this _circuit _options]
+    {:total-cost 0.0
+     :currency "USD"
+     :cost-breakdown {:circuit-cost 0.0 :shot-cost 0.0 :device-cost 0.0}
+     :estimated-credits 0})
+
+  (batch-submit [this circuits options]
+    (let [batch-id (str "noisy_batch_" (System/currentTimeMillis))
+          job-ids (mapv #(qb/submit-circuit this % options) circuits)]
+      (swap! noisy-state assoc-in [:active-jobs batch-id]
+             {:batch-id batch-id
+              :job-ids job-ids
+              :status :queued
+              :created-at (System/currentTimeMillis)})
+      batch-id))
+
+  (get-batch-status [this batch-job-id]
+    (if-let [batch-info (get (:active-jobs @noisy-state) batch-job-id)]
+      (let [job-ids (:job-ids batch-info)
+            statuses (map #(qb/get-job-status this %) job-ids)
+            status-counts (frequencies statuses)]
+        {:batch-id batch-job-id
+         :total-jobs (count job-ids)
+         :status-counts status-counts
+         :overall-status (cond
+                           (every? #(= % :completed) statuses) :completed
+                           (some #(= % :failed) statuses) :partial-failure
+                           (some #(= % :running) statuses) :running
+                           :else :queued)})
+      {:batch-id batch-job-id :status :not-found}))
+
+  (get-batch-results [this batch-job-id]
+    (if-let [batch-info (get (:active-jobs @noisy-state) batch-job-id)]
+      (let [job-ids (:job-ids batch-info)
+            results (into {} (map (fn [job-id]
+                                    [job-id (qb/get-job-result this job-id)])
+                                  job-ids))]
+        {:batch-id batch-job-id
+         :results results
+         :completed-jobs (count (filter #(= (:job-status %) :completed)
+                                        (vals results)))
+         :total-jobs (count job-ids)})
+      {:batch-id batch-job-id :error-message "Batch not found"})))
 
 ;; Factory functions for advanced simulators
 (defn create-advanced-noisy-simulator

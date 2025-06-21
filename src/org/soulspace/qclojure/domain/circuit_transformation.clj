@@ -169,7 +169,6 @@
         (update :operations #(into % mapped-operations-2))
         (assoc :name circuit-name))))
 
-
 (defn- can-be-fully-decomposed?
   "Check if a operation type can be fully decomposed into supported operations.
   
@@ -195,6 +194,25 @@
           ;; Check if ALL operations in decomposition can be fully decomposed
           (every? #(can-be-fully-decomposed? % supported-operations (conj visited operation-type))
                   decomposition))))))
+
+(defn- decompose-swap-if-needed
+  "Decompose a SWAP gate if it's not natively supported.
+   
+   Parameters:
+   - swap-op: SWAP operation map to decompose
+   - supported-operations: Set of operation types supported by the backend
+   
+   Returns:
+   Vector of operation maps representing the decomposition, or the original SWAP operation if supported"
+  [swap-op supported-operations]
+  (if (contains? supported-operations :swap)
+    [swap-op]  ; SWAP is native
+    ;; Decompose SWAP into 3 CNOTs
+    (let [target1 (get-in swap-op [:operation-params :target1])
+          target2 (get-in swap-op [:operation-params :target2])]
+      [{:operation-type :cnot :operation-params {:control target1 :target target2}}
+       {:operation-type :cnot :operation-params {:control target2 :target target1}}
+       {:operation-type :cnot :operation-params {:control target1 :target target2}}])))
 
 (defn- decompose-operation
   "Decompose a operation into a sequence of more primitive operations.
@@ -428,25 +446,9 @@
       :transformed-operation-count (- (count transformed-operations) original-operation-count)
       :unsupported-operations remaining-unsupported})))
 
-(defn get-transformation-summary
-  "Get a human-readable summary of a circuit transformation.
-  
-  Parameters:
-  - transformation-result: Result from transform-circuit
-  
-  Returns:
-  String with transformation summary"
-  [transformation-result]
-  (let [circuit (:quantum-circuit transformation-result)
-        transformed (:transformed-operation-count transformation-result)
-        unsupported (:unsupported-operations transformation-result)]
-    (str "Circuit transformation summary:\n"
-         "- Final operation count: " (count (:operations circuit)) "\n"
-         "- operations transformed: " transformed "\n"
-         "- Unsupported operations: " (if (empty? unsupported) "None" (pr-str unsupported)))))
-
-;; Circuit Optimization Functions
-
+;;
+;; Qubit Optimization Functions
+;;
 (defn- extract-qubit-ids
   "Extract all qubit IDs used by a operation.
   
@@ -458,7 +460,7 @@
   [operation]
   (let [params (:operation-params operation)
         ;; Common qubit parameter names - only these should be treated as qubit IDs
-        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}]
+        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2 :qubit1 :qubit2}]
     (into #{}
           (comp (filter (fn [[k v]]
                           (and (contains? qubit-param-keys k)
@@ -536,7 +538,7 @@
   [operation qubit-mapping]
   (let [params (:operation-params operation)
         ;; Only remap parameters that are qubit IDs
-        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2}
+        qubit-param-keys #{:target :control :control1 :control2 :target1 :target2 :swap1 :swap2 :qubit1 :qubit2}
         remapped-params (into {}
                               (map (fn [[param-key param-value]]
                                      [param-key
@@ -1111,156 +1113,195 @@
        (sort-by :total-cost)
        vec))
 
+(defn topology-aware-transform
+  "Transform circuit for topology while being aware of supported gates."
+  [circuit topology supported-operations options]
+
+  ;; First, check what routing operations we can use
+  (let [has-native-swap? (contains? supported-operations :swap)
+        routing-strategy (if has-native-swap? :native-swap :cnot-swap)]
+
+    (println (str "Routing strategy: " routing-strategy))
+
+    ;; Apply topology optimization
+    (let [topo-result (optimize-for-topology circuit topology options)
+          operations-with-swaps (:operations (:quantum-circuit topo-result))]
+
+      ;; Decompose any SWAPs if they're not native
+      (if has-native-swap?
+        topo-result  ; No decomposition needed
+        ;; Decompose all SWAP operations
+        (let [decomposed-ops (mapcat (fn [op]
+                                       (if (= (:operation-type op) :swap)
+                                         (decompose-swap-if-needed op supported-operations)
+                                         [op]))
+                                     operations-with-swaps)
+              updated-circuit (assoc (:quantum-circuit topo-result)
+                                     :operations (vec decomposed-ops))]
+          (assoc topo-result :quantum-circuit updated-circuit))))))
+
+;; TODO maybe split into multiple namespaces for clarity
+;; TODO add more tests for all functions
 (defn optimize
-  "Comprehensive circuit optimization for specific supported operations.
-  
-  This function combines multiple optimization strategies:
-  1. Transform operations to supported equivalents
-  2. Optimize qubit usage to minimize qubit count
-  3. Optimize for hardware topology with SWAP insertion
-  
-  Parameters:
-  - circuit: Quantum circuit to optimize
-  - supported-operations: Set of supported operations for optimization
-  - options: Optional map with optimization options:
-      :optimize-qubits? - Whether to optimize qubit usage (default: true)
-      :transform-operations? - Whether to transform unsupported operations (default: true)
-      :optimize-topology? - Whether to optimize for hardware topology (default: false)
-      :topology - Hardware topology for topology optimization (required if :optimize-topology? is true)
-      :max-iterations - Maximum decomposition iterations (default: 100)
-  
-  Returns:
-  Map containing:
-  - :quantum-circuit - The fully optimized circuit
-  - :transformation-result - Result from operation transformation
-  - :qubit-optimization-result - Result from qubit optimization (if enabled)
-  - :topology-optimization-result - Result from topology optimization (if enabled)
-  - :optimization-summary - Human-readable summary of all optimizations
-  
-  Example:
-  (optimize my-circuit #{:h :x :z :cnot} {:optimize-topology? true :topology linear-topology})
-  ;=> {:quantum-circuit <optimized-circuit>, 
-  ;    :transformation-result {...}, 
-  ;    :qubit-optimization-result {...},
-  ;    :topology-optimization-result {...},
-  ;    :optimization-summary \"...\"}"
-  ([circuit supported-operations]
-   (optimize circuit supported-operations {}))
+  "Correct optimization pipeline that handles gate decomposition properly.
+    
+    The correct order is:
+    1. Qubit optimization (minimize qubits before topology constraints)
+    2. Topology optimization (with decomposition-aware routing)  
+    3. Final gate decomposition (handle any remaining virtual gates)
+    4. Validation and cleanup
+    
+    Parameters:
+    - circuit: Quantum circuit to optimize
+    - supported-operations: Set of natively supported operations
+    - topology: Hardware topology (optional)
+    - options: Optimization options
+    
+    Returns:
+    Complete optimization result with corrected pipeline"
+  [circuit supported-operations & [topology options]]
 
-  ([circuit supported-operations options]
-   {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  (let [opts (or options {})
+        optimize-qubits? (get opts :optimize-qubits? true)
+        optimize-topology? (and topology (get opts :optimize-topology? false))
+        transform-operations? (get opts :transform-operations? true)]
 
-   (let [optimize-qubits? (get options :optimize-qubits? true)
-         transform-operations? (get options :transform-operations? true)
-         optimize-topology? (get options :optimize-topology? false)
-         topology (get options :topology)]
+    ;; STEP 1: Qubit optimization FIRST (before topology constraints)
+    #_(println "Step 1: Qubit optimization...")
+    (let [qubit-result (if optimize-qubits?
+                         (optimize-qubit-usage circuit)
+                         {:quantum-circuit circuit
+                          :qubits-saved 0
+                          :original-qubits (:num-qubits circuit)
+                          :optimized-qubits (:num-qubits circuit)})
 
-     ;; Validate topology if topology optimization is requested
-     (when optimize-topology?
-       (when-not topology
-         (throw (ex-info "Topology optimization requested but no topology provided"
-                         {:optimize-topology? optimize-topology?
-                          :topology topology})))
-       (when-not (validate-topology topology)
-         (throw (ex-info "Invalid topology provided for optimization"
-                         {:topology topology}))))
-     (let [;; Step 1: Transform operations to supported equivalents
-           transformation-result (if transform-operations?
-                                   (transform-circuit circuit supported-operations options)
-                                   ;; Even if not transforming, we should identify unsupported operations
-                                   (let [operation-types (map :operation-type (:operations circuit))
-                                         unsupported (filterv #(not (contains? supported-operations %)) operation-types)
-                                         unique-unsupported (vec (distinct unsupported))]
-                                     {:quantum-circuit circuit
-                                      :transformed-operation-count 0
-                                      :unsupported-operations unique-unsupported}))
+          step1-circuit (:quantum-circuit qubit-result)]
 
-           transformed-circuit (:quantum-circuit transformation-result)
+      #_(println (str "  - Qubits: " (:original-qubits qubit-result)
+                      " → " (:optimized-qubits qubit-result)
+                      " (saved " (:qubits-saved qubit-result) ")"))
 
-           ;; Step 2: Optimize qubit usage
-           qubit-optimization-result (if optimize-qubits?
-                                       (optimize-qubit-usage transformed-circuit)
-                                       {:quantum-circuit transformed-circuit
-                                        :qubit-mapping {}
-                                        :qubits-saved 0
-                                        :original-qubits (:num-qubits transformed-circuit)
-                                        :optimized-qubits (:num-qubits transformed-circuit)})
+      ;; STEP 2: Topology optimization with decomposition-aware routing
+      #_(println "Step 2: Topology optimization...")
+      (let [topo-result (if optimize-topology?
+                          (topology-aware-transform step1-circuit topology supported-operations opts)
+                          {:quantum-circuit step1-circuit
+                           :swap-count 0
+                           :total-cost 0})
 
-           qubit-optimized-circuit (:quantum-circuit qubit-optimization-result)
+            step2-circuit (:quantum-circuit topo-result)]
 
-           ;; Step 3: Optimize for topology (routing with SWAPs)
-           topology-optimization-result (if optimize-topology?
-                                          (optimize-for-topology qubit-optimized-circuit topology options)
-                                          {:quantum-circuit qubit-optimized-circuit
-                                           :logical-to-physical {}
-                                           :physical-to-logical {}
-                                           :swap-count 0
-                                           :total-cost 0
-                                           :topology-summary "Topology optimization not enabled"})
+        #_(when optimize-topology?
+            (println (str "  - SWAP operations: " (:swap-count topo-result)))
+            (println (str "  - Routing cost: " (:total-cost topo-result))))
 
-           final-circuit (:quantum-circuit topology-optimization-result)
+        ;; STEP 3: Final gate decomposition (including any remaining virtual gates)
+        #_(println "Step 3: Final gate decomposition...")
+        #_(prn step2-circuit)
+        #_(s/explain ::qc/quantum-circuit step2-circuit)
+        (let [final-transform-result (if transform-operations?
+                                       (transform-circuit step2-circuit supported-operations opts)
+                                       {:quantum-circuit step2-circuit
+                                        :transformed-operation-count 0
+                                        :unsupported-operations []})
 
-           ;; Generate comprehensive summary
-           summary (str "Circuit optimization summary:\n"
-                        "- Original qubits: " (:num-qubits circuit) "\n"
-                        "- Final qubits: " (:num-qubits final-circuit) "\n"
-                        "- Qubits saved: " (:qubits-saved qubit-optimization-result) "\n"
-                        "- Original operations: " (count (:operations circuit)) "\n"
-                        "- Final operations: " (count (:operations final-circuit)) "\n"
-                        "- Operations transformed: " (:transformed-operation-count transformation-result) "\n"
-                        "- Unsupported operations: " (if (empty? (:unsupported-operations transformation-result))
-                                                       "None"
-                                                       (pr-str (:unsupported-operations transformation-result))) "\n"
-                        (if optimize-topology?
-                          (str "- SWAP operations added: " (:swap-count topology-optimization-result) "\n"
-                               "- Topology routing cost: " (:total-cost topology-optimization-result))
-                          "- Topology optimization: Not enabled"))]
+              final-circuit (:quantum-circuit final-transform-result)]
 
-       {:quantum-circuit final-circuit
-        :transformation-result transformation-result
-        :qubit-optimization-result qubit-optimization-result
-        :topology-optimization-result topology-optimization-result
-        :optimization-summary summary}))))
+          #_(println (str "  - Operations transformed: " (:transformed-operation-count final-transform-result)))
+          #_(when-not (empty? (:unsupported-operations final-transform-result))
+              (println (str "  - Still unsupported: " (:unsupported-operations final-transform-result))))
 
-  ;; Rich comment block for REPL experimentation
-  (comment
-    ;; Example usage of topology optimization
+          ;; STEP 4: Final validation
+          #_(println "Step 4: Validation...")
+          (let [final-gate-types (map :operation-type (:operations final-circuit))
+                unsupported-final (remove #(contains? supported-operations %) final-gate-types)
+                all-supported? (empty? unsupported-final)]
 
-    ;; Create a test circuit
-    (def bell-circuit
-      {:num-qubits 2
-       :operations [{:operation-type :h :operation-params {:target 0}}
-                    {:operation-type :cnot :operation-params {:control 0 :target 1}}]})
+            #_(println (str "  - All gates supported: " all-supported?))
+            #_(when-not all-supported?
+                (println (str "  - Remaining unsupported: " (distinct unsupported-final))))
 
-    ;; Test with different topologies
-    (def linear-2 (create-linear-topology 2))
-    (def result (optimize-for-topology bell-circuit linear-2))
-    (println (:topology-summary result))
+            ;; Return comprehensive result
+            {:quantum-circuit final-circuit
+             :pipeline-order [:qubit-optimization :topology-optimization :gate-decomposition :validation]
+             :qubit-optimization-result qubit-result
+             :topology-optimization-result topo-result
+             :gate-decomposition-result final-transform-result
+             :all-gates-supported? all-supported?
+             :final-unsupported-gates (vec (distinct unsupported-final))
+             :optimization-summary (str "Circuit optimization:\n"
+                                        "- Original qubits: " (:num-qubits circuit) "\n"
+                                        "- Final qubits: " (:num-qubits final-circuit) "\n"
+                                        "- Original operations: " (count (:operations circuit)) "\n"
+                                        "- Final operations: " (count (:operations final-circuit)) "\n"
+                                        "- All gates supported: " all-supported?)}))))))
 
-    ;; Compare multiple topologies
-    (def topologies {"Linear-5" (create-linear-topology 5)
-                     "Ring-5" (create-ring-topology 5)
-                     "Star-5" (create-star-topology 5)})
+(comment
 
-    (doseq [[name topo] topologies]
-      (println (get-topology-info topo name)))
+  ;; Let me test this problem with a concrete example
+  (def test-circuit
+    {:num-qubits 3
+     :operations [{:operation-type :h :operation-params {:target 0}}
+                  {:operation-type :t :operation-params {:target 0}}  ; Virtual gate
+                  {:operation-type :cnot :operation-params {:control 0 :target 2}}]}) ; Non-adjacent
 
-    ;; Analyze a complex circuit
-    (def complex-circuit
-      {:num-qubits 4
-       :operations [{:operation-type :h :operation-params {:target 0}}
-                    {:operation-type :cnot :operation-params {:control 0 :target 1}}
-                    {:operation-type :cnot :operation-params {:control 1 :target 2}}
-                    {:operation-type :cnot :operation-params {:control 2 :target 3}}
-                    {:operation-type :cnot :operation-params {:control 0 :target 3}}]})
+  (s/valid? ::qc/quantum-circuit test-circuit)
 
-    (def comparison (compare-topologies complex-circuit topologies))
-    (doseq [[name result] comparison]
-      (println (str name ": cost=" (:total-cost result))))
+  (def supported-gates #{:h :x :z :rz :cnot})  ; SWAP is NOT supported
+  (def linear-topology [[1] [0 2] [1]])        ; Linear: 0-1-2
 
-    ;; Test IBM-like topologies
-    (def ibm-5q-linear [[1] [0 2] [1 3] [2 4] [3]])
-    (def ibm-5q-t [[1] [0 2 3] [1 4] [1] [2]])
+  ;; Current pipeline would:
+  ;; 1. Decompose T → RZ (good)
+  ;; 2. Add SWAP for 0→2 connection (bad - SWAP not in supported gates!)
+  ;; 3. Result has unsupported SWAP operations
 
-    (println "IBM 5-qubit linear:" (get-topology-info ibm-5q-linear "IBM Linear"))
-    (println "IBM 5-qubit T:" (get-topology-info ibm-5q-t "IBM T-shape")))
+  ;; Test the topology-aware transformation
+  (topology-aware-transform test-circuit linear-topology #{:h :x :z :rz :cnot} {})
+
+  ;; Test the corrected pipeline
+  (optimize test-circuit #{:h :x :z :rz :cnot} linear-topology {:optimize-topology? true})
+
+  ;
+  )
+;; Rich comment block for REPL experimentation
+(comment
+  ;; Example usage of topology optimization
+
+  ;; Create a test circuit
+  (def bell-circuit
+    {:num-qubits 2
+     :operations [{:operation-type :h :operation-params {:target 0}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 1}}]})
+
+  ;; Test with different topologies
+  (def linear-2 (create-linear-topology 2))
+  (def result (optimize-for-topology bell-circuit linear-2))
+  (println (:topology-summary result))
+
+  ;; Compare multiple topologies
+  (def topologies {"Linear-5" (create-linear-topology 5)
+                   "Ring-5" (create-ring-topology 5)
+                   "Star-5" (create-star-topology 5)})
+
+  (doseq [[name topo] topologies]
+    (println (get-topology-info topo name)))
+
+  ;; Analyze a complex circuit
+  (def complex-circuit
+    {:num-qubits 4
+     :operations [{:operation-type :h :operation-params {:target 0}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 1}}
+                  {:operation-type :cnot :operation-params {:control 1 :target 2}}
+                  {:operation-type :cnot :operation-params {:control 2 :target 3}}
+                  {:operation-type :cnot :operation-params {:control 0 :target 3}}]})
+
+  (def comparison (compare-topologies complex-circuit topologies))
+  (doseq [[name result] comparison]
+    (println (str name ": cost=" (:total-cost result))))
+
+  ;; Test IBM-like topologies
+  (def ibm-5q-linear [[1] [0 2] [1 3] [2 4] [3]])
+  (def ibm-5q-t [[1] [0 2 3] [1 4] [1] [2]])
+
+  (println "IBM 5-qubit linear:" (get-topology-info ibm-5q-linear "IBM Linear"))
+  (println "IBM 5-qubit T:" (get-topology-info ibm-5q-t "IBM T-shape")))

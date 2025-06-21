@@ -104,7 +104,7 @@ lein test
 ## Known Issues
 * Grover algorithm doesn't use the provided backend
 * Error handling on backend failure missing, e.g. timeouts on Shor algorithm
-* missing state initialization on backend
+* Gate decomposition should use parameterized replacement gates
 
 ## Copyright
 © 2025 Ludger Solbach

@@ -1,11 +1,6 @@
 # TODOs
 
 ## Next steps
-* improve order of the circuit transformations (what if a backend doesn't support SWAP? gates?)
-  1. qubit optimization
-  2. topology optimization (with decomposition aware routing)
-  3. final gate decomposition (to handle any remaining virtual gates)
-  4. validation 
 * handle backend job failures in algorithms
 * optimize shor's algorithm implementation and quantum period finding
 * refactor grover algorithm to use a provided backend

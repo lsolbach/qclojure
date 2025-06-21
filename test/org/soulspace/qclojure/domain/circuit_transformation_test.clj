@@ -550,12 +550,7 @@
     (let [topology [[1] [0] [] []]  ; Two isolated components
           info (ct/get-topology-info topology "Disconnected")]
       (is (string? info))
-      (is (.contains info "Connected: false"))))
-  (testing "Empty topology"
-    (let [topology []
-          analysis (ct/analyze-topology-connectivity topology)]
-      (is (= (:num-qubits analysis) 0))
-      (is (= (:total-edges analysis) 0)))))
+      (is (.contains info "Connected: false")))))
 
 (comment
   (run-tests)

@@ -1044,8 +1044,8 @@
         degrees (mapv count topology)
         total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
         avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
-        max-degree (apply max degrees)
-        min-degree (apply min degrees)
+        max-degree (if (> num-qubits 1) (apply max degrees) num-qubits)
+        min-degree (if (> num-qubits 1) (apply min degrees) num-qubits)
 
         ;; Calculate diameter using distance matrix
         distance-matrix (calculate-distance-matrix topology)

@@ -1040,31 +1040,40 @@
   - :diameter - Maximum shortest path distance between any two qubits
   - :is-connected - Whether the topology is fully connected"
   [topology]
-  (let [num-qubits (count topology)
-        degrees (mapv count topology)
-        total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
-        avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
-        max-degree (if (> num-qubits 1) (apply max degrees) num-qubits)
-        min-degree (if (> num-qubits 1) (apply min degrees) num-qubits)
+  (let [num-qubits (count topology)]
+    (if (> num-qubits 1)
+     (let [degrees (mapv count topology)
+           degrees-count (count degrees)
+           total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
+           avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
+           max-degree (if (> degrees-count 1) (apply max degrees) 0)
+           min-degree (if (> degrees-count 1) (apply min degrees) 0)
 
-        ;; Calculate diameter using distance matrix
-        distance-matrix (calculate-distance-matrix topology)
-        all-distances (for [i (range num-qubits)
-                            j (range num-qubits)
-                            :when (not= i j)]
-                        (get-in distance-matrix [i j]))
-        diameter (if (some #(= % Integer/MAX_VALUE) all-distances)
-                   Integer/MAX_VALUE ; Disconnected
-                   (apply max all-distances))
-        is-connected (not= diameter Integer/MAX_VALUE)]
+           ;; Calculate diameter using distance matrix
+           distance-matrix (calculate-distance-matrix topology)
+           all-distances (for [i (range num-qubits)
+                               j (range num-qubits)
+                               :when (not= i j)]
+                           (get-in distance-matrix [i j]))
+           diameter (if (some #(= % Integer/MAX_VALUE) all-distances)
+                      Integer/MAX_VALUE ; Disconnected
+                      (apply max all-distances))
+           is-connected (not= diameter Integer/MAX_VALUE)]
 
-    {:num-qubits num-qubits
-     :total-edges total-edges
-     :avg-degree avg-degree
-     :max-degree max-degree
-     :min-degree min-degree
-     :diameter diameter
-     :is-connected is-connected}))
+       {:num-qubits num-qubits
+        :total-edges total-edges
+        :avg-degree avg-degree
+        :max-degree max-degree
+        :min-degree min-degree
+        :diameter diameter
+        :is-connected is-connected})
+     {:num-qubits num-qubits
+      :total-edges 0
+      :avg-degree 0
+      :max-degree 0
+      :min-degree 0
+      :diameter 0
+      :is-connected (= num-qubits 1)})))
 
 (defn get-topology-info
   "Get human-readable information about a topology.

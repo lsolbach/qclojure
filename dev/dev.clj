@@ -2,48 +2,6 @@
   (:require [clojure.repl :as repl]
             [scicloj.clay.v2.api :as clay]))
 
-(comment ; code exploration
-  
-  ; All namespaces in the project
-  (all-ns)
-  (first (all-ns))
-
-  ; The symbol of the namespace
-  (ns-name 'org.soulspace.qclojure.domain.state)
-
-  ; Aliases of the required namespaces
-  (ns-aliases 'org.soulspace.qclojure.domain.state)
-
-  ; Public vars in the namespace
-  (ns-publics 'org.soulspace.qclojure.domain.state)
-
-  ; Referred vars in the namespace
-  (ns-refers 'org.soulspace.qclojure.domain.state)
-  
-  ; Vars in the namespace (including private vars)
-  (ns-interns 'org.soulspace.qclojure.domain.state)
-
-  ; Imported Java classes in the namespace
-  (ns-imports 'org.soulspace.qclojure.domain.state)
-
-  ; All the vars in the namespace
-  (ns-map 'org.soulspace.qclojure.domain.state)
-
-  (repl/dir org.soulspace.qclojure.domain.state)
-
-  ; Documentation of a var
-  (repl/doc org.soulspace.qclojure.domain.state/bits-to-index)
-  (repl/source org.soulspace.qclojure.domain.state/bits-to-index)
-
-  (require 'org.soulspace.qclojure.adapter.visualization)
-  (require 'org.soulspace.qclojure.adapter.visualization.common)
-  (require 'org.soulspace.qclojure.adapter.visualization.ascii)
-  (require 'org.soulspace.qclojure.adapter.visualization.svg)
-  (methods org.soulspace.qclojure.adapter.visualization/visualize-circuit)
-
-  ;
-  )
-
 (comment ; Clay 
   (clay/make! {:base-source-path "notebook"
                :source-path ["qclojure.clj"

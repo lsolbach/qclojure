@@ -1,5 +1,7 @@
 # Changelog
 
+## Version (NEXT)
+
 ## Version 0.2.0
 * added a noisy simulator backend to simulate errors of real quantum hardware
 * improved circuit optimization pipeline

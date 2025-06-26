@@ -18,15 +18,6 @@
       (qc/h-gate 0)
       (qc/cnot-gate 0 1)))
 
-(defn create-test-circuit-2
-  "Create a 3-qubit circuit with mixed operations."
-  []
-  (-> (qc/create-circuit 3 "Mixed Circuit")
-      (qc/x-gate 0)
-      (qc/h-gate 1)
-      (qc/cnot-gate 0 2)
-      (qc/z-gate 1)))
-
 (defn create-test-circuit-with-gaps
   "Create a circuit that uses qubits with gaps (0, 2, 5)."
   []
@@ -43,144 +34,9 @@
       (qc/swap-gate 0 2)
       (qc/cnot-gate 0 1)))
 
-(defn operations-of-type
-  "Count operations of a specific type in a circuit."
-  [circuit operation-type]
-  (->> (:operations circuit)
-       (filter #(= (:operation-type %) operation-type))
-       count))
-
-;;
-;; Tests for circuit composition and extension
-;;
-(deftest test-extend-circuit
-  (testing "Basic circuit extension"
-    (let [original (create-test-circuit-1)
-          extended (cc/extend-circuit original 4)]
-      (is (= (:num-qubits extended) 4))
-      (is (= (:num-qubits original) 2))
-      (is (= (count (:operations extended)) (count (:operations original))))
-      (is (s/valid? ::qc/quantum-circuit extended))))
-
-  (testing "Extension with qubit mapping"
-    (let [original (create-test-circuit-1)
-          extended (cc/extend-circuit original 4 :qubit-mapping #(+ % 2))]
-      (is (= (:num-qubits extended) 4))
-      ;; H gate should now be on qubit 2 instead of 0
-      (let [h-operation (first (:operations extended))]
-        (is (= (get-in h-operation [:operation-params :target]) 2)))
-      ;; CNOT should now be from qubit 2 to 3 instead of 0 to 1
-      (let [cnot-operation (second (:operations extended))]
-        (is (= (get-in cnot-operation [:operation-params :control]) 2))
-        (is (= (get-in cnot-operation [:operation-params :target]) 3)))))
-
-  (testing "Extension with same size updates name but keeps operations"
-    (let [original (create-test-circuit-1)
-          extended (cc/extend-circuit original 2)]
-      (is (= (:num-qubits original) (:num-qubits extended)))
-      (is (= (:operations original) (:operations extended)))
-      (is (not= (:name original) (:name extended)))))
-
-  (testing "Extension with identity mapping"
-    (let [original (create-test-circuit-1)
-          extended (cc/extend-circuit original 3 :qubit-mapping identity)]
-      (is (= (:operations original) (:operations extended))))))
-
-(deftest test-compose-circuits
-  (testing "Basic circuit composition"
-    (let [circuit1 (-> (qc/create-circuit 2) (qc/h-gate 0))
-          circuit2 (-> (qc/create-circuit 2) (qc/x-gate 1))
-          composed (cc/compose-circuits circuit1 circuit2)]
-      (is (= (:num-qubits composed) 2))
-      (is (= (count (:operations composed)) 2))
-      (is (= (get-in composed [:operations 0 :operation-type]) :h))
-      (is (= (get-in composed [:operations 1 :operation-type]) :x))))
-
-  (testing "Composition with different qubit counts"
-    (let [circuit1 (-> (qc/create-circuit 1) (qc/h-gate 0))
-          circuit2 (-> (qc/create-circuit 3) (qc/cnot-gate 0 2))
-          composed (cc/compose-circuits circuit1 circuit2)]
-      (is (= (:num-qubits composed) 3))
-      (is (= (count (:operations composed)) 2))))
-
-  (testing "Composition with offset"
-    (let [circuit1 (qc/create-circuit 5)
-          circuit2 (-> (qc/create-circuit 2) (qc/h-gate 0) (qc/cnot-gate 0 1))
-          composed (cc/compose-circuits circuit1 circuit2 {:offset 3})]
-      (is (= (:num-qubits composed) 5))
-      ;; H gate should be on qubit 3
-      (let [h-op (first (:operations composed))]
-        (is (= (get-in h-op [:operation-params :target]) 3)))
-      ;; CNOT should be from qubit 3 to 4
-      (let [cnot-op (second (:operations composed))]
-        (is (= (get-in cnot-op [:operation-params :control]) 3))
-        (is (= (get-in cnot-op [:operation-params :target]) 4))))))
-
-;;
-;; Tests for qubit usage analysis and optimization
-;;
-
-(deftest test-analyze-qubit-usage
-  (testing "Full qubit usage"
-    (let [circuit (create-test-circuit-1)
-          analysis (ct/analyze-qubit-usage circuit)]
-      (is (= (:used-qubits analysis) #{0 1}))
-      (is (= (:total-qubits analysis) 2))
-      (is (= (:unused-qubits analysis) #{}))
-      (is (= (:max-qubit-id analysis) 1))
-      (is (= (:qubit-usage-efficiency analysis) 1.0))))
-
-  (testing "Sparse qubit usage"
-    (let [circuit (create-test-circuit-with-gaps)
-          analysis (ct/analyze-qubit-usage circuit)]
-      (is (= (:used-qubits analysis) #{0 2 5}))
-      (is (= (:total-qubits analysis) 6))
-      (is (= (:unused-qubits analysis) #{1 3 4}))
-      (is (= (:max-qubit-id analysis) 5))
-      (is (= (:qubit-usage-efficiency analysis) 0.5))))
-
-  (testing "Empty circuit"
-    (let [circuit (qc/create-circuit 3)
-          analysis (ct/analyze-qubit-usage circuit)]
-      (is (= (:used-qubits analysis) #{}))
-      (is (= (:total-qubits analysis) 3))
-      (is (= (:unused-qubits analysis) #{0 1 2}))
-      (is (= (:max-qubit-id analysis) -1))
-      (is (= (:qubit-usage-efficiency analysis) 0.0)))))
-
-(deftest test-optimize-qubit-usage
-  (testing "Optimization of sparse circuit"
-    (let [circuit (create-test-circuit-with-gaps)
-          result (ct/optimize-qubit-usage circuit)]
-      (is (= (:optimized-qubits result) 3))
-      (is (= (:qubits-saved result) 3))
-      (is (= (:original-qubits result) 6))
-      (is (= (:qubit-mapping result) {0 0, 2 1, 5 2}))))
-
-  (testing "Optimization of already efficient circuit"
-    (let [circuit (create-test-circuit-1)
-          result (ct/optimize-qubit-usage circuit)]
-      (is (= (:optimized-qubits result) 2))
-      (is (= (:qubits-saved result) 0))
-      (is (= (:qubit-mapping result) {0 0, 1 1}))))
-
-  (testing "Optimized circuit operations are remapped correctly"
-    (let [circuit (create-test-circuit-with-gaps)
-          result (ct/optimize-qubit-usage circuit)
-          optimized-circuit (:quantum-circuit result)]
-      ;; Original H gate on qubit 0 should stay on qubit 0
-      (is (= (get-in optimized-circuit [:operations 0 :operation-params :target]) 0))
-      ;; Original X gate on qubit 2 should be on qubit 1
-      (is (= (get-in optimized-circuit [:operations 1 :operation-params :target]) 1))
-      ;; Original CNOT from 0 to 5 should be from 0 to 2
-      (let [cnot-op (nth (:operations optimized-circuit) 2)]
-        (is (= (get-in cnot-op [:operation-params :control]) 0))
-        (is (= (get-in cnot-op [:operation-params :target]) 2))))))
-
 ;;
 ;; Tests for hardware topology creation
 ;;
-
 (deftest test-topology-creation
   (testing "Linear topology"
     (let [topology (ct/create-linear-topology 4)]
@@ -221,7 +77,6 @@
 ;;
 ;; Tests for topology analysis
 ;;
-
 (deftest test-topology-analysis
   (testing "Linear topology analysis"
     (let [topology (ct/create-linear-topology 4)
@@ -264,7 +119,6 @@
 ;;
 ;; Tests for circuit transformation
 ;;
-
 (deftest test-transform-circuit
   (testing "Transform circuit with unsupported gates"
     (let [circuit (-> (qc/create-circuit 2)
@@ -297,7 +151,6 @@
 ;;
 ;; Tests for two-qubit operation extraction
 ;;
-
 (deftest test-extract-two-qubit-operations
   (testing "Circuit with two-qubit operations"
     (let [circuit (-> (qc/create-circuit 3)
@@ -326,7 +179,6 @@
 ;;
 ;; Tests for distance matrix calculation
 ;;
-
 (deftest test-calculate-distance-matrix
   (testing "Linear topology distances"
     (let [topology (ct/create-linear-topology 4)
@@ -356,7 +208,6 @@
 ;;
 ;; Tests for shortest path finding
 ;;
-
 (deftest test-find-shortest-path
   (testing "Path in linear topology"
     (let [topology (ct/create-linear-topology 4)
@@ -381,7 +232,6 @@
 ;;
 ;; Tests for SWAP operation generation
 ;;
-
 (deftest test-generate-swap-operations
   (testing "No SWAPs needed for adjacent qubits"
     (let [path [0 1]
@@ -403,7 +253,6 @@
 ;;
 ;; Tests for topology optimization
 ;;
-
 (deftest test-optimize-for-topology
   (testing "Optimize circuit for linear topology"
     (let [circuit (-> (qc/create-circuit 3)
@@ -434,7 +283,6 @@
 ;;
 ;; Tests for topology comparison
 ;;
-
 (deftest test-compare-topologies
   (testing "Compare topologies for a circuit"
     (let [circuit (-> (qc/create-circuit 3)
@@ -451,49 +299,8 @@
       (is (every? #(contains? % :swap-count) comparison)))))
 
 ;;
-;; Tests for operation parameter updates
-;;
-
-(deftest test-update-operation-params
-  (testing "Single-qubit operation parameter update"
-    (let [h-op {:operation-type :h :operation-params {:target 0}}
-          updated (cc/update-operation-params h-op #(+ % 2))]
-      (is (= (:operation-type updated) :h))
-      (is (= (get-in updated [:operation-params :target]) 2))))
-
-  (testing "Two-qubit operation parameter update"
-    (let [cnot-op {:operation-type :cnot :operation-params {:control 0 :target 1}}
-          updated (cc/update-operation-params cnot-op #(+ % 3))]
-      (is (= (get-in updated [:operation-params :control]) 3))
-      (is (= (get-in updated [:operation-params :target]) 4))))
-
-  (testing "Operation with non-qubit parameters preserved"
-    (let [rx-op {:operation-type :rx :operation-params {:target 1 :angle Math/PI}}
-          updated (cc/update-operation-params rx-op #(+ % 5))]
-      (is (= (get-in updated [:operation-params :target]) 6))
-      (is (= (get-in updated [:operation-params :angle]) Math/PI))))
-
-  (testing "Measurement operation with qubit vector"
-    (let [measure-op {:operation-type :measure :operation-params {:measurement-qubits [0 1 2]}}
-          updated (cc/update-operation-params measure-op #(+ % 10))]
-      (is (= (get-in updated [:operation-params :measurement-qubits]) [10 11 12]))))
-
-  (testing "Operation without parameters"
-    (let [op {:operation-type :barrier}
-          updated (cc/update-operation-params op #(+ % 1))]
-      (is (= updated op))))
-
-  (testing "Complex multi-control operation"
-    (let [toffoli-op {:operation-type :toffoli :operation-params {:control1 0 :control2 1 :target 2}}
-          updated (cc/update-operation-params toffoli-op #(* % 2))]
-      (is (= (get-in updated [:operation-params :control1]) 0))
-      (is (= (get-in updated [:operation-params :control2]) 2))
-      (is (= (get-in updated [:operation-params :target]) 4)))))
-
-;;
 ;; Tests for optimal mapping finding
 ;;
-
 (deftest test-find-optimal-mapping
   (testing "Optimal mapping for linear topology"
     (let [circuit (-> (qc/create-circuit 3)
@@ -529,7 +336,6 @@
 ;;
 ;; Tests for topology info generation
 ;;
-
 (deftest test-get-topology-info
   (testing "Linear topology info"
     (let [topology (ct/create-linear-topology 4)

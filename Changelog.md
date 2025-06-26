@@ -8,6 +8,8 @@
 * splitted circuit-transformation ns
   * added gate-decomposition ns
   * added circuit-composition ns
+  * added qubit-optimization ns
+* enhanced test
 
 ## Version 0.2.0
 * added a noisy simulator backend to simulate errors of real quantum hardware

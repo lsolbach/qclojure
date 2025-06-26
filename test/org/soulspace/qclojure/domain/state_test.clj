@@ -9,7 +9,9 @@
             [fastmath.core :as m]
             [fastmath.complex :as fc]))
 
+;;
 ;; Basic state creation tests
+;;
 (deftest test-basic-states
   (testing "Zero state creation"
     (let [|0⟩ (qs/zero-state 1)]
@@ -44,7 +46,9 @@
       ;; (is (s/valid? ::qs/quantum-state |-⟩))
       )))
 
+;;
 ;; Multi-qubit state tests
+;;
 (deftest test-multi-qubit-states
   (testing "Two-qubit zero state"
     (let [|00⟩ (qs/zero-state 2)]
@@ -61,7 +65,9 @@
       (is (= (first (:state-vector |000⟩)) (fc/complex 1 0)))
       (is (every? #(= % (fc/complex 0 0)) (rest (:state-vector |000⟩)))))))
 
+;;
 ;; Tensor product tests
+;;
 (deftest test-tensor-product
   (testing "Simple tensor products"
     (let [|0⟩ (qs/zero-state 1)
@@ -98,7 +104,9 @@
         (is (< (m/abs a3-real) 1e-10))
         (is (< (m/abs a3-imag) 1e-10))))))
 
+;;
 ;; State normalization tests
+;;
 (deftest test-normalization
   (testing "Normalize unnormalized state"
     (let [unnormalized {:state-vector [(fc/complex 3 0) (fc/complex 4 0)] :num-qubits 1}
@@ -111,21 +119,25 @@
 
   (testing "Already normalized state remains unchanged"
     (let [|+⟩ (qs/plus-state)
-          renormalized (qs/normalize-state |+⟩)]
-      ;; Use tolerance-based comparison for floating point precision
-      (let [original-amplitudes (:state-vector |+⟩)
-            renormalized-amplitudes (:state-vector renormalized)]
-        (doseq [i (range (count original-amplitudes))]
-          (let [orig-complex (nth original-amplitudes i)
-                renorm-complex (nth renormalized-amplitudes i)
-                orig-real (fc/re orig-complex)
-                orig-imag (fc/im orig-complex)
-                renorm-real (fc/re renorm-complex)
-                renorm-imag (fc/im renorm-complex)]
-            (is (< (Math/abs (- orig-real renorm-real)) 1e-10))
-            (is (< (Math/abs (- orig-imag renorm-imag)) 1e-10))))))))
+          renormalized (qs/normalize-state |+⟩)
 
+          ;; Use tolerance-based comparison for floating point precision
+          original-amplitudes (:state-vector |+⟩)
+          renormalized-amplitudes (:state-vector renormalized)]
+      
+      (doseq [i (range (count original-amplitudes))]
+        (let [orig-complex (nth original-amplitudes i)
+              renorm-complex (nth renormalized-amplitudes i)
+              orig-real (fc/re orig-complex)
+              orig-imag (fc/im orig-complex)
+              renorm-real (fc/re renorm-complex)
+              renorm-imag (fc/im renorm-complex)]
+          (is (< (Math/abs (- orig-real renorm-real)) 1e-10))
+          (is (< (Math/abs (- orig-imag renorm-imag)) 1e-10)))))))
+
+;;
 ;; Probability calculation tests
+;;
 (deftest test-probability
   (testing "Probability of zero state"
     (let [|0⟩ (qs/zero-state 1)]
@@ -149,7 +161,9 @@
       (is (= (qs/probability |00⟩ 2) 0.0))
       (is (= (qs/probability |00⟩ 3) 0.0)))))
 
+;;
 ;; Measurement tests
+;;
 (deftest test-measurement
   (testing "Measurement of deterministic states"
     (let [|0⟩ (qs/zero-state 1)
@@ -173,7 +187,9 @@
           ;; (is (s/valid? ::qs/quantum-state (:collapsed-state measurement)))
           )))))
 
-; Bits to index conversion tests
+;;
+;; Bits to index conversion tests
+;;
 (deftest test-bits-to-index
   (testing "Single qubit bit patterns"
     (is (= (qs/bits-to-index [0]) 0))
@@ -201,7 +217,9 @@
   (testing "Empty bit vector"
     (is (= (qs/bits-to-index []) 0))))
 
+;;
 ;; Computational basis state tests
+;;
 (deftest test-computational-basis-state
   (testing "Single qubit computational basis states"
     (let [|0⟩ (qs/computational-basis-state 1 [0])
@@ -281,7 +299,9 @@
     (is (thrown? AssertionError (qs/computational-basis-state 0 [])))
     (is (thrown? AssertionError (qs/computational-basis-state -1 [])))))
 
+;;
 ;; Integration tests with existing functions
+;;
 (deftest test-computational-basis-state-integration
   (testing "Computational basis state matches tensor product construction"
     (let [|0⟩ (qs/zero-state 1)
@@ -310,7 +330,9 @@
       (is (= (:outcome measurement) 6)) ; bits [1 1 0] -> index 6
       (is (= (:state-vector (:collapsed-state measurement)) (:state-vector |110⟩))))))
 
+;;
 ;; Additional tests for quantum mechanics properties
+;;
 (deftest test-computational-basis-state-quantum-properties
   (testing "Computational basis states form a complete orthonormal set"
     (let [n 2
@@ -384,7 +406,9 @@
           (is (= (qs/probability state index) 1.0))
           (is (every? #(= (qs/probability state %) 0.0)
                       (filter #(not= % index) (range (bit-shift-left 1 n))))))))))
+;;
 ;; Property-based tests
+;;
 (defspec tensor-product-preserves-normalization 50
   (prop/for-all [n1 (gen/choose 1 3)
                  n2 (gen/choose 1 3)]

@@ -167,3 +167,8 @@
   ;; Find which backend supports the most demanding requirements
   (let [demanding-gates #{:x :y :z :h :s :t :cnot :rx :ry :rz :toffoli}]
     (qb/filter-backends-by-gate-support [sim] demanding-gates)))
+
+(comment
+  (run-tests)
+  ;
+  )

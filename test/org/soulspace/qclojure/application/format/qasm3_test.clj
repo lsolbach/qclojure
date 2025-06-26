@@ -8,13 +8,17 @@
             [org.soulspace.qclojure.application.format.qasm3 :as qasm3]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
+;;
 ;; Helper functions for tests
+;;
 (defn- contains-line?
   "Check if the text contains the given line."
   [text line]
   (some #(= % line) (str/split-lines text)))
 
+;;
 ;; Test circuits
+;;
 (defn- bell-state-circuit
   "Create a Bell state circuit for testing."
   []
@@ -60,8 +64,9 @@
       (qc/add-gate :cry :control 2 :target 0 :angle (/ Math/PI 3))
       (qc/add-gate :crz :control 0 :target 3 :angle (/ Math/PI 8))))
 
+;;
 ;; Test cases
-
+;;
 (deftest test-circuit-to-qasm-header
   (testing "QASM 3.0 header generation"
     (let [circuit (qc/create-circuit 3 "Test Circuit")

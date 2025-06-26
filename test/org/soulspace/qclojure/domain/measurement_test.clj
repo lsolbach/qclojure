@@ -5,7 +5,9 @@
             [org.soulspace.qclojure.domain.circuit :as qc]
             [fastmath.complex :as fc]))
 
+;;
 ;; Test basic quantum measurement functionality
+;;
 (deftest test-basic-measurement
   (testing "Measurement of computational basis states"
     (let [|0⟩ (qs/zero-state 1)
@@ -47,7 +49,9 @@
         (is (< 0.4 (/ freq-0 total) 0.6) "Frequency of 0 should be ~0.5")
         (is (< 0.4 (/ freq-1 total) 0.6) "Frequency of 1 should be ~0.5")))))
 
+;;
 ;; Test multi-qubit measurement
+;;
 (deftest test-multi-qubit-measurement
   (testing "Two-qubit computational basis measurements"
     (let [|00⟩ (qs/zero-state 2)
@@ -81,7 +85,9 @@
       (is (contains? outcomes 0) "Should sometimes measure |00⟩")
       (is (contains? outcomes 3) "Should sometimes measure |11⟩"))))
 
+;;
 ;; Test partial measurement functionality  
+;;
 (deftest test-partial-measurement
   (testing "Single qubit measurement in multi-qubit system"
     (let [initial-state (qs/zero-state 2)
@@ -102,7 +108,9 @@
       (is (< (Math/abs (- norm-squared 1.0)) 1e-10) 
           "State should remain normalized after partial measurement"))))
 
+;;
 ;; Test circuit integration
+;;
 (deftest test-circuit-measurement
   (testing "Simple circuit with measurement"
     (let [circuit (-> (qc/create-circuit 1 "Test")
@@ -144,7 +152,9 @@
           (is (= non-zero-count 1) 
               "After measuring all qubits, only one amplitude should be non-zero"))))))
 
+;;
 ;; Test circuit integration with measurement gates
+;;
 (deftest test-circuit-measurement-integration
   (testing "Circuit execution with measurement gates"
     (let [bell-circuit (-> (qc/create-circuit 2 "Bell State with Measurement")
@@ -185,7 +195,9 @@
       (is (< (Math/abs (- (fc/abs (first non-zero-amplitudes)) 1.0)) 1e-10)
           "The non-zero amplitude should have magnitude 1"))))
 
+;;
 ;; Test multi-qubit measurement with entanglement
+;;
 (deftest test-entangled-measurement
   (testing "Bell state measurement preserves correlations"
     (let [;; Test multiple executions to verify statistical correlations
@@ -229,7 +241,9 @@
               outcome (qs/bits-to-index outcomes)]
           (is (contains? #{0 7} outcome) "GHZ measurements should be either |000⟩ or |111⟩"))))))
 
+;;
 ;; Test measurement probability calculations
+;;
 (deftest test-measurement-probabilities
   (testing "Probability calculation for basis states"
     (let [|0⟩ (qs/zero-state 1)
@@ -250,7 +264,9 @@
       (is (< (Math/abs (- (nth probs 1) 0.5)) 1e-10) "P(1) should be 0.5")
       (is (< (Math/abs (- (reduce + probs) 1.0)) 1e-10) "Probabilities should sum to 1"))))
 
+;;
 ;; Test utility functions
+;;
 (deftest test-measurement-utilities
   (testing "Outcome to bits conversion"
     (is (= (qs/measurement-outcomes-to-bits 0 1) [0]) "0 in 1 bit = [0]")
@@ -272,7 +288,9 @@
       ;; For |0⟩ state, all measurements should be 0
       (is (every? #(= % 0) (:outcomes stats)) "All outcomes should be 0 for |0⟩ state"))))
 
+;;
 ;; Performance and edge case tests
+;;
 (deftest test-measurement-edge-cases
   (testing "Measurement of very small amplitudes"
     (let [;; Create a state with very small but non-zero amplitude
@@ -295,7 +313,8 @@
       (is (map? (qs/measure-state slightly-unnormalized))
           "Should handle slightly unnormalized states gracefully"))))
 
-;; Run all measurement tests
-(defn run-all-measurement-tests []
-  (println "Running comprehensive quantum measurement tests...")
-  (run-tests 'org.soulspace.qclojure.domain.measurement-test))
+
+(comment 
+  (run-tests)
+  ;
+  )

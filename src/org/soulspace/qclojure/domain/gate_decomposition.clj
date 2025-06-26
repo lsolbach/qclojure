@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.domain.gate-decomposition
   (:require [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
-(defn- resolve-supported-operations
+(defn resolve-supported-operations
   "Resolve supported operations - converts keyword targets to gate sets or returns the set as-is.
   
   Parameters:
@@ -42,7 +42,7 @@
        {:operation-type :cnot :operation-params {:control target2 :target target1}}
        {:operation-type :cnot :operation-params {:control target1 :target target2}}])))
 
-(defn- decompose-operation
+(defn decompose-operation
   "Decompose an operation into a sequence of more primitive operations using the operation catalog.
   
   Parameters:

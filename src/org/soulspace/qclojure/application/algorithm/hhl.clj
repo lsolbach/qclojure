@@ -126,17 +126,17 @@
              (vector? target-qubits)
              (= (count target-qubits) (max 1 (int (Math/ceil (/ (Math/log n) (Math/log 2))))))]}
       
-      ;; Matrix encoding implementation using sophisticated techniques:
+      ;; Matrix encoding implementation using these techniques:
       ;; - Block encoding via linear combinations of unitaries
       ;; - Hamiltonian simulation algorithms  
       ;; - Quantum walk-based matrix encoding
       
-      ;; Advanced approach: encode matrix elements as controlled evolution operators
+      ;; encode matrix elements as controlled evolution operators
       (let [scaled-time (* time-scale power)
             num-qubits (count target-qubits)]
         
         ;; Apply controlled rotations that approximate the matrix evolution
-        ;; This uses sophisticated Hamiltonian simulation techniques
+        ;; This uses Hamiltonian simulation techniques
         (reduce (fn [c target-idx]
                   (let [qubit (nth target-qubits target-idx)
                         ;; Extract matrix elements affecting this qubit
@@ -348,7 +348,6 @@
 ;;;
 ;;; Main HHL Algorithm
 ;;;
-
 (defn hhl-algorithm
   "Execute the HHL algorithm to solve Ax = b.
   
@@ -447,10 +446,9 @@
      :successful-shots success-count}))
 
 (comment
-
   ;; Create a simulator for testing
   (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-  (def test-simulator (sim/create-simulator {:max-qubits 10}))
+  (def sim (sim/create-simulator {:max-qubits 10}))
   
   ;; Test with a simple 2x2 Hermitian matrix
   (def test-matrix [[2 1] [1 2]])  ; Simple symmetric matrix
@@ -470,7 +468,9 @@
   ;; Test matrix encoding
   (def matrix-unitary (matrix-encoding-unitary test-matrix 1.0))
   (def test-circuit (qc/create-circuit 3 "Test"))
-  (matrix-unitary test-circuit 0 1 [1 2]) ; Apply controlled unitary
+  ;; For 2x2 matrix, we need 1 target qubit (log2(2) = 1)
+  ;; Formula: target-qubits = max(1, ceil(log2(matrix-size)))
+  (matrix-unitary test-circuit 0 1 [0]) ; Apply controlled unitary (control=0, power=1, target=[0])
   
   ;; Test conditional rotation
   (def cond-rot (conditional-rotation-circuit 3 2 (/ Math/PI 4)))
@@ -483,9 +483,8 @@
   (count (:operations hhl-test-circuit)) ; => number of operations
   
   ;; Test full HHL algorithm
-  (def hhl-result (hhl-algorithm test-matrix test-vector 
-                                 {:backend test-simulator
-                                  :precision-qubits 3
+  (def hhl-result (hhl-algorithm sim test-matrix test-vector
+                                 {:precision-qubits 3
                                   :ancilla-qubits 1
                                   :shots 1000}))
   
@@ -499,14 +498,18 @@
   (def larger-vector [1 2 3])
   (validate-hermitian-matrix larger-matrix) ; => true
   
+  ;; For 3x3 matrix, we need 2 target qubits (log2(3) = 1.58 -> ceil(1.58) = 2)
+  (def larger-matrix-unitary (matrix-encoding-unitary larger-matrix 1.0))
+  (def larger-test-circuit (qc/create-circuit 4 "Test"))
+  (larger-matrix-unitary larger-test-circuit 0 1 [0 1]) ; 2 target qubits for 3x3 matrix
+  
   ;; For debugging: examine circuit structure
   (def debug-circuit (hhl-circuit test-matrix test-vector 2 1))
   (doseq [op (:operations debug-circuit)]
     (println (:operation-type op) (:operation-params op)))
   
   ;; Performance testing
-  (time (hhl-algorithm test-matrix test-vector 
-                       {:backend test-simulator
-                        :precision-qubits 2
+  (time (hhl-algorithm sim test-matrix test-vector
+                       {:precision-qubits 2
                         :shots 100}))
   )

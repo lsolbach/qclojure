@@ -197,9 +197,8 @@
     (let [simulator (sim/create-simulator {:max-qubits 8})
           matrix [[2 1] [1 2]]
           vector [1 1]
-          result (hhl/hhl-algorithm matrix vector 
-                                    {:backend simulator
-                                     :precision-qubits 3
+          result (hhl/hhl-algorithm simulator matrix vector 
+                                    {:precision-qubits 3
                                      :ancilla-qubits 1
                                      :shots 100})]
       (is (map? result))
@@ -211,9 +210,8 @@
   
   (testing "Returns proper result structure"
     (let [simulator (sim/create-simulator {:max-qubits 6})
-          result (hhl/hhl-algorithm [[1 0] [0 2]] [1 0]
-                                    {:backend simulator
-                                     :precision-qubits 2
+          result (hhl/hhl-algorithm simulator [[1 0] [0 2]] [1 0]
+                                    {:precision-qubits 2
                                      :shots 50})]
       (is (boolean? (:success result)))
       (is (vector? (:solution-vector result)))
@@ -234,9 +232,8 @@
                    [1 1 1]
                    [1 1]]]
       (doseq [[matrix vector] (map clojure.core/vector matrices vectors)]
-        (let [result (hhl/hhl-algorithm matrix vector
-                                        {:backend simulator
-                                         :precision-qubits 2
+        (let [result (hhl/hhl-algorithm simulator matrix vector
+                                        {:precision-qubits 2
                                          :shots 20})]
           (is (contains? result :success))
           (is (= (count (:solution-vector result)) (count vector)))))))
@@ -244,9 +241,8 @@
   (testing "Algorithm completes in reasonable time"
     (let [simulator (sim/create-simulator {:max-qubits 6})
           start-time (System/currentTimeMillis)
-          result (hhl/hhl-algorithm [[1 0] [0 1]] [1 0]
-                                    {:backend simulator
-                                     :precision-qubits 2
+          result (hhl/hhl-algorithm simulator [[1 0] [0 1]] [1 0]
+                                    {:precision-qubits 2
                                      :shots 10})
           end-time (System/currentTimeMillis)
           duration (- end-time start-time)]
@@ -256,17 +252,15 @@
   (testing "Handles edge cases gracefully"
     (let [simulator (sim/create-simulator {:max-qubits 6})]
       ;; Single qubit case
-      (let [result (hhl/hhl-algorithm [[2]] [1]
-                                      {:backend simulator
-                                       :precision-qubits 2
+      (let [result (hhl/hhl-algorithm simulator [[2]] [1]
+                                      {:precision-qubits 2
                                        :shots 10})]
         (is (contains? result :success))
         (is (= (count (:solution-vector result)) 1)))
       
       ;; Zero vector case (should not crash)
-      (let [result (hhl/hhl-algorithm [[1 0] [0 1]] [0 0]
-                                      {:backend simulator
-                                       :precision-qubits 2
+      (let [result (hhl/hhl-algorithm simulator [[1 0] [0 1]] [0 0]
+                                      {:precision-qubits 2
                                        :shots 10})]
         (is (contains? result :success))))))
 
@@ -295,9 +289,8 @@
                  vector unit-vector-2d-gen]
     (when (hhl/validate-hermitian-matrix matrix)
       (let [simulator (sim/create-simulator {:max-qubits 8})
-            result (hhl/hhl-algorithm matrix vector
-                                      {:backend simulator
-                                       :precision-qubits 2
+            result (hhl/hhl-algorithm simulator matrix vector
+                                      {:precision-qubits 2
                                        :shots 10})]
         (and (map? result)
              (contains? result :success)
@@ -331,22 +324,19 @@
     (let [matrix [[2 1] [1 2]]
           vector [1 1]
           simulator (sim/create-simulator {:max-qubits 8})
-          result (hhl/hhl-algorithm matrix vector
-                                    {:backend simulator
-                                     :precision-qubits 3
+          result (hhl/hhl-algorithm simulator matrix vector
+                                    {:precision-qubits 3
                                      :shots 100})]
       (is (contains? result :circuit))
       (is (contains? (:circuit result) :num-qubits))
       (is (>= (:num-qubits (:circuit result)) 5))))
   
   (testing "Algorithm metadata consistency"
-    (let [results [(hhl/hhl-algorithm [[1 0] [0 1]] [1 0]
-                                      {:backend (sim/create-simulator {:max-qubits 6})
-                                       :precision-qubits 2
+    (let [results [(hhl/hhl-algorithm (sim/create-simulator {:max-qubits 6}) [[1 0] [0 1]] [1 0]
+                                      {:precision-qubits 2
                                        :shots 10})
-                   (hhl/hhl-algorithm [[2 1] [1 2]] [1 1]
-                                      {:backend (sim/create-simulator {:max-qubits 6}) 
-                                       :precision-qubits 2
+                   (hhl/hhl-algorithm (sim/create-simulator {:max-qubits 6}) [[2 1] [1 2]] [1 1]
+                                      {:precision-qubits 2
                                        :shots 10})]]
       
       ;; All results should have consistent structure
@@ -368,9 +358,8 @@
           
           results (for [[matrix vector] (map clojure.core/vector matrices vectors)]
                     (let [start (System/currentTimeMillis)
-                          result (hhl/hhl-algorithm matrix vector
-                                                    {:backend simulator
-                                                     :precision-qubits 2
+                          result (hhl/hhl-algorithm simulator matrix vector
+                                                    {:precision-qubits 2
                                                      :shots 20})
                           end (System/currentTimeMillis)]
                       {:size (count matrix)
@@ -391,9 +380,8 @@
           ;; Use well-conditioned diagonal matrix
           matrix [[2 0] [0 2]]
           vector [1 0]
-          result (hhl/hhl-algorithm matrix vector
-                                    {:backend simulator
-                                     :precision-qubits 3
+          result (hhl/hhl-algorithm simulator matrix vector
+                                    {:precision-qubits 3
                                      :shots 100})]
       (is (>= (:success-probability result) 0.0))
       (is (<= (:success-probability result) 1.0))
@@ -415,9 +403,8 @@
   
   ;; Test basic functionality
   (let [simulator (sim/create-simulator {:max-qubits 8})]
-    (hhl/hhl-algorithm [[2 1] [1 2]] [1 1]
-                       {:backend simulator
-                        :precision-qubits 3
+    (hhl/hhl-algorithm simulator [[2 1] [1 2]] [1 1]
+                       {:precision-qubits 3
                         :shots 100}))
 
   ;; Test condition number estimation
@@ -434,8 +421,7 @@
   (tc/quick-check 50 hermitian-validation-properties)
 
   ;; Performance testing
-  (time (hhl/hhl-algorithm [[1 0] [0 2]] [1 0]
-                           {:backend (sim/create-simulator {:max-qubits 6})
-                            :precision-qubits 2
+  (time (hhl/hhl-algorithm (sim/create-simulator {:max-qubits 6}) [[1 0] [0 2]] [1 0]
+                           {:precision-qubits 2
                             :shots 50}))
   )

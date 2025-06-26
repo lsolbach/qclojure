@@ -27,7 +27,7 @@
   (:estimated-phase (:result result)) ; => ~0.7854 (π/4)"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-transformation :as qct]
+            [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
             [org.soulspace.qclojure.application.backend :as qb]))
 
@@ -76,7 +76,7 @@
           (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
             ;; Compose the main circuit with the IQFT circuit using control-qubits-only option
             ;; This ensures IQFT is applied only to the first precision-qubits qubits
-            (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
+            (cc/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
 
 (defn parse-measurement-to-phase
   "Convert measurement string to phase estimate.

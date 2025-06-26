@@ -33,10 +33,13 @@
       (is (contains? two-qubit-gates :cnot))
       (is (not (contains? single-qubit-gates :cnot)))))
   
-  (testing "Native gate identification"
-    (let [native-gates (gr/get-native-gates)]
-      (is (contains? native-gates :h))
-      (is (contains? native-gates :cnot))))
+  (testing "Hardware-specific native gate identification"
+    (let [ionq-gates (gr/get-native-gates-for-hardware :braket-ionq)
+          rigetti-gates (gr/get-native-gates-for-hardware :braket-rigetti)]
+      (is (contains? ionq-gates :rx))
+      (is (contains? ionq-gates :cnot))
+      (is (contains? rigetti-gates :h))
+      (is (contains? rigetti-gates :cz))))
   
   (testing "Gate set expansion"
     (let [minimal-set #{:s}

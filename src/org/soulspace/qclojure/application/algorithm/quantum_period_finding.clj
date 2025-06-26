@@ -15,7 +15,7 @@
    [clojure.spec.alpha :as s]
    [org.soulspace.qclojure.domain.math :as qmath]
    [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.domain.circuit-transformation :as qct]
+   [org.soulspace.qclojure.domain.circuit-composition :as cc]
    [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
    [org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe]
    [org.soulspace.qclojure.application.backend :as qb]))
@@ -112,7 +112,7 @@
       ;; Step 4: Apply inverse QFT to precision qubits
       (as-> c
             (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
-              (qct/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
+              (cc/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
 
 (defn quantum-phase-estimation-with-custom-unitary
   "Perform generalized quantum phase estimation with custom unitary operations.

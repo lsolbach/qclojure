@@ -7,392 +7,13 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]))
+            [org.soulspace.qclojure.domain.circuit-composition :as cc]
+            [org.soulspace.qclojure.domain.gate-decomposition :as gd]))
 
 ;; Specs
 (s/def ::transformation-result
   (s/keys :req-un [::qc/quantum-circuit]
           :opt-un [::transformed-operation-count ::unsupported-operations]))
-
-;; Circuit composition and transformation
-;; Helper function for circuit composition
-(defn update-operation-params
-  "Update operation parameters based on a qubit mapping function.
-  
-  This function handles all types of quantum operations (gates and measurements) 
-  and updates any qubit indices in their parameters based on the provided mapping function.
-  
-  Parameters:
-  - operation: The quantum operation to update
-  - mapping-fn: Function that takes a qubit index and returns a new index
-  
-  Returns:
-  Updated operation with remapped qubit indices"
-  [operation mapping-fn]
-  (if-let [params (:operation-params operation)]
-    (let [updated-params
-          (reduce-kv (fn [m k v]
-                       (cond
-                         ;; Check if this is a qubit index parameter
-                         (#{:target :control :qubit1 :qubit2 :control1 :control2 :target1 :target2} k)
-                         (assoc m k (mapping-fn v))
-
-                         ;; Handle measurement qubits vector
-                         (= k :measurement-qubits)
-                         (assoc m k (mapv mapping-fn v))
-
-                         ;; Keep other parameters as they are
-                         :else
-                         (assoc m k v)))
-                     {}
-                     params)]
-      (assoc operation :operation-params updated-params))
-    operation))
-
-(defn extend-circuit
-  "Extend a quantum circuit to support a larger number of qubits.
-  
-  This function creates a new circuit with the specified number of qubits
-  while preserving all the operations of the original circuit. The original 
-  circuit operations will apply to the same qubits as before.
-  
-  With the optional qubit-mapping parameter, you can specify a function
-  to map original qubit indices to new indices in the extended circuit.
-  
-  Parameters:
-  - circuit: Original quantum circuit to extend
-  - new-num-qubits: New total number of qubits (must be >= original)
-  - qubit-mapping: (Optional) Function that maps original qubit indices to new indices
-  
-  Returns:
-  A new circuit with increased qubit count and remapped qubit operations if specified
-  
-  Examples:
-  (extend-circuit (h-gate (create-circuit 1) 0) 3)
-  ;=> 3-qubit circuit with Hadamard gate on qubit 0
-  
-  ;; Shift all qubits by 2 positions  
-  (extend-circuit (h-gate (create-circuit 1) 0) 3 #(+ % 2))
-  ;=> 3-qubit circuit with Hadamard gate on qubit 2"
-  [circuit new-num-qubits & {:keys [qubit-mapping] :or {qubit-mapping identity}}]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
-         (>= new-num-qubits (:num-qubits circuit))]}
-
-  ;; Only update operation parameters if the qubit mapping is not identity
-  (let [operations (if (= qubit-mapping identity)
-                     (:operations circuit)
-                     (mapv #(update-operation-params % qubit-mapping) (:operations circuit)))]
-    (-> circuit
-        (assoc :num-qubits new-num-qubits)
-        (assoc :operations operations)
-        (update :name #(str % (when % " ") "(extended to " new-num-qubits " qubits)")))))
-
-(defn compose-circuits
-  "Compose two quantum circuits sequentially.
-  
-  Creates a new circuit that applies the first circuit followed by the second.
-  If the circuits have different numbers of qubits, the one with fewer qubits
-  will be automatically extended to match the larger one.
-  
-  With optional parameters, you can control how the circuits are composed:
-  - qubit-mapping: Function to map circuit2's qubit indices to the combined circuit
-  - offset: Simple integer offset for circuit2's qubits (shorthand for adding offset)
-  - control-qubits-only: Boolean flag to indicate circuit2 should only operate on the
-    first n qubits of circuit1 where n is the number of qubits in circuit2
-  
-  Parameters:
-  - circuit1: First quantum circuit to execute
-  - circuit2: Second quantum circuit to execute after the first
-  - options: (Optional) Map with composition options:
-    - :qubit-mapping - Function mapping circuit2's qubit indices
-    - :offset - Integer to add to circuit2's qubit indices
-    - :control-qubits-only - Boolean indicating circuit2 operates on control qubits only
-  
-  Returns:
-  New quantum circuit containing all operations from circuit1 followed by all operations from circuit2
-  
-  Examples:
-  (compose-circuits (h-gate (create-circuit 1) 0) (x-gate (create-circuit 1) 0))
-  ;=> Circuit that applies H then X on qubit 0
-  
-  (compose-circuits (h-gate (create-circuit 1) 0) (cnot-gate (create-circuit 2) 0 1))
-  ;=> 2-qubit circuit that applies H on qubit 0, then CNOT from qubit 0 to 1
-  
-  ;; With offset, apply second circuit starting at qubit 3
-  (compose-circuits (create-circuit 5) (h-gate (create-circuit 2) 0) {:offset 3})
-  ;=> 5-qubit circuit with H gate on qubit 3"
-  [circuit1 circuit2 & [options]]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit1)
-         (s/valid? ::qc/quantum-circuit circuit2)]}
-  (let [{:keys [qubit-mapping offset control-qubits-only]} (or options {})
-        num-qubits-1 (:num-qubits circuit1)
-        num-qubits-2 (:num-qubits circuit2)
-        max-qubits (max num-qubits-1 num-qubits-2)
-
-        ;; Determine the appropriate qubit mapping function
-        mapping-fn (cond
-                     ;; Explicit mapping function provided
-                     (fn? qubit-mapping)
-                     qubit-mapping
-
-                     ;; Simple offset provided
-                     (integer? offset)
-                     #(+ % offset)
-
-                     ;; Circuit2 operates on control qubits only (for algorithms like Shor's)
-                     control-qubits-only
-                     identity
-
-                     ;; Default - identity mapping
-                     :else
-                     identity)
-
-        ;; Apply the mapping function to circuit2's operations
-        mapped-operations-2 (if (= mapping-fn identity)
-                              (:operations circuit2)
-                              (mapv #(update-operation-params % mapping-fn)
-                                    (:operations circuit2)))
-
-        ;; Extend circuit1 if needed
-        target-qubits (if (< num-qubits-1 max-qubits)
-                        max-qubits
-                        num-qubits-1)
-
-        ;; Calculate proper name for the composed circuit
-        circuit-name (str (get circuit1 :name "Circuit1") " + "
-                          (get circuit2 :name "Circuit2")
-                          (when offset (str " (offset " offset ")"))
-                          (when control-qubits-only " (control qubits only)"))]
-
-    (-> circuit1
-        (assoc :num-qubits target-qubits)
-        (update :operations #(into % mapped-operations-2))
-        (assoc :name circuit-name))))
-
-(defn- can-be-fully-decomposed?
-  "Check if a operation type can be fully decomposed into supported operations.
-  
-  Parameters:
-  - operation-type: Type of operation to check for decomposition
-  - supported-operations: Set of operation types supported by the backend
-  - visited: Set of operation types already visited (to prevent infinite recursion)
-  
-  Returns:
-  Boolean indicating whether the operation can be fully decomposed into supported operations"
-  [operation-type supported-operations visited]
-  ;; Already visited this operation in recursion? Return false to break cycles
-  (if (contains? visited operation-type)
-    false
-    ;; Is the operation directly supported? Return true
-    (if (contains? supported-operations operation-type)
-      true
-      ;; Not directly supported, try decomposition
-      (let [decomposition (gr/get-gate-dependencies operation-type)]
-        (if (empty? decomposition)
-          ;; No decomposition available
-          false
-          ;; Check if ALL operations in decomposition can be fully decomposed
-          (every? #(can-be-fully-decomposed? % supported-operations (conj visited operation-type))
-                  decomposition))))))
-
-(defn- decompose-swap-if-needed
-  "Decompose a SWAP gate if it's not natively supported.
-   
-   Parameters:
-   - swap-op: SWAP operation map to decompose
-   - supported-operations: Set of operation types supported by the backend
-   
-   Returns:
-   Vector of operation maps representing the decomposition, or the original SWAP operation if supported"
-  [swap-op supported-operations]
-  (if (contains? supported-operations :swap)
-    [swap-op]  ; SWAP is native
-    ;; Decompose SWAP into 3 CNOTs
-    (let [target1 (get-in swap-op [:operation-params :target1])
-          target2 (get-in swap-op [:operation-params :target2])]
-      [{:operation-type :cnot :operation-params {:control target1 :target target2}}
-       {:operation-type :cnot :operation-params {:control target2 :target target1}}
-       {:operation-type :cnot :operation-params {:control target1 :target target2}}])))
-
-(defn- decompose-operation
-  "Decompose a operation into a sequence of more primitive operations.
-  
-  Parameters:
-  - operation: operation map to decompose
-  - supported-operations: Set of operation types supported
-
-  Returns:
-  Vector of operation maps representing the decomposition, or the original operation 
-  if no decomposition is available or if it cannot be fully decomposed to supported operations"
-  [operation supported-operations]
-  (let [operation-type (:operation-type operation)
-        operation-params (:operation-params operation)
-        decomposition (gr/get-gate-dependencies operation-type)]
-
-    ;; If the operation is already supported, no need to decompose
-    (if (contains? supported-operations operation-type)
-      [operation]
-
-      ;; If no decomposition available OR cannot be fully decomposed, return original
-      ;; This breaks potential infinite loops
-      (if (or (empty? decomposition)
-              (not (every? #(can-be-fully-decomposed? % supported-operations #{}) decomposition)))
-        [operation]
-
-        ;; Create a sequence of operations based on decomposition
-        (mapv (fn [sub-operation-type]
-                (cond
-                  ;; Handle different operation types and parameters based on the original operation
-                  (= sub-operation-type :rx)
-                  {:operation-type :rx
-                   :operation-params (select-keys operation-params [:target :angle])}
-
-                  (= sub-operation-type :ry)
-                  {:operation-type :ry
-                   :operation-params (select-keys operation-params [:target :angle])}
-
-                  (= sub-operation-type :rz)
-                  {:operation-type :rz
-                   :operation-params (select-keys operation-params [:target :angle])}
-
-                  (= sub-operation-type :x)
-                  {:operation-type :x
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :y)
-                  {:operation-type :y
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :z)
-                  {:operation-type :z
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :h)
-                  {:operation-type :h
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :s)
-                  {:operation-type :s
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :t)
-                  {:operation-type :t
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :cnot)
-                  {:operation-type :cnot
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :cx)
-                  {:operation-type :cx
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :cz)
-                  {:operation-type :cz
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :cy)
-                  {:operation-type :cy
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :s-dag)
-                  {:operation-type :s-dag
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :t-dag)
-                  {:operation-type :t-dag
-                   :operation-params (select-keys operation-params [:target])}
-
-                  (= sub-operation-type :swap)
-                  {:operation-type :swap
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :iswap)
-                  {:operation-type :iswap
-                   :operation-params (select-keys operation-params [:control :target])}
-
-                  (= sub-operation-type :phase)
-                  {:operation-type :phase
-                   :operation-params (select-keys operation-params [:target :angle])}
-
-                  (= sub-operation-type :crx)
-                  {:operation-type :crx
-                   :operation-params (select-keys operation-params [:control :target :angle])}
-
-                  (= sub-operation-type :cry)
-                  {:operation-type :cry
-                   :operation-params (select-keys operation-params [:control :target :angle])}
-
-                  (= sub-operation-type :crz)
-                  {:operation-type :crz
-                   :operation-params (select-keys operation-params [:control :target :angle])}
-
-                  (= sub-operation-type :toffoli)
-                  {:operation-type :toffoli
-                   :operation-params (select-keys operation-params [:control1 :control2 :target])}
-
-                  (= sub-operation-type :fredkin)
-                  {:operation-type :fredkin
-                   :operation-params (select-keys operation-params [:control :target1 :target2])}
-
-                  ;; Default case for unknown operation types
-                  :else {:operation-type sub-operation-type
-                         :operation-params operation-params}))
-              decomposition)))))
-
-(defn- transform-operations
-  "Transform the operations in a circuit to use only supported operations.
-
-  Parameters:
-  - operations: Original vector of operation maps
-  - supported-operations: Set of operation types supported
-  - max-iterations: Maximum decomposition iterations to prevent infinite loops
-  
-  Returns:
-  A vector of transformed operations that are all supported or
-  operations that couldn't be further decomposed"
-  [operations supported-operations max-iterations]
-  (loop [current-operations operations
-         iteration 0
-         processed-operations #{}]  ;; Track operations we've already tried to decompose
-    (if (>= iteration max-iterations)
-      ;; Safety check to prevent infinite loops
-      (throw (ex-info "Maximum iterations reached during circuit transformation"
-                      {:operations current-operations
-                       :iteration iteration}))
-
-      (let [;; Find any operations that need decomposition
-            needs-decomposition? (fn [operation]
-                                   (and (not (contains? processed-operations (:operation-type operation)))
-                                        (not (contains? supported-operations (:operation-type operation)))))
-            unsupported (filterv needs-decomposition? current-operations)]
-
-        (if (empty? unsupported)
-          ;; All operations are either supported or can't be decomposed further
-          current-operations
-
-          ;; Replace the first unsupported operation with its decomposition
-          (let [unsupported-operation (first unsupported)
-                operation-type (:operation-type unsupported-operation)
-                unsupported-index (.indexOf current-operations unsupported-operation)
-                decomposed-operations (decompose-operation unsupported-operation supported-operations)
-
-                ;; Check if the operation was actually decomposed
-                was-decomposed? (not= [unsupported-operation] decomposed-operations)
-
-                ;; If the operation wasn't decomposed, mark it as processed so we don't try again
-                new-processed-operations (if was-decomposed?
-                                           processed-operations
-                                           (conj processed-operations operation-type))
-
-                ;; Create new operations vector with decomposition replacing original operation
-                new-operations (into []
-                                     (concat
-                                      (subvec current-operations 0 unsupported-index)
-                                      decomposed-operations
-                                      (subvec current-operations (inc unsupported-index))))]
-
-            (recur new-operations (inc iteration) new-processed-operations)))))))
 
 (defn transform-circuit
   "Transform a quantum circuit to use only operations supported by a given backend.
@@ -430,7 +51,7 @@
 
          ;; Apply transformation
          transformed-operations (if transform-unsupported?
-                                  (transform-operations original-operations supported-operations max-iterations)
+                                  (gd/transform-operations original-operations supported-operations max-iterations)
                                   original-operations)
 
          ;; Create new circuit with transformed operations
@@ -938,7 +559,7 @@
          physical-to-logical (into {} (map (fn [[l p]] [p l]) logical-to-physical))
 
          ;; Apply the mapping to the circuit operations
-         mapped-operations (mapv #(update-operation-params %
+         mapped-operations (mapv #(cc/update-operation-params %
                                                            (fn [qubit-id]
                                                              (get logical-to-physical qubit-id qubit-id)))
                                  (:operations circuit))
@@ -991,7 +612,7 @@
                                                                                          :target physical-target}}]
                                                        (swap! result-operations conj mapped-op))))
                                                  ;; Single-qubit operation - map directly
-                                                 (let [mapped-op (update-operation-params op
+                                                 (let [mapped-op (cc/update-operation-params op
                                                                                           (fn [qubit-id]
                                                                                             (get @current-mapping qubit-id qubit-id)))]
                                                    (swap! result-operations conj mapped-op)))))
@@ -1142,14 +763,13 @@
         ;; Decompose all SWAP operations
         (let [decomposed-ops (mapcat (fn [op]
                                        (if (= (:operation-type op) :swap)
-                                         (decompose-swap-if-needed op supported-operations)
+                                         (gd/decompose-swap-if-needed op supported-operations)
                                          [op]))
                                      operations-with-swaps)
               updated-circuit (assoc (:quantum-circuit topo-result)
                                      :operations (vec decomposed-ops))]
           (assoc topo-result :quantum-circuit updated-circuit))))))
 
-;; TODO maybe split into multiple namespaces for clarity
 ;; TODO add more tests for all functions
 (defn optimize
   "Correct optimization pipeline that handles gate decomposition properly.
@@ -1173,77 +793,55 @@
   (let [opts (or options {})
         optimize-qubits? (get opts :optimize-qubits? true)
         optimize-topology? (and topology (get opts :optimize-topology? false))
-        transform-operations? (get opts :transform-operations? true)]
+        transform-operations? (get opts :transform-operations? true)
 
-    ;; STEP 1: Qubit optimization FIRST (before topology constraints)
-    #_(println "Step 1: Qubit optimization...")
-    (let [qubit-result (if optimize-qubits?
-                         (optimize-qubit-usage circuit)
-                         {:quantum-circuit circuit
-                          :qubits-saved 0
-                          :original-qubits (:num-qubits circuit)
-                          :optimized-qubits (:num-qubits circuit)})
+        ;; STEP 1: Qubit optimization FIRST (before topology constraints)
+        qubit-result (if optimize-qubits?
+                       (optimize-qubit-usage circuit)
+                       {:quantum-circuit circuit
+                        :qubits-saved 0
+                        :original-qubits (:num-qubits circuit)
+                        :optimized-qubits (:num-qubits circuit)})
 
-          step1-circuit (:quantum-circuit qubit-result)]
+        step1-circuit (:quantum-circuit qubit-result)
 
-      #_(println (str "  - Qubits: " (:original-qubits qubit-result)
-                      " → " (:optimized-qubits qubit-result)
-                      " (saved " (:qubits-saved qubit-result) ")"))
+        ;; STEP 2: Topology optimization with decomposition-aware routing
+        topo-result (if optimize-topology?
+                      (topology-aware-transform step1-circuit topology supported-operations opts)
+                      {:quantum-circuit step1-circuit
+                       :swap-count 0
+                       :total-cost 0})
 
-      ;; STEP 2: Topology optimization with decomposition-aware routing
-      #_(println "Step 2: Topology optimization...")
-      (let [topo-result (if optimize-topology?
-                          (topology-aware-transform step1-circuit topology supported-operations opts)
-                          {:quantum-circuit step1-circuit
-                           :swap-count 0
-                           :total-cost 0})
-
-            step2-circuit (:quantum-circuit topo-result)]
-
-        #_(when optimize-topology?
-            (println (str "  - SWAP operations: " (:swap-count topo-result)))
-            (println (str "  - Routing cost: " (:total-cost topo-result))))
+        step2-circuit (:quantum-circuit topo-result)
 
         ;; STEP 3: Final gate decomposition (including any remaining virtual gates)
-        #_(println "Step 3: Final gate decomposition...")
-        #_(prn step2-circuit)
-        #_(s/explain ::qc/quantum-circuit step2-circuit)
-        (let [final-transform-result (if transform-operations?
-                                       (transform-circuit step2-circuit supported-operations opts)
-                                       {:quantum-circuit step2-circuit
-                                        :transformed-operation-count 0
-                                        :unsupported-operations []})
+        final-transform-result (if transform-operations?
+                                 (transform-circuit step2-circuit supported-operations opts)
+                                 {:quantum-circuit step2-circuit
+                                  :transformed-operation-count 0
+                                  :unsupported-operations []})
 
-              final-circuit (:quantum-circuit final-transform-result)]
+        final-circuit (:quantum-circuit final-transform-result)
 
-          #_(println (str "  - Operations transformed: " (:transformed-operation-count final-transform-result)))
-          #_(when-not (empty? (:unsupported-operations final-transform-result))
-              (println (str "  - Still unsupported: " (:unsupported-operations final-transform-result))))
-
-          ;; STEP 4: Final validation
-          #_(println "Step 4: Validation...")
-          (let [final-gate-types (map :operation-type (:operations final-circuit))
-                unsupported-final (remove #(contains? supported-operations %) final-gate-types)
-                all-supported? (empty? unsupported-final)]
-
-            #_(println (str "  - All gates supported: " all-supported?))
-            #_(when-not all-supported?
-                (println (str "  - Remaining unsupported: " (distinct unsupported-final))))
-
-            ;; Return comprehensive result
-            {:quantum-circuit final-circuit
-             :pipeline-order [:qubit-optimization :topology-optimization :gate-decomposition :validation]
-             :qubit-optimization-result qubit-result
-             :topology-optimization-result topo-result
-             :gate-decomposition-result final-transform-result
-             :all-gates-supported? all-supported?
-             :final-unsupported-gates (vec (distinct unsupported-final))
-             :optimization-summary (str "Circuit optimization:\n"
-                                        "- Original qubits: " (:num-qubits circuit) "\n"
-                                        "- Final qubits: " (:num-qubits final-circuit) "\n"
-                                        "- Original operations: " (count (:operations circuit)) "\n"
-                                        "- Final operations: " (count (:operations final-circuit)) "\n"
-                                        "- All gates supported: " all-supported?)}))))))
+        ;; STEP 4: Final validation
+        final-gate-types (map :operation-type (:operations final-circuit))
+        unsupported-final (remove #(contains? supported-operations %) final-gate-types)
+        all-supported? (empty? unsupported-final)]
+    
+    ;; Return comprehensive result
+    {:quantum-circuit final-circuit
+     :pipeline-order [:qubit-optimization :topology-optimization :gate-decomposition :validation]
+     :qubit-optimization-result qubit-result
+     :topology-optimization-result topo-result
+     :gate-decomposition-result final-transform-result
+     :all-gates-supported? all-supported?
+     :final-unsupported-gates (vec (distinct unsupported-final))
+     :optimization-summary (str "Circuit optimization:\n"
+                                "- Original qubits: " (:num-qubits circuit) "\n"
+                                "- Final qubits: " (:num-qubits final-circuit) "\n"
+                                "- Original operations: " (count (:operations circuit)) "\n"
+                                "- Final operations: " (count (:operations final-circuit)) "\n"
+                                "- All gates supported: " all-supported?)}))
 
 (comment
 
@@ -1313,4 +911,7 @@
   (def ibm-5q-t [[1] [0 2 3] [1 4] [1] [2]])
 
   (println "IBM 5-qubit linear:" (get-topology-info ibm-5q-linear "IBM Linear"))
-  (println "IBM 5-qubit T:" (get-topology-info ibm-5q-t "IBM T-shape")))
+  (println "IBM 5-qubit T:" (get-topology-info ibm-5q-t "IBM T-shape"))
+  
+  ;
+  )

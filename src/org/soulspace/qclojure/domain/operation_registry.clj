@@ -30,12 +30,17 @@
 (s/def ::operation-type operation-types)
 (s/def ::parameter-count nat-int?)
 (s/def ::description string?)
-(s/def ::native-gate? boolean?)
-(s/def ::decomposition (s/coll-of ::operation-id :kind vector?))
+;; Enhanced decomposition system supporting multiple backends and parameterization
+(s/def ::decomposition-spec 
+  (s/or :simple-vector (s/coll-of ::operation-id :kind vector?)
+        :backend-map (s/map-of keyword? (s/coll-of any?))
+        :function-map (s/map-of keyword? fn?)))
+
+(s/def ::decomposition ::decomposition-spec)
 
 (s/def ::operation-definition
   (s/keys :req-un [::operation-id ::operation-type ::description]
-          :opt-un [::parameter-count ::native-gate? ::decomposition]))
+          :opt-un [::parameter-count ::decomposition]))
 
 (s/def ::operation-set (s/coll-of ::operation-id :kind set?))
 
@@ -49,32 +54,34 @@
        :operation-name "X"
        :operation-type :single-qubit
        :description "Pauli-X (NOT) gate - bit flip operation"
-       :native-gate? false
-       :decomposition [:h :cnot :h]}  ;; X = HZH = H(controlled-Z)H
+       :decomposition {:universal [:ry]  ; RY(π) = X
+                      :parametric-fn (fn [_] [[:ry Math/PI]])
+                      :rz-only [:rz :h :rz :h]}}  ; For RZ+H basis
 
    :y {:operation-kind :gate
        :operation-id :y
        :operation-name "Y"
        :operation-type :single-qubit
        :description "Pauli-Y gate - bit flip + phase flip operation"
-       :native-gate? false
-       :decomposition [:t :t :t :h :t :h]}  ;; Y can be decomposed to H and T gates
+       :decomposition {:universal [:s :x :s-dag]  ; S-X-S† = Y
+                      :parametric-fn (fn [_] [[:rz (/ Math/PI 2)] [:ry Math/PI] [:rz (/ Math/PI -2)]])
+                      :t-basis [:t :t :x :t :t :t :t]}}  ; Using T gates
 
    :z {:operation-kind :gate
        :operation-id :z
        :operation-name "Z"
        :operation-type :single-qubit
        :description "Pauli-Z gate - phase flip operation"
-       :native-gate? false
-       :decomposition [:t :t :t :t]}  ;; Z = T^4 (four T gates)
+       :decomposition {:universal [:t :t :t :t]  ; T^4 = Z (correct!)
+                      :parametric-fn (fn [_] [[:rz Math/PI]])
+                      :s-basis [:s :s]}}  ; S^2 = Z
 
    ;; Hadamard gate
    :h {:operation-kind :gate
        :operation-id :h
        :operation-name "H"
        :operation-type :single-qubit
-       :description "Hadamard gate - creates superposition"
-       :native-gate? true}
+       :description "Hadamard gate - creates superposition"}
 
    ;; Phase gates
    :s {:operation-kind :gate
@@ -82,32 +89,29 @@
        :operation-name "S"
        :operation-type :single-qubit
        :description "S gate (π/2 phase gate)"
-       :native-gate? false
-       :decomposition [:rz]}
+       :decomposition {:universal [:t :t]                       ; T^2 = S
+                      :parametric-fn (fn [_] [[:rz (/ Math/PI 2)]])}}
 
    :s-dag {:operation-kind :gate
            :operation-id :s-dag
            :operation-name "S†"
            :operation-type :single-qubit
            :description "S† gate (−π/2 phase gate)"
-           :native-gate? false
-           :decomposition [:rz]}
+           :decomposition {:universal [:t-dag :t-dag]
+                          :parametric-fn (fn [_] [[:rz (/ Math/PI -2)]])}}
 
    :t {:operation-kind :gate
        :operation-id :t
        :operation-name "T"
        :operation-type :single-qubit
-       :description "T gate (π/4 phase gate)"
-       :native-gate? false
-       :decomposition [:rz]}
+       :description "T gate (π/4 phase gate)"}
 
    :t-dag {:operation-kind :gate
            :operation-id :t-dag
            :operation-name "T†"
            :operation-type :single-qubit
            :description "T† gate (−π/4 phase gate)"
-           :native-gate? false
-           :decomposition [:rz]}
+           :decomposition {:parametric-fn (fn [_] [[:rz (/ Math/PI -4)]])}}
 
    ;; Parametric rotation gates
    :rx {:operation-kind :gate
@@ -116,8 +120,8 @@
         :operation-type :parametric
         :parameter-count 1
         :description "Rotation around X-axis"
-        :native-gate? false
-        :decomposition [:h :t :h]}    ;; RX can be built from H-T-H sequence
+        :decomposition {:universal-fn (fn [theta] [[:h] [:rz theta] [:h]])
+                       :ry-rz-fn (fn [theta] [[:ry (/ Math/PI 2)] [:rz theta] [:ry (/ Math/PI -2)]])}}
 
    :ry {:operation-kind :gate
         :operation-id :ry
@@ -125,17 +129,14 @@
         :operation-type :parametric
         :parameter-count 1
         :description "Rotation around Y-axis"
-        :native-gate? false
-        :decomposition [:rx :rz]}
+        :decomposition {:universal-fn (fn [theta] [[:rx (/ Math/PI 2)] [:rz theta] [:rx (/ Math/PI -2)]])}}
 
    :rz {:operation-kind :gate
         :operation-id :rz
         :operation-name "RZ"
         :operation-type :parametric
         :parameter-count 1
-        :description "Rotation around Z-axis"
-        :native-gate? false
-        :decomposition [:h :cnot :t :cnot :h]}  ;; RZ can be implemented with universal gates
+        :description "Rotation around Z-axis"}
 
    :phase {:operation-kind :gate
            :operation-id :phase
@@ -144,7 +145,6 @@
            :parameter-count 1
            :parameters [:theta]
            :description "Arbitrary phase gate"
-           :native-gate? false
            :decomposition [:rz]}
 
    ;; Two-qubit gates
@@ -152,40 +152,56 @@
           :operation-id :cnot
           :operation-name "CNOT"
           :operation-type :two-qubit
-          :description "Controlled-NOT gate"
-          :native-gate? true}
+          :description "Controlled-NOT gate"}
 
    :cz {:operation-kind :gate
         :operation-id :cz
         :operation-name "CZ"
         :operation-type :two-qubit
         :description "Controlled-Z gate"
-        :native-gate? false
-        :decomposition [:cnot :h]}
+        :decomposition {:cnot-h [[:h :target] [:cnot :control :target] [:h :target]]}}
 
    :cy {:operation-kind :gate
         :operation-id :cy
         :operation-name "CY"
         :operation-type :two-qubit
         :description "Controlled-Y gate"
-        :native-gate? false
-        :decomposition [:cnot :ry :rx]}
+        :decomposition {:cnot-s [[:s-dag :target] [:cnot :control :target] [:s :target]]}}
 
    :swap {:operation-kind :gate
           :operation-id :swap
           :operation-name "SWAP"
           :operation-type :two-qubit
           :description "SWAP gate - exchanges two qubits"
-          :native-gate? false
-          :decomposition [:cnot]}
+          :decomposition {:cnot [[:cnot :target1 :target2] 
+                                [:cnot :target2 :target1] 
+                                [:cnot :target1 :target2]]
+                         :cz-h [{:gate :h :target :target2}
+                                {:gate :cz :control :target1 :target :target2}
+                                {:gate :h :target :target2}
+                                {:gate :h :target :target1}
+                                {:gate :cz :control :target2 :target :target1}
+                                {:gate :h :target :target1}
+                                {:gate :h :target :target2}
+                                {:gate :cz :control :target1 :target :target2}
+                                {:gate :h :target :target2}]
+                         :braket-rigetti [{:gate :h :target :target2}
+                                         {:gate :cz :control :target1 :target :target2}
+                                         {:gate :h :target :target2}
+                                         {:gate :h :target :target1}
+                                         {:gate :cz :control :target2 :target :target1}
+                                         {:gate :h :target :target1}
+                                         {:gate :h :target :target2}
+                                         {:gate :cz :control :target1 :target :target2}
+                                         {:gate :h :target :target2}]}}
 
    :iswap {:operation-kind :gate
            :operation-id :iswap
            :operation-name "iSWAP"
            :operation-type :two-qubit
            :description "iSWAP gate - swap with phase"
-           :native-gate? false
-           :decomposition [:cnot :rz]}
+           :decomposition {:cnot-s [[:s :target1] [:s :target2] [:h :target1] [:cnot :target1 :target2] 
+                                   [:cnot :target2 :target1] [:h :target2]]}}
 
    ;; Parametric two-qubit gates
    :crx {:operation-kind :gate
@@ -195,7 +211,6 @@
          :parameter-count 1
          :parameters [:theta]
          :description "Controlled rotation around X-axis"
-         :native-gate? false
          :decomposition [:cnot :rx]}
 
    :cry {:operation-kind :gate
@@ -205,7 +220,6 @@
          :parameter-count 1
          :parameters [:theta]
          :description "Controlled rotation around Y-axis"
-         :native-gate? false
          :decomposition [:cnot :ry]}
 
    :crz {:operation-kind :gate
@@ -215,7 +229,6 @@
          :parameter-count 1
          :parameters [:theta]
          :description "Controlled rotation around Z-axis"
-         :native-gate? false
          :decomposition [:cnot :rz]}
 
    ;; Multi-qubit gates
@@ -224,16 +237,30 @@
              :operation-name "Toffoli"
              :operation-type :multi-qubit
              :description "Toffoli gate (CCX) - doubly controlled NOT"
-             :native-gate? false
-             :decomposition [:cnot :h :t]}
+             :decomposition {:cnot-t [[:h :target]
+                                     [:cnot :control2 :target]
+                                     [:t-dag :target]
+                                     [:cnot :control1 :target]
+                                     [:t :target]
+                                     [:cnot :control2 :target]
+                                     [:t-dag :target]
+                                     [:cnot :control1 :target]
+                                     [:t :control2]
+                                     [:t :target]
+                                     [:cnot :control1 :control2]
+                                     [:h :target]
+                                     [:t :control1]
+                                     [:t-dag :control2]
+                                     [:cnot :control1 :control2]]}}
 
    :fredkin {:operation-kind :gate
              :operation-id :fredkin
              :operation-name "Fredkin"
              :operation-type :multi-qubit
              :description "Fredkin gate (CSWAP) - controlled SWAP"
-             :native-gate? false
-             :decomposition [:cnot :toffoli]}
+             :decomposition {:cnot-toffoli [[:cnot :target2 :target1] 
+                                           [:toffoli :control :target1 :target2] 
+                                           [:cnot :target2 :target1]]}}
    
    ;; Measurement operations
    ;; TODO add measurement ops
@@ -264,6 +291,21 @@
 (def trapped-ion-hardware-gates
   "Typical gate set for trapped ion quantum processors."
   #{:x :y :z :h :rx :ry :rz :cnot :swap})
+
+;; Hardware-specific gate sets (Amazon Braket examples)
+(def braket-ionq-gates
+  "Native gates for IonQ devices on Amazon Braket"
+  #{:rx :ry :rz :cnot})
+
+(def braket-rigetti-gates  
+  "Native gates for Rigetti devices on Amazon Braket"
+  #{:i :rx :ry :rz :cz :h})
+
+(def braket-simulator-gates
+  "Gates supported by Braket simulators"
+  #{:i :x :y :z :h :s :s-dag :t :t-dag 
+    :rx :ry :rz :cnot :cx :cz :cy :swap
+    :iswap :crx :cry :crz :toffoli :fredkin})
 
 ;; Utility functions
 ;; Gate alias system
@@ -368,15 +410,30 @@
        (map key)
        (into #{})))
 
-(defn get-native-gates
-  "Get all gates marked as native (hardware-implementable).
+;;; Hardware-specific utility functions
+
+(defn get-native-gates-for-hardware
+  "Get native gates for a specific hardware platform.
   
-  Returns: Set of gate names that are typically native to hardware"
-  []
-  (->> operation-catalog
-       (filter #(:native-gate? (val %)))
-       (map key)
-       (into #{})))
+  Parameters:
+  - hardware-key: Keyword identifying the hardware platform
+  
+  Returns: Set of gate names native to that hardware, or nil if unknown
+  
+  Example:
+  (get-native-gates-for-hardware :braket-ionq) ;=> #{:rx :ry :rz :cnot}"
+  [hardware-key]
+  (case hardware-key
+    :braket-ionq braket-ionq-gates
+    :braket-rigetti braket-rigetti-gates
+    :braket-simulator braket-simulator-gates
+    :superconducting superconducting-hardware-gates
+    :trapped-ion trapped-ion-hardware-gates
+    :universal universal-gate-set
+    :basic basic-gate-set
+    :parametric parametric-gate-set
+    :native-simulator native-simulator-gates
+    nil))
 
 (defn get-gate-dependencies
   "Get the decomposition dependencies for a gate.
@@ -386,7 +443,103 @@
   
   Returns: Vector of gate names this gate decomposes into, or empty if native"
   [gate-name]
-  (get-in operation-catalog [gate-name :decomposition] []))
+  (let [decomp (get-in operation-catalog [gate-name :decomposition])]
+    (cond
+      ;; If it's a map, try parametric first (for more fundamental gates), then universal
+      (map? decomp) 
+      (let [universal (:universal decomp)
+            parametric-fn (:parametric-fn decomp)
+            ;; Try parametric decomposition first for more fundamental gates
+            parametric-deps (when parametric-fn
+                              (try
+                                (let [dummy-params {:target 0}
+                                      param-result (parametric-fn dummy-params)]
+                                  ;; Extract gate keywords from parametric result
+                                  ;; Handle both [[:gate angle]] and [:gate] formats
+                                  (mapv #(if (vector? %) (first %) %) param-result))
+                                (catch Exception _ nil)))]
+        (or parametric-deps universal []))
+      ;; If it's a vector, return it
+      (vector? decomp) decomp
+      ;; Otherwise empty
+      :else [])))
+
+;; Enhanced decomposition functions
+(defn get-decomposition-for-target
+  "Get decomposition for a specific target gate set.
+  
+  Parameters:
+  - gate-name: Gate to decompose
+  - target-set: Target hardware gate set keyword or set of gates
+  - params: Optional parameters for parametric gates
+  
+  Returns: Vector of decomposed gates or nil if not possible"
+  [gate-name target-set & [params]]
+  (let [gate-info (get operation-catalog gate-name)
+        decompositions (:decomposition gate-info)
+        target-gates (if (keyword? target-set)
+                       (case target-set
+                         :braket-ionq braket-ionq-gates
+                         :braket-rigetti braket-rigetti-gates
+                         :braket-simulator braket-simulator-gates
+                         :superconducting superconducting-hardware-gates
+                         :trapped-ion trapped-ion-hardware-gates
+                         :universal universal-gate-set
+                         #{})
+                       target-set)]
+    (cond
+      ;; Gate is already in target set
+      (contains? target-gates gate-name) 
+      [[gate-name params]]
+      
+      ;; No decomposition available
+      (nil? decompositions)
+      nil
+      
+      ;; Try target-specific function decomposition
+      (and params (keyword? target-set) (get decompositions (keyword (str (name target-set) "-fn"))))
+      ((get decompositions (keyword (str (name target-set) "-fn"))) (first params))
+      
+      ;; Try parametric function decomposition
+      (and params (:parametric-fn decompositions))
+      ((:parametric-fn decompositions) (first params))
+      
+      ;; Try universal function decomposition  
+      (and params (:universal-fn decompositions))
+      ((:universal-fn decompositions) (first params))
+      
+      ;; Try specific target decomposition
+      (and (keyword? target-set) (get decompositions target-set))
+      (get decompositions target-set)
+      
+      ;; Try universal decomposition
+      (:universal decompositions)
+      (:universal decompositions)
+      
+      ;; If decomposition is just a vector, return it
+      (vector? decompositions)
+      decompositions
+      
+      ;; No decomposition available
+      :else nil)))
+
+(defn decompose-circuit-for-hardware
+  "Decompose a quantum circuit for specific hardware.
+  
+  Parameters:
+  - circuit: Vector of [gate-name & params] operations
+  - target-gates: Set of native gates for target hardware or keyword
+  
+  Returns: Decomposed circuit or throws if decomposition impossible"
+  [circuit target-gates]
+  (mapcat (fn [[gate-name & params]]
+            (let [decomp (get-decomposition-for-target gate-name target-gates params)]
+              (if decomp
+                decomp
+                (throw (ex-info "Cannot decompose gate for target hardware"
+                               {:gate gate-name
+                                :target-gates target-gates})))))
+          circuit))
 
 (defn expand-gate-set
   "Expand a gate set to include all decomposition dependencies.
@@ -410,17 +563,23 @@
         (recur (set/union expanded new-deps)
                (concat remaining new-deps))))))
 
-(defn minimal-native-set
-  "Find the minimal set of native gates needed to implement a gate set.
+(defn minimal-native-set-for-hardware
+  "Find the minimal set of native gates needed to implement a gate set on specific hardware.
   
   Parameters:
-  - gate-set: Set of gate keywords
+  - gate-set: Set of gate keywords  
+  - hardware-key: Keyword identifying the target hardware platform
   
-  Returns: Minimal set of native gates needed"
-  [gate-set]
+  Returns: Minimal set of native gates needed for that hardware, or empty set if hardware unknown
+  
+  Example:
+  (minimal-native-set-for-hardware #{:x :y :z} :braket-ionq) ;=> #{:rx :ry :rz}"
+  [gate-set hardware-key]
   (let [expanded (expand-gate-set gate-set)
-        native-gates (get-native-gates)]
-    (set/intersection expanded native-gates)))
+        native-gates (get-native-gates-for-hardware hardware-key)]
+    (if native-gates
+      (set/intersection expanded native-gates)
+      #{})))
 
 ;; Specs for validation
 (s/fdef get-gate-info
@@ -439,8 +598,60 @@
   :args (s/cat :operation-set ::operation-set)
   :ret ::operation-set)
 
+(s/fdef get-native-gates-for-hardware
+  :args (s/cat :hardware-key keyword?)
+  :ret (s/nilable ::operation-set))
+
+(s/fdef minimal-native-set-for-hardware
+  :args (s/cat :operation-set ::operation-set :hardware-key keyword?)
+  :ret ::operation-set)
+
 (comment
+  ;; DESIGN NOTES: Native Gates and Hardware Specificity
+  ;;
+  ;; Previously, this registry had a `native-gate?` attribute for each gate,
+  ;; but this was fundamentally flawed because "nativeness" is not a property
+  ;; of gates—it's a property of backend-gate combinations.
+  ;;
+  ;; PROBLEMS WITH THE OLD DESIGN:
+  ;; 1. H gate was marked `native-gate? true` globally
+  ;;    BUT H is NOT native on IonQ devices (only RX, RY, RZ, CNOT)
+  ;; 2. T gate was marked `native-gate? true` globally  
+  ;;    BUT T is NOT native on IonQ (they use rotation gates)
+  ;; 3. The `get-native-gates()` function gave wrong information
+  ;; 4. The `minimal-native-set()` function was misleading
+  ;;
+  ;; NEW DESIGN:
+  ;; - Removed `native-gate?` attribute entirely
+  ;; - Use hardware-specific gate sets (braket-ionq-gates, etc.)
+  ;; - `get-native-gates-for-hardware()` takes a hardware keyword
+  ;; - `minimal-native-set-for-hardware()` is hardware-specific
+  ;;
+  ;; EXAMPLES:
+  ;; (get-native-gates-for-hardware :braket-ionq)     ;=> #{:rx :ry :rz :cnot}
+  ;; (get-native-gates-for-hardware :braket-rigetti)  ;=> #{:i :rx :ry :rz :cz :h}
+  ;;
+  ;; This correctly reflects that H is native on Rigetti but not IonQ.
   
+  ;; Example usage of the improved design:
+  ;; 
+  ;; Check what gates are native on specific hardware:
+  (get-native-gates-for-hardware :braket-ionq)
+  ;=> #{:rx :ry :rz :cnot}
+  
+  (get-native-gates-for-hardware :braket-rigetti)  
+  ;=> #{:i :rx :ry :rz :cz :h}
+  
+  ;; Find minimal native gates needed for a circuit on specific hardware:
+  (minimal-native-set-for-hardware #{:x :y :z :h} :braket-ionq)
+  ;=> #{:ry}  ; X,Y,Z can be decomposed to RY rotations
+  
+  (minimal-native-set-for-hardware #{:x :y :z :h} :braket-rigetti)
+  ;=> #{:h :ry}  ; H is native on Rigetti, need RY for Pauli gates
+  
+  ;; Check gate support correctly:
+  (contains? (get-native-gates-for-hardware :braket-ionq) :h)     ;=> false
+  (contains? (get-native-gates-for-hardware :braket-rigetti) :h)  ;=> true
   
   ;
   )

@@ -8,6 +8,9 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]))
 
+;;;
+;;; Quantum gate tests
+;;;
 (deftest test-pauli-gates
   (testing "Pauli-X gate flips qubit states"
     (let [|0⟩ (qs/zero-state 1)

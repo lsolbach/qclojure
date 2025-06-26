@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* implemented HL algorithm for hermitian n x n matrices
 
 ## Version 0.2.0
 * added a noisy simulator backend to simulate errors of real quantum hardware

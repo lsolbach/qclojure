@@ -7,7 +7,6 @@
 
 ## Backlog
 * add parameters to the decomposition rules in the operation registry
-* implement HHL algorithm
 * use :operation-registry/operation-id instead of ::operation-type in circuit
   and other namespaces
 * track qubit mapping on circuit tansformations

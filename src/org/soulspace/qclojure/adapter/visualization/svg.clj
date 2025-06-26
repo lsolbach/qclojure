@@ -180,7 +180,7 @@
 
 (defmethod viz/visualize-circuit :svg
   [_format circuit & {:keys [width gate-spacing qubit-spacing show-measurements interactive]
-            :or {width 800 gate-spacing 80 qubit-spacing 60 show-measurements true interactive true}}]
+            :or {width 800 gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
 
 (let [n-qubits (:num-qubits circuit)
       operations (:operations circuit)

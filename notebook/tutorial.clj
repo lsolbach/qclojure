@@ -1,10 +1,11 @@
 
-;; # Clojure Quantum Computing Tutorial
+;; # QClojure Quantum Computing Tutorial
 ;; This is a simple tutorial to demonstrate the use of the
 ;; [QClojure](https://github.com/soulspace/qclojure) library.
-;; It covers the creation of quantum states, gates, and circuits.
+;; It covers the creation of quantum states, gates, and circuits and the excution of
+;; quantum and hybrid algorithms on a QClojure backend.
 ;;
-;; ## Introduction
+;; ## Introduction to Quantum Computing
 ;; Quantum computing is a fascinating field that combines computer science, physics, and mathematics.
 ;; It allows us to perform computations that are not possible with classical computers.
 ;; Quantum computers use quantum bits, or [qubits](https://en.wikipedia.org/wiki/Qubit), which can be in a superposition of states.
@@ -19,17 +20,32 @@
 ;; Quantum gates manipulate the state of qubits and can be combined to create quantum circuits.
 ;; Quantum circuits are sequences of quantum gates applied to qubits, similar to classical logic circuits.
 ;;
+;; For a general introduction to quantum computing, take a look at
+;; [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
+;;
+;; ## QClojure
 ;; The QClojure library provides a Clojure interface to quantum computing concepts.
 ;; It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style.
 ;; QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware.
 ;; This tutorial will guide you through the basics of quantum computing using QClojure.
 ;;
-;; For a general introduction to quantum computing, take a look at
-;; [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
+;; 
+;; ### Usage
+;; To use QClojure, you have to include it as a dependency in your Clojure project.
 ;;
-;; ## Imports
+;; If you are using Leiningen, add the following dependency to your `project.clj` file:
+;; ```clojure
+;; [org.soulspace/qclojure "0.2.0"]
+;; ```
+;;
+;; If you are using Clojure CLI, add the following to your `deps.edn` file:
+;; ```clojure
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.2.0"}}}
+;; ```
+;;
+;; ### Imports
 ;; We use kindly to visualize the output of our code.
-;; Then we import the relevant namespaces for the domain concepts of the Qclojure library.
+;; Then we import the relevant namespaces for the domain concepts of the QClojure library.
 ;; The `state` namespace provides functions to create and manipulate quantum states.
 ;; The `gate` namespace provides functions to create quantum gates.
 ;; The `circuit` namespace provides functions to create and manipulate quantum circuits.
@@ -57,7 +73,7 @@
 ;; A classic bit can be in one of two states, 0 or 1, but a qubit can be in a superposition of both states.
 ;; This means that a qubit can represent 0, 1, or both at the same time, with different probabilities.
 ;;
-;; ## Measurement
+;; ### Measurement
 ;; Measurement is the process of extracting classical information from a quantum state.
 ;; The measurement process is probabilistic, and the probability of measuring
 ;; a certain state depends on the amplitudes of the basis states in the quantum state.

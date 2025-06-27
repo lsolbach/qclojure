@@ -34,11 +34,13 @@
 ;; To use QClojure, you have to include it as a dependency in your Clojure project.
 ;;
 ;; If you are using Leiningen, add the following dependency to your `project.clj` file:
+;;
 ;; ```clojure
 ;; [org.soulspace/qclojure "0.2.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
+;;
 ;; ```clojure
 ;; {:deps {org.soulspace/qclojure {:mvn/version "0.2.0"}}}
 ;; ```

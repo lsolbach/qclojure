@@ -285,7 +285,7 @@ qg/hadamard
 
 (kind/html (viz/visualize-quantum-state :svg ghz-state))
 
-;; The probability distribution shows that the GHZ state is in a superposition of the states |000⟩, |111⟩, and |110⟩.
+;; The probability distribution shows that the GHZ state is in a superposition of the states |000⟩ and |111⟩.
 ;;
 ;; ## Backends
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.
@@ -313,7 +313,7 @@ qg/hadamard
 
 ;; When executing a circuit on a backend, it will be executed multiple times,
 ;; because of the probabilistic nature of quantum computing. One execution of the
-;; circuit is called a *shot*. The default number of shots is 1024, but it can be
+;; circuit is called a *shot*. The default number of shots is 512, but it can be
 ;; configured via an options map.
 
 (qb/execute-circuit simulator (qc/ghz-state-circuit 3) {:shots 10})
@@ -332,34 +332,37 @@ qg/hadamard
 
 ;;
 ;; ## Algorithms
-;; QClojure comes with a set of predefined quantum algorithms that can be used to solve specific problems.
-;; These algorithms are implemented as quantum circuits and can be executed on quantum hardware or simulated using the simulator backend.
+;; QClojure comes with a set of predefined quantum algorithms that can be used
+;; to solve specific problems.
+;; These algorithms are implemented as quantum circuits and can be executed on
+;; quantum hardware or simulated using the simulator backend.
+;;
 ;; Some of the algorithms include:
-;; - [Deutsch algorithm](https://en.wikipedia.org/wiki/Deutsch_algorithm)
-;; - [Simon's algorithm](https://en.wikipedia.org/wiki/Simon's_algorithm)
-;; - [Bernstein-Vazirani algorithm](https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm)
+;; - 
 ;; - [Grover's algorithm](https://en.wikipedia.org/wiki/Grover%27s_algorithm)
 ;; - [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm)
 ;; - [Quantum Fourier Transform](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
 ;; - [Quantum Phase Estimation](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
 ;;
+;;
+;;
 ;; ### Deutsch Algorithm
-;; The Deutsch algorithm is a quantum algorithm that determines whether a function
-;; is constant or balanced.
+;; The [Deutsch algorithm](https://en.wikipedia.org/wiki/Deutsch_algorithm) is
+;; a quantum algorithm that determines whether a function is constant or balanced.
 ;; It uses a quantum circuit to evaluate the function with only one query,
 ;; compared to two queries needed for classical algorithms.
 ;; The quantum circuit uses an oracle to implement the function and applies a
 ;; Hadamard gate to the input qubit.
 ;;
 ;; #### Problem Statement
-;; Given a function f: {0, 1} \to {0, 1}, the goal is to determine if f is constant
+;; Given a function f: {0, 1} → {0, 1}, the goal is to determine if f is constant
 ;; (returns the same value for both inputs) or balanced (returns 0 for one input
 ;; and 1 for the other).
 ;;
 ;; #### Classical Approach
 ;; In a classical setting, we would need to evaluate the function f twice:
 ;; - If f(0) = f(1), then f is constant.
-;; - If f(0) \neq f(1), then f is balanced.
+;; - If f(0) != f(1), then f is balanced.
 ;;
 ;; #### Quantum Approach
 ;; The Deutsch algorithm allows us to determine the nature of the function with
@@ -381,7 +384,7 @@ qg/hadamard
 ;; Lets define a constant function and a balanced function first.
 
 (def constant-fn (fn [x] true))  ; Constant function: f(x) = 1
-(def balanced-fn (fn [x] x))      ; Balanced function: f(x) = x
+(def balanced-fn (fn [x] x))     ; Balanced function: f(x) = x
 
 ;; Now we can create the circuit for the Deutsch algorithm for the constant function.
 
@@ -439,7 +442,8 @@ deutsch-balanced-result
 (kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :final-state])))
 
 ;; ### Bernstein-Vazirani Algorithm
-;; The Bernstein-Vazirani algorithm is a powerful quantum algorithm that can be
+;; The [Bernstein-Vazirani algorithm](https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm)
+;; is a powerful quantum algorithm that can be
 ;; used to solve problems that are difficult for classical computers.
 ;; It is a quantum algorithm that determines a hidden binary string using a
 ;; quantum circuit to evaluate the function with only one query, compared to
@@ -449,8 +453,8 @@ deutsch-balanced-result
 ;; a Hadamard gate to the input qubit.
 ;;
 ;; #### Problem Statement
-;; Given a function f: {0, 1}ⁿ → {0, 1} defined as f(x) = s \cdot x
-;; (where s is a hidden string and \cdot denotes the dot product),
+;; Given a function f: {0, 1}ⁿ → {0, 1} defined as f(x) = s ⨯ x
+;; (where s is a hidden string and ⨯ denotes the dot product),
 ;; the goal is to find the hidden string s using as few evaluations of f as possible.
 ;;
 ;; #### Classical Approach
@@ -512,11 +516,13 @@ bv-result
 
 (kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 
-;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly identifies the hidden binary string.
-;; The final quantum state is a superposition of the states that represent the hidden binary string.
+;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly
+;; identifies the hidden binary string. The final quantum state is a superposition
+;; of the states that represent the hidden binary string.
 ;;
 ;; ### Simon's Algorithm
-;; Simon's algorithm solves the hidden subgroup problem for the group (Z₂)ⁿ.
+;; [Simon's algorithm](https://en.wikipedia.org/wiki/Simon's_algorithm) solves
+;; the hidden subgroup problem for the group (Z₂)ⁿ.
 ;; Given a function f: {0,1}ⁿ → {0,1}ⁿ that is either one-to-one or two-to-one,
 ;; and if two-to-one then f(x) = f(x ⊕ s) for some hidden string s ≠ 0ⁿ,
 ;; the algorithm finds s with exponential speedup over classical methods.

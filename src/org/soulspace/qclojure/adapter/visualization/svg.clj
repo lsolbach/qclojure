@@ -38,7 +38,7 @@
                      (coord/isometric-projection x3d y3d z3d [center center] radius))
 
         ;; Reference states
-        reference-states (coord/reference-state-coordinates)
+        reference-states coord/reference-state-coordinates
 
         ;; Sphere outline (wireframe)
         wireframe (coord/generate-sphere-wireframe 8 8 32)
@@ -131,7 +131,7 @@
                                     "\nState: " (:state-expression display-data))]]
                       ;; State label with shadow for better visibility
                       [:text {:x (+ state-x 14) :y (- state-y 14)
-                             :font-size "18" :fill "#4c1d95" :font-weight "bold" :stroke "#ffffff" :stroke-width 0.8 :paint-order "stroke"}
+                              :font-size "18" :fill "#4c1d95" :font-weight "bold" :stroke "#ffffff" :stroke-width 0.8 :paint-order "stroke"}
                        "ψ"]]
 
         ;; Coordinate information

@@ -315,12 +315,11 @@
   Returns:
   Vector of maps with :label and :distance for each reference state"
   [coords & {:keys [precision] :or {precision 2}}]
-  (let [reference-states (coord/reference-state-coordinates)]
-    (mapv (fn [[label ref-coords]]
-            (let [dist (coord/bloch-distance coords ref-coords)]
-              {:label label
-               :distance (qmath/round-precision dist precision)}))
-          reference-states)))
+  (mapv (fn [[label ref-coords]]
+          (let [dist (coord/bloch-distance coords ref-coords)]
+            {:label label
+             :distance (qmath/round-precision dist precision)}))
+        coord/reference-state-coordinates))
 
 (defn format-reference-distances
   "Format reference state distances as display text.

@@ -83,8 +83,8 @@ final state.
 ![Visualization of the Bell circuit](/doc/images/bell-circuit.svg)
 ![Visualization of the probabilities of the Bell state](/doc/images/bell-state.svg)
 
-## Examples
-Some examples are provided in the [examples](/examples) folder.
+## Tutorial
+To learn about quantum computing with QClojure please take a look at the [tutorial](/notebook/tutorial.clj).
 
 ## Build
 QClojure is currently build with [Leiningen](https://leiningen.org/).

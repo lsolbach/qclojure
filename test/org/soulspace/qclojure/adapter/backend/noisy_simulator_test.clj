@@ -1,6 +1,6 @@
 (ns org.soulspace.qclojure.adapter.backend.noisy-simulator-test
   "Comprehensive tests for the local noisy simulator backend."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures run-tests]]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy]
@@ -438,3 +438,7 @@
           (is (= :completed (:job-status result)) "Should handle zero shots")
           (is (= 0 (:shots-executed result)) "Should execute zero shots"))))))
 
+(comment
+  (run-tests)
+  ;
+  )

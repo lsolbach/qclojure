@@ -246,13 +246,16 @@
     ;; Single Kraus operator case - apply directly
     (apply-single-qubit-kraus-operator state (first kraus-operators) qubit-index)
     ;; Multiple Kraus operators - select based on probabilities from coefficients
-    (let [;; Calculate probabilities from Kraus operator coefficients (|coefficient|²)
+    (let [;; Calculate probabilities from Kraus operator coefficients (max |coefficient|²)
           probabilities (mapv (fn [kraus-op]
-                                (let [matrix (:matrix kraus-op)
-                                      coeff (first (first matrix)) ; Get coefficient from [0,0] element
-                                      prob (+ (* (fc/re coeff) (fc/re coeff)) 
-                                              (* (fc/im coeff) (fc/im coeff)))]
-                                  prob)) kraus-operators)
+                                (let [matrix (:matrix kraus-op)]
+                                  ;; Find maximum coefficient magnitude squared from the matrix
+                                  (apply max (map (fn [row]
+                                                    (apply max (map (fn [coeff]
+                                                                      (+ (* (fc/re coeff) (fc/re coeff)) 
+                                                                         (* (fc/im coeff) (fc/im coeff))))
+                                                                    row)))
+                                                  matrix)))) kraus-operators)
           ;; Generate random number for selection
           rand-val (rand)
           ;; Select Kraus operator based on cumulative probabilities

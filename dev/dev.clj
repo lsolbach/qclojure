@@ -4,9 +4,7 @@
 
 (comment ; Clay 
   (clay/make! {:base-source-path "notebook"
-               :source-path ["qclojure.clj"
-                             "quantum_computing.clj"
-                             "tutorial.clj"]
+               :source-path ["tutorial.clj"]
                :format [:html]
                :title "QClojure Docs"
                :hide-ui-header true

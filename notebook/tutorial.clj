@@ -111,7 +111,6 @@ qs/|1⟩
 ;;
 ;; Let's look at the quantum state |+⟩, which is a superposition of the ground and excited states.
 ;; The state |+⟩ is defined as (|0⟩ + |1⟩) / √2.
-;; The quantum state |+⟩ is a superposition of the ground and excited states.
 
 qs/|+⟩
 
@@ -119,7 +118,8 @@ qs/|+⟩
 
 (kind/html (viz/visualize-quantum-state :svg qs/|+⟩))
 
-;; The Bloch sphere representation shows that the state |+⟩ is on the equator of the sphere.
+;; The Bloch sphere representation shows that the state |+⟩ is on the equator of the sphere,
+;; which means, that the probabilities for measuring 0 or 1 are the same.
 
 (kind/html (viz/visualize-bloch-sphere :svg qs/|+⟩))
 
@@ -288,11 +288,37 @@ qg/hadamard
 ;; - [Quantum Phase Estimation](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
 ;;
 ;; ### Deutsch Algorithm
-;; The Deutsch algorithm is a quantum algorithm that determines whether a function is constant or balanced.
-;; It uses a quantum circuit to evaluate the function with only one query, compared to two queries needed for classical algorithms.
-;; The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.
+;; The Deutsch algorithm is a quantum algorithm that determines whether a function
+;; is constant or balanced.
+;; It uses a quantum circuit to evaluate the function with only one query,
+;; compared to two queries needed for classical algorithms.
+;; The quantum circuit uses an oracle to implement the function and applies a
+;; Hadamard gate to the input qubit.
 ;;
-;; To examine the Deutsch algorithm, we need to require the `deutsch` namespace from the `application.algorithm` package.
+;; #### Problem Statement
+;; Given a function f: {0, 1} \to {0, 1}, the goal is to determine if f is constant
+;; (returns the same value for both inputs) or balanced (returns 0 for one input
+;; and 1 for the other).
+;;
+;; #### Classical Approach
+;; In a classical setting, we would need to evaluate the function f twice:
+;; - If f(0) = f(1), then f is constant.
+;; - If f(0) \neq f(1), then f is balanced.
+;;
+;; #### Quantum Approach
+;; The Deutsch algorithm allows us to determine the nature of the function with
+;; only one evaluation by leveraging quantum superposition and interference.
+;;
+;; #### Quantum Circuit
+;; The Deutsch algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize a qubit in the state |0⟩ and an auxiliary qubit in the state |1⟩.
+;; 2. Apply a Hadamard gate to both qubits to create superposition.
+;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
+;; 4. Apply another Hadamard gate to the first qubit.
+;; 5. Measure the first qubit.
+;;
+;; To examine the Deutsch algorithm, we need to require the `deutsch` namespace
+;; from the `application.algorithm` package.
 
 (require '[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])
 
@@ -363,14 +389,40 @@ deutsch-balanced-result
 ;; quantum circuit to evaluate the function with only one query, compared to
 ;; n queries needed for classical algorithms.
 ;;
-;; The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.
-;; To examine the Bernstein-Vazirani algorithm, we need to require the `bernstein-vazirani` namespace from the `application.algorithm` package.
+;; The quantum circuit uses an oracle to implement the function and applies
+;; a Hadamard gate to the input qubit.
+;;
+;; #### Problem Statement
+;; Given a function f: {0, 1}ⁿ → {0, 1} defined as f(x) = s \cdot x
+;; (where s is a hidden string and \cdot denotes the dot product),
+;; the goal is to find the hidden string s using as few evaluations of f as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, we would need to evaluate the function f multiple times
+;; to determine the hidden string s. The number of evaluations required can grow
+;; linearly with the size of the input.
+;;
+;; #### Quantum Approach
+;; The Bernstein-Vazirani algorithm allows us to find the hidden string s with
+;; only one evaluation by leveraging quantum superposition and interference.
+;;
+;; #### Quantum Circuit
+;; The Bernstein-Vazirani algorithm can be implemented using a quantum circuit
+;; with the following steps:
+;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
+;; 2. Apply a Hadamard gate to all n qubits to create superposition.
+;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
+;; 4. Apply another Hadamard gate to all n qubits.
+;; 5. Measure the qubits to obtain the hidden string s.
+;;
+;; To examine the Bernstein-Vazirani algorithm, we need to require the
+;; `bernstein-vazirani` namespace from the `application.algorithm` package.
 
 (require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
 
 ;; Let's define a hidden binary string first.
 
-(def hidden-string [1 1 0 1])  ; Hidden binary string: 1101
+(def hidden-string [1 1 0])  ; Hidden binary string: 110
 
 ;; Now we can create the circuit for the Bernstein-Vazirani algorithm.
 
@@ -393,11 +445,13 @@ deutsch-balanced-result
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
 bv-result
-;; The result shows that the Bernstein-Vazirani algorithm correctly identifies the hidden binary string.
+
+;; The result shows that the Bernstein-Vazirani algorithm correctly identifies
+;; the hidden binary string.
 
 (:result bv-result)
 
-;; The measurement outcome is the hidden binary string, which is 1101.
+;; The measurement outcome is the hidden binary string, which is 110.
 ;; Lets visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
 (kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
@@ -413,7 +467,33 @@ bv-result
 ;;
 ;; The quantum circuit uses an oracle to implement the function and applies a
 ;; Hadamard gate to the input qubits.
+;;
+;; #### Problem Statement
+;; Given a function f: {0,1}ⁿ → {0,1}ⁿ that is promised to be periodic with a hidden period s,
+;; the goal is to find s using fewer evaluations of f than would be possible classically.
+;;
+;; #### Classical Approach
+;; In a classical setting, we would need to evaluate the function f multiple times
+;; to find the period s. The number of evaluations required can grow exponentially
+;; with the size of the input.
+;;
+;; #### Quantum Approach
+;; The Simon algorithm allows us to find the hidden period s with a polynomial number
+;; of evaluations by leveraging quantum superposition and interference.
+;;
+;; ## Quantum Circuit
+;; The Simon algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize n qubits in the state |0⟩ and n auxiliary qubits in the state |1⟩.
+;; 2. Apply a Hadamard gate to all n qubits to create superposition.
+;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
+;; 4. Measure the auxiliary qubits to obtain a set of equations that can be solved
+;;    classically to find the hidden period s.
+;;
+;; To examine Simon's algorithm, we need to require the `simon` namespace
+;; from the `application.algorithm` package.
+
 (require '[org.soulspace.qclojure.application.algorithm.simon :as simon])
+
 ;; Let's define a hidden binary string first.
 
 (def hidden-string-simon [1 0 1])  ; Hidden binary string: 101

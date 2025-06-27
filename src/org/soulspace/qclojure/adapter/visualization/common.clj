@@ -172,7 +172,6 @@
 ;;
 ;; Probability Bar Chart Data
 ;;
-
 (defn prepare-bar-chart-data
   "Prepare data for probability bar charts across different formats.
   
@@ -222,7 +221,6 @@
 ;;
 ;; Format-agnostic Styling Helpers
 ;;
-
 (defn generate-color-palette
   "Generate color palette for quantum visualizations.
   
@@ -264,7 +262,6 @@
 ;;
 ;; Bloch Sphere Common Utilities
 ;;
-
 (defn format-single-qubit-state
   "Format single-qubit quantum state as amplitude expression.
   
@@ -385,10 +382,6 @@
                           "Bloch vector: " (:cartesian-text coord-info) "\n"))
                    (when show-distances
                      (str "Distances: " (format-reference-distances distance-info) "\n")))}))
-
-;;
-;; Test Utilities (REPL/Dev Only)
-;;
 
 (comment
   ;; REPL testing of common utilities

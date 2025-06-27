@@ -1,11 +1,8 @@
 (ns org.soulspace.qclojure.adapter.io
   "Input/Output adapters for quantum computing library"
   (:require [clojure.spec.alpha :as s]
-            [clojure.string :as str]
-            [fastmath.core :as m]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Data format specifications

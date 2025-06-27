@@ -1,15 +1,16 @@
 # Changelog
 
 ## Version (NEXT)
-* implemented HL algorithm for hermitian n x n matrices
+* implemented HHL algorithm for hermitian n x n matrices
 * enhanced gate decomposition
   * parameterized gates
   * hardware specific native gate sets
-* splitted circuit-transformation ns
-  * added gate-decomposition ns
-  * added circuit-composition ns
-  * added qubit-optimization ns
+* splitted circuit-transformation namespace into
+  * gate-decomposition for the decomposition of gates for different hardware 
+  * circuit-composition to extend and compose circuits
+  * qubit-optimization to reduce the number of qubits needed
 * enhanced test
+* updated tutorial
 
 ## Version 0.2.0
 * added a noisy simulator backend to simulate errors of real quantum hardware

@@ -62,7 +62,7 @@
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
    [org.soulspace.qclojure.adapter.visualization :as viz]
-   [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+   [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a quantum system.
@@ -287,11 +287,49 @@ qg/hadamard
 ;;
 ;; ## Backends
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.
-;; The *backend* namespace provides a simple interface for running quantum circuits on quantum hardware.
-;; QClojure comes with a simulator backend that can be used to simulate quantum circuits on a classical computer.
+;; The *application.backend* namespace contains the protocols to be implemented by a
+;; specific backend. A backend can be used to execute a quantum circuit.
+;; 
+;; QClojure comes with two simulator backends in the *adapter.backend* that can be used to
+;; simulate quantum circuits on a classical computer.
+;; * The simulator backend simulates an ideal quantum computer without
+;;   phyiscal constraints like noise.
+;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
 ;;
+;; ### Ideal Simulator Backend
+;; Let's try the ideal simulator first by requiring the `simulator` namespace.
+
+(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+
+;; We create the simulator backend with the `create-simulator` function.
+
+(def simulator (sim/create-simulator))
+
+;; Now we can use the simulator to execute the ghz circuit on the simulator.
+
+(qb/execute-circuit simulator (qc/ghz-state-circuit 3))
+
+;; When executing a circuit on a backend, it will be executed multiple times,
+;; because of the probabilistic nature of quantum computing. One execution of the
+;; circuit is called a *shot*. The default number of shots is 1024, but it can be
+;; configured via an options map.
+
+(qb/execute-circuit simulator (qc/ghz-state-circuit 3) {:shots 10})
+
+;; ### Noisy Simulator Backend
+;; Let's try the noisy simulator first by requiring the `noisy-similator` namespace.
+
+(require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])
+
+;; We instanciate the noisy simulator with the `create-noisy-simulator` function
+;; and provide a simple noise profile.
+(def noisy-simulator (noisy/create-noisy-simulator noisy/ibm-like-noise))
+
+;; Now we can use the simulator to execute the ghz circuit on the simulator.
+(qb/execute-circuit simulator (qc/ghz-state-circuit 3))
+
 ;;
-;;; ## Algorithms
+;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used to solve specific problems.
 ;; These algorithms are implemented as quantum circuits and can be executed on quantum hardware or simulated using the simulator backend.
 ;; Some of the algorithms include:
@@ -546,3 +584,12 @@ simon-result
 ;; string, we visualize the final states.
 
 (mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
+
+;; ## Grover' Algorithm
+;;
+;; 
+
+
+;; ## Shor's Algorithm
+;;
+;; 

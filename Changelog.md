@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.3.0
 * implemented HHL algorithm for hermitian n x n matrices
 * enhanced gate decomposition
   * parameterized gates

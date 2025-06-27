@@ -9,7 +9,8 @@
   * gate-decomposition for the decomposition of gates for different hardware 
   * circuit-composition to extend and compose circuits
   * qubit-optimization to reduce the number of qubits needed
-* enhanced test
+* fixed noise application in noisy simulator
+* enhanced tests
 * updated tutorial
 
 ## Version 0.2.0

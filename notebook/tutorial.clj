@@ -325,10 +325,10 @@ qg/hadamard
 
 ;; We instanciate the noisy simulator with the `create-noisy-simulator` function
 ;; and provide a simple noise profile.
-(def noisy-simulator (noisy/create-noisy-simulator noisy/ibm-like-noise))
+(def noisy-simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
-(qb/execute-circuit simulator (qc/ghz-state-circuit 3))
+(qb/execute-circuit noisy-simulator (qc/ghz-state-circuit 3) {:shots 10240})
 
 ;;
 ;; ## Algorithms

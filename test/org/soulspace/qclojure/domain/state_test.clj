@@ -5,9 +5,9 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [org.soulspace.qclojure.domain.state :as qs]
             [fastmath.core :as m]
-            [fastmath.complex :as fc]))
+            [fastmath.complex :as fc]
+            [org.soulspace.qclojure.domain.state :as qs]))
 
 ;;
 ;; Basic state creation tests
@@ -444,8 +444,8 @@
                       (if (zero? original-ratio)
                         (< (Math/abs normalized-ratio) 1e-10)
                         ;; Use relative error tolerance for better numerical stability
-                        (let [relative-error (/ (Math/abs (- original-ratio normalized-ratio))
-                                                (Math/abs original-ratio))]
+                        (let [relative-error (/ (m/abs (- original-ratio normalized-ratio))
+                                                (m/abs original-ratio))]
                           (< relative-error 1e-9))))))))
 
 (defspec computational-basis-states-are-orthogonal 30

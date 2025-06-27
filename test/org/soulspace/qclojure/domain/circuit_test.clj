@@ -16,8 +16,8 @@
 (defn amplitude-close?
   "Test if two complex amplitudes are approximately equal"
   [a b tolerance]
-  (and (< (Math/abs (- (.x a) (.x b))) tolerance)
-       (< (Math/abs (- (.y a) (.y b))) tolerance)))
+  (and (< (m/abs (- (.x a) (.x b))) tolerance)
+       (< (m/abs (- (.y a) (.y b))) tolerance)))
 
 (defn state-close?
   "Test if two quantum states are approximately equal"

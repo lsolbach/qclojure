@@ -179,7 +179,7 @@
                                    (range n-qubits))))
                         ;; Step 2: Apply multi-controlled Z gate (all qubits now |1⟩ for target state)
                         ((fn [circuit]
-                           (case n-qubits
+                           (case (int n-qubits)
                              1 (qc/z-gate circuit 0)
                              2 (qc/cz-gate circuit 0 1)
                              ;; For 3+ qubits, we need to apply a phase flip when ALL qubits are |1⟩
@@ -226,7 +226,7 @@
           ((fn [c] (reduce (fn [acc idx] (qc/x-gate acc idx)) c qubit-indices)))
           ;; 3. Apply multi-controlled Z gate to |11...1⟩
           ((fn [c]
-             (case n-qubits
+             (case (int n-qubits)
                1 (qc/z-gate c 0)
                2 (qc/cz-gate c 0 1)
                ;; For 3+ qubits, use the last qubit as target and others as controls

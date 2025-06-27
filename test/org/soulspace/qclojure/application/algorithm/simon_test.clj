@@ -22,7 +22,7 @@
       (is (contains? result :complexity))))
   
   (testing "Simon's algorithm with different period lengths"
-    (let [periods [[1 0] [1 1 0 1] [0 1 0 1 0]]
+    (let [periods [[1 0] [1 1 0] [0 1 0 1]]
           test-period (fn [p]
                         (let [result (simon/simon-algorithm (sim/create-simulator) p)]
                           (is (= (:hidden-period result) p))

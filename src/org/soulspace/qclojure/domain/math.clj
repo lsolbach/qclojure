@@ -57,7 +57,7 @@
           depth 0]
      (cond
        ;; Stop if denominator is zero or very close to zero
-       (or (zero? d) (< (Math/abs d) epsilon))
+       (or (zero? d) (< (m/abs d) epsilon))
        cf
 
        ;; Stop if we've reached max depth to prevent infinite loops

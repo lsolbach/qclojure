@@ -3,10 +3,9 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [clojure.set :as set]
+            [clojure.string :as str]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-composition :as cc]
-            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]))
+            [org.soulspace.qclojure.domain.circuit-transformation :as ct]))
 
 ;;
 ;; Helper functions for testing
@@ -341,23 +340,23 @@
     (let [topology (ct/create-linear-topology 4)
           info (ct/get-topology-info topology "Linear-4")]
       (is (string? info))
-      (is (.contains info "Linear-4"))
-      (is (.contains info "Qubits: 4"))
-      (is (.contains info "Connected: true"))))
+      (is (str/includes? info "Linear-4"))
+      (is (str/includes? info "Qubits: 4"))
+      (is (str/includes? info "Connected: true"))))
 
   (testing "Star topology info"
     (let [topology (ct/create-star-topology 5)
           info (ct/get-topology-info topology "Star-5")]
       (is (string? info))
-      (is (.contains info "Star-5"))
-      (is (.contains info "Qubits: 5"))
-      (is (.contains info "degree:"))))
+      (is (str/includes? info "Star-5"))
+      (is (str/includes? info "Qubits: 5"))
+      (is (str/includes? info "degree:"))))
 
   (testing "Disconnected topology info"
     (let [topology [[1] [0] [] []]  ; Two isolated components
           info (ct/get-topology-info topology "Disconnected")]
       (is (string? info))
-      (is (.contains info "Connected: false")))))
+      (is (str/includes? info "Connected: false")))))
 
 (comment
   (run-tests)

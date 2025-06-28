@@ -204,7 +204,7 @@
                                   [(first state-vec) (second state-vec)] 
                                   matrix)
              result-state {:num-qubits 1
-                          :state-vector [new-amp0 new-amp1]}]
+                           :state-vector [new-amp0 new-amp1]}]
          ;; Normalize the result using the existing normalize-state function
          (qs/normalize-state result-state))
        
@@ -223,7 +223,7 @@
                                                 matrix)]
                       (if qubit-bit new-amp1 new-amp0))))
              result-state {:num-qubits n-qubits
-                          :state-vector new-amplitudes}]
+                           :state-vector new-amplitudes}]
          
          ;; Normalize the result using the existing normalize-state function
          (qs/normalize-state result-state)))))
@@ -260,7 +260,7 @@
           rand-val (rand)
           ;; Select Kraus operator based on cumulative probabilities
           selected-operator (loop [cumulative-prob 0.0
-                                  idx 0]
+                                   idx 0]
                              (let [new-cumulative (+ cumulative-prob (nth probabilities idx))]
                                (if (or (< rand-val new-cumulative) (>= idx (dec (count kraus-operators))))
                                  (nth kraus-operators idx)
@@ -707,240 +707,10 @@
      (swap! noisy-state assoc :active-jobs jobs-to-keep)
      removed-count)))
 
-;; Predefined advanced noise models based on real quantum devices
-(def ibm-lagos-noise
-  "Noise model based on IBM Lagos quantum computer characteristics."
-  {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0005 
-                    :t1-time 125.0 :t2-time 89.0 :gate-time 35.6}
-                :x {:noise-type :depolarizing :noise-strength 0.0003
-                    :t1-time 125.0 :t2-time 89.0 :gate-time 35.6}
-                :cnot {:noise-type :depolarizing :noise-strength 0.006
-                       :t1-time 125.0 :t2-time 89.0 :gate-time 476.0}}
-   :readout-error {:prob-0-to-1 0.013 :prob-1-to-0 0.028}})
+;;;
+;;; Noise models
+;;;
 
-(def rigetti-aspen-noise  
-  "Noise model based on Rigetti Aspen quantum computer characteristics."
-  {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.002
-                    :t1-time 18.5 :t2-time 15.2 :gate-time 60.0}
-                :x {:noise-type :amplitude-damping :noise-strength 0.001
-                    :t1-time 18.5 :t2-time 15.2 :gate-time 60.0} 
-                :cnot {:noise-type :depolarizing :noise-strength 0.025
-                       :t1-time 18.5 :t2-time 15.2 :gate-time 200.0}}
-   :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.08}})
-
-(def high-fidelity-superconducting
-  "High-fidelity superconducting qubit noise model."
-  {:gate-noise {:h {:noise-type :phase-damping :noise-strength 0.0001
-                    :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
-                :x {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :x}
-                    :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.002
-                       :t1-time 200.0 :t2-time 120.0 :gate-time 300.0}}
-   :readout-error {:prob-0-to-1 0.005 :prob-1-to-0 0.008
-                   :correlated-errors {0 1.0 1 1.2 2 0.8}}}) ; Qubit-specific readout fidelities
-
-;; Amazon Braket quantum hardware noise models
-(def ionq-harmony-noise
-  "Noise model for IonQ Harmony (trapped ion) available on Amazon Braket.
-  
-  IonQ Harmony characteristics:
-  - 11 qubits
-  - Very high single-qubit gate fidelity (~99.8%)
-  - High two-qubit gate fidelity (~99.0-99.3%)
-  - Long coherence times
-  - Slower gate times due to laser operations"
-  {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :y}
-                    :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0} ; 50μs gate time
-                :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :x}
-                    :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
-                :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
-                    :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.0001
-                    :t1-time 10000.0 :t2-time 5000.0 :gate-time 100.0} ; Virtual Z gate
-                :cnot {:noise-type :depolarizing :noise-strength 0.007
-                       :t1-time 10000.0 :t2-time 5000.0 :gate-time 200000.0}} ; 200μs two-qubit gate
-   :readout-error {:prob-0-to-1 0.003 :prob-1-to-0 0.004}})
-
-(def ionq-aria-noise
-  "Noise model for IonQ Aria (trapped ion) available on Amazon Braket.
-  
-  IonQ Aria characteristics:
-  - 25 qubits (#AQ 20)
-  - Improved single-qubit gate fidelity (~99.9%)
-  - Improved two-qubit gate fidelity (~99.5%)
-  - Better connectivity and faster gates than Harmony"
-  {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0005 :rotation-axis :y}
-                    :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0} ; 40μs gate time
-                :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0004 :rotation-axis :x}
-                    :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0}
-                :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0004 :rotation-axis :y}
-                    :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.00005
-                    :t1-time 15000.0 :t2-time 7000.0 :gate-time 50.0} ; Virtual Z gate
-                :cnot {:noise-type :depolarizing :noise-strength 0.005
-                       :t1-time 15000.0 :t2-time 7000.0 :gate-time 150000.0}} ; 150μs two-qubit gate
-   :readout-error {:prob-0-to-1 0.002 :prob-1-to-0 0.003}})
-
-(def ionq-forte-noise
-  "Noise model for IonQ Forte (trapped ion) available on Amazon Braket.
-  
-  IonQ Forte characteristics:
-  - 32 qubits (#AQ 29)
-  - Latest generation with highest fidelity
-  - Enhanced error correction capabilities
-  - Fastest gate times in IonQ family"
-  {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0003 :rotation-axis :y}
-                    :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0} ; 30μs gate time
-                :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0002 :rotation-axis :x}
-                    :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0}
-                :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0002 :rotation-axis :y}
-                    :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.00003
-                    :t1-time 20000.0 :t2-time 10000.0 :gate-time 30.0} ; Virtual Z gate
-                :cnot {:noise-type :depolarizing :noise-strength 0.003
-                       :t1-time 20000.0 :t2-time 10000.0 :gate-time 120000.0}} ; 120μs two-qubit gate
-   :readout-error {:prob-0-to-1 0.001 :prob-1-to-0 0.002}})
-
-(def rigetti-aspen-m3-noise
-  "Noise model for Rigetti Aspen-M-3 (superconducting) available on Amazon Braket.
-  
-  Rigetti Aspen-M-3 characteristics:
-  - 80 qubits
-  - Superconducting transmon qubits
-  - Fast gate times but shorter coherence
-  - Tunable coupling architecture"
-  {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.001
-                    :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
-                :x {:noise-type :amplitude-damping :noise-strength 0.0008
-                    :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
-                :y {:noise-type :amplitude-damping :noise-strength 0.0008
-                    :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
-                :z {:noise-type :phase-damping :noise-strength 0.0001
-                    :t1-time 45.0 :t2-time 35.0 :gate-time 0.1} ; Virtual Z gate
-                :cnot {:noise-type :depolarizing :noise-strength 0.015
-                       :t1-time 45.0 :t2-time 35.0 :gate-time 200.0}
-                :cz {:noise-type :depolarizing :noise-strength 0.012
-                     :t1-time 45.0 :t2-time 35.0 :gate-time 160.0}}
-   :readout-error {:prob-0-to-1 0.035 :prob-1-to-0 0.055}})
-
-(def xanadu-x-series-noise
-  "Noise model for Xanadu X-Series (photonic) available on Amazon Braket.
-  
-  Xanadu X-Series characteristics:
-  - 216 modes (photonic qumodes)
-  - Continuous variable quantum computing
-  - Different noise characteristics from discrete systems
-  - Gate errors primarily from optical losses and thermal noise"
-  {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.02 ; Higher loss rates
-                    :t1-time 1000.0 :t2-time 1000.0 :gate-time 1000.0} ; Photonic operations
-                :x {:noise-type :amplitude-damping :noise-strength 0.015
-                    :t1-time 1000.0 :t2-time 1000.0 :gate-time 1000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.01
-                    :t1-time 1000.0 :t2-time 1000.0 :gate-time 500.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.08 ; Challenging for photonic
-                       :t1-time 1000.0 :t2-time 1000.0 :gate-time 3000.0}}
-   :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.05}})
-
-(def quera-aquila-noise
-  "Noise model for QuEra Aquila (neutral atom) available on Amazon Braket.
-  
-  QuEra Aquila characteristics:
-  - 256 neutral atoms
-  - Reconfigurable connectivity
-  - Rydberg blockade mechanism
-  - Unique noise sources from atom loading/transport"
-  {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.005
-                    :t1-time 1000.0 :t2-time 100.0 :gate-time 2000.0} ; Microsecond timescales
-                :x {:noise-type :amplitude-damping :noise-strength 0.003
-                    :t1-time 1000.0 :t2-time 100.0 :gate-time 2000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.008 ; Sensitive to phase noise
-                    :t1-time 1000.0 :t2-time 100.0 :gate-time 1000.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.02 ; Rydberg blockade errors
-                       :t1-time 1000.0 :t2-time 100.0 :gate-time 5000.0}}
-   :readout-error {:prob-0-to-1 0.015 :prob-1-to-0 0.01 ; Atom detection
-                   :correlated-errors {}}})
-
-(def oxford-lucy-noise
-  "Noise model for Oxford Quantum Computing Lucy (trapped ion) available on Amazon Braket.
-  
-  Oxford Lucy characteristics:
-  - 8 qubits
-  - High-fidelity trapped ion qubits
-  - Competitive with IonQ systems
-  - Focus on networking and modular architectures"
-  {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
-                    :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
-                :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0006 :rotation-axis :x}
-                    :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
-                :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0006 :rotation-axis :y}
-                    :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
-                :z {:noise-type :phase-damping :noise-strength 0.0001
-                    :t1-time 12000.0 :t2-time 6000.0 :gate-time 80.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.008
-                       :t1-time 12000.0 :t2-time 6000.0 :gate-time 180000.0}}
-   :readout-error {:prob-0-to-1 0.004 :prob-1-to-0 0.005}})
-
-(def ibm-brisbane-noise
-  "Noise model for IBM Brisbane (superconducting) available on Amazon Braket.
-  
-  IBM Brisbane characteristics:
-  - 127 qubits
-  - Falcon r5.11 processor
-  - Heavy-hex topology
-  - Advanced error suppression"
-  {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0004
-                    :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
-                :x {:noise-type :depolarizing :noise-strength 0.0002
-                    :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
-                :y {:noise-type :depolarizing :noise-strength 0.0002
-                    :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
-                :z {:noise-type :phase-damping :noise-strength 0.00001
-                    :t1-time 180.0 :t2-time 120.0 :gate-time 0.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.005
-                       :t1-time 180.0 :t2-time 120.0 :gate-time 476.0}
-                :cz {:noise-type :depolarizing :noise-strength 0.004
-                     :t1-time 180.0 :t2-time 120.0 :gate-time 440.0}}
-   :readout-error {:prob-0-to-1 0.012 :prob-1-to-0 0.025}})
-
-(def ibm-kyoto-noise
-  "Noise model for IBM Kyoto (superconducting) available on Amazon Braket.
-  
-  IBM Kyoto characteristics:
-  - 127 qubits
-  - Condor r1 processor
-  - Enhanced error correction features
-  - Dynamic decoupling capabilities"
-  {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0003
-                    :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
-                :x {:noise-type :depolarizing :noise-strength 0.00015
-                    :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
-                :y {:noise-type :depolarizing :noise-strength 0.00015
-                    :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
-                :z {:noise-type :phase-damping :noise-strength 0.000008
-                    :t1-time 220.0 :t2-time 150.0 :gate-time 0.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.0035
-                       :t1-time 220.0 :t2-time 150.0 :gate-time 450.0}
-                :cz {:noise-type :depolarizing :noise-strength 0.003
-                     :t1-time 220.0 :t2-time 150.0 :gate-time 420.0}}
-   :readout-error {:prob-0-to-1 0.008 :prob-1-to-0 0.018}})
-
-(def atom-computing-noise
-  "Noise model for Atom Computing neutral atom systems (future Amazon Braket).
-  
-  Atom Computing characteristics:
-  - 100+ neutral atoms
-  - Reconfigurable architectures 
-  - Long coherence times
-  - Potential for large-scale systems"
-  {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.003
-                    :t1-time 2000.0 :t2-time 200.0 :gate-time 1500.0}
-                :x {:noise-type :amplitude-damping :noise-strength 0.002
-                    :t1-time 2000.0 :t2-time 200.0 :gate-time 1500.0}
-                :z {:noise-type :phase-damping :noise-strength 0.005
-                    :t1-time 2000.0 :t2-time 200.0 :gate-time 800.0}
-                :cnot {:noise-type :depolarizing :noise-strength 0.015
-                       :t1-time 2000.0 :t2-time 200.0 :gate-time 4000.0}}
-   :readout-error {:prob-0-to-1 0.012 :prob-1-to-0 0.008}})
 
 ;; Utility functions for noise analysis
 (defn estimate-circuit-fidelity
@@ -995,43 +765,48 @@
                                            :else :unknown)})]))
              platform-models)))
 
-(defn get-braket-noise-models
-  "Get all available Amazon Braket quantum hardware noise models.
+(defn noise-model-for
+  "Get the noise model for a specific platform.
   
-  Returns: Map of device names to noise model configurations"
-  []
-  {:ionq-harmony ionq-harmony-noise
-   :ionq-aria ionq-aria-noise
-   :ionq-forte ionq-forte-noise
-   :rigetti-aspen-m3 rigetti-aspen-m3-noise
-   :xanadu-x-series xanadu-x-series-noise
-   :quera-aquila quera-aquila-noise
-   ;; Legacy models for comparison
-   :ibm-lagos ibm-lagos-noise
-   :rigetti-aspen rigetti-aspen-noise
-   :high-fidelity-superconducting high-fidelity-superconducting})
+  Parameters:
+  - platform: Platform name (keyword)
+  
+  Returns: Noise model map or nil if not found"
+  ([platform]
+   (noise-model-for qb/devices platform))
+  ([devices platform]
+   (get-in devices [platform :noise-model])))
+
+(defn all-noise-models
+  "Get all available noise models.
+  
+  Returns: Map of platform names to noise models"
+  ([]
+   (all-noise-models qb/devices))
+  ([devices]
+   (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
 
 (comment
-  ;; === Advanced Noise Model Examples ===
-  
+  (noise-model-for :ibm-lagos)
+
   ;; Create advanced simulators with different noise characteristics
-  (def ibm-sim (create-noisy-simulator ibm-lagos-noise))
-  (def rigetti-sim (create-noisy-simulator rigetti-aspen-noise))
+  (def ibm-sim (create-noisy-simulator (noise-model-for :ibm-lagos-noise)))
+  (def rigetti-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-noise)))
   (def ideal-sim (create-noisy-simulator {}))
   
   ;; === Amazon Braket Hardware Models ===
   
   ;; IonQ trapped ion systems (high fidelity, slow gates)
-  (def ionq-harmony-sim (create-noisy-simulator ionq-harmony-noise))
-  (def ionq-aria-sim (create-noisy-simulator ionq-aria-noise))
-  (def ionq-forte-sim (create-noisy-simulator ionq-forte-noise))
+  (def ionq-harmony-sim (create-noisy-simulator (noise-model-for :ionq-harmony-noise)))
+  (def ionq-aria-sim (create-noisy-simulator (noise-model-for :ionq-aria-noise)))
+  (def ionq-forte-sim (create-noisy-simulator (noise-model-for :ionq-forte-noise)))
   
   ;; Rigetti superconducting systems (fast gates, moderate fidelity)
-  (def rigetti-m3-sim (create-noisy-simulator rigetti-aspen-m3-noise))
+  (def rigetti-m3-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-m3-noise)))
   
   ;; Photonic and neutral atom systems (unique characteristics)
-  (def xanadu-sim (create-noisy-simulator xanadu-x-series-noise))
-  (def quera-sim (create-noisy-simulator quera-aquila-noise))
+  (def xanadu-sim (create-noisy-simulator (noise-model-for :xanadu-x-series-noise)))
+  (def quera-sim (create-noisy-simulator (noise-model-for :quera-aquila-noise)))
   
   ;; Test Bell circuit across all platforms
   (def bell-circuit 
@@ -1040,8 +815,8 @@
         (qc/cnot-gate 0 1)))
   
   ;; Compare all Amazon Braket platforms
-  (def braket-models (get-braket-noise-models))
-  (def bell-comparison (compare-hardware-platforms bell-circuit braket-models))
+  (def all-models (all-noise-models))
+  (def bell-comparison (compare-hardware-platforms bell-circuit all-models))
   
   (println "=== Amazon Braket Platform Comparison (Bell Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > bell-comparison)]
@@ -1068,7 +843,7 @@
         (qc/cnot-gate 0 1) (qc/cnot-gate 1 2)
         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)))
   
-  (def grover-comparison (compare-hardware-platforms grover-circuit braket-models))
+  (def grover-comparison (compare-hardware-platforms grover-circuit all-models))
   
   (println "\n=== Platform Comparison (Complex Grover Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > grover-comparison)]
@@ -1119,7 +894,7 @@
   
   (println "\nDecoherence comparison:")
   (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)
-  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence)
+  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence))
   
   ;; Advanced noise modeling capabilities:
   ;; 1. Realistic Amazon Braket device parameters
@@ -1130,5 +905,5 @@
   ;; 6. Circuit fidelity estimation and platform comparison
   ;; 7. Real device calibration data integration
   ;; 8. Cross-platform benchmarking capabilities
-  )
+  
 

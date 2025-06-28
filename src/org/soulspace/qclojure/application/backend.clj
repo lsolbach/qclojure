@@ -563,6 +563,279 @@
   [circuit backend & [options]]
   (ct/transform-circuit circuit (get-supported-gates backend) options))
 
+;; Predefined quantum devices
+(def devices
+  {:atom-computing
+   {:name "Atom Computing"
+    :provider "Atom Computing"
+    :description
+    "Atom Computing characteristics:
+* 100+ neutral atoms
+* Reconfigurable architectures 
+* Long coherence times
+* Potential for large-scale systems"
+    :noise-model
+    {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.003
+                      :t1-time 2000.0 :t2-time 200.0 :gate-time 1500.0}
+                  :x {:noise-type :amplitude-damping :noise-strength 0.002
+                      :t1-time 2000.0 :t2-time 200.0 :gate-time 1500.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.005
+                      :t1-time 2000.0 :t2-time 200.0 :gate-time 800.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.015
+                         :t1-time 2000.0 :t2-time 200.0 :gate-time 4000.0}}
+     :readout-error {:prob-0-to-1 0.012 :prob-1-to-0 0.008}}}
+   :high-fidelity-superconducting
+   {:name "High-Fidelity Superconducting Qubits"
+    :provider "None (Reference)"
+    :description
+    "High-Fidelity Superconducting Reference characteristics:
+* 20 qubits
+* theoretical maximum fidelity of superconducting qubits"
+    :noise-model
+    {:gate-noise {:h {:noise-type :phase-damping :noise-strength 0.0001
+                      :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :x}
+                      :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.002
+                         :t1-time 200.0 :t2-time 120.0 :gate-time 300.0}}
+     :readout-error {:prob-0-to-1 0.005 :prob-1-to-0 0.008
+                     :correlated-errors {0 1.0 1 1.2 2 0.8}}}}
+   :ibm-brisbane
+   {:name "IBM Brisbane"
+    :provider "IBM"
+    :description
+    "IBM Brisbane characteristics:
+* 127 qubits
+* Falcon r5.11 processor
+* Heavy-hex topology
+* Advanced error suppression"
+    :noise-model
+    {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0004
+                      :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
+                  :x {:noise-type :depolarizing :noise-strength 0.0002
+                      :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
+                  :y {:noise-type :depolarizing :noise-strength 0.0002
+                      :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
+                  :z {:noise-type :phase-damping :noise-strength 0.00001
+                      :t1-time 180.0 :t2-time 120.0 :gate-time 0.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.005
+                         :t1-time 180.0 :t2-time 120.0 :gate-time 476.0}
+                  :cz {:noise-type :depolarizing :noise-strength 0.004
+                       :t1-time 180.0 :t2-time 120.0 :gate-time 440.0}}
+     :readout-error {:prob-0-to-1 0.012 :prob-1-to-0 0.025}}}
+   :ibm-kyoto
+   {:name "IBM Kyoto"
+    :provider "IBM"
+    :description
+    "IBM Kyoto characteristics:
+* 127 qubits
+* Condor r1 processor
+* Enhanced error correction features
+* Dynamic decoupling capabilities"
+    :noise-model
+    {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0003
+                      :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
+                  :x {:noise-type :depolarizing :noise-strength 0.00015
+                      :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
+                  :y {:noise-type :depolarizing :noise-strength 0.00015
+                      :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
+                  :z {:noise-type :phase-damping :noise-strength 0.000008
+                      :t1-time 220.0 :t2-time 150.0 :gate-time 0.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.0035
+                         :t1-time 220.0 :t2-time 150.0 :gate-time 450.0}
+                  :cz {:noise-type :depolarizing :noise-strength 0.003
+                       :t1-time 220.0 :t2-time 150.0 :gate-time 420.0}}
+     :readout-error {:prob-0-to-1 0.008 :prob-1-to-0 0.018}}}
+   :ionq-harmony
+   {:name "IonQ Harmony"
+    :provider "IonQ"
+    :description
+    "IonQ Harmony characteristics:
+* 11 qubits
+* Very high single-qubit gate fidelity (~99.8%)
+* High two-qubit gate fidelity (~99.0-99.3%)
+* Long coherence times
+* Slower gate times due to laser operations"
+    :noise-model
+    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :y}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0} ; 50μs gate time
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :x}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
+                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.0001
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 100.0} ; Virtual Z gate
+                  :cnot {:noise-type :depolarizing :noise-strength 0.007
+                         :t1-time 10000.0 :t2-time 5000.0 :gate-time 200000.0}} ; 200μs two-qubit gate
+     :readout-error {:prob-0-to-1 0.003 :prob-1-to-0 0.004}}}
+   :ionq-aria
+   {:name "IonQ Aria"
+    :provider "IonQ"
+    :description
+    "IonQ Aria characteristics:
+* 25 qubits (#AQ 20)
+* Improved single-qubit gate fidelity (~99.9%)
+* Improved two-qubit gate fidelity (~99.5%)
+* Better connectivity and faster gates than Harmony"
+    :noise-model
+    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0005 :rotation-axis :y}
+                      :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0} ; 40μs gate time
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0004 :rotation-axis :x}
+                      :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0}
+                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0004 :rotation-axis :y}
+                      :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.00005
+                      :t1-time 15000.0 :t2-time 7000.0 :gate-time 50.0} ; Virtual Z gate
+                  :cnot {:noise-type :depolarizing :noise-strength 0.005
+                         :t1-time 15000.0 :t2-time 7000.0 :gate-time 150000.0}} ; 150μs two-qubit gate
+     :readout-error {:prob-0-to-1 0.002 :prob-1-to-0 0.003}}}
+   :ionq-forte
+   {:name "IonQ Forte"
+    :provider "IonQ"
+    :description
+    "IonQ Forte characteristics:
+* 32 qubits (#AQ 29)
+* Latest generation with highest fidelity
+* Enhanced error correction capabilities
+* Fastest gate times in IonQ family"
+    :noise-model
+    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0003 :rotation-axis :y}
+                      :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0} ; 30μs gate time
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0002 :rotation-axis :x}
+                      :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0}
+                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0002 :rotation-axis :y}
+                      :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.00003
+                      :t1-time 20000.0 :t2-time 10000.0 :gate-time 30.0} ; Virtual Z gate
+                  :cnot {:noise-type :depolarizing :noise-strength 0.003
+                         :t1-time 20000.0 :t2-time 10000.0 :gate-time 120000.0}} ; 120μs two-qubit gate
+     :readout-error {:prob-0-to-1 0.001 :prob-1-to-0 0.002}}}
+   :oxford-lucy
+   {:name "Oxford Lucy"
+    :provider "Oxford Quantum Circuits"
+    :description
+    "Oxford Lucy characteristics:
+* 8 qubits
+* High-fidelity trapped ion qubits
+* Competitive with IonQ systems
+* Focus on networking and modular architectures"
+    :noise-model
+    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
+                      :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0006 :rotation-axis :x}
+                      :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
+                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0006 :rotation-axis :y}
+                      :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.0001
+                      :t1-time 12000.0 :t2-time 6000.0 :gate-time 80.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.008
+                         :t1-time 12000.0 :t2-time 6000.0 :gate-time 180000.0}}
+     :readout-error {:prob-0-to-1 0.004 :prob-1-to-0 0.005}}}
+   :quera-aquila
+   {:name "QuEra Aquila"
+    :provider "QuEra Computing"
+    :description
+    "QuEra Aquila characteristics:
+* 256 neutral atoms
+* Reconfigurable connectivity
+* Rydberg blockade mechanism
+* Unique noise sources from atom loading/transport"
+    :noise-model
+    {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.005
+                      :t1-time 1000.0 :t2-time 100.0 :gate-time 2000.0} ; Microsecond timescales
+                  :x {:noise-type :amplitude-damping :noise-strength 0.003
+                      :t1-time 1000.0 :t2-time 100.0 :gate-time 2000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.008 ; Sensitive to phase noise
+                      :t1-time 1000.0 :t2-time 100.0 :gate-time 1000.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.02 ; Rydberg blockade errors
+                         :t1-time 1000.0 :t2-time 100.0 :gate-time 5000.0}}
+     :readout-error {:prob-0-to-1 0.015 :prob-1-to-0 0.01 ; Atom detection
+                     :correlated-errors {}}}}
+   :rigetti-aspen-m3
+   {:name "Rigetti Aspen-M-3"
+    :provider "Rigetti Computing"
+    :description
+    "Rigetti Aspen-M-3 characteristics:
+* 80 qubits
+* Superconducting transmon qubits
+* Fast gate times but shorter coherence
+* Tunable coupling architecture"
+    :noise-model
+    {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.001
+                      :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
+                  :x {:noise-type :amplitude-damping :noise-strength 0.0008
+                      :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
+                  :y {:noise-type :amplitude-damping :noise-strength 0.0008
+                      :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.0001
+                      :t1-time 45.0 :t2-time 35.0 :gate-time 0.1} ; Virtual Z gate
+                  :cnot {:noise-type :depolarizing :noise-strength 0.015
+                         :t1-time 45.0 :t2-time 35.0 :gate-time 200.0}
+                  :cz {:noise-type :depolarizing :noise-strength 0.012
+                       :t1-time 45.0 :t2-time 35.0 :gate-time 160.0}}
+     :readout-error {:prob-0-to-1 0.035 :prob-1-to-0 0.055}}}
+   :xanadu-x-series
+   {:name "Xanadu X-Series"
+    :provider "Xanadu Quantum Technologies"
+    :description
+    "Xanadu X-Series characteristics:
+* 216 modes (photonic qumodes)
+* Continuous variable quantum computing
+* Different noise characteristics from discrete systems
+* Gate errors primarily from optical losses and thermal noise"
+    :noise-model
+    {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.02 ; Higher loss rates
+                      :t1-time 1000.0 :t2-time 1000.0 :gate-time 1000.0} ; Photonic operations
+                  :x {:noise-type :amplitude-damping :noise-strength 0.015
+                      :t1-time 1000.0 :t2-time 1000.0 :gate-time 1000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.01
+                      :t1-time 1000.0 :t2-time 1000.0 :gate-time 500.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.08 ; Challenging for photonic
+                         :t1-time 1000.0 :t2-time 1000.0 :gate-time 3000.0}}
+     :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.05}}}
+
+   ;; Legacy devices for testing
+   :ibm-lagos
+   {:name "IBM Lagos"
+    :provider "IBM"
+    :description
+    "IBM Lagos characteristics:
+* 433 qubits
+* Heavy-hex topology
+* Advanced error suppression techniques
+* High connectivity and low crosstalk"
+    :noise-model
+    {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0005
+                      :t1-time 125.0 :t2-time 89.0 :gate-time 35.6}
+                  :x {:noise-type :depolarizing :noise-strength 0.0003
+                      :t1-time 125.0 :t2-time 89.0 :gate-time 35.6}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.006
+                         :t1-time 125.0 :t2-time 89.0 :gate-time 476.0}}
+     :readout-error {:prob-0-to-1 0.013 :prob-1-to-0 0.028}}}
+
+   :rigetti-aspen
+   {:name "Rigetti Aspen"
+    :provider "Rigetti Computing"
+    :description 
+    "Rigetti Aspen characteristics:
+* 40 qubits
+* Superconducting transmon qubits
+* Fast gate times but shorter coherence
+* Tunable coupling architecture"
+    :noise-model
+    {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.002
+                      :t1-time 18.5 :t2-time 15.2 :gate-time 60.0}
+                  :x {:noise-type :amplitude-damping :noise-strength 0.001
+                      :t1-time 18.5 :t2-time 15.2 :gate-time 60.0}
+                  :cnot {:noise-type :depolarizing :noise-strength 0.025
+                         :t1-time 18.5 :t2-time 15.2 :gate-time 200.0}}
+     :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.08}}}
+
+
+   ;
+   })
+
+
 ;; Specs for utility functions
 (s/fdef supports-operation?
   :args (s/cat :backend #(satisfies? QuantumBackend %)

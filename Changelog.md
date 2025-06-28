@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* added device map in backend, moved noise models to device map
 
 ## Version 0.3.0
 * implemented HHL algorithm for hermitian n x n matrices

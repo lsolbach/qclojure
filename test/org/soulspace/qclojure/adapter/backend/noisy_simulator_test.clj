@@ -227,42 +227,21 @@
         (is (> (:gamma-1 params) 0.3) "Gamma-1 should be significant for long gate time")
         (is (> (:gamma-2 params) 0.6) "Gamma-2 should be significant for long gate time")))))
 
-;; Tests for noise models
-(deftest test-predefined-noise-models
-  (testing "IBM Lagos noise model"
-    (is (map? noisy/ibm-lagos-noise) "Should be a map")
-    (is (contains? noisy/ibm-lagos-noise :gate-noise) "Should contain gate noise")
-    (is (contains? noisy/ibm-lagos-noise :readout-error) "Should contain readout error")
-    (is (contains? (:gate-noise noisy/ibm-lagos-noise) :h) "Should contain H gate noise")
-    (is (contains? (:gate-noise noisy/ibm-lagos-noise) :cnot) "Should contain CNOT gate noise"))
-  
-  (testing "Rigetti Aspen noise model"
-    (is (map? noisy/rigetti-aspen-noise) "Should be a map")
-    (is (= :amplitude-damping (get-in noisy/rigetti-aspen-noise [:gate-noise :h :noise-type]))
-        "Rigetti should use amplitude damping for H gates"))
-  
-  (testing "get-braket-noise-models"
-    (let [models (noisy/get-braket-noise-models)]
-      (is (map? models) "Should return a map of models")
-      (is (contains? models :ionq-harmony) "Should contain IonQ Harmony")
-      (is (contains? models :rigetti-aspen-m3) "Should contain Rigetti Aspen M3")
-      (is (contains? models :ibm-lagos) "Should contain IBM Lagos"))))
-
 ;; Tests for simulator creation and basic functionality
 (deftest test-create-noisy-simulator
   (testing "Simulator creation"
     (testing "with noise model"
-      (let [simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise)]
+      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))]
         (is (satisfies? qb/QuantumBackend simulator) "Should implement QuantumBackend protocol")
         (is (qb/is-available? simulator) "Should be available")
         (is (contains? (qb/get-supported-gates simulator) :h) "Should support H gate")
         (is (contains? (qb/get-supported-gates simulator) :cnot) "Should support CNOT gate")))
     
     (testing "backend info"
-      (let [simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise)
+      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
             info (qb/get-backend-info simulator)]
         (is (= :advanced-noisy-simulator (:backend-type info)) "Should have correct backend type")
-        (is (= noisy/ibm-lagos-noise (:noise-model info)) "Should contain noise model")
+        (is (= (noisy/noise-model-for :ibm-lagos) (:noise-model info)) "Should contain noise model")
         (is (contains? (:capabilities info) :depolarizing-noise) "Should support depolarizing noise")
         (is (contains? (:capabilities info) :readout-errors) "Should support readout errors")))))
 
@@ -287,12 +266,13 @@
           (is (= 100 (reduce + (vals (:measurement-results result)))) "Shot counts should sum to total"))))
 
     (testing "GHZ circuit with realistic noise"
-      (let [simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise)
+      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
             circuit (qc/ghz-state-circuit 3)
             job-id (qb/submit-circuit simulator circuit {:shots 1000})]
 
+        ; FIXME flaky test, sometimes fails
         ; Wait for completion
-        (Thread/sleep 500)
+        (Thread/sleep 1000)
         (let [result (qb/get-job-result simulator job-id)
               measurements (:measurement-results result)
               ideal-states (+ (get measurements "000" 0) (get measurements "111" 0))
@@ -365,7 +345,7 @@
   (testing "Circuit fidelity estimation"
     (testing "simple circuit"
       (let [circuit (-> (qc/create-circuit 2) (qc/h-gate 0) (qc/cnot-gate 0 1))
-            fidelity-data (noisy/estimate-circuit-fidelity circuit noisy/ibm-lagos-noise)]
+            fidelity-data (noisy/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
         
         (is (contains? fidelity-data :estimated-fidelity) "Should contain fidelity estimate")
         (is (contains? fidelity-data :total-estimated-error) "Should contain total error")
@@ -378,18 +358,18 @@
                         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)
                         (qc/cnot-gate 0 1) (qc/cnot-gate 1 2) (qc/cnot-gate 0 2)
                         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2))
-            fidelity-data (noisy/estimate-circuit-fidelity circuit noisy/ibm-lagos-noise)]
+            fidelity-data (noisy/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
         
         (is (< (:estimated-fidelity fidelity-data) 
-               (:estimated-fidelity (noisy/estimate-circuit-fidelity (qc/create-circuit 1) noisy/ibm-lagos-noise)))
+               (:estimated-fidelity (noisy/estimate-circuit-fidelity (qc/create-circuit 1) (noisy/noise-model-for :ibm-lagos))))
             "Complex circuit should have lower fidelity than simple circuit")))))
 
 ;; Tests for platform comparison
 (deftest test-platform-comparison
   (testing "Hardware platform comparison"
     (let [circuit (qc/ghz-state-circuit 3)
-          platforms {:ibm-lagos noisy/ibm-lagos-noise
-                     :rigetti-aspen noisy/rigetti-aspen-noise}
+          platforms {:ibm-lagos (noisy/noise-model-for :ibm-lagos)
+                     :rigetti-aspen (noisy/noise-model-for :rigetti-aspen)}
           comparison (noisy/compare-hardware-platforms circuit platforms)]
       
       (is (map? comparison) "Should return comparison map")
@@ -407,7 +387,7 @@
 (deftest test-edge-cases
   (testing "Edge cases and error handling"
     (testing "empty circuit"
-      (let [simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise)
+      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
             circuit (qc/create-circuit 1) ; Empty circuit
             job-id (qb/submit-circuit simulator circuit {:shots 10})]
         

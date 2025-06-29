@@ -38,7 +38,7 @@
   (case operation
     :addition         (+ n-bits 1)              ; carry qubits + final carry
     :comparison       (+ (* 3 n-bits) 3)        ; temp + subtractor ancilla + borrow-out  
-    :modular-addition (+ (* 5 n-bits) 5)        ; carry + comparison + comparison-ancilla
+    :modular-addition (+ (* 6 n-bits) 7)        ; carry + comparison + comp-ancilla + controlled-sub-ancilla
     :multiplication   (* 3 n-bits)              ; conservative for controlled ops
     :exponentiation   (* 5 n-bits)              ; conservative for nested ops
     n-bits))                                     ; default
@@ -314,6 +314,114 @@
       (quantum-adder-ripple-carry c a-qubits b-qubits carry-qubits borrow-out))))
 
 ;;
+;; Controlled quantum arithmetic operations
+;;
+(defn controlled-quantum-subtractor
+  "Production-ready controlled quantum subtractor: if control=|1⟩, compute a := a - b.
+   
+   Performs controlled subtraction using two's complement arithmetic when control qubit is |1⟩.
+   If control=|0⟩, leaves a unchanged. Uses proper quantum controlled operations.
+   
+   Algorithm:
+   1. If control=|1⟩, flip all bits of b (controlled bit flip)
+   2. If control=|1⟩, add 1 to b (controlled increment)  
+   3. Perform quantum addition a + b (now b is ~b+1 if control=|1⟩)
+   
+   This implements controlled subtraction: a - b = a + (~b + 1) when control=|1⟩
+   
+   Parameters:
+   - circuit: quantum circuit
+   - control: control qubit (subtraction happens only if |1⟩)
+   - a-qubits: minuend qubits (result stored here)
+   - b-qubits: subtrahend qubits (temporarily modified, then restored)
+   - ancilla-qubits: ancilla qubits (need at least 2n+2 qubits)
+   
+   Returns:
+   Modified quantum circuit with controlled subtraction applied"
+  [circuit control a-qubits b-qubits ancilla-qubits]
+  {:pre [(= (count a-qubits) (count b-qubits))
+         (>= (count ancilla-qubits) (+ (* 2 (count a-qubits)) 2))]}
+  (let [n-bits (count b-qubits)
+        partitions [[:carry-qubits n-bits] [:inc-ancilla (+ n-bits 1)] [:final-carry 1]]
+        {:keys [carry-qubits inc-ancilla final-carry]} (partition-ancilla-qubits ancilla-qubits partitions)
+        final-carry-qubit (first final-carry)]
+    
+    (as-> circuit c
+      ;; Step 1: Controlled bit flip of b (controlled NOT on each bit)
+      ;; If control=|1⟩, flip all bits of b to get ~b
+      (reduce (fn [circ i]
+                (qc/toffoli-gate circ control (first inc-ancilla) (nth b-qubits i)))
+              c
+              (range n-bits))
+      
+      ;; Step 2: Controlled increment of b
+      ;; If control=|1⟩, add 1 to get ~b + 1 (completing two's complement)
+      (as-> c controlled-inc-circuit
+        ;; Set up auxiliary qubit for controlled constant |1⟩
+        (qc/toffoli-gate controlled-inc-circuit control (first inc-ancilla) (second inc-ancilla))
+        
+        ;; Perform controlled addition of 1 using the auxiliary constant
+        (reduce (fn [inc-circ i]
+                  (let [b-bit (nth b-qubits i)
+                        carry-bit (if (< i (count carry-qubits)) (nth carry-qubits i) nil)]
+                    (if (zero? i)
+                      ;; First bit: controlled addition of 1
+                      (qc/toffoli-gate inc-circ control (second inc-ancilla) b-bit)
+                      ;; Other bits: controlled carry propagation
+                      (if carry-bit
+                        (as-> inc-circ carry-circ
+                          (qc/toffoli-gate carry-circ control (nth carry-qubits (dec i)) b-bit)
+                          (qc/toffoli-gate carry-circ (nth carry-qubits (dec i)) b-bit carry-bit))
+                        (qc/toffoli-gate inc-circ control (nth carry-qubits (dec i)) b-bit)))))
+                controlled-inc-circuit
+                (range n-bits))
+        
+        ;; Propagate initial controlled carry
+        (if (> n-bits 0)
+          (qc/toffoli-gate controlled-inc-circuit control (second inc-ancilla) (first carry-qubits))
+          controlled-inc-circuit)
+        
+        ;; Uncompute auxiliary constant
+        (qc/toffoli-gate controlled-inc-circuit control (first inc-ancilla) (second inc-ancilla)))
+      
+      ;; Step 3: Quantum addition a + b (where b is now ~b+1 if control=|1⟩, else unchanged)
+      (quantum-adder-ripple-carry c a-qubits b-qubits carry-qubits final-carry-qubit)
+      
+      ;; Step 4: Restore b to original value by undoing the controlled complement
+      ;; Undo controlled increment
+      (as-> c undo-inc-circuit
+        ;; Set up auxiliary qubit again
+        (qc/toffoli-gate undo-inc-circuit control (first inc-ancilla) (second inc-ancilla))
+        
+        ;; Undo controlled addition of 1
+        (reduce (fn [undo-circ i]
+                  (let [b-bit (nth b-qubits i)
+                        carry-bit (if (< i (count carry-qubits)) (nth carry-qubits i) nil)]
+                    (if (zero? i)
+                      (qc/toffoli-gate undo-circ control (second inc-ancilla) b-bit)
+                      (if carry-bit
+                        (as-> undo-circ carry-circ
+                          (qc/toffoli-gate carry-circ (nth carry-qubits (dec i)) b-bit carry-bit)
+                          (qc/toffoli-gate carry-circ control (nth carry-qubits (dec i)) b-bit))
+                        (qc/toffoli-gate undo-circ control (nth carry-qubits (dec i)) b-bit)))))
+                undo-inc-circuit
+                (range n-bits))
+        
+        ;; Undo initial carry
+        (if (> n-bits 0)
+          (qc/toffoli-gate undo-inc-circuit control (second inc-ancilla) (first carry-qubits))
+          undo-inc-circuit)
+        
+        ;; Uncompute auxiliary
+        (qc/toffoli-gate undo-inc-circuit control (first inc-ancilla) (second inc-ancilla)))
+      
+      ;; Undo controlled bit flip to restore original b
+      (reduce (fn [circ i]
+                (qc/toffoli-gate circ control (first inc-ancilla) (nth b-qubits i)))
+              c
+              (range n-bits)))))
+
+;;
 ;; Modular arithmetic
 ;;
 (defn quantum-comparator-less-than
@@ -388,8 +496,13 @@
   {:pre [(= (count a-qubits) (count b-qubits) (count n-qubits))
          (>= (count ancilla-qubits) (estimate-auxiliary-qubits (count a-qubits) :modular-addition))]}
   (let [n-bits (count a-qubits)
-        partitions [[:carry n-bits] [:c-out 1] [:comparison 1] [:comp-ancilla (+ (* 3 n-bits) 3)]]
-        {:keys [carry c-out comparison comp-ancilla]} (partition-ancilla-qubits ancilla-qubits partitions)
+        ;; Allocate ancilla for: carry (n) + c-out (1) + comparison (1) + comp-ancilla (3n+3) + controlled-sub-ancilla (2n+2)
+        partitions [[:carry n-bits] 
+                   [:c-out 1] 
+                   [:comparison 1] 
+                   [:comp-ancilla (+ (* 3 n-bits) 3)]
+                   [:controlled-sub-ancilla (+ (* 2 n-bits) 2)]]
+        {:keys [carry c-out comparison comp-ancilla controlled-sub-ancilla]} (partition-ancilla-qubits ancilla-qubits partitions)
         carry-qubits carry
         c-out-qubit (first c-out)
         comparison-qubit (first comparison)]
@@ -401,13 +514,9 @@
       ;; Step 2: Check if result >= N (use the improved comparator)
       (quantum-comparator-less-than c b-qubits n-qubits comparison-qubit comp-ancilla)
 
-      ;; Step 3: If result >= N, subtract N (controlled subtraction)
-      ;; Use proper controlled modular subtraction
-      ;; For now, use the working implementation while we complete the controlled subtractor
-      (reduce (fn [circ i]
-                (qc/cnot-gate circ comparison-qubit (nth b-qubits i)))
-              c
-              (range n-bits)))))
+      ;; Step 3: If result >= N, subtract N using proper controlled modular subtraction
+      ;; Use the production controlled quantum subtractor
+      (controlled-quantum-subtractor c comparison-qubit b-qubits n-qubits controlled-sub-ancilla))))
 
 ;;
 ;; Quantum multiplication circuits

@@ -21,7 +21,8 @@
 ;; Quantum circuits are sequences of quantum gates applied to qubits, similar to classical logic circuits.
 ;;
 ;; For a general introduction to quantum computing, take a look at
-;; [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
+;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
+;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
 ;; ## QClojure
 ;; The QClojure library provides a Clojure interface to quantum computing concepts.
@@ -63,8 +64,7 @@
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
-   [org.soulspace.qclojure.adapter.visualization :as viz]
-   [org.soulspace.qclojure.application.backend :as qb]))
+   [org.soulspace.qclojure.adapter.visualization :as viz]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a quantum system.
@@ -233,7 +233,9 @@ qg/hadamard
 (kind/html (viz/visualize-quantum-state :svg hadamard-circuit-state))
 
 ;; The probability distribution shows that the Hadamard circuit state is
-;; in a superposition of the ground and excited states.
+;; in a superposition of the ground and excited states. It is the same as the
+;; Hadamard state we created earlier, but now created by a quantum circuit, not
+;; just the application of a single gate on a quantum state.
 
 (kind/html (viz/visualize-bloch-sphere :svg hadamard-circuit-state))
 
@@ -291,10 +293,12 @@ qg/hadamard
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.
 ;; The *application.backend* namespace contains the protocols to be implemented by a
 ;; specific backend. A backend can be used to execute a quantum circuit.
-;; 
+
+(require '[org.soulspace.qclojure.application.backend :as qb])
+
 ;; QClojure comes with two simulator backends in the *adapter.backend* that can be used to
 ;; simulate quantum circuits on a classical computer.
-;; * The simulator backend simulates an ideal quantum computer without
+;; * The ideal simulator backend simulates an ideal quantum computer without
 ;;   phyiscal constraints like noise.
 ;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
 ;;
@@ -325,9 +329,11 @@ qg/hadamard
 
 ;; We instanciate the noisy simulator with the `create-noisy-simulator` function
 ;; and provide a simple noise profile.
-(def noisy-simulator (noisy/create-noisy-simulator noisy/ibm-lagos-noise))
+
+(def noisy-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
+
 (qb/execute-circuit noisy-simulator (qc/ghz-state-circuit 3) {:shots 10240})
 
 ;;
@@ -597,7 +603,25 @@ simon-result
 ;;
 ;; 
 
+;; ## Quantum Fourier Transform
+;; The [Quantum Fourier Transform (QFT)](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
+;; is a quantum algorithm that performs the discrete Fourier transform on a quantum state.
+;; It is a key component of many quantum algorithms, including Shor's algorithm.
+
+;; ## Quantum Phase Estimation
+;; The [Quantum Phase Estimation (QPE)](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
+;; is a quantum algorithm that estimates the eigenvalues of a unitary operator.
+;; It is used in many quantum algorithms, including Shor's algorithm and the Quantum Fourier Transform.
+
+;; ## Quantum Period Finding
+;; The [Quantum Period Finding](https://en.wikipedia.org/wiki/Quantum_period_finding)
+;; is a quantum algorithm that finds the period of a function.
+;; It is used in many quantum algorithms, including Shor's algorithm and the Quantum Fourier Transform
 
 ;; ## Shor's Algorithm
-;;
-;; 
+;; [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm) is a quantum algorithm
+;; that can factor large integers in polynomial time.
+;; It is one of the most famous quantum algorithms and has significant implications for
+;; cryptography, as it can break many classical encryption schemes.
+;; Shor's algorithm uses the Quantum Fourier Transform and Quantum Phase Estimation to find the period
+;; of a function related to the integer to be factored.

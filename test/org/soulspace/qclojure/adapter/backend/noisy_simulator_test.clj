@@ -12,18 +12,18 @@
 ;; Test fixtures
 (defn reset-simulator-state-fixture [f]
   "Reset noisy simulator state before each test."
-  (noisy/reset-noisy-simulator-state!)
+  (noisy/reset-simulator-state!)
   (f))
 
 (use-fixtures :each reset-simulator-state-fixture)
 
 ;; Helper functions for testing
 (defn complex-magnitude-squared
-  "Calculate |z|² for a complex number represented as [real imag] or fastmath Vec2."
+  "Calculate |z|² for a complex number represented as [real imag] or fastmath complex."
   [z]
   (cond 
-    ;; Handle fastmath Vec2 complex numbers
-    (instance? fastmath.vector.Vec2 z)
+    ;; Handle fastmath complex numbers
+    (qs/complex? z)
     (+ (* (fc/re z) (fc/re z)) (* (fc/im z) (fc/im z)))
     
     ;; Handle Clojure vectors [real imag]
@@ -320,9 +320,9 @@
       (let [simulator (noisy/create-noisy-simulator {})
             circuit (qc/ghz-state-circuit 2)
             _ (qb/submit-circuit simulator circuit {:shots 10})
-            initial-stats (noisy/get-noisy-simulator-stats)
-            _ (noisy/reset-noisy-simulator-state!)
-            reset-stats (noisy/get-noisy-simulator-stats)]
+            initial-stats (noisy/get-simulator-stats)
+            _ (noisy/reset-simulator-state!)
+            reset-stats (noisy/get-simulator-stats)]
         
         (is (> (:total-jobs initial-stats) 0) "Should have jobs before reset")
         (is (= 0 (:total-jobs reset-stats)) "Should have no jobs after reset")))
@@ -337,7 +337,7 @@
         (is (= :completed (qb/get-job-status simulator job-id)) "Job should be completed")
         
         ; Cleanup with very short max age (should remove the job)
-        (let [removed-count (noisy/cleanup-noisy-completed-jobs! 1)]
+        (let [removed-count (noisy/cleanup-completed-jobs! 1)]
           (is (>= removed-count 0) "Should return number of removed jobs"))))))
 
 ;; Tests for circuit fidelity estimation

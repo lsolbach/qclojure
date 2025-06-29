@@ -52,7 +52,7 @@
             [org.soulspace.qclojure.domain.gate :as qg]))
 
 ;; Noisy simulator state management
-(defonce noisy-state (atom {:job-counter 0
+(defonce state (atom {:job-counter 0
                             :active-jobs {}}))
 
 ;; Job record for noisy simulations
@@ -61,7 +61,7 @@
 
 ;; Helper functions for job management
 (defn- generate-noisy-job-id []
-  (let [new-counter (:job-counter (swap! noisy-state update :job-counter inc))]
+  (let [new-counter (:job-counter (swap! state update :job-counter inc))]
     (str "noisy_job_" new-counter "_" (System/currentTimeMillis))))
 
 ;; Advanced noise model specifications
@@ -488,7 +488,34 @@
        :error-message (.getMessage e)
        :exception-type (.getName (class e))})))
 
-;; Advanced Simulator Implementation  
+;;
+;; Noise Model Management
+;;
+(defn noise-model-for
+  "Get the noise model for a specific platform.
+  
+  Parameters:
+  - platform: Platform name (keyword)
+  
+  Returns: Noise model map or nil if not found"
+  ([platform]
+   (noise-model-for qb/devices platform))
+  ([devices platform]
+   (get-in devices [platform :noise-model])))
+
+(defn all-noise-models
+  "Get all available noise models.
+  
+  Returns: Map of platform names to noise models"
+  ([]
+   (all-noise-models qb/devices))
+  ([devices]
+   (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
+
+
+;;
+;; Noisy Simulator Implementation
+;;
 (deftype LocalNoisyQuantumSimulator [noise-model config]
   qb/QuantumBackend
 
@@ -511,7 +538,7 @@
                                    (System/currentTimeMillis) nil)]
 
       ;; Store job and start execution in background
-      (swap! noisy-state assoc-in [:active-jobs job-id] job)
+      (swap! state assoc-in [:active-jobs job-id] job)
 
       ;; Execute immediately in future (async execution)
       (future
@@ -520,17 +547,17 @@
                                    :status (:job-status result)
                                    :result result
                                    :completed-at (System/currentTimeMillis))]
-          (swap! noisy-state assoc-in [:active-jobs job-id] completed-job)))
+          (swap! state assoc-in [:active-jobs job-id] completed-job)))
 
       job-id))
 
   (get-job-status [_this job-id]
-    (if-let [job (get (:active-jobs @noisy-state) job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (:status job)
       :not-found))
 
   (get-job-result [_this job-id]
-    (if-let [job (get (:active-jobs @noisy-state) job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
         {:job-id job-id
@@ -541,10 +568,10 @@
        :error-message "Job not found"}))
 
   (cancel-job [_this job-id]
-    (if-let [job (get (:active-jobs @noisy-state) job-id)]
+    (if-let [job (get (:active-jobs @state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! noisy-state assoc-in [:active-jobs job-id]
+          (swap! state assoc-in [:active-jobs job-id]
                  (assoc job :status :cancelled
                         :completed-at (System/currentTimeMillis)))
           :cancelled)
@@ -552,7 +579,7 @@
       :not-found))
 
   (get-queue-status [_this]
-    (let [jobs (vals (:active-jobs @noisy-state))
+    (let [jobs (vals (:active-jobs @state))
           active-count (count (filter #(#{:queued :running} (:status %)) jobs))
           completed-count (count (filter #(= :completed (:status %)) jobs))]
       {:total-jobs (count jobs)
@@ -608,7 +635,7 @@
   (batch-submit [this circuits options]
     (let [batch-id (str "noisy_batch_" (System/currentTimeMillis))
           job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! noisy-state assoc-in [:active-jobs batch-id]
+      (swap! state assoc-in [:active-jobs batch-id]
              {:batch-id batch-id
               :job-ids job-ids
               :status :queued
@@ -616,7 +643,7 @@
       batch-id))
 
   (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @noisy-state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             statuses (map #(qb/get-job-status this %) job-ids)
             status-counts (frequencies statuses)]
@@ -631,7 +658,7 @@
       {:batch-id batch-job-id :status :not-found}))
 
   (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @noisy-state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             results (into {} (map (fn [job-id]
                                     [job-id (qb/get-job-result this job-id)])
@@ -658,33 +685,49 @@
    (->LocalNoisyQuantumSimulator noise-model config)))
 
 ;; Utility functions for noisy simulator state management
-(defn reset-noisy-simulator-state!
+(defn reset-simulator-state!
   "Reset the noisy simulator state, clearing all jobs and counters.
   
   Returns: Updated state"
   []
-  (reset! noisy-state {:job-counter 0 :active-jobs {}}))
+  (reset! state {:job-counter 0 :active-jobs {}}))
 
-(defn get-noisy-simulator-stats
+(defn get-simulator-stats
   "Get statistics about the noisy simulator state.
   
   Returns: Map with job counts and statistics"
   []
-  (let [current-state @noisy-state
-        jobs (vals (:active-jobs current-state))]
-    {:total-jobs (count jobs)
-     :job-counter (:job-counter current-state)
-     :jobs-by-status (->> jobs
-                          (group-by :status)
-                          (map (fn [[status job-list]] [status (count job-list)]))
-                          (into {}))
-     :active-jobs-count (count (filter #(#{:queued :running} (:status %)) jobs))
-     :oldest-job (when (seq jobs)
-                   (apply min (map :created-at jobs)))
-     :newest-job (when (seq jobs)
-                   (apply max (map :created-at jobs)))}))
+  (let [current-state @state
+        jobs (vals (:active-jobs current-state))
+        completed-jobs (filter #(= (:status %) :completed) jobs)
+        execution-times (keep #(let [start (:created-at %)
+                                     end (:completed-at %)]
+                                 (when (and start end)
+                                   (- end start)))
+                              completed-jobs)
+        jobs-by-status (->> jobs
+                            (group-by :status)
+                            (map (fn [[status job-list]] [status (count job-list)]))
+                            (into {}))
+        active-jobs-count (count (filter #(#{:queued :running} (:status %)) jobs))
+        oldest-job (when (seq jobs)
+                     (apply min (map :created-at jobs)))
+        newest-job (when (seq jobs)
+                     (apply max (map :created-at jobs)))]
 
-(defn cleanup-noisy-completed-jobs!
+    {:total-jobs (count jobs)
+     :completed-jobs (count completed-jobs)
+     :average-execution-time (if (seq execution-times)
+                               (/ (reduce + execution-times)
+                                  (count execution-times))
+                               0)
+     :job-counter (:job-counter current-state)
+     :jobs-by-status jobs-by-status
+     :active-jobs-count active-jobs-count
+     :oldest-job oldest-job
+     :newest-job newest-job}))
+
+(defn cleanup-completed-jobs!
   "Remove completed jobs older than specified time (in milliseconds).
   
   Parameters:
@@ -692,11 +735,11 @@
   
   Returns: Number of jobs cleaned up"
   ([]
-   (cleanup-noisy-completed-jobs! (* 60 60 1000))) ; 1 hour default
+   (cleanup-completed-jobs! (* 60 60 1000))) ; 1 hour default
   ([max-age-ms]
    (let [current-time (System/currentTimeMillis)
          cutoff-time (- current-time max-age-ms)
-         current-jobs (:active-jobs @noisy-state)
+         current-jobs (:active-jobs @state)
          jobs-to-keep (into {} 
                             (filter 
                              (fn [[_job-id job]]
@@ -704,12 +747,8 @@
                                    (> (:completed-at job 0) cutoff-time)))
                              current-jobs))
          removed-count (- (count current-jobs) (count jobs-to-keep))]
-     (swap! noisy-state assoc :active-jobs jobs-to-keep)
+     (swap! state assoc :active-jobs jobs-to-keep)
      removed-count)))
-
-;;;
-;;; Noise models
-;;;
 
 
 ;; Utility functions for noise analysis
@@ -764,27 +803,6 @@
                                            (re-find #"quera" (name platform-name)) :neutral-atom
                                            :else :unknown)})]))
              platform-models)))
-
-(defn noise-model-for
-  "Get the noise model for a specific platform.
-  
-  Parameters:
-  - platform: Platform name (keyword)
-  
-  Returns: Noise model map or nil if not found"
-  ([platform]
-   (noise-model-for qb/devices platform))
-  ([devices platform]
-   (get-in devices [platform :noise-model])))
-
-(defn all-noise-models
-  "Get all available noise models.
-  
-  Returns: Map of platform names to noise models"
-  ([]
-   (all-noise-models qb/devices))
-  ([devices]
-   (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
 
 (comment
   (noise-model-for :ibm-lagos)
@@ -880,8 +898,8 @@
   
   ;; Depolarizing noise
   (def depol-ops (depolarizing-kraus-operators 0.1))
-  (def noisy-state (apply-quantum-channel test-state depol-ops 0))
-  (println "\nDepolarizing noise result:" (:state-vector noisy-state))
+  (def state (apply-quantum-channel test-state depol-ops 0))
+  (println "\nDepolarizing noise result:" (:state-vector state))
   
   ;; Amplitude damping
   (def amp-ops (amplitude-damping-kraus-operators 0.1))

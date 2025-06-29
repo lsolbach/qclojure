@@ -335,25 +335,36 @@
   Returns: Map with job statistics and performance metrics"
   []
   (let [current-state @state
-        jobs (vals (:active-jobs current-state))
-        completed-jobs (filter #(= (:status %) :completed) jobs)
-        execution-times (keep #(let [start (:created-at %)
-                                     end (:completed-at %)]
-                                 (when (and start end)
-                                   (- end start)))
-                             completed-jobs)]
-    
-    {:total-jobs (count jobs)
-     :completed-jobs (count completed-jobs)
-     :average-execution-time (if (seq execution-times)
-                               (/ (reduce + execution-times) 
-                                  (count execution-times))
-                               0)
-     :job-counter (:job-counter current-state)}))
+      jobs (vals (:active-jobs current-state))
+      completed-jobs (filter #(= (:status %) :completed) jobs)
+      execution-times (keep #(let [start (:created-at %)
+                                   end (:completed-at %)]
+                               (when (and start end)
+                                 (- end start)))
+                            completed-jobs)
+      jobs-by-status (->> jobs
+                          (group-by :status)
+                          (map (fn [[status job-list]] [status (count job-list)]))
+                          (into {}))
+      active-jobs-count (count (filter #(#{:queued :running} (:status %)) jobs))
+      oldest-job (when (seq jobs)
+                   (apply min (map :created-at jobs)))
+      newest-job (when (seq jobs)
+                   (apply max (map :created-at jobs)))]
 
-(comment
-  ;; Example usage:
-  
+  {:total-jobs (count jobs)
+   :completed-jobs (count completed-jobs)
+   :average-execution-time (if (seq execution-times)
+                             (/ (reduce + execution-times)
+                                (count execution-times))
+                             0)
+   :job-counter (:job-counter current-state)
+   :jobs-by-status jobs-by-status
+   :active-jobs-count active-jobs-count
+   :oldest-job oldest-job
+   :newest-job newest-job}))
+
+(comment  
   ;; Create a simulator
   (def sim (create-simulator {:max-qubits 10}))
   
@@ -363,8 +374,8 @@
   ;; Create a simple circuit
   (def bell-circuit 
     (-> (qc/create-circuit 2 "Bell State")
-        (qc/add-gate :hadamard {:qubit-target 0})
-        (qc/add-gate :cnot {:qubit-control 0 :qubit-target 1})))
+        (qc/h-gate 0)
+        (qc/cnot-gate 0 1)))
   
   ;; Execute synchronously
   (def result (qb/execute-circuit sim bell-circuit {:shots 1000}))
@@ -378,11 +389,10 @@
   (qb/get-job-result sim job-id)
   
   ;; Test with different algorithms
-  (require '[qclojure.application.algorithms :as qa])
+  (require '[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])
   
   ;; Deutsch algorithm
-  (def deutsch-circuit (:circuit (qa/deutsch-algorithm (fn [_] true))))
-  (qb/execute-circuit sim deutsch-circuit)
+  (deutsch/deutsch-algorithm sim (fn [_] true))
   
   ;; Reset for clean testing
   (reset-simulator-state!)

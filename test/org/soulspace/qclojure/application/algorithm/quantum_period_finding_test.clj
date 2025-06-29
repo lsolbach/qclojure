@@ -74,16 +74,16 @@
                                (qc/x-gate circuit (first eigenstate-range)))
           controlled-unitary-fn (fn [circuit control-qubit power eigenstate-range]
                                   (qc/crz-gate circuit control-qubit 
-                                              (first eigenstate-range) 
-                                              (* 2 Math/PI (/ power 8))))
+                                               (first eigenstate-range) 
+                                               (* 2 Math/PI (/ power 8))))
           circuit (qpf/quantum-phase-estimation-circuit 4 3 eigenstate-prep-fn controlled-unitary-fn)
-          operations (:operations circuit)]
-      
-      ;; Check for expected gate types
-      (let [gate-types (map :operation-type operations)]
-        (is (some #(= :x %) gate-types) "Should contain X gates for eigenstate prep")
-        (is (some #(= :h %) gate-types) "Should contain Hadamard gates for superposition")
-        (is (some #(= :crz %) gate-types) "Should contain controlled rotations")))))
+          operations (:operations circuit)
+          
+          ;; Check for expected gate types
+          gate-types (map :operation-type operations)]
+      (is (some #(= :x %) gate-types) "Should contain X gates for eigenstate prep")
+      (is (some #(= :h %) gate-types) "Should contain Hadamard gates for superposition")
+      (is (some #(= :crz %) gate-types) "Should contain controlled rotations"))))
 
 ;;
 ;; Test quantum phase estimation with custom unitary

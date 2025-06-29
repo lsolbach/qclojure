@@ -3,6 +3,9 @@
 ## Version (NEXT)
 * added device map in backend, moved noise models to device map
 * unified functions for ideal and noisy simulators
+* improved quantum period finding
+* added quantum arithmetic functions
+* enhanced tutorial
 
 ## Version 0.3.0
 * implemented HHL algorithm for hermitian n x n matrices

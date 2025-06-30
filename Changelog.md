@@ -5,7 +5,7 @@
 * added plus-i-state and minus-i-state functions
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates
-* updated tutorial
+* enhanced tutorial
 
 ## Version 0.4.0
 * added device map in backend, moved noise models to device map

@@ -2,48 +2,62 @@
 ;; # QClojure Quantum Computing Tutorial
 ;; This is a simple tutorial to demonstrate the use of the
 ;; [QClojure](https://github.com/soulspace/qclojure) library.
-;; It covers the creation of quantum states, gates, and circuits and the excution of
-;; quantum and hybrid algorithms on a QClojure backend.
+;; It covers the creation of quantum states, gates, and circuits and the
+;; excution of quantum and hybrid algorithms on a QClojure backend.
 ;;
 ;; ## Introduction to Quantum Computing
-;; Quantum computing is a fascinating field that combines computer science, physics, and mathematics.
-;; It allows us to perform computations that are not possible with classical computers.
-;; Quantum computers use quantum bits, or [qubits](https://en.wikipedia.org/wiki/Qubit), which can be in a superposition of states.
-;; This means that a qubit can be in a state of 0, 1, or both at the same time.
-;; Quantum computing is based on the principles of quantum mechanics, which describe the behavior of particles at the quantum level.
+;; Quantum computing is a fascinating field that combines computer science,
+;; physics, and mathematics. It allows us to perform computations that are
+;; not possible with classical computers. Quantum computers use quantum bits,
+;; or [qubits](https://en.wikipedia.org/wiki/Qubit), which can be in a
+;; superposition of states. This means that a qubit can be in a state of 0, 1,
+;; or both at the same time. Quantum computing is based on the principles of
+;; quantum mechanics, which describe the behavior of particles at the quantum
+;; level.
 ;;
-;; Quantum computing has the potential to revolutionize many fields, including cryptography, optimization, and machine learning.
-;; It can solve certain problems much faster than classical computers, by performing many calculations at once.
-;; Quantum Algorithms, such as Shor's algorithm for factoring large numbers and Grover's algorithm for searching unsorted databases, demonstrate the power of quantum computing.
+;; Quantum computing has the potential to revolutionize many fields, including
+;; cryptography, optimization, and machine learning. It can solve certain
+;; problems much faster than classical computers, by performing many
+;; calculations at once.
+;; Quantum Algorithms, such as Shor's algorithm for factoring large numbers
+;; and Grover's algorithm for searching unsorted databases, demonstrate the
+;; power of quantum computing.
 ;;
-;; Quantum algorithms are defined in terms of quantum gates, which are operations that can be applied to qubits.
-;; Quantum gates manipulate the state of qubits and can be combined to create quantum circuits.
-;; Quantum circuits are sequences of quantum gates applied to qubits, similar to classical logic circuits.
+;; Quantum algorithms are defined in terms of quantum gates, which are
+;; operations that can be applied to qubits. Quantum gates manipulate the state
+;; of qubits and can be combined to create quantum circuits.
+;; Quantum circuits are sequences of quantum gates applied to qubits, similar
+;; to classical logic circuits.
 ;;
 ;; For a general introduction to quantum computing, take a look at
 ;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
 ;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
 ;; ## QClojure
-;; The QClojure library provides a Clojure interface to quantum computing concepts.
-;; It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style.
-;; QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware.
-;; This tutorial will guide you through the basics of quantum computing using QClojure.
+;; The QClojure library provides a Clojure interface to quantum computing
+;; concepts. It allows us to create and manipulate quantum states, gates, and
+;; circuits in a functional programming style.
+;; QClojure can also be used to simulate quantum circuits and, by implementing
+;; backends, run them on quantum hardware.
+;; This tutorial will guide you through the basics of quantum computing using
+;; QClojure.
 ;;
 ;; ### Prerequisites
-;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to have
-;; the following prerequisites installed on your system:
+;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to
+;; have the following prerequisites installed on your system:
 ;; * [JDK 11 or higher](https://openjdk.org/install/)
-;; * [Clojure](https://clojure.org/) installed on your system
+;; * [Clojure](https://clojure.org/)
 ;; * [Leiningen](https://leiningen.org/) or [Clojure CLI](https://clojure.org/guides/getting_started) to manage dependencies and run Clojure code.
 ;;
 ;; If you are new to Clojure, I recommend reading the
 ;; [Clojure Getting Started Guide](https://clojure.org/guides/getting_started).
 ;;
 ;; ### Usage
-;; To use QClojure, you have to include it as a dependency in your Clojure project.
+;; To use QClojure, you have to include it as a dependency in your Clojure
+;; project.
 ;;
-;; If you are using Leiningen, add the following dependency to your `project.clj` file:
+;; If you are using Leiningen, add the following dependency to your
+;; `project.clj` file:
 ;;
 ;; ```clojure
 ;; [org.soulspace/qclojure "0.4.0"]
@@ -57,10 +71,13 @@
 ;;
 ;; ### Imports
 ;; We use kindly to visualize the output of our code.
-;; Then we import the relevant namespaces for the domain concepts of the QClojure library.
-;; The `state` namespace provides functions to create and manipulate quantum states.
+;; Then we import the relevant namespaces for the domain concepts of the
+;; QClojure library.
+;; The `state` namespace provides functions to create and manipulate quantum
+;; states.
 ;; The `gate` namespace provides functions to create quantum gates.
-;; The `circuit` namespace provides functions to create and manipulate quantum circuits.
+;; The `circuit` namespace provides functions to create and manipulate quantum
+;; circuits.
 ;;
 ;; We also import the visualization namespace and the svg renderer.
 
@@ -77,18 +94,26 @@
    [org.soulspace.qclojure.adapter.visualization :as viz]))
 
 ;; ## Quantum States
-;; A quantum state is a mathematical object that describes the state of a quantum system.
+;; A quantum state is a mathematical object that describes the state of a
+;; quantum system.
 ;; In QClojure, quantum states are represented as vectors of complex numbers.
-;; The vector of complex numbers represents the amplitudes of the basis states, which represent the possible states of the system.
-;; The notation |⟩ is called a "[braket](https://en.wikipedia.org/wiki/Dirac_notation)" and is used to represent a vector in a complex vector space.
-;; The Qubit is the basic unit of quantum information, and it can be in a [superposition](https://en.wikipedia.org/wiki/Superposition) of the states |0⟩ and |1⟩.
-;; A classic bit can be in one of two states, 0 or 1, but a qubit can be in a superposition of both states.
-;; This means that a qubit can represent 0, 1, or both at the same time, with different probabilities.
+;; The vector of complex numbers represents the amplitudes of the basis states,
+;; which represent the possible states of the system.
+;; The notation |⟩ is called a "[braket](https://en.wikipedia.org/wiki/Dirac_notation)"
+;; and is used to represent a vector in a complex vector space.
+;; The Qubit is the basic unit of quantum information, and it can be in a
+;; [superposition](https://en.wikipedia.org/wiki/Superposition) of the states
+;; |0⟩ and |1⟩.
+;; A classic bit can be in one of two states, 0 or 1, but a qubit can be in
+;; a superposition of both states.
+;; This means that a qubit can represent 0, 1, or both at the same time, with
+;; different probabilities.
 ;;
 ;; ### Measurement
-;; Measurement is the process of extracting classical information from a quantum state.
-;; The measurement process is probabilistic, and the probability of measuring
-;; a certain state depends on the amplitudes of the basis states in the quantum state.
+;; Measurement is the process of extracting classical information from a quantum
+;; state. The measurement process is probabilistic, and the probability of
+;; measuring a certain state depends on the amplitudes of the basis states in
+;; the quantum state.
 ;; When we measure a quantum state, we collapse it to one of the basis states
 ;; with a certain probability. After measurement, the quantum state is no longer
 ;; in a superposition, but in one of the basis states.
@@ -106,19 +131,23 @@
 qs/|0⟩
 
 ;; The measured value of a quantum state is probabilistic.
-;; We have a probability of measuring the state |0⟩ as 0, and a probability of measuring it as 1.
+;; We have a probability of measuring the state |0⟩ as 0, and a probability of
+;; measuring it as 1.
 ;; We can visualize the probability distribution of the quantum state |0⟩.
 
 (kind/html (viz/visualize-quantum-state :svg qs/|0⟩))
 
-;; It shows that the probability of measuring the state |0⟩ results in 0 is 1, which is certain.
+;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
+;; which is certain.
 ;;
-;; The [Bloch sphere](https://en.wikipedia.org/wiki/Bloch_sphere) is a geometrical representation of quantum states.
+;; The [Bloch sphere](https://en.wikipedia.org/wiki/Bloch_sphere) is a
+;; geometrical representation of quantum states.
 ;; We can visualize the quantum state |0⟩ as a vector on the Bloch sphere.
 
 (kind/html (viz/visualize-bloch-sphere :svg qs/|0⟩))
 
-;; The Bloch sphere representation shows that the state |0⟩ is at the north pole of the sphere.
+;; The Bloch sphere representation shows that the state |0⟩ is at the north pole
+;; of the sphere.
 ;;
 ;; Let's look at another quantum state, the excited state |1⟩.
 
@@ -128,16 +157,20 @@ qs/|1⟩
 
 (kind/html (viz/visualize-quantum-state :svg qs/|1⟩))
 
-;; It shows that the probability of measuring the state |1⟩ results in 1 is 1, which is also certain.
-;; The Bloch sphere representation shows that the state |1⟩ is at the south pole of the sphere.
+;; It shows that the probability of measuring the state |1⟩ results in 1 is 1,
+;; which is also certain.
+;; The Bloch sphere representation shows that the state |1⟩ is at the south pole
+;; of the sphere.
 
 (kind/html (viz/visualize-bloch-sphere :svg qs/|1⟩))
 
 ;; ### Superposition States
-;; Quantum states can also be in a superposition of the ground and excited states.
+;; Quantum states can also be in a superposition of the ground and excited
+;; states.
 ;; Superposition states are linear combinations of the basic quantum states.
 ;;
-;; Let's look at the quantum state |+⟩, which is a superposition of the ground and excited states.
+;; Let's look at the quantum state |+⟩, which is a superposition of the ground
+;; and excited states.
 ;; The state |+⟩ is defined as (|0⟩ + |1⟩) / √2.
 
 qs/|+⟩
@@ -189,7 +222,8 @@ qs/|00⟩
 
 qg/pauli-x
 
-;; The Pauli-Y gate is a quantum gate that flips the state of a qubit and adds a phase.
+;; The Pauli-Y gate is a quantum gate that flips the state of a qubit and adds
+;; a phase.
 
 qg/pauli-y
 
@@ -205,7 +239,8 @@ qg/pauli-z
 
 qg/hadamard
 
-;; We can apply the Hadamard gate to the state |0⟩ to create the superposition state |+⟩.
+;; We can apply the Hadamard gate to the state |0⟩ to create the superposition 
+;; state |+⟩.
 
 (def hadamard-state
   (qg/h-gate qs/|0⟩))
@@ -272,24 +307,26 @@ qg/t-dag-gate
 ;; They are defined as a combination of a control qubit and a target qubit.
 ;; The control qubit determines whether the target qubit is affected by the gate.
 ;;
-;; The controlled-X gate ([CNOT gate](https://en.wikipedia.org/wiki/CNOT_gate)) is a
-;; controlled gate that flips the state of the target qubit
-;; if the control qubit is in the state |1⟩.
+;; The controlled-X gate ([CNOT gate](https://en.wikipedia.org/wiki/CNOT_gate))
+;; is a controlled gate that flips the state of the target qubit  if the control
+;; qubit is in the state |1⟩.
 
 (qg/cnot-gate)
 
-;; The controlled-Y gate is a controlled gate that flips the state of the target qubit
-;; and adds a phase if the control qubit is in the state |1⟩.
+;; The controlled-Y gate is a controlled gate that flips the state of the target
+;; qubit and adds a phase if the control qubit is in the state |1⟩.
 ;;
-;; The controlled-Z gate is a controlled gate that adds a phase to the target qubit
-;; if the control qubit is in the state |1⟩.
+;; The controlled-Z gate is a controlled gate that adds a phase to the target
+;; qubit if the control qubit is in the state |1⟩.
 ;;
 ;; ## Quantum Circuits
 ;; Quantum circuits are sequences of quantum gates applied to quantum states.
-;; The *qc* namespace provides functions to create and manipulate quantum circuits.
+;; The *qc* namespace provides functions to create and manipulate quantum
+;; circuits.
 ;;
 ;; ### Creating a Quantum Circuit
-;; We can create a simple quantum circuit that applies the Hadamard gate to the state |0⟩.
+;; We can create a simple quantum circuit that applies the Hadamard gate to the
+;; state |0⟩.
 
 (def simple-circuit
   (-> (qc/create-circuit 1 "Hadamard on qubit 0")
@@ -320,8 +357,8 @@ qg/t-dag-gate
 
 ;; The *qc* namespace also has some predefined circuits.
 ;;
-;; For example, the 'qc/bell-state-circuit' creates a circuit that prepares a Bell state,
-;; which is a two-qubit entangled state.
+;; For example, the 'qc/bell-state-circuit' creates a circuit that prepares 
+;; Bell state, which is a two-qubit entangled state.
 
 (def bell-circuit
   (qc/bell-state-circuit))

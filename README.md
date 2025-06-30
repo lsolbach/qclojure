@@ -30,7 +30,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 6. **Local Quantum Simulator Backend**
 
-   Local simulators (ideal/noisy) with job submission, status tracking, and statistical measurement results with configurable shot counts
+   Local ideal/noisy simulators with job submission, status tracking, and statistical measurement results with configurable shot counts
 
 7. **OpenQASM Integration**
 
@@ -49,7 +49,8 @@ QClojure is a library to be used in programs or interactive within the REPL.
 
 To use QClojure, add a dependency to your project definition.
 
-This small example shows the creation of a quantum circuit in a functional way,
+### Bell Circuit Example
+This example shows the creation of a quantum circuit in a functional way and
 the execution of the circuit on the simulator. It also prints the final state
 and the measurement outcomes and generates SVG images of the circuit and the
 final state.
@@ -79,9 +80,37 @@ final state.
 (spit "bell-state.svg" (vis/visualize-quantum-state :svg (:final-state result)))
 ```
 
-### Visualizations of the Bell Circuit and State
+#### Visualizations of the Bell Circuit and State
 ![Visualization of the Bell circuit](/doc/images/bell-circuit.svg)
 ![Visualization of the probabilities of the Bell state](/doc/images/bell-state.svg)
+
+### Bernstein-Vazirani Algorithm Example
+This example shows the execution of a quantum algorithm on the simulator backend.It also prints the final state and the measurement outcomes and generates SVG
+images of the circuit and the final state.
+
+```clojure
+(require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
+(require '[org.soulspace.qclojure.application.backend :as qb])
+(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
+
+;; Bernstein-Vazirani algorithm example
+(def bv-result (bv/bernstein-vazirani-algorithm
+                (sim/create-simulator) [1 0 1 0] {:shots 100}))
+
+;; Examine the results
+(:final-state bv-result)
+(:measurement-results bv-result)
+
+;; Create SVG visualizations for the circuit and the final state
+(spit "bv-circuit.svg" (vis/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
+(spit "bv-state.svg" (vis/visualize-quantum-state :svg (:final-state bv-result)))
+```
+
+#### Visualizations of the Bernstein-Varizani Circuit and Final State
+![Visualization of the Bell circuit](/doc/images/bv-circuit.svg)
+![Visualization of the probabilities of the Bell state](/doc/images/bv-state.svg)
 
 ## Tutorial
 To learn about quantum computing with QClojure please take a look at the [tutorial](/notebook/tutorial.clj).

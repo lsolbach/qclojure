@@ -179,17 +179,27 @@
        coord-text]))))
 
 (defmethod viz/visualize-circuit :svg
-  [_format circuit & {:keys [width gate-spacing qubit-spacing show-measurements interactive]
-            :or {width 800 gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
+  [_format circuit & {:keys [width height gate-spacing qubit-spacing show-measurements interactive]
+            :or {gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
 
 (let [n-qubits (:num-qubits circuit)
       operations (:operations circuit)
       gates (filter #(not= (:operation-type %) :measure) operations)
+      circuit-depth (qc/circuit-depth circuit)
       margin {:top 40 :right 40 :bottom 80 :left 100}
 
-      ;; Calculate dimensions
-      circuit-width (+ (* (count gates) gate-spacing) (* 2 gate-spacing))
-      height (+ (* n-qubits qubit-spacing) (:top margin) (:bottom margin))
+      ;; Calculate default dimensions based on circuit properties
+      ;; Width: based on circuit depth (number of sequential layers)
+      default-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing) (:left margin) (:right margin))
+      ;; Height: based on number of qubits
+      default-height (+ (* n-qubits qubit-spacing) (:top margin) (:bottom margin))
+      
+      ;; Use provided dimensions or calculated defaults
+      final-width (if (some? width) width default-width)
+      final-height (if (some? height) height default-height)
+
+      ;; Calculate circuit area dimensions (excluding margins)
+      circuit-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing))
 
       ;; Gate visual properties
       operation-styles {:x {:fill "#ef4444" :symbol "X"}
@@ -228,14 +238,149 @@
                                :x2 (+ (:left margin) circuit-width) :y2 y
                                :stroke "#9ca3af" :stroke-width 2}]]))
 
+      ;; Helper functions for span-aware layering
+      operation-qubits-with-spans (fn [operation]
+                                    (let [params (:operation-params operation)
+                                          operation-type (:operation-type operation)]
+                                      (case operation-type
+                                        :measure
+                                        {:qubits (or (:measurement-qubits params) [])
+                                         :spans []}
+                                        
+                                        ;; Single-qubit gates - no spans
+                                        (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
+                                        {:qubits [(:target params)]
+                                         :spans []}
+                                        
+                                        ;; Two-qubit controlled gates - create spans
+                                        (:cnot :cx :cz :cy :crx :cry :crz)
+                                        (let [control (:control params)
+                                              target (:target params)]
+                                          {:qubits [control target]
+                                           :spans [(if (< control target) 
+                                                     [control target] 
+                                                     [target control])]})
+                                        
+                                        ;; SWAP gates - span between qubits
+                                        (:swap :iswap)
+                                        (let [q1 (:qubit1 params)
+                                              q2 (:qubit2 params)]
+                                          {:qubits [q1 q2]
+                                           :spans [(if (< q1 q2) [q1 q2] [q2 q1])]})
+                                        
+                                        ;; Three-qubit gates
+                                        :toffoli
+                                        (let [c1 (:control1 params)
+                                              c2 (:control2 params)
+                                              target (:target params)
+                                              all-qubits [c1 c2 target]
+                                              min-q (apply min all-qubits)
+                                              max-q (apply max all-qubits)]
+                                          {:qubits all-qubits
+                                           :spans [[min-q max-q]]})
+                                        
+                                        :fredkin
+                                        (let [control (:control params)
+                                              t1 (:target1 params)
+                                              t2 (:target2 params)
+                                              all-qubits [control t1 t2]
+                                              min-q (apply min all-qubits)
+                                              max-q (apply max all-qubits)]
+                                          {:qubits all-qubits
+                                           :spans [[min-q max-q]]})
+                                        
+                                        ;; Default case - legacy support
+                                        {:qubits (remove nil? [(:target params)
+                                                              (:control params)
+                                                              (:qubit1 params)
+                                                              (:qubit2 params)
+                                                              (:control1 params)
+                                                              (:control2 params)
+                                                              (:target1 params)
+                                                              (:target2 params)])
+                                         :spans []})))
+
+      spans-conflict? (fn [[start1 end1] [start2 end2]]
+                        (not (or (< end1 start2) (< end2 start1))))
+
+      qubit-in-span? (fn [qubit spans]
+                       (some (fn [[start end]] (<= start qubit end)) spans))
+
+      safe-max (fn [default-val coll]
+                 (if (empty? coll)
+                   default-val
+                   (apply max coll)))
+
+      ;; Assign gates to layers using span-aware logic to prevent visual overlaps
+      assign-gates-to-layers (fn [gates n-qubits]
+                               (let [qubit-last-layer (vec (repeat n-qubits 0))]
+                                 (loop [remaining-gates gates
+                                        qubit-layers qubit-last-layer
+                                        span-layers {}
+                                        assignments []
+                                        current-max-layer 0]
+                                   (if (empty? remaining-gates)
+                                     assignments
+                                     (let [gate (first remaining-gates)
+                                           op-info (operation-qubits-with-spans gate)
+                                           op-qubits (remove nil? (:qubits op-info))
+                                           op-spans (:spans op-info)
+
+                                           ;; Find the maximum layer from affected qubits
+                                           max-qubit-layer (safe-max 0 (map #(nth qubit-layers %) op-qubits))
+
+                                           ;; For controlled gates, check if any existing spans conflict
+                                           conflicting-span-layers (for [[span layer] span-layers
+                                                                         op-span op-spans
+                                                                         :when (spans-conflict? span op-span)]
+                                                                     layer)
+                                           max-span-layer (safe-max 0 conflicting-span-layers)
+
+                                           ;; For single-qubit gates, check if they conflict with existing spans
+                                           conflicting-qubit-layers (if (empty? op-spans)
+                                                                      (for [[span layer] span-layers
+                                                                            qubit op-qubits
+                                                                            :when (qubit-in-span? qubit [span])]
+                                                                        layer)
+                                                                      [])
+                                           max-conflict-layer (safe-max 0 conflicting-qubit-layers)
+
+                                           ;; The new layer is one more than the maximum constraint
+                                           new-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
+
+                                           ;; Update qubit layers
+                                           updated-qubit-layers (reduce #(assoc %1 %2 new-layer)
+                                                                        qubit-layers
+                                                                        op-qubits)
+
+                                           ;; Update span layers
+                                           updated-span-layers (reduce #(assoc %1 %2 new-layer)
+                                                                       span-layers
+                                                                       op-spans)
+
+                                           ;; Create assignment
+                                           assignment {:gate gate 
+                                                      :layer new-layer 
+                                                      :qubit-layers updated-qubit-layers}]
+
+                                       (recur (rest remaining-gates)
+                                              updated-qubit-layers
+                                              updated-span-layers
+                                              (conj assignments assignment)
+                                              (max current-max-layer new-layer)))))))
+      
+      gate-layer-assignments (assign-gates-to-layers gates n-qubits)
+
       ;; Generate gate elements
-      gate-elements (map-indexed
-                     (fn [gate-idx gate]
-                       (let [gate-type (:operation-type gate)
+      gate-elements (map
+                     (fn [assignment]
+                       (let [gate (:gate assignment)
+                             layer (:layer assignment)
+                             gate-type (:operation-type gate)
                              params (:operation-params gate)
                              control (:control params)
                              target (:target params)
-                             x (+ (:left margin) gate-spacing (* gate-idx gate-spacing))
+                             x (+ (:left margin) (* layer gate-spacing))
 
                              gate-info (get operation-styles gate-type
                                             {:fill "#6b7280" :symbol (name gate-type)})]
@@ -444,7 +589,7 @@
                                            (when-let [angle (and (#{:rx :ry :rz :phase} gate-type) 
                                                                 (first (:rotation-angles params)))]
                                              (str ", angle=" (qmath/round-precision angle 2))))]]))))
-                     gates)
+                     gate-layer-assignments)
 
       ;; Measurement symbols
       measurements (when show-measurements
@@ -462,16 +607,16 @@
                           [:title (str "Measure qubit " q)]])))
 
       ;; Title and circuit info
-      title [:text {:x (/ (+ width (:left margin)) 2) :y 25
+      title [:text {:x (/ final-width 2) :y 25
                     :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
              (or (:name circuit) "Quantum Circuit")]
 
       circuit-info [:g
-                    [:text {:x 20 :y (- height 40)
+                    [:text {:x 20 :y (- final-height 40)
                             :font-size "12" :fill "#6b7280"}
-                     (str "Qubits: " n-qubits " | Gates: " (count gates) " | Depth: " (qc/circuit-depth circuit))]
+                     (str "Qubits: " n-qubits " | Gates: " (count gates) " | Depth: " circuit-depth)]
                     (when (:description circuit)
-                      [:text {:x 20 :y (- height 25)
+                      [:text {:x 20 :y (- final-height 25)
                               :font-size "12" :fill "#6b7280"}
                        (:description circuit)])]
 
@@ -484,7 +629,7 @@
 
   (str
    (h/html
-    [:svg {:width (+ width (:left margin) (:right margin)) :height height
+    [:svg {:width final-width :height final-height
            :xmlns "http://www.w3.org/2000/svg"
            :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
      styles

@@ -924,25 +924,90 @@
         (update :name #(str (or % "Circuit") " (inverse)")))))
 
 ;; Circuit analysis and utility functions
-(defn- operation-qubits
-  "Extract all qubit indices that an operation operates on."
+(defn- operation-qubits-with-spans
+  "Extract all qubit indices that an operation operates on, including span information for proper layering."
   [operation]
   (let [params (:operation-params operation)
         operation-type (:operation-type operation)]
     (case operation-type
       :measure
-      ;; For measurements, return the qubits being measured
-      (or (:measurement-qubits params) [])
+      {:qubits (or (:measurement-qubits params) [])
+       :spans []}
       
-      ;; For gates, extract target, control, and other qubit parameters
-      (remove nil? [(:target params)
-                    (:control params)
-                    (:qubit1 params)
-                    (:qubit2 params)
-                    (:control1 params)
-                    (:control2 params)
-                    (:target1 params)
-                    (:target2 params)]))))
+      ;; Single-qubit gates - no spans
+      (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
+      {:qubits [(:target params)]
+       :spans []}
+      
+      ;; Two-qubit controlled gates - create spans
+      (:cnot :cx :cz :cy :crx :cry :crz)
+      (let [control (:control params)
+            target (:target params)]
+        {:qubits [control target]
+         :spans [(if (< control target) 
+                   [control target] 
+                   [target control])]})
+      
+      ;; SWAP gates - span between qubits
+      (:swap :iswap)
+      (let [q1 (:qubit1 params)
+            q2 (:qubit2 params)]
+        {:qubits [q1 q2]
+         :spans [(if (< q1 q2) [q1 q2] [q2 q1])]})
+      
+      ;; Three-qubit gates
+      :toffoli
+      (let [c1 (:control1 params)
+            c2 (:control2 params)
+            target (:target params)
+            all-qubits [c1 c2 target]
+            min-q (apply min all-qubits)
+            max-q (apply max all-qubits)]
+        {:qubits all-qubits
+         :spans [[min-q max-q]]})
+      
+      :fredkin
+      (let [control (:control params)
+            t1 (:target1 params)
+            t2 (:target2 params)
+            all-qubits [control t1 t2]
+            min-q (apply min all-qubits)
+            max-q (apply max all-qubits)]
+        {:qubits all-qubits
+         :spans [[min-q max-q]]})
+      
+      ;; Default case - legacy support
+      {:qubits (remove nil? [(:target params)
+                            (:control params)
+                            (:qubit1 params)
+                            (:qubit2 params)
+                            (:control1 params)
+                            (:control2 params)
+                            (:target1 params)
+                            (:target2 params)])
+       :spans []})))
+
+(defn- operation-qubits
+  "Extract all qubit indices that an operation operates on."
+  [operation]
+  (:qubits (operation-qubits-with-spans operation)))
+
+(defn- spans-conflict?
+  "Check if two spans conflict (one span intersects another)."
+  [[start1 end1] [start2 end2]]
+  (not (or (< end1 start2) (< end2 start1))))
+
+(defn- qubit-in-span?
+  "Check if a qubit is within any of the spans."
+  [qubit spans]
+  (some (fn [[start end]] (<= start qubit end)) spans))
+
+(defn- safe-max 
+  "Safe max that handles empty collections"
+  [default-val coll]
+  (if (empty? coll)
+    default-val
+    (apply max coll)))
 
 (defn circuit-depth
   "Calculate the depth (number of sequential operation layers) of a quantum circuit.
@@ -950,6 +1015,9 @@
   Circuit depth is the minimum number of time steps needed to execute the circuit,
   assuming operations that operate on different qubits can be executed in parallel.
   This is an important metric for circuit optimization and noise analysis.
+  
+  This improved version accounts for controlled gates' visual spans to ensure
+  proper layering in circuit visualizations.
   
   Note: Measurements are treated as operations that can be parallelized with gates
   on different qubits but require their own time step.
@@ -969,17 +1037,54 @@
         num-qubits (:num-qubits circuit)]
     (if (empty? operations)
       0
-      (let [qubit-last-layer (vec (repeat num-qubits 0))
-            final-layers (reduce (fn [last-layers operation]
-                                   (let [qubits-used (operation-qubits operation)
-                                         max-prev-layer (if (empty? qubits-used)
-                                                          0
-                                                          (apply max (map #(nth last-layers %) qubits-used)))
-                                         new-layer (inc max-prev-layer)]
-                                     (reduce #(assoc %1 %2 new-layer) last-layers qubits-used)))
-                                 qubit-last-layer
-                                 operations)]
-        (apply max final-layers)))))
+      (loop [remaining-ops operations
+             qubit-layers (vec (repeat num-qubits 0))
+             span-layers {}
+             max-layer 0]
+        (if (empty? remaining-ops)
+          max-layer
+          (let [operation (first remaining-ops)
+                op-info (operation-qubits-with-spans operation)
+                op-qubits (remove nil? (:qubits op-info))
+                op-spans (:spans op-info)
+
+                ;; Find the maximum layer from affected qubits
+                max-qubit-layer (safe-max 0 (map #(nth qubit-layers %) op-qubits))
+
+                ;; For controlled gates, check if any existing spans conflict
+                conflicting-span-layers (for [[span layer] span-layers
+                                              op-span op-spans
+                                              :when (spans-conflict? span op-span)]
+                                          layer)
+                max-span-layer (safe-max 0 conflicting-span-layers)
+
+                ;; For single-qubit gates, check if they conflict with existing spans
+                conflicting-qubit-layers (if (empty? op-spans)
+                                           (for [[span layer] span-layers
+                                                 qubit op-qubits
+                                                 :when (qubit-in-span? qubit [span])]
+                                             layer)
+                                           [])
+                max-conflict-layer (safe-max 0 conflicting-qubit-layers)
+
+                ;; The new layer is one more than the maximum constraint
+                new-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
+
+                ;; Update qubit layers
+                updated-qubit-layers (reduce #(assoc %1 %2 new-layer)
+                                             qubit-layers
+                                             op-qubits)
+
+                ;; Update span layers
+                updated-span-layers (reduce #(assoc %1 %2 new-layer)
+                                            span-layers
+                                            op-spans)]
+
+            (recur (rest remaining-ops)
+                   updated-qubit-layers
+                   updated-span-layers
+                   (max max-layer new-layer))))))))
+                   
 
 (defn circuit-operation-count
   "Count the total number of operations in a quantum circuit.

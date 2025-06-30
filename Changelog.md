@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.4.0
 * added device map in backend, moved noise models to device map
 * unified functions for ideal and noisy simulators
 * improved quantum period finding

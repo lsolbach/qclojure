@@ -30,7 +30,16 @@
 ;; QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware.
 ;; This tutorial will guide you through the basics of quantum computing using QClojure.
 ;;
-;; 
+;; ### Prerequisites
+;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to have
+;; the following prerequisites installed on your system:
+;; * [JDK 11 or higher](https://openjdk.org/install/)
+;; * [Clojure](https://clojure.org/) installed on your system
+;; * [Leiningen](https://leiningen.org/) or [Clojure CLI](https://clojure.org/guides/getting_started) to manage dependencies and run Clojure code.
+;;
+;; If you are new to Clojure, I recommend reading the
+;; [Clojure Getting Started Guide](https://clojure.org/guides/getting_started).
+;;
 ;; ### Usage
 ;; To use QClojure, you have to include it as a dependency in your Clojure project.
 ;;
@@ -57,6 +66,7 @@
 
 (ns tutorial
   (:require
+   [fastmath.core :as fm]
    [scicloj.kindly.v4.api :as kindly]
    [scicloj.kindly.v4.kind :as kind]
    [org.soulspace.qclojure.domain.state :as qs]
@@ -188,7 +198,8 @@ qg/pauli-y
 qg/pauli-z
 
 ;; ### Hadamard Gate
-;; The [Hadamard gate](https://en.wikipedia.org/wiki/Hadamard_gate) is a quantum gate that creates superposition states.
+;; The [Hadamard gate](https://en.wikipedia.org/wiki/Hadamard_gate) is a
+;; quantum gate that creates superposition states.
 ;; It transforms the state |0⟩ into the state |+⟩ and |1⟩ into the state |-⟩.
 ;; The Hadamard gate is defined as the matrix:
 
@@ -203,12 +214,76 @@ qg/hadamard
 
 (kind/html (viz/visualize-quantum-state :svg hadamard-state))
 
-;; The probability distribution shows that the Hadamard state is in a superposition of the ground and excited states.
+;; The probability distribution shows that the Hadamard state is in a
+;; superposition of the ground and excited states.
 
 (kind/html (viz/visualize-bloch-sphere :svg hadamard-state))
 
-;; The Bloch sphere representation shows that the Hadamard state is on the equator of the sphere.
+;; The Bloch sphere representation shows that the Hadamard state is on the
+;; equator of the sphere.
+;;
+;; ### Phase Gates
+;; Phase gates are quantum gates that add a phase to the state of a qubit.
+;;
+;; The [S gate](https://en.wikipedia.org/wiki/S_gate) is a phase gate that adds
+;; a phase of π/2 to the state of a qubit.
 
+qg/s-gate
+
+;; The [S† gate](https://en.wikipedia.org/wiki/S_gate#S%E2%81%BF_gate) is the
+;; inverse of the S gate and adds a phase of -π/2 to the state of a qubit.
+
+qg/s-dag-gate
+
+;; The [T gate](https://en.wikipedia.org/wiki/T_gate) is a phase gate that adds
+;; a phase of π/4 to the state of a qubit.
+
+qg/t-gate
+
+;; The [T† gate](https://en.wikipedia.org/wiki/T_gate#T%E2%81%BF_gate) is the
+;; inverse of the T gate and adds a phase of -π/4 to the state of a qubit.
+
+qg/t-dag-gate
+
+;; ### Rotation Gates
+;; Rotation gates are quantum gates that rotate the state of a qubit around
+;; the Bloch sphere.
+;;
+;; The [RX gate](https://en.wikipedia.org/wiki/Rotation_gate#RX_gate) is a
+;; rotation gate that rotates the state of a qubit around the X axis of the
+;; Bloch sphere.
+
+(qg/rx-gate fm/-QUARTER_PI)
+
+;; The [RY gate](https://en.wikipedia.org/wiki/Rotation_gate#RY_gate) is a
+;; rotation gate that rotates the state of a qubit around the Y axis of the
+;; Bloch sphere.
+
+(qg/ry-gate fm/-QUARTER_PI)
+
+;; The [RZ gate](https://en.wikipedia.org/wiki/Rotation_gate#RZ_gate) is a
+;; rotation gate that rotates the state of a qubit around the Z axis of the
+;; Bloch sphere.
+
+(qg/rz-gate fm/-QUARTER_PI)
+
+;; ### Controlled Gates
+;; Controlled gates are quantum gates that act on multiple qubits.
+;; They are defined as a combination of a control qubit and a target qubit.
+;; The control qubit determines whether the target qubit is affected by the gate.
+;;
+;; The controlled-X gate ([CNOT gate](https://en.wikipedia.org/wiki/CNOT_gate)) is a
+;; controlled gate that flips the state of the target qubit
+;; if the control qubit is in the state |1⟩.
+
+(qg/cnot-gate)
+
+;; The controlled-Y gate is a controlled gate that flips the state of the target qubit
+;; and adds a phase if the control qubit is in the state |1⟩.
+;;
+;; The controlled-Z gate is a controlled gate that adds a phase to the target qubit
+;; if the control qubit is in the state |1⟩.
+;;
 ;; ## Quantum Circuits
 ;; Quantum circuits are sequences of quantum gates applied to quantum states.
 ;; The *qc* namespace provides functions to create and manipulate quantum circuits.
@@ -266,11 +341,13 @@ qg/hadamard
 
 (kind/html (viz/visualize-quantum-state :svg bell-state))
 
-;; The *qc* namespace also has some predefined circuits for multi-qubit states.
-;; These circuits can be used to create entangled states with more than two qubits.
+;; The *qc* namespace also has a predefined circuit for multi-qubit states.
+;; This circuit can be used to create entangled states with more than two
+;; qubits.
 ;;
 ;; For example, the `qc/ghz-circuit` creates a circuit that prepares
-;; a Greenberger-Horne-Zeilinger ([GHZ](https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state)) state.
+;; a Greenberger-Horne-Zeilinger ([GHZ](https://en.wikipedia.org/wiki/Greenberger%E2%80%93Horne%E2%80%93Zeilinger_state))
+;; state.
 
 (def ghz-circuit
   (qc/ghz-state-circuit 3))
@@ -279,8 +356,9 @@ qg/hadamard
 
 (kind/html (viz/visualize-circuit :svg ghz-circuit))
 
-;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit, followed by CNOT gates between the first and second qubits, and between the second and third qubits.
-;; The GHZ state is a multi-qubit state that is entangled.
+;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit,
+;; followed by CNOT gates between the first and second qubits, and between the
+;; first and third qubits. The GHZ state is a multi-qubit state that is entangled.
 ;;
 ;; We can apply the GHZ circuit to the state |000⟩ to create the GHZ state.
 
@@ -291,7 +369,8 @@ qg/hadamard
 
 (kind/html (viz/visualize-quantum-state :svg ghz-state))
 
-;; The probability distribution shows that the GHZ state is in a superposition of the states |000⟩ and |111⟩.
+;; The probability distribution shows that the GHZ state is in a superposition
+;; of the states |000⟩ and |111⟩.
 ;;
 ;; ## Backends
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.

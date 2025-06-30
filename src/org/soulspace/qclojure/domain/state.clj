@@ -306,6 +306,52 @@
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
 
+(defn plus-i-state
+  "Create the |+i⟩ = (|0⟩ + i|1⟩)/√2 superposition state.
+  
+  This state is a superposition with a phase factor of i, commonly used in quantum algorithms.
+  The |+i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
+  that introduces interference effects.
+
+  The |+i⟩ state is an eigenstate of the Pauli-Y operator and is useful for
+  demonstrating quantum phase relationships.
+
+  Parameters: None
+   
+  Returns:
+  Single-qubit quantum state map representing |+i⟩
+  
+  Example:
+  (plus-i-state)
+  ;=> {:state-vector [0.707+0i, 0+0.707i], :num-qubits 1}" 
+  []
+  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 sqrt2-inv)]
+     :num-qubits 1}))
+
+(defn minus-i-state
+  "Create the |-i⟩ = (|0⟩ - i|1⟩)/√2 superposition state.
+  
+  This state is a superposition with a phase factor of -i, commonly used in quantum algorithms.
+  The |-i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
+  that introduces interference effects.
+  
+  The |-i⟩ state is an eigenstate of the Pauli-Y operator (with eigenvalue -1) and is useful for
+  demonstrating quantum phase relationships.
+
+  Parameters: None
+  
+  Returns:
+  Single-qubit quantum state map representing |-i⟩
+  
+  Example:
+  (minus-i-state)
+  ;=> {:state-vector [0.707+0i, 0-0.707i], :num-qubits 1}"
+  []
+  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 (- sqrt2-inv))]
+     :num-qubits 1}))
+
 (defn computational-basis-state
   "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
   
@@ -757,6 +803,14 @@
 (def |-⟩
   "Single-qubit |-⟩ = (|0⟩ - |1⟩)/√2 superposition state."
   (minus-state))
+
+(def |+i⟩
+  "Single-qubit |+i⟩ = (|0⟩ + i|1⟩)/√2 state."
+  (plus-i-state))
+
+(def |-i⟩
+  "Single-qubit |-i⟩ = (|0⟩ - i|1⟩)/√2 state."
+  (minus-i-state))
 
 (def |00⟩
   "Two-qubit |00⟩ computational basis state."

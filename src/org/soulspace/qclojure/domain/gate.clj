@@ -189,7 +189,8 @@
   The S gate is equivalent to √Z and is fundamental for building
   more complex quantum gates. It's often used in quantum algorithms
   requiring precise phase control."
-  (phase-gate (/ m/PI 2)))
+  [[(fc/complex 1 0) (fc/complex 0 0)]
+   [(fc/complex 0 0) (fc/complex 0 1)]])
 
 (def s-dag-gate
   "S-dagger gate (phase gate with -π/2 phase): S† = [[1,0], [0,-i]]
@@ -202,7 +203,8 @@
   The S† gate is the Hermitian adjoint (conjugate transpose) of the S gate,
   and the inverse gate to S: S†·S = I. It's used in various quantum algorithms
   and is essential for implementing fault-tolerant quantum computation."
-  (phase-gate (/ m/PI -2)))
+  [[(fc/complex 1 0) (fc/complex 0 0)]
+   [(fc/complex 0 0) (fc/complex 0 -1)]])
 
 (def t-gate
   "T gate (phase gate with π/4 phase): T = [[1,0], [0,e^(iπ/4)]]

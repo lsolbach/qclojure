@@ -5,6 +5,7 @@
 * unified functions for ideal and noisy simulators
 * improved quantum period finding
 * added quantum arithmetic functions
+* improved svg circuit visualization
 * enhanced tutorial
 
 ## Version 0.3.0

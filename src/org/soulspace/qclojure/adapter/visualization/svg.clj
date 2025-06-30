@@ -692,13 +692,15 @@
               probabilities)
 
       ;; Y-axis
-      y-ticks (range 0 (inc (* max-prob 100)) (max 10 (/ (* max-prob 100) 5)))
+      max-percent (int (Math/ceil (* max-prob 100)))
+      tick-step (max 10 (int (/ max-percent 5)))
+      y-ticks (range 0 (inc max-percent) tick-step)
       y-axis [:g
               [:line {:x1 (:left margin) :y1 (:top margin)
                       :x2 (:left margin) :y2 (+ (:top margin) chart-height)
                       :stroke "#9ca3af" :stroke-width 1}]
               (map (fn [tick]
-                     (let [y (+ (:top margin) (- chart-height (* (/ tick 100) (/ chart-height max-prob))))]
+                     (let [y (+ (:top margin) (- chart-height (* (/ tick 100.0) (/ chart-height max-prob))))]
                        [:g
                         [:line {:x1 (- (:left margin) 5) :y1 y :x2 (:left margin) :y2 y
                                 :stroke "#9ca3af" :stroke-width 1}]

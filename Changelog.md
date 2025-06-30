@@ -2,6 +2,7 @@
 
 ## Version (NEXT)
 * improved svg blochsphere visualization
+* improved y-axis labels in svg state visualization
 * added plus-i-state and minus-i-state functions
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates

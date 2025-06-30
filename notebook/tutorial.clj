@@ -327,15 +327,51 @@ qg/hadamard
 
 (require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])
 
-;; We instanciate the noisy simulator with the `create-noisy-simulator` function
-;; and provide a simple noise profile.
+;; We can instanciate the noisy simulator with the `create-noisy-simulator` function
+;; and provide a noise profile. The noise profile we use is derived from the
+;; IBM Lagos Quantum Computer.
 
-(def noisy-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))
+(noisy/noise-model-for :ibm-lagos)
+
+;; The noise profile shows configurations for the different types of noise,
+;; a physical quantum computer can have. All different types of noise contribute
+;; to the errors in the measurement.
+;;
+;; Let's instanciate the noisy simulator with the IBM Lagos profile.
+
+(def lagos-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
+;; Because we use a noisy simulator, we may measure wrong answers.
 
-(qb/execute-circuit noisy-simulator (qc/ghz-state-circuit 3) {:shots 10240})
+(qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 20})
 
+;; We see, that not all measurements maesure the states |000⟩ and |111⟩,
+;; even though those states have the highest counts. The other states should
+;; have a distinctivly lower count. But if you use to few shots, you could
+;; be unlucky and measure the wrong answers. The probability to measure the
+;; wrong answers gets lower by increasing the number of shots.
+
+(qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10240})
+
+;; With 10240 shots, the difference of the counts of the correct answers
+;; and the counts of the wrong anwsers should be quite significant.
+
+;; We can also use the noisy simulator with a different noise profile,
+;; e.g. for an IonQ Forte quantum computer.
+
+(noisy/noise-model-for :ionq-forte)
+
+;; Let's instanciate the noisy simulator with the IonQ Forte profile.
+
+(def forte-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ionq-forte)))
+
+;; We now execute the GHZ circuit on this simulator with 10240 shots and
+;; compare the results with the IBM Lagos simulation.
+
+(qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10240})
+
+;; 
 ;;
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used
@@ -389,7 +425,7 @@ qg/hadamard
 
 ;; Lets define a constant function and a balanced function first.
 
-(def constant-fn (fn [x] true))  ; Constant function: f(x) = 1
+(def constant-fn (fn [_x] true))  ; Constant function: f(x) = 1
 (def balanced-fn (fn [x] x))     ; Balanced function: f(x) = x
 
 ;; Now we can create the circuit for the Deutsch algorithm for the constant function.
@@ -599,9 +635,39 @@ simon-result
 
 (mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
 
-;; ## Grover' Algorithm
+;; # The Grover's Search Algorithm
 ;;
-;; 
+;; [Grover's algorithm](https://en.wikipedia.org/wiki/Grover%27s_algorithm)
+;; is a quantum algorithm that provides a quadratic speedup for searching
+;; an unsorted database. It is one of the most well-known quantum algorithms
+;; and demonstrates the power of quantum computing for search problems.
+;;
+;; ## Problem Statement
+;; Given a function f: {0, 1}ⁿ → {0, 1}ⁿ that is promised to have exactly one
+;; input x such that f(x) = 1 (the "marked" item), the goal is to
+;; find this input x using as few evaluations of f as possible.
+;;
+;; ## Classical Approach
+;; In a classical setting, we would need to evaluate the function f up to
+;; 2^(n-1) times in the worst case to find the marked item. This is because we
+;; would have to check each possible input until we find the one that satisfies
+;; f(x) = 1.
+;;
+;; ## Quantum Approach
+;; Grover's search algorithm allows us to find the marked item with only
+;; O(√2ⁿ) evaluations of f, which is a significant improvement over the
+;; classical approach.
+;;
+;; ## Quantum Circuit
+;; The Grover's search algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize n qubits in the state |0⟩.
+;; 2. Apply a Hadamard gate to all n qubits to create superposition, resulting in an equal superposition of all possible inputs.
+;; 3. Apply the Grover diffusion operator, which consists of:
+;;    - Applying the oracle function f as a quantum gate, which flips the sign of the amplitude of the marked item.
+;;    - Applying a Hadamard gate to all qubits.
+;;    - Applying a conditional phase shift to the |0⟩ state.
+;;    - Applying another Hadamard gate to all qubits.
+;; 4. Repeat the Grover diffusion operator O(√2ⁿ) times.
 
 ;; ## Quantum Fourier Transform
 ;; The [Quantum Fourier Transform (QFT)](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
@@ -625,3 +691,36 @@ simon-result
 ;; cryptography, as it can break many classical encryption schemes.
 ;; Shor's algorithm uses the Quantum Fourier Transform and Quantum Phase Estimation to find the period
 ;; of a function related to the integer to be factored.
+;;
+;; ## Problem Statement
+;; Given a composite integer N, the goal is to find its prime factors using
+;; as few evaluations of a function as possible.
+;;
+;; ## Classical Approach
+;; In a classical setting, factoring large integers is a computationally
+;; hard problem. The best-known classical algorithms for factoring have
+;; exponential time complexity, making them impractical for large N.
+;;
+;; ## Quantum Approach
+;; Shor's algorithm allows us to factor large integers in polynomial time
+;; by leveraging quantum superposition, interference, and the quantum
+;; Fourier transform.
+;;
+;; ## Quantum Circuit
+;; The Shor's algorithm can be implemented using a quantum circuit with
+;; the following steps:
+;; 1. Choose a random integer a such that 1 < a < N.
+;; 2. Use the quantum period-finding algorithm to find the order r of a modulo N.
+;; This involves:
+;;    - Initialize n qubits in the state |0⟩.
+;;    - Apply a Hadamard gate to all n qubits to create superposition.
+;;    - Apply the modular exponentiation function a^x mod N as a quantum gate,
+;;      which will entangle the qubits.
+;;    - Apply the quantum Fourier transform to the qubits.
+;;    - Measure the qubits to obtain a value that can be used to find the
+;;      order r.
+;; 3. If r is even and a^(r/2) != -1 mod N, then compute the factors:
+;;    - Compute gcd(a^(r/2) - 1, N and gcd(a^(r/2) + 1, N).
+;; 4. If the factors are non-trivial, return them as the prime factors of N.
+;; 5. If the order r is odd or if the above conditions are not met, repeat
+;;    the process with a different random integer a.

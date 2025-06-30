@@ -143,11 +143,11 @@
         
         coord-text (when show-coordinates
                      [:g
-                      [:text {:x 20 :y 30 :font-size "12" :fill "#374151"}
+                      [:text {:x 20 :y (- size 50) :font-size "12" :fill "#374151"}
                        (str "Bloch Vector: " (get-in display-data [:coordinates :cartesian-text]))]
-                      [:text {:x 20 :y 45 :font-size "12" :fill "#374151"}
+                      [:text {:x 20 :y (- size 35) :font-size "12" :fill "#374151"}
                        (str "Coordinates: " (get-in display-data [:coordinates :spherical-text]))]
-                      [:text {:x 20 :y 60 :font-size "12" :fill "#374151"}
+                      [:text {:x 20 :y (- size 20) :font-size "12" :fill "#374151"}
                        (str "State: " (:state-expression display-data))]])
 
         ;; Animation definition

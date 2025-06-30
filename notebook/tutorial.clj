@@ -136,13 +136,14 @@ qs/|+⟩
 
 (kind/html (viz/visualize-quantum-state :svg qs/|+⟩))
 
-;; The Bloch sphere representation shows that the state |+⟩ is on the equator of the sphere,
-;; which means, that the probabilities for measuring 0 or 1 are the same.
+;; The Bloch sphere representation shows that the state |+⟩ is on the
+;; equator of the sphere, which means, that the probabilities for
+;; measuring 0 or 1 are the same.
 
 (kind/html (viz/visualize-bloch-sphere :svg qs/|+⟩))
 
-;; The quantum state |-⟩ is another superposition of the ground and excited states.
-;; The state |-⟩ is defined as (|0⟩ - |1⟩) / √2.
+;; The quantum state |-⟩ is another superposition of the ground and
+;; excited states. The state |-⟩ is defined as (|0⟩ - |1⟩) / √2.
 
 qs/|-⟩
 
@@ -150,13 +151,14 @@ qs/|-⟩
 
 (kind/html (viz/visualize-quantum-state :svg qs/|-⟩))
 
-;; The Bloch sphere representation shows that the state |-⟩ is also on the equator of the sphere.
+;; The Bloch sphere representation shows that the state |-⟩ is also on the
+;; equator of the sphere, but pointing in the opposite direction.
 
 (kind/html (viz/visualize-bloch-sphere :svg qs/|-⟩))
 
 ;; ### Multi-Qubit States and Quantum Registers
-;; Tensor products can be used to create multi-qubit states from single-qubit states.
-;; For example, the state |00⟩ is the tensor product of two |0⟩ states.
+;; Tensor products can be used to create multi-qubit states from single-qubit
+;; states. For example, the state |00⟩ is the tensor product of two |0⟩ states.
 
 qs/|00⟩
 
@@ -170,7 +172,9 @@ qs/|00⟩
 ;; The *qg* namespace defines several quantum gates.
 ;;
 ;; ### Pauli Gates
-;; The [Pauli gates](https://en.wikipedia.org/wiki/Pauli_matrices) are a set of quantum gates that can be applied to single qubits.
+;; The [Pauli gates](https://en.wikipedia.org/wiki/Pauli_matrices) are a set of
+;; quantum gates that can be applied to single qubits.
+;; 
 ;; The Pauli-X gate is a quantum gate that flips the state of a qubit.
 
 qg/pauli-x
@@ -346,11 +350,11 @@ qg/hadamard
 
 (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 20})
 
-;; We see, that not all measurements maesure the states |000⟩ and |111⟩,
-;; even though those states have the highest counts. The other states should
-;; have a distinctivly lower count. But if you use to few shots, you could
-;; be unlucky and measure the wrong answers. The probability to measure the
-;; wrong answers gets lower by increasing the number of shots.
+;; We see, that not all measurements measure the states |000⟩ and |111⟩,
+;; even though those states should have the highest counts. The other states
+;; should have a distinctivly lower count. But if you use to few shots, you
+;; could be unlucky and measure the wrong answers. The probability to measure
+;; the wrong answers gets lower by increasing the number of shots.
 
 (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10240})
 
@@ -371,22 +375,14 @@ qg/hadamard
 
 (qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10240})
 
-;; 
+;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
+;; distinctly lower noise and thus a higher count for the correct answers.
 ;;
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used
 ;; to solve specific problems.
 ;; These algorithms are implemented as quantum circuits and can be executed on
-;; quantum hardware or simulated using the simulator backend.
-;;
-;; Some of the algorithms include:
-;; - 
-;; - [Grover's algorithm](https://en.wikipedia.org/wiki/Grover%27s_algorithm)
-;; - [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm)
-;; - [Quantum Fourier Transform](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
-;; - [Quantum Phase Estimation](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
-;;
-;;
+;; quantum hardware or simulated using the simulator backends.
 ;;
 ;; ### Deutsch Algorithm
 ;; The [Deutsch algorithm](https://en.wikipedia.org/wiki/Deutsch_algorithm) is
@@ -585,7 +581,7 @@ bv-result
 ;; The Simon algorithm allows us to find the hidden period s with a polynomial number
 ;; of evaluations by leveraging quantum superposition and interference.
 ;;
-;; ## Quantum Circuit
+;; #### Quantum Circuit
 ;; The Simon algorithm can be implemented using a quantum circuit with the following steps:
 ;; 1. Initialize n qubits in the state |0⟩ and n auxiliary qubits in the state |1⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition.
@@ -635,30 +631,30 @@ simon-result
 
 (mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
 
-;; # The Grover's Search Algorithm
+;; ### Grover's Search Algorithm
 ;;
 ;; [Grover's algorithm](https://en.wikipedia.org/wiki/Grover%27s_algorithm)
 ;; is a quantum algorithm that provides a quadratic speedup for searching
 ;; an unsorted database. It is one of the most well-known quantum algorithms
 ;; and demonstrates the power of quantum computing for search problems.
 ;;
-;; ## Problem Statement
+;; #### Problem Statement
 ;; Given a function f: {0, 1}ⁿ → {0, 1}ⁿ that is promised to have exactly one
 ;; input x such that f(x) = 1 (the "marked" item), the goal is to
 ;; find this input x using as few evaluations of f as possible.
 ;;
-;; ## Classical Approach
+;; #### Classical Approach
 ;; In a classical setting, we would need to evaluate the function f up to
 ;; 2^(n-1) times in the worst case to find the marked item. This is because we
 ;; would have to check each possible input until we find the one that satisfies
 ;; f(x) = 1.
 ;;
-;; ## Quantum Approach
+;; #### Quantum Approach
 ;; Grover's search algorithm allows us to find the marked item with only
 ;; O(√2ⁿ) evaluations of f, which is a significant improvement over the
 ;; classical approach.
 ;;
-;; ## Quantum Circuit
+;; #### Quantum Circuit
 ;; The Grover's search algorithm can be implemented using a quantum circuit with the following steps:
 ;; 1. Initialize n qubits in the state |0⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition, resulting in an equal superposition of all possible inputs.
@@ -669,22 +665,91 @@ simon-result
 ;;    - Applying another Hadamard gate to all qubits.
 ;; 4. Repeat the Grover diffusion operator O(√2ⁿ) times.
 
-;; ## Quantum Fourier Transform
+;; #### Quantum Fourier Transform
 ;; The [Quantum Fourier Transform (QFT)](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
 ;; is a quantum algorithm that performs the discrete Fourier transform on a quantum state.
 ;; It is a key component of many quantum algorithms, including Shor's algorithm.
-
-;; ## Quantum Phase Estimation
+;;
+;; The QFT transforms a quantum state into its frequency domain representation,
+;; allowing us to extract periodicity and other properties of the quantum state.
+;;
+;; #### Problem Statement
+;; Given a quantum state |ψ⟩, the goal is to apply the QFT to the state
+;; and obtain a new quantum state that represents the frequency domain of |ψ⟩.
+;;
+;; #### Classical Approach
+;; In a classical setting, the discrete Fourier transform can be computed
+;; using classical algorithms, but it requires O(N log N) time complexity,
+;; where N is the number of elements in the input.
+;;
+;; #### Quantum Approach
+;; The QFT allows us to compute the discrete Fourier transform in O(log² N)
+;; time complexity, which is a significant improvement over the classical approach.
+;;
+;; #### Quantum Circuit
+;; The QFT can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize n qubits in the state |ψ⟩.
+;; 2. Apply a series of controlled phase gates to the qubits, which introduces
+;;    phase shifts based on the relative positions of the qubits.
+;; 3. Apply a series of Hadamard gates to the qubits, which creates
+;;    superposition states that represent the frequency domain.
+;; 4. Reverse the order of the qubits to obtain the final quantum state
+;;    that represents the frequency domain of |ψ⟩.
+;;
+;;
+;; ### Quantum Phase Estimation
 ;; The [Quantum Phase Estimation (QPE)](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
 ;; is a quantum algorithm that estimates the eigenvalues of a unitary operator.
 ;; It is used in many quantum algorithms, including Shor's algorithm and the Quantum Fourier Transform.
-
-;; ## Quantum Period Finding
+;;
+;; #### Problem Statement
+;; Given a unitary operator U and an eigenstate |ψ⟩ of U, the goal is to estimate
+;; the phase θ such that U|ψ⟩ = e^(2πiθ)|ψ⟩, where θ is the eigenvalue of U.
+;;
+;; #### Classical Approach
+;; In a classical setting, estimating the phase of a unitary operator requires
+;; multiple evaluations of the operator and can be computationally expensive.
+;;
+;; #### Quantum Approach
+;; The Quantum Phase Estimation algorithm allows us to estimate the phase θ
+;; with high precision using a quantum circuit that requires only a polynomial
+;; number of evaluations of the unitary operator U.
+;;
+;; #### Quantum Circuit
+;; The Quantum Phase Estimation algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |ψ⟩.
+;; 2. Apply a Hadamard gate to the auxiliary qubit to create superposition.
+;; 3. Apply controlled-U gates to the auxiliary qubit, where U is the unitary operator.
+;; 4. Apply the inverse Quantum Fourier Transform (QFT) to the auxiliary qubit.
+;; 5. Measure the auxiliary qubit to obtain the estimated phase θ.
+;;
+;; ### Quantum Period Finding
 ;; The [Quantum Period Finding](https://en.wikipedia.org/wiki/Quantum_period_finding)
 ;; is a quantum algorithm that finds the period of a function.
 ;; It is used in many quantum algorithms, including Shor's algorithm and the Quantum Fourier Transform
-
-;; ## Shor's Algorithm
+;;
+;; #### Problem Statement
+;; Given a function f: {0, 1}ⁿ → {0, 1}ⁿ that is periodic with period r,
+;; the goal is to find the period r using as few evaluations of f as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, finding the period of a function requires
+;; multiple evaluations of the function and can be computationally expensive.
+;;
+;; #### Quantum Approach
+;; The Quantum Period Finding algorithm allows us to find the period r
+;; with high precision using a quantum circuit that requires only a polynomial
+;; number of evaluations of the function f.
+;;
+;; #### Quantum Circuit
+;; The Quantum Period Finding algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
+;; 2. Apply a Hadamard gate to all n qubits to create superposition.
+;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
+;; 4. Apply the Quantum Fourier Transform (QFT) to the qubits.
+;; 5. Measure the qubits to obtain a value that can be used to find the period r.
+;;
+;; ### Shor's Algorithm
 ;; [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm) is a quantum algorithm
 ;; that can factor large integers in polynomial time.
 ;; It is one of the most famous quantum algorithms and has significant implications for
@@ -692,21 +757,21 @@ simon-result
 ;; Shor's algorithm uses the Quantum Fourier Transform and Quantum Phase Estimation to find the period
 ;; of a function related to the integer to be factored.
 ;;
-;; ## Problem Statement
+;; #### Problem Statement
 ;; Given a composite integer N, the goal is to find its prime factors using
 ;; as few evaluations of a function as possible.
 ;;
-;; ## Classical Approach
+;; #### Classical Approach
 ;; In a classical setting, factoring large integers is a computationally
 ;; hard problem. The best-known classical algorithms for factoring have
 ;; exponential time complexity, making them impractical for large N.
 ;;
-;; ## Quantum Approach
+;; #### Quantum Approach
 ;; Shor's algorithm allows us to factor large integers in polynomial time
 ;; by leveraging quantum superposition, interference, and the quantum
 ;; Fourier transform.
 ;;
-;; ## Quantum Circuit
+;; #### Quantum Circuit
 ;; The Shor's algorithm can be implemented using a quantum circuit with
 ;; the following steps:
 ;; 1. Choose a random integer a such that 1 < a < N.
@@ -724,3 +789,4 @@ simon-result
 ;; 4. If the factors are non-trivial, return them as the prime factors of N.
 ;; 5. If the order r is odd or if the above conditions are not met, repeat
 ;;    the process with a different random integer a.
+;;

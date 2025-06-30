@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* improved svg blochsphere visualization
 * updated tutorial
 
 ## Version 0.4.0

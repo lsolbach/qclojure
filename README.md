@@ -68,8 +68,7 @@ final state.
                  (qc/cnot-gate 0 1)))
 
 ;; Run the circuit on the simulator
-(def simulator (sim/create-simulator))
-(def result (qb/execute-circuit simulator circuit {:shots 1000}))
+(def result (qb/execute-circuit (sim/create-simulator) circuit {:shots 1000}))
 
 ;; Examine the results
 (:final-state result)

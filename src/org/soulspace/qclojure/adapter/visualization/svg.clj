@@ -23,7 +23,7 @@
 
 (defmethod viz/visualize-bloch-sphere :svg
   [_format state & {:keys [size show-coordinates show-references animate]
-                    :or {size 400 show-coordinates true show-references true animate false}}]
+                    :or {size 420 show-coordinates true show-references true animate false}}]
   {:pre [(= (:num-qubits state) 1)]}
 
   (let [coords (coord/quantum-state-to-bloch-coordinates state)
@@ -31,7 +31,7 @@
 
         ;; Sphere parameters
         center (/ size 2)
-        radius (* size 0.35)
+        radius (* size 0.32)
 
         ;; 3D to 2D projection (isometric view)
         project-3d (fn [x3d y3d z3d]

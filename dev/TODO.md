@@ -6,11 +6,10 @@
 * refactor grover algorithm to use a provided backend
 
 ## Backlog
-* add parameters to the decomposition rules in the operation registry
 * use :operation-registry/operation-id instead of ::operation-type in circuit
   and other namespaces
-* track qubit mapping on circuit tansformations
-  * use qubit mapping on measure operations
+* check qubit mapping on circuit tansformations
+  * check usage of qubit mapping on measure operations
 * reduce code duplication
 * check for missing type hints in calculations to improve simulator performance
 * check for inconsistant usage of "operation"/"gate"

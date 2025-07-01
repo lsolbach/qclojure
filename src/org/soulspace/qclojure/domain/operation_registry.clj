@@ -607,34 +607,6 @@
   :ret ::operation-set)
 
 (comment
-  ;; DESIGN NOTES: Native Gates and Hardware Specificity
-  ;;
-  ;; Previously, this registry had a `native-gate?` attribute for each gate,
-  ;; but this was fundamentally flawed because "nativeness" is not a property
-  ;; of gates—it's a property of backend-gate combinations.
-  ;;
-  ;; PROBLEMS WITH THE OLD DESIGN:
-  ;; 1. H gate was marked `native-gate? true` globally
-  ;;    BUT H is NOT native on IonQ devices (only RX, RY, RZ, CNOT)
-  ;; 2. T gate was marked `native-gate? true` globally  
-  ;;    BUT T is NOT native on IonQ (they use rotation gates)
-  ;; 3. The `get-native-gates()` function gave wrong information
-  ;; 4. The `minimal-native-set()` function was misleading
-  ;;
-  ;; NEW DESIGN:
-  ;; - Removed `native-gate?` attribute entirely
-  ;; - Use hardware-specific gate sets (braket-ionq-gates, etc.)
-  ;; - `get-native-gates-for-hardware()` takes a hardware keyword
-  ;; - `minimal-native-set-for-hardware()` is hardware-specific
-  ;;
-  ;; EXAMPLES:
-  ;; (get-native-gates-for-hardware :braket-ionq)     ;=> #{:rx :ry :rz :cnot}
-  ;; (get-native-gates-for-hardware :braket-rigetti)  ;=> #{:i :rx :ry :rz :cz :h}
-  ;;
-  ;; This correctly reflects that H is native on Rigetti but not IonQ.
-  
-  ;; Example usage of the improved design:
-  ;; 
   ;; Check what gates are native on specific hardware:
   (get-native-gates-for-hardware :braket-ionq)
   ;=> #{:rx :ry :rz :cnot}

@@ -11,8 +11,9 @@
             [org.soulspace.qclojure.domain.channel :as channel]))
 
 ;; Test fixtures
-(defn reset-simulator-state-fixture [f]
+(defn reset-simulator-state-fixture
   "Reset noisy simulator state before each test."
+  [f]
   (noisy/reset-simulator-state!)
   (f))
 
@@ -139,7 +140,7 @@
   (testing "Coherent error Kraus operators"
     (testing "X rotation"
       (let [angle (/ m/PI 4) ; 45 degrees
-            kraus-op (noisy/coherent-error-kraus-operator angle :x)
+            kraus-op (channel/coherent-error-kraus-operator angle :x)
             matrix (:matrix kraus-op)
             cos-half (m/cos (/ angle 2))]
         (is (approx= cos-half (first (first (first matrix))))
@@ -149,7 +150,7 @@
     
     (testing "Z rotation"
       (let [angle (/ m/PI 6) ; 30 degrees
-            kraus-op (noisy/coherent-error-kraus-operator angle :z)
+            kraus-op (channel/coherent-error-kraus-operator angle :z)
             matrix (:matrix kraus-op)]
         (is (approx= (m/cos angle) (first (first (first matrix))))
             "Matrix[0,0] should be cos(θ)")

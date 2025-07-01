@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.5.0
 * improved svg blochsphere visualization
 * improved y-axis labels in svg state visualization
 * extracted gate layering functions
@@ -12,6 +12,7 @@
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates
 * moved oracle functions from grover-test to grover ns
+* extracted methods from tests
 * enhanced tutorial
 
 ## Version 0.4.0

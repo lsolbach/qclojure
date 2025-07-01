@@ -6,16 +6,12 @@
   (:require [clojure.test :refer [deftest testing is]]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
+            [org.soulspace.qclojure.util.test :as util]
+            [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.domain.state :as qs]))
 
 ;; Helper functions for testing
-(defn approx= 
-  "Test approximate equality for floating point numbers"
-  ([a b] (approx= a b 1e-10))
-  ([a b tolerance]
-   (< (m/abs (- a b)) tolerance)))
-
 (defn complex-magnitude-squared 
   "Calculate |c|² for a complex number or real number"
   [c]
@@ -53,9 +49,9 @@
       (let [kraus-ops (channel/depolarizing-kraus-operators 0.0)
             identity-op (first kraus-ops)]
         (is (= 4 (count kraus-ops)) "Should have 4 Kraus operators")
-        (is (approx= 1.0 (complex-magnitude-squared (first (first (:matrix identity-op)))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (first (first (:matrix identity-op)))))
             "Identity operator should have coefficient 1")
-        (is (every? #(approx= 0.0 (max-coeff-magnitude-squared (:matrix %)))
+        (is (every? #(util/approx= 0.0 (max-coeff-magnitude-squared (:matrix %)))
                     (rest kraus-ops))
             "Pauli operators should have coefficient 0")))
     
@@ -64,14 +60,14 @@
             kraus-ops (channel/depolarizing-kraus-operators p)
             identity-coeff-sq (max-coeff-magnitude-squared (:matrix (first kraus-ops)))
             pauli-coeff-sq (max-coeff-magnitude-squared (:matrix (second kraus-ops)))]
-        (is (approx= (- 1.0 p) identity-coeff-sq 1e-10) "Identity coefficient should be √(1-p)")
-        (is (approx= (/ p 3.0) pauli-coeff-sq 1e-10) "Pauli coefficients should be √(p/3)")))
+        (is (util/approx= (- 1.0 p) identity-coeff-sq 1e-10) "Identity coefficient should be √(1-p)")
+        (is (util/approx= (/ p 3.0) pauli-coeff-sq 1e-10) "Pauli coefficients should be √(p/3)")))
     
     (testing "completeness relation"
       (let [p 0.2
             kraus-ops (channel/depolarizing-kraus-operators p)
             sum-coeffs-sq (reduce + (map #(max-coeff-magnitude-squared (:matrix %)) kraus-ops))]
-        (is (approx= 1.0 sum-coeffs-sq 1e-10) "Sum of |coefficients|² should equal 1")))))
+        (is (util/approx= 1.0 sum-coeffs-sq 1e-10) "Sum of |coefficients|² should equal 1")))))
 
 (deftest test-amplitude-damping-kraus-operators
   (testing "Amplitude damping Kraus operators generation"
@@ -80,11 +76,11 @@
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (= 2 (count kraus-ops)) "Should have 2 Kraus operators")
-        (is (approx= 1.0 (complex-magnitude-squared (first (first k0))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (first (first k0))))
             "K₀[0,0] should be 1")
-        (is (approx= 1.0 (complex-magnitude-squared (second (second k0))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (second (second k0))))
             "K₀[1,1] should be 1")
-        (is (every? #(approx= 0.0 (complex-magnitude-squared %))
+        (is (every? #(util/approx= 0.0 (complex-magnitude-squared %))
                     (flatten k1))
             "K₁ should be zero matrix")))
     
@@ -92,11 +88,11 @@
       (let [kraus-ops (channel/amplitude-damping-kraus-operators 1.0)
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
-        (is (approx= 1.0 (complex-magnitude-squared (first (first k0))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (first (first k0))))
             "K₀[0,0] should be 1")
-        (is (approx= 0.0 (complex-magnitude-squared (second (second k0))))
+        (is (util/approx= 0.0 (complex-magnitude-squared (second (second k0))))
             "K₀[1,1] should be 0")
-        (is (approx= 1.0 (complex-magnitude-squared (second (first k1))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (second (first k1))))
             "K₁[0,1] should be 1")))
     
     (testing "with partial damping"
@@ -105,11 +101,11 @@
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (= 2 (count kraus-ops)) "Should have 2 Kraus operators")
-        (is (approx= 1.0 (complex-magnitude-squared (first (first k0))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (first (first k0))))
             "K₀[0,0] should be 1")
-        (is (approx= (- 1.0 gamma) (complex-magnitude-squared (second (second k0))))
+        (is (util/approx= (- 1.0 gamma) (complex-magnitude-squared (second (second k0))))
             "K₀[1,1] should be √(1-γ)")
-        (is (approx= gamma (complex-magnitude-squared (second (first k1))))
+        (is (util/approx= gamma (complex-magnitude-squared (second (first k1))))
             "K₁[0,1] should be √γ")))))
 
 (deftest test-phase-damping-kraus-operators
@@ -120,11 +116,11 @@
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (= 2 (count kraus-ops)) "Should have 2 Kraus operators")
-        (is (approx= 1.0 (complex-magnitude-squared (first (first k0))))
+        (is (util/approx= 1.0 (complex-magnitude-squared (first (first k0))))
             "K₀[0,0] should be 1")
-        (is (approx= (- 1.0 gamma) (complex-magnitude-squared (second (second k0))))
+        (is (util/approx= (- 1.0 gamma) (complex-magnitude-squared (second (second k0))))
             "K₀[1,1] should be √(1-γ)")
-        (is (approx= gamma (complex-magnitude-squared (second (second k1))))
+        (is (util/approx= gamma (complex-magnitude-squared (second (second k1))))
             "K₁[1,1] should be √γ")))))
 
 (deftest test-coherent-error-kraus-operator
@@ -134,18 +130,18 @@
             kraus-op (channel/coherent-error-kraus-operator angle :x)
             matrix (:matrix kraus-op)
             cos-half (m/cos (/ angle 2))]
-        (is (approx= cos-half (fc/re (first (first matrix))))
+        (is (util/approx= cos-half (fc/re (first (first matrix))))
             "Matrix[0,0] should be cos(θ/2)")
-        (is (approx= cos-half (fc/re (second (second matrix))))
+        (is (util/approx= cos-half (fc/re (second (second matrix))))
             "Matrix[1,1] should be cos(θ/2)")))
     
     (testing "Z rotation"
       (let [angle (/ m/PI 6) ; 30 degrees
             kraus-op (channel/coherent-error-kraus-operator angle :z)
             matrix (:matrix kraus-op)]
-        (is (approx= (m/cos angle) (fc/re (first (first matrix))))
+        (is (util/approx= (m/cos angle) (fc/re (first (first matrix))))
             "Matrix[0,0] should be cos(θ)")
-        (is (approx= (m/cos (- angle)) (fc/re (second (second matrix))))
+        (is (util/approx= (m/cos (- angle)) (fc/re (second (second matrix))))
             "Matrix[1,1] should be cos(-θ)")))))
 
 ;;
@@ -252,19 +248,19 @@
       (let [state1 (qs/zero-state 1)
             state2 (qs/zero-state 1)
             fidelity (channel/channel-fidelity state1 state2)]
-        (is (approx= 1.0 fidelity) "Identical states should have fidelity 1")))
+        (is (util/approx= 1.0 fidelity) "Identical states should have fidelity 1")))
     
     (testing "orthogonal states"
       (let [state1 (qs/zero-state 1)
             state2 (qs/one-state)
             fidelity (channel/channel-fidelity state1 state2)]
-        (is (approx= 0.0 fidelity) "Orthogonal states should have fidelity 0")))
+        (is (util/approx= 0.0 fidelity) "Orthogonal states should have fidelity 0")))
     
     (testing "superposition states"
       (let [state1 (qs/zero-state 1)
             state2 (qs/plus-state)
             fidelity (channel/channel-fidelity state1 state2)]
-        (is (approx= 0.5 fidelity) "Should have expected fidelity with superposition")))))
+        (is (util/approx= 0.5 fidelity) "Should have expected fidelity with superposition")))))
 
 ;; Rich comment block for REPL experimentation
 (comment

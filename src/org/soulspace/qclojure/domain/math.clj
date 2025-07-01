@@ -5,22 +5,107 @@
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
 
+(defn complex-magnitude-squared
+  "Calculate |z|² for a complex number represented as [real imag] or fastmath complex.
+   
+   This function computes the squared magnitude of a complex number, which is
+   useful for normalizing quantum states or measuring fidelity.
+   
+   Parameters:
+   - z: A complex number in one of the following formats:
+     - Fastmath complex number (e.g. (fc/complex 1 2))
+     - Clojure vector [real imag]
+     - Regular number (treated as real)
+   
+   Returns:
+   Squared magnitude as a number"
+  [z]
+  (cond
+    ;; Handle fastmath complex numbers
+    (qs/complex? z)
+    (+ (* (fc/re z) (fc/re z)) (* (fc/im z) (fc/im z)))
+
+    ;; Handle Clojure vectors [real imag]
+    (vector? z)
+    (let [[real imag] z]
+      (+ (* real real) (* imag imag)))
+
+    ;; Handle regular numbers (treat as real)
+    (number? z)
+    (* z z)
+
+    :else
+    (throw (IllegalArgumentException. (str "Unsupported complex number format: " (type z))))))
+
+(defn max-coeff-magnitude-squared
+  "Get the maximum coefficient magnitude squared from a matrix.
+   
+   This function computes the maximum of the squared magnitudes of complex coefficients
+   in a matrix, which is useful for normalizing quantum states or measuring fidelity.
+   
+   Parameters:
+   - matrix: A 2D vector of complex numbers (e.g. [[c11
+     c12] [c21 c22] ...])
+   
+   Returns:
+   Maximum coefficient magnitude squared as a number"
+  [matrix]
+  (apply max (map (fn [row]
+                    (apply max (map (fn [coeff]
+                                      (+ (* (fc/re coeff) (fc/re coeff))
+                                         (* (fc/im coeff) (fc/im coeff))))
+                                    row)))
+                  matrix)))
+
+
 (defn prime?
-  "Simple primality test for small numbers."
+  "Simple primality test for small numbers.
+   
+   This function checks if a number is prime by testing divisibility
+   against all integers from 2 to the square root of the number.
+   It is not optimized for large numbers, but works well for small inputs.
+   
+   Parameters:
+   - n: The number to check for primality
+   
+   Returns:
+   true if n is prime, false otherwise"
   [n]
   (and (> n 1)
        (not-any? #(zero? (mod n %))
                  (range 2 (inc (int (m/sqrt n)))))))
 
 (defn gcd
-  "Calculate greatest common divisor using Euclidean algorithm."
+  "Calculate greatest common divisor using Euclidean algorithm.
+   
+   This function computes the GCD of two integers using the efficient
+   Euclidean algorithm, which is based on the principle that GCD(a, b) = GCD(b, a mod b).
+   
+   Parameters:
+   - a: First integer
+   - b: Second integer
+   
+   Returns:
+   The greatest common divisor of a and b"
   [a b]
   (if (zero? b)
     a
     (recur b (mod a b))))
 
 (defn mod-exp
-  "Calculate (base^exp) mod m efficiently using binary exponentiation."
+  "Calculate (base^exp) mod m efficiently using binary exponentiation.
+   
+   This function computes the modular exponentiation using the method of
+   exponentiation by squaring, which is efficient for large numbers.
+   It handles negative exponents by returning the modular inverse if needed.
+   
+   Parameters:
+   - base: Base number
+   - exp: Exponent (can be negative)
+   - m: Modulus (must be positive)
+   
+   Returns:
+   The result of (base^exp) mod m"
   [base exp m]
   (loop [result 1
          base (mod base m)

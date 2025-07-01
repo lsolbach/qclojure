@@ -787,6 +787,30 @@
      :probabilities empirical-probs
      :expected-probabilities expected-probs}))
 
+(defn state-fidelity
+  "Calculate fidelity between two quantum states.
+   
+   This computes the overlap between the state vectors of the two states.
+   Fidelity is defined as the absolute value of the inner product of the state vectors.
+   
+   Parameters:
+   - state1: First quantum state
+   - state2: Second quantum state
+   
+   Returns:
+   - Fidelity value as a double, representing the closeness of the two states."
+  [state1 state2]
+  (let [sv1 (:state-vector state1)
+        sv2 (:state-vector state2)
+        overlap-terms (map (fn [a1 a2]
+                             (let [conj-a1 (fc/complex (fc/re a1) (- (fc/im a1)))
+                                   product (fc/mult conj-a1 a2)]
+                               product))
+                           sv1 sv2)
+        total-overlap (reduce fc/add overlap-terms)]
+    (fc/abs total-overlap)))
+
+
 ;; Default states for convenience - pre-defined common quantum states
 (def |0⟩
   "Single-qubit |0⟩ computational basis state."

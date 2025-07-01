@@ -1,9 +1,31 @@
 (ns org.soulspace.qclojure.domain.math
   "Mathematical operations and utilities for quantum algorithms."
-  (:require [fastmath.core :as m]))
+  (:require [fastmath.core :as m]
+            [fastmath.complex :as fc]))
 
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
+
+(defn complex?
+  "Check if value is a fastmath complex number (Vec2).
+  
+  FastMath represents complex numbers as 2D vectors where the x component
+  is the real part and the y component is the imaginary part.
+  
+  Parameters:
+  - z: Value to test for complex number type
+  
+  Returns:
+  Boolean true if z is a fastmath Vec2 complex number, false otherwise
+  
+  Example:
+  (complex? (fc/complex 1 2))
+  ;=> true
+  
+  (complex? 42)
+  ;=> false"
+  [z]
+  (instance? fastmath.vector.Vec2 z))
 
 (defn complex-magnitude-squared
   "Calculate |z|² for a complex number represented as [real imag] or fastmath complex.
@@ -22,7 +44,7 @@
   [z]
   (cond
     ;; Handle fastmath complex numbers
-    (qs/complex? z)
+    (complex? z)
     (+ (* (fc/re z) (fc/re z)) (* (fc/im z) (fc/im z)))
 
     ;; Handle Clojure vectors [real imag]

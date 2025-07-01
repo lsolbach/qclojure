@@ -12,6 +12,7 @@
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates
 * moved oracle functions from grover-test to grover ns
+* moved complex? predicate to math
 * extracted methods from tests
 * enhanced tutorial
 

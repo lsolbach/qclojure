@@ -14,28 +14,6 @@
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
 
-;; Helper functions for complex number operations using fastmath
-(defn complex?
-  "Check if value is a fastmath complex number (Vec2).
-  
-  FastMath represents complex numbers as 2D vectors where the x component
-  is the real part and the y component is the imaginary part.
-  
-  Parameters:
-  - z: Value to test for complex number type
-  
-  Returns:
-  Boolean true if z is a fastmath Vec2 complex number, false otherwise
-  
-  Example:
-  (complex? (fc/complex 1 2))
-  ;=> true
-  
-  (complex? 42)
-  ;=> false"
-  [z]
-  (instance? fastmath.vector.Vec2 z))
-
 (defn basis-string
   "Generate a string representation of a computational basis state.
    For a given value, this function produces the corresponding binary string

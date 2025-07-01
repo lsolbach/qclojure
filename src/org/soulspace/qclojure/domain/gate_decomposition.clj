@@ -1,6 +1,7 @@
 (ns org.soulspace.qclojure.domain.gate-decomposition
   (:require [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
+;; TODO remove
 (defn resolve-supported-operations
   "Resolve supported operations - converts keyword targets to gate sets or returns the set as-is.
   

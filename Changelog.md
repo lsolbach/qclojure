@@ -6,6 +6,8 @@
 * extracted gate layering functions
 * added gate layering to the ascii circuit visualisation
 * improved gate spacing in  ascii circuit visualisation
+* added channel namespace for quantum channel operations
+* refactored noisy simulator to use quantum channel functions
 * added plus-i-state and minus-i-state functions
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates

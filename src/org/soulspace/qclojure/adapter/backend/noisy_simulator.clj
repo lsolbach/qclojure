@@ -44,12 +44,10 @@
   backend functionality, allowing it to be used in a cloud-like
   environment for testing purposes."
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
-            [fastmath.complex :as fc]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]))
+            [org.soulspace.qclojure.domain.channel :as channel]))
 
 ;; Noisy simulator state management
 (defonce state (atom {:job-counter 0
@@ -85,203 +83,8 @@
 (s/def ::advanced-noise-model
   (s/keys :opt-un [::gate-noise-config ::readout-error-config ::crosstalk-matrix]))
 
-;; Kraus operator implementations for quantum channels
-(defn depolarizing-kraus-operators
-  "Generate Kraus operators for depolarizing noise channel.
-  
-  The depolarizing channel applies each Pauli operator with probability p/4,
-  and leaves the state unchanged with probability 1-3p/4.
-  
-  For proper normalization: Σᵢ Kᵢ† Kᵢ = I
-  
-  Parameters:
-  - p: Total error probability (0 <= p <= 3/4 for physical channel)
-  
-  Returns: Vector of Kraus operators with coefficients applied to matrices"
-  [p]
-  (let [;; Use existing Pauli matrices from gate namespace
-        no-error-coeff (m/sqrt (- 1.0 p))
-        error-coeff (m/sqrt (/ p 3.0))]
-    ;; Apply coefficients directly to matrices for proper quantum channel
-    [{:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex no-error-coeff 0) %) row)) qg/pauli-i)}
-     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-x)}
-     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-y)}
-     {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-z)}]))
-
-(defn amplitude-damping-kraus-operators
-  "Generate Kraus operators for amplitude damping (T1 decay).
-  
-  Models energy dissipation where |1⟩ decays to |0⟩.
-  Kraus operators: K₀ = [[1, 0], [0, √(1-γ)]], K₁ = [[0, √γ], [0, 0]]
-  
-  Parameters:
-  - gamma: Damping parameter (0 <= gamma <= 1)
-  
-  Returns: Vector of Kraus operators using fastmath complex numbers"
-  [gamma]
-  [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
-   {:matrix [[(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]
-             [(fc/complex 0 0) (fc/complex 0 0)]]}])
-
-(defn phase-damping-kraus-operators
-  "Generate Kraus operators for phase damping (T2 dephasing).
-  
-  Models random phase flips without energy loss.
-  Kraus operators: K₀ = [[1, 0], [0, √(1-γ)]], K₁ = [[0, 0], [0, √γ]]
-  
-  Parameters:
-  - gamma: Dephasing parameter (0 <= gamma <= 1)
-  
-  Returns: Vector of Kraus operators using fastmath complex numbers"
-  [gamma]
-  [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
-   {:matrix [[(fc/complex 0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]]}])
-
-(defn coherent-error-kraus-operator
-  "Generate Kraus operator for coherent (systematic) errors.
-  
-  Parameters:
-  - angle: Rotation angle in radians
-  - axis: Rotation axis (:x, :y, or :z)
-  
-  Returns: Single Kraus operator for coherent rotation"
-  [angle axis]
-  (let [cos-half (m/cos (/ angle 2.0))
-        sin-half (m/sin (/ angle 2.0))]
-    (case axis
-      :x {:matrix [[(fc/complex cos-half 0) (fc/complex (- sin-half) 0)] 
-                   [(fc/complex sin-half 0) (fc/complex cos-half 0)]]}
-      :y {:matrix [[(fc/complex cos-half 0) (fc/complex sin-half 0)] 
-                   [(fc/complex (- sin-half) 0) (fc/complex cos-half 0)]]}
-      :z {:matrix [[(fc/complex (m/cos angle) 0) (fc/complex 0 0)] 
-                   [(fc/complex 0 0) (fc/complex (m/cos (- angle)) 0)]]})))
-
-;; Advanced noise application functions
-(defn apply-matrix-to-amplitude
-  "Apply a 2x2 matrix to a single amplitude pair in a quantum state.
-  
-  Performs proper complex matrix-vector multiplication:
-  [new-a0] = [m00 m01] [a0]
-  [new-a1]   [m10 m11] [a1]
-  
-  Parameters:
-  - amplitude-pair: [a0 a1] where each is a fastmath Vec2 complex number
-  - matrix: 2x2 matrix [[m00 m01] [m10 m11]] with fastmath complex elements
-  
-  Returns: [new-a0 new-a1] as fastmath complex numbers"
-  [amplitude-pair matrix]
-  (let [[[m00 m01] [m10 m11]] matrix
-        [a0 a1] amplitude-pair]
-    [(fc/add (fc/mult m00 a0) (fc/mult m01 a1))
-     (fc/add (fc/mult m10 a0) (fc/mult m11 a1))]))
-
-(defn apply-single-qubit-kraus-operator
-  "Apply a single Kraus operator to a specific qubit in a multi-qubit state.
-  
-  This implements the proper quantum mechanics for Kraus operator application:
-  |ψ'⟩ = K|ψ⟩ / ||K|ψ⟩||
-  
-  The Kraus operator matrix should already include any coefficients.
-  
-  Parameters:
-  - state: Quantum state
-  - kraus-op: Kraus operator {:matrix matrix}
-  - qubit-index: Target qubit (0-indexed)
-  
-  Returns: New quantum state after applying Kraus operator and normalizing"
-  [state kraus-op qubit-index]
-  (let [n-qubits (:num-qubits state)
-        state-vec (:state-vector state)
-        matrix (:matrix kraus-op)
-        n-states (count state-vec)]
-     
-     (if (= n-qubits 1)
-       ;; Single qubit case
-       (let [[new-amp0 new-amp1] (apply-matrix-to-amplitude 
-                                  [(first state-vec) (second state-vec)] 
-                                  matrix)
-             result-state {:num-qubits 1
-                           :state-vector [new-amp0 new-amp1]}]
-         ;; Normalize the result using the existing normalize-state function
-         (qs/normalize-state result-state))
-       
-       ;; Multi-qubit case - apply to specific qubit
-       (let [new-amplitudes 
-             (vec (for [i (range n-states)]
-                    (let [qubit-bit (bit-test i (- n-qubits 1 qubit-index))
-                          partner-i (if qubit-bit
-                                      (bit-clear i (- n-qubits 1 qubit-index))
-                                      (bit-set i (- n-qubits 1 qubit-index)))
-                          amp-pair (if qubit-bit
-                                     [(nth state-vec partner-i) (nth state-vec i)]
-                                     [(nth state-vec i) (nth state-vec partner-i)])
-                          [new-amp0 new-amp1] (apply-matrix-to-amplitude 
-                                                amp-pair
-                                                matrix)]
-                      (if qubit-bit new-amp1 new-amp0))))
-             result-state {:num-qubits n-qubits
-                           :state-vector new-amplitudes}]
-         
-         ;; Normalize the result using the existing normalize-state function
-         (qs/normalize-state result-state)))))
-
-(defn apply-quantum-channel
-  "Apply a complete quantum channel defined by multiple Kraus operators.
-  
-  For pure state simulators, implements quantum channels by randomly selecting
-  one Kraus operator to apply based on the probabilities encoded in the Kraus
-  operator coefficients. This provides correct noise simulation.
-  
-  Parameters:
-  - state: Input quantum state
-  - kraus-operators: Vector of Kraus operators with matrices and coefficients
-  - qubit-index: Target qubit
-  
-  Returns: Output quantum state after channel application"
-  [state kraus-operators qubit-index]
-  (if (= (count kraus-operators) 1)
-    ;; Single Kraus operator case - apply directly
-    (apply-single-qubit-kraus-operator state (first kraus-operators) qubit-index)
-    ;; Multiple Kraus operators - select based on probabilities from coefficients
-    (let [;; Calculate probabilities from Kraus operator coefficients (max |coefficient|²)
-          probabilities (mapv (fn [kraus-op]
-                                (let [matrix (:matrix kraus-op)]
-                                  ;; Find maximum coefficient magnitude squared from the matrix
-                                  (apply max (map (fn [row]
-                                                    (apply max (map (fn [coeff]
-                                                                      (+ (* (fc/re coeff) (fc/re coeff)) 
-                                                                         (* (fc/im coeff) (fc/im coeff))))
-                                                                    row)))
-                                                  matrix)))) kraus-operators)
-          ;; Generate random number for selection
-          rand-val (rand)
-          ;; Select Kraus operator based on cumulative probabilities
-          selected-operator (loop [cumulative-prob 0.0
-                                   idx 0]
-                             (let [new-cumulative (+ cumulative-prob (nth probabilities idx))]
-                               (if (or (< rand-val new-cumulative) (>= idx (dec (count kraus-operators))))
-                                 (nth kraus-operators idx)
-                                 (recur new-cumulative (inc idx)))))]
-      ;; Apply the selected Kraus operator
-      (apply-single-qubit-kraus-operator state selected-operator qubit-index))))
-
-(defn calculate-decoherence-params
-  "Calculate decoherence parameters from T1, T2 times and gate duration.
-  
-  Parameters:
-  - t1: T1 relaxation time (microseconds)
-  - t2: T2 dephasing time (microseconds) 
-  - gate-time: Gate operation time (nanoseconds)
-  
-  Returns: {:gamma-1 gamma-2} decoherence parameters"
-  [t1 t2 gate-time]
-  (let [gate-time-us (/ gate-time 1000.0) ; Convert ns to μs
-        gamma-1 (- 1.0 (m/exp (- (/ gate-time-us t1))))
-        gamma-2 (- 1.0 (m/exp (- (/ gate-time-us t2))))]
-    {:gamma-1 gamma-1 :gamma-2 gamma-2}))
+;; Quantum channel functions are now directly called from domain.channel namespace
+;; This provides clean separation without unnecessary delegation layer
 
 ;; Advanced noise application during gate operations
 (defn apply-advanced-gate-noise
@@ -300,29 +103,29 @@
     
     (case noise-type
       :depolarizing
-      (let [kraus-ops (depolarizing-kraus-operators noise-strength)]
-        (apply-quantum-channel clean-state kraus-ops target-qubit))
+      (let [kraus-ops (channel/depolarizing-kraus-operators noise-strength)]
+        (channel/apply-quantum-channel clean-state kraus-ops target-qubit))
       
       :amplitude-damping
       (let [decoherence (if (and t1-time gate-time)
-                          (calculate-decoherence-params t1-time t2-time gate-time)
+                          (channel/calculate-decoherence-params t1-time t2-time gate-time)
                           {:gamma-1 noise-strength :gamma-2 0})
-            kraus-ops (amplitude-damping-kraus-operators (:gamma-1 decoherence))]
-        (apply-quantum-channel clean-state kraus-ops target-qubit))
+            kraus-ops (channel/amplitude-damping-kraus-operators (:gamma-1 decoherence))]
+        (channel/apply-quantum-channel clean-state kraus-ops target-qubit))
       
       :phase-damping
       (let [decoherence (if (and t2-time gate-time)
-                          (calculate-decoherence-params t1-time t2-time gate-time)
+                          (channel/calculate-decoherence-params t1-time t2-time gate-time)
                           {:gamma-1 0 :gamma-2 noise-strength})
-            kraus-ops (phase-damping-kraus-operators (:gamma-2 decoherence))]
-        (apply-quantum-channel clean-state kraus-ops target-qubit))
+            kraus-ops (channel/phase-damping-kraus-operators (:gamma-2 decoherence))]
+        (channel/apply-quantum-channel clean-state kraus-ops target-qubit))
       
       :coherent
       (let [coherent-config (get noise-config :coherent-error {:rotation-angle 0.01 :rotation-axis :z})
-            kraus-op (coherent-error-kraus-operator 
+            kraus-op (channel/coherent-error-kraus-operator 
                       (:rotation-angle coherent-config)
                       (:rotation-axis coherent-config))]
-        (apply-single-qubit-kraus-operator clean-state kraus-op target-qubit))
+        (channel/apply-single-qubit-kraus-operator clean-state kraus-op target-qubit))
       
       ;; Default: no noise
       clean-state)))
@@ -381,7 +184,7 @@
                               (let [{:keys [prob-0-to-1 prob-1-to-0]} readout-config]
                                 (apply str 
                                        (map-indexed
-                                        (fn [qubit-idx bit]
+                                        (fn [_qubit-idx bit]
                                           (let [flip-prob (case bit
                                                             \0 prob-0-to-1
                                                             \1 prob-1-to-0)]
@@ -406,29 +209,29 @@
                                (let [{:keys [noise-type noise-strength t1-time t2-time gate-time]} gate-noise-config]
                                  (case noise-type
                                    :depolarizing
-                                   (let [kraus-ops (depolarizing-kraus-operators noise-strength)]
-                                     (apply-quantum-channel post-gate-state kraus-ops target-qubit))
+                                   (let [kraus-ops (channel/depolarizing-kraus-operators noise-strength)]
+                                     (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
                                    
                                    :amplitude-damping
                                    (let [decoherence (if (and t1-time gate-time)
-                                                       (calculate-decoherence-params t1-time (or t2-time (* t1-time 2)) gate-time)
+                                                       (channel/calculate-decoherence-params t1-time (or t2-time (* t1-time 2)) gate-time)
                                                        {:gamma-1 noise-strength :gamma-2 0})
-                                         kraus-ops (amplitude-damping-kraus-operators (:gamma-1 decoherence))]
-                                     (apply-quantum-channel post-gate-state kraus-ops target-qubit))
+                                         kraus-ops (channel/amplitude-damping-kraus-operators (:gamma-1 decoherence))]
+                                     (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
                                    
                                    :phase-damping
                                    (let [decoherence (if (and t2-time gate-time)
-                                                       (calculate-decoherence-params (or t1-time (* t2-time 2)) t2-time gate-time)
+                                                       (channel/calculate-decoherence-params (or t1-time (* t2-time 2)) t2-time gate-time)
                                                        {:gamma-1 0 :gamma-2 noise-strength})
-                                         kraus-ops (phase-damping-kraus-operators (:gamma-2 decoherence))]
-                                     (apply-quantum-channel post-gate-state kraus-ops target-qubit))
+                                         kraus-ops (channel/phase-damping-kraus-operators (:gamma-2 decoherence))]
+                                     (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
                                    
                                    :coherent
                                    (let [coherent-config (get gate-noise-config :coherent-error {:rotation-angle 0.01 :rotation-axis :z})
-                                         kraus-op (coherent-error-kraus-operator 
+                                         kraus-op (channel/coherent-error-kraus-operator 
                                                    (:rotation-angle coherent-config)
                                                    (:rotation-axis coherent-config))]
-                                     (apply-single-qubit-kraus-operator post-gate-state kraus-op target-qubit))
+                                     (channel/apply-single-qubit-kraus-operator post-gate-state kraus-op target-qubit))
                                    
                                    ;; Default: no noise
                                    post-gate-state))
@@ -897,18 +700,18 @@
   (def test-state (qs/plus-state))
   
   ;; Depolarizing noise
-  (def depol-ops (depolarizing-kraus-operators 0.1))
-  (def state (apply-quantum-channel test-state depol-ops 0))
+  (def depol-ops (channel/depolarizing-kraus-operators 0.1))
+  (def state (channel/apply-quantum-channel test-state depol-ops 0))
   (println "\nDepolarizing noise result:" (:state-vector state))
   
   ;; Amplitude damping
-  (def amp-ops (amplitude-damping-kraus-operators 0.1))
-  (def damped-state (apply-quantum-channel test-state amp-ops 0))
+  (def amp-ops (channel/amplitude-damping-kraus-operators 0.1))
+  (def damped-state (channel/apply-quantum-channel test-state amp-ops 0))
   (println "Amplitude damping result:" (:state-vector damped-state))
   
   ;; Decoherence parameters for different platforms
-  (def ionq-decoherence (calculate-decoherence-params 15000.0 7000.0 40000.0))
-  (def rigetti-decoherence (calculate-decoherence-params 45.0 35.0 200.0))
+  (def ionq-decoherence (channel/calculate-decoherence-params 15000.0 7000.0 40000.0))
+  (def rigetti-decoherence (channel/calculate-decoherence-params 45.0 35.0 200.0))
   
   (println "\nDecoherence comparison:")
   (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)

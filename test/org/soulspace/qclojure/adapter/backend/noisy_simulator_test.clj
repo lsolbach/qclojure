@@ -7,7 +7,8 @@
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]))
+            [org.soulspace.qclojure.domain.gate :as qg]
+            [org.soulspace.qclojure.domain.channel :as channel]))
 
 ;; Test fixtures
 (defn reset-simulator-state-fixture [f]
@@ -70,7 +71,7 @@
 (deftest test-depolarizing-kraus-operators
   (testing "Depolarizing Kraus operators"
     (testing "with zero noise"
-      (let [kraus-ops (noisy/depolarizing-kraus-operators 0.0)
+      (let [kraus-ops (channel/depolarizing-kraus-operators 0.0)
             identity-op (first kraus-ops)]
         (is (= 4 (count kraus-ops)) "Should have 4 Kraus operators")
         (is (approx= 1.0 (complex-magnitude-squared (first (first (:matrix identity-op)))))
@@ -81,7 +82,7 @@
     
     (testing "with small noise"
       (let [p 0.1
-            kraus-ops (noisy/depolarizing-kraus-operators p)
+            kraus-ops (channel/depolarizing-kraus-operators p)
             identity-coeff-sq (max-coeff-magnitude-squared (:matrix (first kraus-ops)))
             pauli-coeff-sq (max-coeff-magnitude-squared (:matrix (second kraus-ops)))]
         (is (approx= (- 1.0 p) identity-coeff-sq 1e-10) "Identity coefficient should be √(1-p)")
@@ -89,14 +90,14 @@
     
     (testing "completeness relation"
       (let [p 0.2
-            kraus-ops (noisy/depolarizing-kraus-operators p)
+            kraus-ops (channel/depolarizing-kraus-operators p)
             sum-coeffs-sq (reduce + (map #(max-coeff-magnitude-squared (:matrix %)) kraus-ops))]
         (is (approx= 1.0 sum-coeffs-sq 1e-10) "Sum of |coefficients|² should equal 1")))))
 
 (deftest test-amplitude-damping-kraus-operators
   (testing "Amplitude damping Kraus operators"
     (testing "with zero damping"
-      (let [kraus-ops (noisy/amplitude-damping-kraus-operators 0.0)
+      (let [kraus-ops (channel/amplitude-damping-kraus-operators 0.0)
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (= 2 (count kraus-ops)) "Should have 2 Kraus operators")
@@ -109,7 +110,7 @@
             "K₁ should be zero matrix")))
     
     (testing "with full damping"
-      (let [kraus-ops (noisy/amplitude-damping-kraus-operators 1.0)
+      (let [kraus-ops (channel/amplitude-damping-kraus-operators 1.0)
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (approx= 1.0 (complex-magnitude-squared (first (first k0))))
@@ -123,7 +124,7 @@
   (testing "Phase damping Kraus operators"
     (testing "preserve population"
       (let [gamma 0.3
-            kraus-ops (noisy/phase-damping-kraus-operators gamma)
+            kraus-ops (channel/phase-damping-kraus-operators gamma)
             k0 (:matrix (first kraus-ops))
             k1 (:matrix (second kraus-ops))]
         (is (= 2 (count kraus-ops)) "Should have 2 Kraus operators")
@@ -161,7 +162,7 @@
     (testing "identity operation"
       (let [initial-state (qs/plus-state)
             identity-kraus {:matrix qg/pauli-i}
-            result-state (noisy/apply-single-qubit-kraus-operator initial-state identity-kraus 0)]
+            result-state (channel/apply-single-qubit-kraus-operator initial-state identity-kraus 0)]
         (is (> (state-fidelity initial-state result-state) 0.999)
             "Identity operation should preserve state")))
     
@@ -169,14 +170,14 @@
       (let [zero-state (qs/zero-state 1)
             one-state (qs/one-state)
             pauli-x-kraus {:matrix qg/pauli-x}
-            result-state (noisy/apply-single-qubit-kraus-operator zero-state pauli-x-kraus 0)]
+            result-state (channel/apply-single-qubit-kraus-operator zero-state pauli-x-kraus 0)]
         (is (> (state-fidelity one-state result-state) 0.999)
             "Pauli-X should flip |0⟩ to |1⟩")))
     
     (testing "multi-qubit state"
       (let [initial-state (qs/zero-state 2)
             pauli-x-kraus {:matrix qg/pauli-x}
-            result-state (noisy/apply-single-qubit-kraus-operator initial-state pauli-x-kraus 1)
+            result-state (channel/apply-single-qubit-kraus-operator initial-state pauli-x-kraus 1)
             expected-state (qs/computational-basis-state 2 [0 1])]
         (is (> (state-fidelity expected-state result-state) 0.999)
             "Should apply operation to correct qubit in multi-qubit system")))))
@@ -186,23 +187,23 @@
     (testing "single Kraus operator"
       (let [initial-state (qs/zero-state 1)
             kraus-ops [{:matrix qg/pauli-x}]
-            result-state (noisy/apply-quantum-channel initial-state kraus-ops 0)
+            result-state (channel/apply-quantum-channel initial-state kraus-ops 0)
             expected-state (qs/one-state)]
         (is (> (state-fidelity expected-state result-state) 0.999)
             "Single Kraus operator should be applied directly")))
     
     (testing "multiple Kraus operators probability selection"
       (let [initial-state (qs/zero-state 1)
-            kraus-ops (noisy/depolarizing-kraus-operators 0.0) ; No noise - should always select identity
-            results (repeatedly 100 #(noisy/apply-quantum-channel initial-state kraus-ops 0))
+            kraus-ops (channel/depolarizing-kraus-operators 0.0) ; No noise - should always select identity
+            results (repeatedly 100 #(channel/apply-quantum-channel initial-state kraus-ops 0))
             fidelities (map #(state-fidelity initial-state %) results)]
         (is (every? #(> % 0.999) fidelities)
             "With zero noise, should always preserve state")))
     
     (testing "depolarizing channel behavior"
       (let [initial-state (qs/zero-state 1)
-            kraus-ops (noisy/depolarizing-kraus-operators 0.8) ; High noise
-            results (repeatedly 1000 #(noisy/apply-quantum-channel initial-state kraus-ops 0))
+            kraus-ops (channel/depolarizing-kraus-operators 0.6) ; Reduced from 0.8 to stay within valid range
+            results (repeatedly 1000 #(channel/apply-quantum-channel initial-state kraus-ops 0))
             fidelities (map #(state-fidelity initial-state %) results)
             avg-fidelity (/ (reduce + fidelities) (count fidelities))]
         (is (< avg-fidelity 0.9) "High depolarizing noise should reduce average fidelity")
@@ -215,7 +216,7 @@
       (let [t1 100.0 ; μs
             t2 50.0  ; μs
             gate-time 100.0 ; ns = 0.1 μs
-            params (noisy/calculate-decoherence-params t1 t2 gate-time)]
+            params (channel/calculate-decoherence-params t1 t2 gate-time)]
         (is (< (:gamma-1 params) 0.01) "Gamma-1 should be small for short gate time")
         (is (< (:gamma-2 params) 0.01) "Gamma-2 should be small for short gate time")))
     
@@ -223,7 +224,7 @@
       (let [t1 10.0   ; μs
             t2 5.0    ; μs
             gate-time 5000.0 ; ns = 5 μs
-            params (noisy/calculate-decoherence-params t1 t2 gate-time)]
+            params (channel/calculate-decoherence-params t1 t2 gate-time)]
         (is (> (:gamma-1 params) 0.3) "Gamma-1 should be significant for long gate time")
         (is (> (:gamma-2 params) 0.6) "Gamma-2 should be significant for long gate time")))))
 

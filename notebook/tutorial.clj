@@ -91,7 +91,8 @@
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
-   [org.soulspace.qclojure.adapter.visualization :as viz]))
+   [org.soulspace.qclojure.adapter.visualization :as viz]
+   [org.soulspace.qclojure.application.algorithm.grover :as grover]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -780,6 +781,36 @@ simon-result
 ;;    - Applying a conditional phase shift to the |0⟩ state.
 ;;    - Applying another Hadamard gate to all qubits.
 ;; 4. Repeat the Grover diffusion operator O(√2ⁿ) times.
+;;
+;; To examine Grover's algorithm, we need to require the `grover` namespace
+;; from the `application.algorithm` package.
+
+(require '[org.soulspace.qclojure.application.algorithm.grover :as grover])
+
+;; Let's define a function that marks a specific input.
+
+(def grover-oracle (grover/single-target-oracle 5))
+
+;; Now we can define a circuit with a search space of 3 qubits for Grover's
+;; search algorithm.
+
+(def grover-circuit
+  (grover/grover-circuit 3 grover-oracle))
+
+;; Let's visualize the circuit for Grover's search algorithm.
+
+(kind/html (viz/visualize-circuit :svg grover-circuit))
+
+;; Now we can execute Grover's search algorithm with the defined oracle.
+
+(def grover-result
+  (grover/grover-algorithm (sim/create-simulator) 8 grover-oracle))
+
+;; Like the previous algorithms, the result of Grover's search algorithm
+;; is a map that contains the result of the algorithm, the measurement outcome,
+;; and the circuit used to execute the algorithm.
+
+grover-result
 
 ;; #### Quantum Fourier Transform
 ;; The [Quantum Fourier Transform (QFT)](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)

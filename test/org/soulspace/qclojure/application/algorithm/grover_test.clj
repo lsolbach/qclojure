@@ -5,35 +5,17 @@
             [org.soulspace.qclojure.application.algorithm.grover :as grover]
             [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
-;; Helper functions for testing
-(defn- single-target-oracle
-  "Oracle function that marks a single target state"
-  [target-index]
-  (fn [state-index]
-    (= state-index target-index)))
-
-(defn- multiple-targets-oracle
-  "Oracle function that marks multiple target states"
-  [target-indices]
-  (fn [state-index]
-    (contains? (set target-indices) state-index)))
-
-(defn- even-numbers-oracle
-  "Oracle function that marks all even numbers in the search space"
-  [state-index]
-  (even? state-index))
-
 ;; Test circuit construction functions
 (deftest test-grover-circuit
   (testing "2-qubit Grover circuit construction"
-    (let [oracle-fn (single-target-oracle 2)  ; Target |10⟩
+    (let [oracle-fn (grover/single-target-oracle 2)  ; Target |10⟩
           circuit (grover/grover-circuit 2 oracle-fn 1)]
 
       (is (not (nil? circuit)) "Circuit should be created")
       (is (= 2 (:num-qubits circuit)) "Circuit should have 2 qubits")))
 
   (testing "3-qubit Grover circuit with measurements"
-    (let [oracle-fn (single-target-oracle 5)  ; Target |101⟩
+    (let [oracle-fn (grover/single-target-oracle 5)  ; Target |101⟩
           circuit (grover/grover-circuit 3 oracle-fn 2 {:add-measurements? true})]
 
       (is (not (nil? circuit)) "Circuit should be created")
@@ -43,7 +25,7 @@
           "Circuit should contain measurement operations")))
 
   (testing "Optimal iterations calculation"
-    (let [oracle-fn (single-target-oracle 10)
+    (let [oracle-fn (grover/single-target-oracle 10)
           circuit (grover/grover-circuit 4 oracle-fn)]  ; Use default optimal iterations
 
       (is (not (nil? circuit)) "Circuit should be created")
@@ -64,7 +46,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 4
           target-index 2  ; Target |10⟩
-          oracle-fn (single-target-oracle target-index)
+          oracle-fn (grover/single-target-oracle target-index)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should return a result")
@@ -80,7 +62,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 8
           target-index 5  ; Target |101⟩
-          oracle-fn (single-target-oracle target-index)
+          oracle-fn (grover/single-target-oracle target-index)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should return a result")
@@ -92,7 +74,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 16
           target-index 10  ; Target |1010⟩
-          oracle-fn (single-target-oracle target-index)
+          oracle-fn (grover/single-target-oracle target-index)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should return a result")
@@ -105,7 +87,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 4
           target-indices [1 3]  ; Targets |01⟩ and |11⟩
-          oracle-fn (multiple-targets-oracle target-indices)
+          oracle-fn (grover/multiple-targets-oracle target-indices)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should return a result")
@@ -118,7 +100,7 @@
   (testing "3-qubit search space - even numbers"
     (let [backend (sim/create-simulator)
           search-space-size 8
-          oracle-fn even-numbers-oracle
+          oracle-fn grover/even-numbers-oracle
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})
           even-targets #{0 2 4 6}]
 
@@ -134,7 +116,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 2
           target-index 1
-          oracle-fn (single-target-oracle target-index)
+          oracle-fn (grover/single-target-oracle target-index)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should work with minimal search space")
@@ -167,7 +149,7 @@
     (let [backend (sim/create-simulator)
           search-space-size 4
           target-index 2
-          oracle-fn (single-target-oracle target-index)
+          oracle-fn (grover/single-target-oracle target-index)
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})
           stats (:measurement-statistics result)]
 
@@ -184,7 +166,7 @@
       (let [backend (sim/create-simulator)
             search-space-size 4
             target-index 1
-            oracle-fn (single-target-oracle target-index)
+            oracle-fn (grover/single-target-oracle target-index)
             result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 2048})
             stats (:measurement-statistics result)]
 
@@ -194,7 +176,7 @@
       (let [backend (sim/create-simulator)
             search-space-size 4
             target-index 1
-            oracle-fn (single-target-oracle target-index)
+            oracle-fn (grover/single-target-oracle target-index)
             result (grover/grover-algorithm backend search-space-size oracle-fn)
             stats (:measurement-statistics result)]
 
@@ -204,21 +186,21 @@
   (deftest test-grover-circuit-validation
     (testing "Invalid inputs to grover-circuit"
       (is (thrown? AssertionError
-                   (grover/grover-circuit 0 (single-target-oracle 0) 1))
+                   (grover/grover-circuit 0 (grover/single-target-oracle 0) 1))
           "Should throw for zero qubits")
 
       (is (thrown? AssertionError
-                   (grover/grover-circuit 2 (single-target-oracle 0) 0))
+                   (grover/grover-circuit 2 (grover/single-target-oracle 0) 0))
           "Should throw for zero iterations"))
 
     (testing "Invalid inputs to grover-algorithm"
       (let [backend (sim/create-simulator)]
         (is (thrown? AssertionError
-                     (grover/grover-algorithm backend 3 (single-target-oracle 0)))
+                     (grover/grover-algorithm backend 3 (grover/single-target-oracle 0)))
             "Should throw for non-power-of-2 search space")
 
         (is (thrown? AssertionError
-                     (grover/grover-algorithm backend 0 (single-target-oracle 0)))
+                     (grover/grover-algorithm backend 0 (grover/single-target-oracle 0)))
             "Should throw for zero search space")))))
 
 (comment
@@ -232,12 +214,12 @@
 
   ;; Manual testing and exploration
   (let [backend (sim/create-simulator)
-        result (grover/grover-algorithm backend 8 (single-target-oracle 5) {:shots 2048})]
+        result (grover/grover-algorithm backend 8 (grover/single-target-oracle 5) {:shots 2048})]
     (println "Grover search result:")
     (clojure.pprint/pprint result))
 
   ;; Test with different oracle functions
   (let [backend (sim/create-simulator)
-        result (grover/grover-algorithm backend 16 even-numbers-oracle {:shots 4096})]
+        result (grover/grover-algorithm backend 16 grover/even-numbers-oracle {:shots 4096})]
     (println "Even numbers search:")
     (clojure.pprint/pprint (:measurement-statistics result))))

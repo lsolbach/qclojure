@@ -22,9 +22,9 @@
    The diffusion operator applies inversion about the average amplitude."
   (:require
    [clojure.spec.alpha :as s]
+   [fastmath.core :as m]
    [org.soulspace.qclojure.application.algorithms :as qa]
    [org.soulspace.qclojure.application.backend :as qb]
-   [fastmath.core :as m]
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.domain.state :as qs]))
 
@@ -236,7 +236,6 @@
           ;; 5. Apply H gates to all qubits again (superposition basis)
           ((fn [c] (reduce (fn [acc idx] (qc/h-gate acc idx)) c qubit-indices)))))))
 
-; TODO use backend and circuit functions
 (defn grover-circuit
   "Build the complete quantum circuit for Grover's search algorithm.
   
@@ -308,6 +307,7 @@
                         :org.soulspace.qclojure.application.algorithms/circuit
                         :org.soulspace.qclojure.application.algorithms/execution-result]))
 
+; TODO use backend and circuit functions
 (defn grover-algorithm
   "Implement Grover's search algorithm.
   
@@ -409,15 +409,35 @@
   {:pre [(pos-int? N) (pos-int? M) (<= M N)]}
   (max 1 (int (* (/ m/PI 4) (m/sqrt (/ N M))))))
 
+;;;
+;;; Oracle Functions
+;;;
+(defn single-target-oracle
+  "Oracle function that marks a single target state"
+  [target-index]
+  (fn [state-index]
+    (= state-index target-index)))
+
+(defn multiple-targets-oracle
+  "Oracle function that marks multiple target states"
+  [target-indices]
+  (fn [state-index]
+    (contains? (set target-indices) state-index)))
+
+(defn even-numbers-oracle
+  "Oracle function that marks all even numbers in the search space"
+  [state-index]
+  (even? state-index))
+
 (comment
   (let [circuit (-> (qc/create-circuit 4 "Test Circuit")
                     (qc/x-gate 0)
                     (qc/x-gate 1)
                     (qc/x-gate 2)
                     (qc/toffoli-gate 1 2 3)
-                    ; (multi-controlled-z [0 1 2] 3)
+                    (multi-controlled-z [0 1 2] 3)
                     ;
                     )]
-  (qc/execute-circuit circuit (qs/zero-state 4)))
+    (qc/execute-circuit circuit (qs/zero-state 4)))
   ;
   )

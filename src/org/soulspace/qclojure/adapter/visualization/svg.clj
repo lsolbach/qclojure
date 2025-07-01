@@ -238,138 +238,9 @@
                                :x2 (+ (:left margin) circuit-width) :y2 y
                                :stroke "#9ca3af" :stroke-width 2}]]))
 
-      ;; Helper functions for span-aware layering
-      operation-qubits-with-spans (fn [operation]
-                                    (let [params (:operation-params operation)
-                                          operation-type (:operation-type operation)]
-                                      (case operation-type
-                                        :measure
-                                        {:qubits (or (:measurement-qubits params) [])
-                                         :spans []}
-                                        
-                                        ;; Single-qubit gates - no spans
-                                        (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
-                                        {:qubits [(:target params)]
-                                         :spans []}
-                                        
-                                        ;; Two-qubit controlled gates - create spans
-                                        (:cnot :cx :cz :cy :crx :cry :crz)
-                                        (let [control (:control params)
-                                              target (:target params)]
-                                          {:qubits [control target]
-                                           :spans [(if (< control target) 
-                                                     [control target] 
-                                                     [target control])]})
-                                        
-                                        ;; SWAP gates - span between qubits
-                                        (:swap :iswap)
-                                        (let [q1 (:qubit1 params)
-                                              q2 (:qubit2 params)]
-                                          {:qubits [q1 q2]
-                                           :spans [(if (< q1 q2) [q1 q2] [q2 q1])]})
-                                        
-                                        ;; Three-qubit gates
-                                        :toffoli
-                                        (let [c1 (:control1 params)
-                                              c2 (:control2 params)
-                                              target (:target params)
-                                              all-qubits [c1 c2 target]
-                                              min-q (apply min all-qubits)
-                                              max-q (apply max all-qubits)]
-                                          {:qubits all-qubits
-                                           :spans [[min-q max-q]]})
-                                        
-                                        :fredkin
-                                        (let [control (:control params)
-                                              t1 (:target1 params)
-                                              t2 (:target2 params)
-                                              all-qubits [control t1 t2]
-                                              min-q (apply min all-qubits)
-                                              max-q (apply max all-qubits)]
-                                          {:qubits all-qubits
-                                           :spans [[min-q max-q]]})
-                                        
-                                        ;; Default case - legacy support
-                                        {:qubits (remove nil? [(:target params)
-                                                              (:control params)
-                                                              (:qubit1 params)
-                                                              (:qubit2 params)
-                                                              (:control1 params)
-                                                              (:control2 params)
-                                                              (:target1 params)
-                                                              (:target2 params)])
-                                         :spans []})))
-
-      spans-conflict? (fn [[start1 end1] [start2 end2]]
-                        (not (or (< end1 start2) (< end2 start1))))
-
-      qubit-in-span? (fn [qubit spans]
-                       (some (fn [[start end]] (<= start qubit end)) spans))
-
-      safe-max (fn [default-val coll]
-                 (if (empty? coll)
-                   default-val
-                   (apply max coll)))
-
-      ;; Assign gates to layers using span-aware logic to prevent visual overlaps
-      assign-gates-to-layers (fn [gates n-qubits]
-                               (let [qubit-last-layer (vec (repeat n-qubits 0))]
-                                 (loop [remaining-gates gates
-                                        qubit-layers qubit-last-layer
-                                        span-layers {}
-                                        assignments []
-                                        current-max-layer 0]
-                                   (if (empty? remaining-gates)
-                                     assignments
-                                     (let [gate (first remaining-gates)
-                                           op-info (operation-qubits-with-spans gate)
-                                           op-qubits (remove nil? (:qubits op-info))
-                                           op-spans (:spans op-info)
-
-                                           ;; Find the maximum layer from affected qubits
-                                           max-qubit-layer (safe-max 0 (map #(nth qubit-layers %) op-qubits))
-
-                                           ;; For controlled gates, check if any existing spans conflict
-                                           conflicting-span-layers (for [[span layer] span-layers
-                                                                         op-span op-spans
-                                                                         :when (spans-conflict? span op-span)]
-                                                                     layer)
-                                           max-span-layer (safe-max 0 conflicting-span-layers)
-
-                                           ;; For single-qubit gates, check if they conflict with existing spans
-                                           conflicting-qubit-layers (if (empty? op-spans)
-                                                                      (for [[span layer] span-layers
-                                                                            qubit op-qubits
-                                                                            :when (qubit-in-span? qubit [span])]
-                                                                        layer)
-                                                                      [])
-                                           max-conflict-layer (safe-max 0 conflicting-qubit-layers)
-
-                                           ;; The new layer is one more than the maximum constraint
-                                           new-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
-
-                                           ;; Update qubit layers
-                                           updated-qubit-layers (reduce #(assoc %1 %2 new-layer)
-                                                                        qubit-layers
-                                                                        op-qubits)
-
-                                           ;; Update span layers
-                                           updated-span-layers (reduce #(assoc %1 %2 new-layer)
-                                                                       span-layers
-                                                                       op-spans)
-
-                                           ;; Create assignment
-                                           assignment {:gate gate 
-                                                      :layer new-layer 
-                                                      :qubit-layers updated-qubit-layers}]
-
-                                       (recur (rest remaining-gates)
-                                              updated-qubit-layers
-                                              updated-span-layers
-                                              (conj assignments assignment)
-                                              (max current-max-layer new-layer)))))))
-      
-      gate-layer-assignments (assign-gates-to-layers gates n-qubits)
+      ;; Use common layer assignment functions
+      gates (common/extract-circuit-gates circuit)
+      gate-layer-assignments (common/assign-gates-to-layers gates n-qubits)
 
       ;; Generate gate elements
       gate-elements (map
@@ -472,8 +343,10 @@
 
                            ;; SWAP gate
                            (= gate-type :swap)
-                           (let [qubit1-y (+ (:top margin) (* control qubit-spacing))
-                                 qubit2-y (+ (:top margin) (* target qubit-spacing))]
+                           (let [qubit1 (:qubit1 params)
+                                 qubit2 (:qubit2 params)
+                                 qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
+                                 qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
                              [:g {:class (when interactive "gate-group")}
                               ;; Swap symbol on first qubit
                               [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
@@ -489,12 +362,14 @@
                               [:line {:x1 x :y1 (min qubit1-y qubit2-y)
                                       :x2 x :y2 (max qubit1-y qubit2-y)
                                       :stroke "#fb923c" :stroke-width 2}]
-                              [:title (str "SWAP: qubits " control " and " target)]])
+                              [:title (str "SWAP: qubits " qubit1 " and " qubit2)]])
 
                            ;; iSWAP gate
                            (= gate-type :iswap)
-                           (let [qubit1-y (+ (:top margin) (* control qubit-spacing))
-                                 qubit2-y (+ (:top margin) (* target qubit-spacing))]
+                           (let [qubit1 (:qubit1 params)
+                                 qubit2 (:qubit2 params)
+                                 qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
+                                 qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
                              [:g {:class (when interactive "gate-group")}
                               ;; Swap symbols
                               [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
@@ -513,7 +388,7 @@
                               [:line {:x1 x :y1 (min qubit1-y qubit2-y)
                                       :x2 x :y2 (max qubit1-y qubit2-y)
                                       :stroke "#fb923c" :stroke-width 2}]
-                              [:title (str "iSWAP: qubits " control " and " target)]])
+                              [:title (str "iSWAP: qubits " qubit1 " and " qubit2)]])
 
                            ;; Toffoli gate (CCX)
                            (= gate-type :toffoli)

@@ -442,13 +442,51 @@
                   (get gate-symbols gate-type (name gate-type))
                   "]─")))))
 
+(defn- center-text
+  "Center text within a fixed width, padding with specified character.
+  
+  Parameters:
+  - text: Text to center
+  - width: Target width 
+  - pad-char: Character to use for padding (default space)
+  
+  Returns:
+  Centered text of exactly 'width' characters"
+  ([text width] (center-text text width " "))
+  ([text width pad-char]
+   (let [text-len (count text)
+         padding-needed (max 0 (- width text-len))
+         left-padding (quot padding-needed 2)
+         right-padding (- padding-needed left-padding)]
+     (str (str/join (repeat left-padding pad-char))
+          text
+          (str/join (repeat right-padding pad-char))))))
+
+(defn- format-gate-symbol
+  "Format a gate symbol to consistent width with proper centering.
+  
+  Parameters:
+  - symbol: Gate symbol string
+  - column-width: Target column width
+  
+  Returns:
+  Formatted symbol of consistent width"
+  [symbol column-width]
+  (center-text symbol column-width "─"))
+
 (defmethod viz/visualize-circuit :ascii
-  [_format circuit & {:keys [show-measurements]
-                      :or {show-measurements true}}]
+  [_format circuit & {:keys [show-measurements column-width]
+                      :or {show-measurements true column-width 5}}]
 
   (let [n-qubits (:num-qubits circuit)
-        operations (:operations circuit)
-        gates (filter #(not= (:operation-type %) :measure) operations)
+        
+        ;; Use common layer assignment functions
+        gates (vcommon/extract-circuit-gates circuit)
+        gate-layer-assignments (vcommon/assign-gates-to-layers gates n-qubits)
+        
+        ;; Group gates by layer for parallel processing
+        gates-by-layer (group-by :layer gate-layer-assignments)
+        max-layer (if (empty? gates-by-layer) 0 (apply max (keys gates-by-layer)))
 
         ;; Gate symbols
         gate-symbols {:x "X" :y "Y" :z "Z" :h "H" :s "S" :t "T"
@@ -460,26 +498,135 @@
                       :swap "×" :iswap "i×" 
                       :toffoli "●●" :fredkin "●×"}
 
-        ;; Create qubit lines with initial spacing
-        qubit-lines (mapv (fn [i]
-                            (str "q" i " |0⟩─"))
-                          (range n-qubits))
+        ;; Build circuit as a grid (qubit x layer)
+        ;; Each cell contains the gate symbol or connection info
+        init-grid (vec (repeat n-qubits (vec (repeat (inc max-layer) (format-gate-symbol "─" column-width)))))
+        
+        ;; Place gates in the grid
+        final-grid (reduce 
+                    (fn [grid assignment]
+                      (let [gate (:gate assignment)
+                            layer (:layer assignment)
+                            gate-type (:operation-type gate)
+                            params (:operation-params gate)]
+                        (case gate-type
+                          ;; Single-qubit gates
+                          (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
+                          (let [target (:target params)
+                                symbol (str "[" (get gate-symbols gate-type (name gate-type)) "]")
+                                formatted-symbol (format-gate-symbol symbol column-width)]
+                            (assoc-in grid [target layer] formatted-symbol))
+                          
+                          ;; CNOT and other controlled gates
+                          (:cnot :cx :cz :cy :crx :cry :crz)
+                          (let [control (:control params)
+                                target (:target params)
+                                min-q (min control target)
+                                max-q (max control target)
+                                control-symbol (format-gate-symbol "●" column-width)
+                                target-symbol (if (= gate-type :cnot) 
+                                                (format-gate-symbol "⊕" column-width)
+                                                (format-gate-symbol (str "[" (subs (name gate-type) 1) "]") column-width))
+                                connector-symbol (format-gate-symbol "│" column-width)]
+                            (-> grid
+                                (assoc-in [control layer] control-symbol)
+                                (assoc-in [target layer] target-symbol)
+                                ;; Add vertical connections
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (> q min-q) (< q max-q))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          ;; SWAP gates 
+                          (:swap :iswap)
+                          (let [q1 (:qubit1 params)
+                                q2 (:qubit2 params)
+                                symbol (get gate-symbols gate-type "×")
+                                formatted-symbol (format-gate-symbol symbol column-width)
+                                connector-symbol (format-gate-symbol "│" column-width)
+                                min-q (min q1 q2)
+                                max-q (max q1 q2)]
+                            (-> grid
+                                (assoc-in [q1 layer] formatted-symbol)
+                                (assoc-in [q2 layer] formatted-symbol)
+                                ;; Add vertical connections
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (> q min-q) (< q max-q))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          ;; Multi-qubit gates (simplified representation)
+                          :toffoli
+                          (let [c1 (:control1 params)
+                                c2 (:control2 params)
+                                target (:target params)
+                                all-qubits [c1 c2 target]
+                                min-q (apply min all-qubits)
+                                max-q (apply max all-qubits)
+                                control-symbol (format-gate-symbol "●" column-width)
+                                target-symbol (format-gate-symbol "⊕" column-width)
+                                connector-symbol (format-gate-symbol "│" column-width)]
+                            (-> grid
+                                (assoc-in [c1 layer] control-symbol)
+                                (assoc-in [c2 layer] control-symbol)
+                                (assoc-in [target layer] target-symbol)
+                                ;; Add vertical connections
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (>= q min-q) (<= q max-q)
+                                                      (not (contains? (set all-qubits) q)))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          :fredkin
+                          (let [control (:control params)
+                                t1 (:target1 params)
+                                t2 (:target2 params)
+                                all-qubits [control t1 t2]
+                                min-q (apply min all-qubits)
+                                max-q (apply max all-qubits)
+                                control-symbol (format-gate-symbol "●" column-width)
+                                swap-symbol (format-gate-symbol "×" column-width)
+                                connector-symbol (format-gate-symbol "│" column-width)]
+                            (-> grid
+                                (assoc-in [control layer] control-symbol)
+                                (assoc-in [t1 layer] swap-symbol)
+                                (assoc-in [t2 layer] swap-symbol)
+                                ;; Add vertical connections
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (>= q min-q) (<= q max-q)
+                                                      (not (contains? (set all-qubits) q)))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          ;; Default case
+                          grid)))
+                    init-grid
+                    gate-layer-assignments)
 
-
-        ;; Process all gates
-        final-lines (loop [lines qubit-lines
-                           remaining-gates gates
-                           gate-pos 0]
-                      (if (empty? remaining-gates)
-                        lines
-                        (recur (add-gate-to-lines lines (first remaining-gates) gate-pos gate-symbols)
-                               (rest remaining-gates)
-                               (inc gate-pos))))
+        ;; Convert grid to strings with consistent spacing
+        circuit-lines (mapv (fn [qubit-idx]
+                              (let [qubit-row (nth final-grid qubit-idx)
+                                    qubit-label (str "q" qubit-idx " |0⟩")
+                                    line-parts (cons qubit-label qubit-row)]
+                                (str/join "" line-parts)))
+                            (range n-qubits))
 
         ;; Add measurements if requested
         measurement-lines (if show-measurements
-                            (mapv #(str % "╫═") final-lines)
-                            final-lines)
+                            (mapv #(str % (format-gate-symbol "╫" column-width) "═") circuit-lines)
+                            circuit-lines)
 
         ;; Add header and footer
         header (str "Circuit: " (or (:name circuit) "Unnamed") "\n"
@@ -489,7 +636,8 @@
         diagram (str/join "\n" measurement-lines)
 
         footer (str "\nGates: " (count gates)
-                    ", Depth: " (qc/circuit-depth circuit))]
+                    ", Depth: " max-layer
+                    ", Column width: " column-width)]
 
     (str header "\n" diagram footer)))
 

@@ -422,3 +422,206 @@
   (generate-bloch-legend :ascii)
   (prepare-bloch-display-data single-qubit-state bloch-coords)
   )
+
+;;
+;; Circuit Layer Assignment - shared between visualizations
+;;
+
+(defn operation-qubits-with-spans
+  "Extract qubits used by an operation and any spans it creates.
+  
+  For circuit layer assignment, we need to know:
+  1. Which qubits an operation affects
+  2. Whether it creates spans between qubits (for controlled/multi-qubit gates)
+  
+  Parameters:
+  - operation: Operation map with :operation-type and :operation-params
+  
+  Returns:
+  Map with :qubits (vector of affected qubit indices) and :spans (vector of [start end] pairs)"
+  [operation]
+  (let [params (:operation-params operation)
+        operation-type (:operation-type operation)]
+    (case operation-type
+      :measure
+      {:qubits (or (:measurement-qubits params) [])
+       :spans []}
+      
+      ;; Single-qubit gates - no spans
+      (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
+      {:qubits [(:target params)]
+       :spans []}
+      
+      ;; Two-qubit controlled gates - create spans
+      (:cnot :cx :cz :cy :crx :cry :crz)
+      (let [control (:control params)
+            target (:target params)]
+        {:qubits [control target]
+         :spans [(if (< control target) 
+                   [control target] 
+                   [target control])]})
+      
+      ;; SWAP gates - span between qubits
+      (:swap :iswap)
+      (let [q1 (:qubit1 params)
+            q2 (:qubit2 params)]
+        {:qubits [q1 q2]
+         :spans [(if (< q1 q2) [q1 q2] [q2 q1])]})
+      
+      ;; Three-qubit gates
+      :toffoli
+      (let [c1 (:control1 params)
+            c2 (:control2 params)
+            target (:target params)
+            all-qubits [c1 c2 target]
+            min-q (apply min all-qubits)
+            max-q (apply max all-qubits)]
+        {:qubits all-qubits
+         :spans [[min-q max-q]]})
+      
+      :fredkin
+      (let [control (:control params)
+            t1 (:target1 params)
+            t2 (:target2 params)
+            all-qubits [control t1 t2]
+            min-q (apply min all-qubits)
+            max-q (apply max all-qubits)]
+        {:qubits all-qubits
+         :spans [[min-q max-q]]})
+      
+      ;; Default case - legacy support
+      {:qubits (remove nil? [(:target params)
+                            (:control params)
+                            (:qubit1 params)
+                            (:qubit2 params)
+                            (:control1 params)
+                            (:control2 params)
+                            (:target1 params)
+                            (:target2 params)])
+       :spans []})))
+
+(defn spans-conflict?
+  "Check if two spans (ranges) conflict/overlap.
+  
+  Parameters:
+  - span1: [start1 end1] pair
+  - span2: [start2 end2] pair
+  
+  Returns:
+  Boolean indicating if spans overlap"
+  [[start1 end1] [start2 end2]]
+  (not (or (< end1 start2) (< end2 start1))))
+
+(defn qubit-in-span?
+  "Check if a qubit index falls within any of the given spans.
+  
+  Parameters:
+  - qubit: Qubit index
+  - spans: Collection of [start end] pairs
+  
+  Returns:
+  Boolean indicating if qubit is within any span"
+  [qubit spans]
+  (some (fn [[start end]] (<= start qubit end)) spans))
+
+(defn safe-max
+  "Get maximum value from collection with default for empty collections.
+  
+  Parameters:
+  - default-val: Value to return for empty collections
+  - coll: Collection to find maximum in
+  
+  Returns:
+  Maximum value or default"
+  [default-val coll]
+  (if (empty? coll)
+    default-val
+    (apply max coll)))
+
+(defn assign-gates-to-layers
+  "Assign gates to non-overlapping layers for circuit visualization.
+  
+  This function implements span-aware layering to prevent visual overlaps between
+  multi-qubit gates and ensures proper sequencing.
+  
+  Algorithm:
+  1. Track the last layer used by each qubit
+  2. Track spans created by multi-qubit gates
+  3. For each gate, find the earliest layer where:
+     - No affected qubits are still busy
+     - No spans conflict with existing spans
+     - Single-qubit gates don't conflict with existing spans
+  
+  Parameters:
+  - gates: Vector of gate operations (non-measurement operations)
+  - n-qubits: Total number of qubits in the circuit
+  
+  Returns:
+  Vector of assignment maps with :gate, :layer, and :qubit-layers"
+  [gates n-qubits]
+  (let [qubit-last-layer (vec (repeat n-qubits 0))]
+    (loop [remaining-gates gates
+           qubit-layers qubit-last-layer
+           span-layers {}
+           assignments []
+           current-max-layer 0]
+      (if (empty? remaining-gates)
+        assignments
+        (let [gate (first remaining-gates)
+              op-info (operation-qubits-with-spans gate)
+              op-qubits (remove nil? (:qubits op-info))
+              op-spans (:spans op-info)
+
+              ;; Find the maximum layer from affected qubits
+              max-qubit-layer (safe-max 0 (map #(nth qubit-layers %) op-qubits))
+
+              ;; For controlled gates, check if any existing spans conflict
+              conflicting-span-layers (for [[span layer] span-layers
+                                           op-span op-spans
+                                           :when (spans-conflict? span op-span)]
+                                       layer)
+              max-span-layer (safe-max 0 conflicting-span-layers)
+
+              ;; For single-qubit gates, check if they conflict with existing spans
+              conflicting-qubit-layers (if (empty? op-spans)
+                                        (for [[span layer] span-layers
+                                              qubit op-qubits
+                                              :when (qubit-in-span? qubit [span])]
+                                          layer)
+                                        [])
+              max-conflict-layer (safe-max 0 conflicting-qubit-layers)
+
+              ;; The new layer is one more than the maximum constraint
+              new-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
+
+              ;; Update qubit layers
+              updated-qubit-layers (reduce #(assoc %1 %2 new-layer)
+                                          qubit-layers
+                                          op-qubits)
+
+              ;; Update span layers
+              updated-span-layers (reduce #(assoc %1 %2 new-layer)
+                                         span-layers
+                                         op-spans)
+
+              ;; Create assignment
+              assignment {:gate gate 
+                         :layer new-layer 
+                         :qubit-layers updated-qubit-layers}]
+
+          (recur (rest remaining-gates)
+                 updated-qubit-layers
+                 updated-span-layers
+                 (conj assignments assignment)
+                 (max current-max-layer new-layer)))))))
+
+(defn extract-circuit-gates
+  "Extract non-measurement gates from circuit for layer assignment.
+  
+  Parameters:
+  - circuit: Quantum circuit
+  
+  Returns:
+  Vector of gate operations (excluding measurements)"
+  [circuit]
+  (filter #(not= (:operation-type %) :measure) (:operations circuit)))

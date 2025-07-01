@@ -3,6 +3,9 @@
 ## Version (NEXT)
 * improved svg blochsphere visualization
 * improved y-axis labels in svg state visualization
+* extracted gate layering functions
+* added gate layering to the ascii circuit visualisation
+* improved gate spacing in  ascii circuit visualisation
 * added plus-i-state and minus-i-state functions
 * added |+i⟩ and |-i⟩ states
 * use matrix instead of phase gate to define s and s-dag gates

@@ -1,7 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
-* 
+* added observables namespace
 
 ## Version 0.5.0
 * improved svg blochsphere visualization

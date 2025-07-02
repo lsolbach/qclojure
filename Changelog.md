@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* 
+
 ## Version 0.5.0
 * improved svg blochsphere visualization
 * improved y-axis labels in svg state visualization

@@ -91,8 +91,7 @@
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
-   [org.soulspace.qclojure.adapter.visualization :as viz]
-   [org.soulspace.qclojure.application.algorithm.grover :as grover]))
+   [org.soulspace.qclojure.adapter.visualization :as viz]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -465,7 +464,11 @@ qg/t-dag-gate
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 ;; Because we use a noisy simulator, we may measure wrong answers.
 
-(qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 20})
+(def lagos-50-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 50}))
+
+lagos-50-result
+
+(kind/html (viz/visualize-quantum-state :svg (:final-state lagos-50-result)))
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
 ;; even though those states should have the highest counts. The other states
@@ -473,9 +476,13 @@ qg/t-dag-gate
 ;; could be unlucky and measure the wrong answers. The probability to measure
 ;; the wrong answers gets lower by increasing the number of shots.
 
-(qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10240})
+(def lagos-10k-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10000}))
 
-;; With 10240 shots, the difference of the counts of the correct answers
+lagos-10k-result
+
+(kind/html (viz/visualize-quantum-state :svg (:final-state lagos-10k-result)))
+
+;; With 10000 shots, the difference of the counts of the correct answers
 ;; and the counts of the wrong anwsers should be quite significant.
 
 ;; We can also use the noisy simulator with a different noise profile,

@@ -7,6 +7,7 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.qubit-optimization :as qo]
+            [org.soulspace.qclojure.domain.gate-optimization :as go]
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]))
@@ -563,13 +564,14 @@
 
 ;; TODO add more tests for all functions
 (defn optimize
-  "Correct optimization pipeline that handles gate decomposition properly.
+  "Optimization pipeline that handles gate decomposition properly.
     
-    The correct order is:
-    1. Qubit optimization (minimize qubits before topology constraints)
-    2. Topology optimization (with decomposition-aware routing)  
-    3. Final gate decomposition (handle any remaining virtual gates)
-    4. Validation and cleanup
+    The order is:
+    1. Gate cancellation optimization (remove redundant gates)
+    2. Qubit optimization (minimize qubits before topology constraints)
+    3. Topology optimization (with decomposition-aware routing)  
+    4. Final gate decomposition (handle any remaining virtual gates)
+    5. Validation and cleanup
     
     Parameters:
     - circuit: Quantum circuit to optimize
@@ -583,46 +585,64 @@
 
   (let [opts (or options {})
         optimize-qubits? (get opts :optimize-qubits? true)
+        optimize-gates? (get opts :optimize-gates? true)
         optimize-topology? (and topology (get opts :optimize-topology? false))
         transform-operations? (get opts :transform-operations? true)
 
-        ;; STEP 1: Qubit optimization FIRST (before topology constraints)
+        ;; STEP 1: Gate cancellation optimization (after qubit optimization)
+        gate-optimization-result (if optimize-gates?
+                                   (let [optimized-circuit (go/optimize-gate-cancellations circuit)
+                                         gates-removed (- (count (:operations circuit))
+                                                         (count (:operations optimized-circuit)))]
+                                     {:quantum-circuit optimized-circuit
+                                      :gates-removed gates-removed
+                                      :original-gate-count (count (:operations circuit))
+                                      :optimized-gate-count (count (:operations optimized-circuit))})
+                                   {:quantum-circuit circuit
+                                    :gates-removed 0
+                                    :original-gate-count (count (:operations circuit))
+                                    :optimized-gate-count (count (:operations circuit))})
+
+        step1-circuit (:quantum-circuit gate-optimization-result)
+
+        ;; STEP 2: Qubit optimization FIRST (before topology constraints)
         qubit-result (if optimize-qubits?
-                       (qo/optimize-qubit-usage circuit)
-                       {:quantum-circuit circuit
+                       (qo/optimize-qubit-usage step1-circuit)
+                       {:quantum-circuit step1-circuit
                         :qubits-saved 0
-                        :original-qubits (:num-qubits circuit)
-                        :optimized-qubits (:num-qubits circuit)})
+                        :original-qubits (:num-qubits step1-circuit)
+                        :optimized-qubits (:num-qubits step1-circuit)})
 
-        step1-circuit (:quantum-circuit qubit-result)
+        step2-circuit (:quantum-circuit qubit-result)
 
-        ;; STEP 2: Topology optimization with decomposition-aware routing
+        ;; STEP 3: Topology optimization with decomposition-aware routing
         topo-result (if optimize-topology?
-                      (topology-aware-transform step1-circuit topology supported-operations opts)
-                      {:quantum-circuit step1-circuit
+                      (topology-aware-transform step2-circuit topology supported-operations opts)
+                      {:quantum-circuit step2-circuit
                        :swap-count 0
                        :total-cost 0})
 
-        step2-circuit (:quantum-circuit topo-result)
+        step3-circuit (:quantum-circuit topo-result)
 
-        ;; STEP 3: Final gate decomposition (including any remaining virtual gates)
+        ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
         final-transform-result (if transform-operations?
-                                 (ct/transform-circuit step2-circuit supported-operations opts)
-                                 {:quantum-circuit step2-circuit
+                                 (ct/transform-circuit step3-circuit supported-operations opts)
+                                 {:quantum-circuit step3-circuit
                                   :transformed-operation-count 0
                                   :unsupported-operations []})
 
         final-circuit (:quantum-circuit final-transform-result)
 
-        ;; STEP 4: Final validation
+        ;; STEP 5: Final validation
         final-gate-types (map :operation-type (:operations final-circuit))
         unsupported-final (remove #(contains? supported-operations %) final-gate-types)
         all-supported? (empty? unsupported-final)]
     
     ;; Return comprehensive result
     {:quantum-circuit final-circuit
-     :pipeline-order [:qubit-optimization :topology-optimization :gate-decomposition :validation]
+     :pipeline-order [:gate-cancellation :qubit-optimization :topology-optimization :gate-decomposition :validation]
      :qubit-optimization-result qubit-result
+     :gate-optimization-result gate-optimization-result
      :topology-optimization-result topo-result
      :gate-decomposition-result final-transform-result
      :all-gates-supported? all-supported?
@@ -632,6 +652,7 @@
                                 "- Final qubits: " (:num-qubits final-circuit) "\n"
                                 "- Original operations: " (count (:operations circuit)) "\n"
                                 "- Final operations: " (count (:operations final-circuit)) "\n"
+                                "- Gates removed by cancellation: " (:gates-removed gate-optimization-result) "\n"
                                 "- All gates supported: " all-supported?)}))
 
 (comment

@@ -91,7 +91,9 @@
    [org.soulspace.qclojure.domain.circuit :as qc]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
-   [org.soulspace.qclojure.adapter.visualization :as viz]))
+   [org.soulspace.qclojure.adapter.visualization :as viz]
+   [org.soulspace.qclojure.application.algorithm.shor :as shor]
+   [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -850,6 +852,44 @@ grover-result
 ;; 4. Reverse the order of the qubits to obtain the final quantum state
 ;;    that represents the frequency domain of |ψ⟩.
 ;;
+;; Let's require the `quantum-fourier-transform` namespace to explore the QFT.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft])
+
+;; We can create a quantum circuit for the QFT with a specified number of qubits.
+
+(def qft-circuit
+  (qft/quantum-fourier-transform-circuit 3))
+
+;; We can visualize the circuit for the Quantum Fourier Transform.
+
+(kind/html (viz/visualize-circuit :svg qft-circuit))
+
+;; The circuit shows that the QFT applies a series of controlled phase gates
+;; and Hadamard gates to the qubits, transforming the quantum state into its
+;; frequency domain representation.
+
+(def qft-state
+  (qb/execute-circuit (sim/create-simulator) qft-circuit))
+
+qft-state
+
+;; The circuit for the QFT can also be used to implement the inverse QFT,
+;; which is the reverse operation of the QFT.
+
+(def inverse-qft-circuit
+  (qft/inverse-quantum-fourier-transform-circuit 3))
+
+;; We can visualize the circuit for the inverse Quantum Fourier Transform.
+
+(kind/html (viz/visualize-circuit :svg inverse-qft-circuit))
+
+;; The inverse QFT circuit applies the inverse operations of the controlled phase gates
+;; and Hadamard gates to the qubits, transforming the quantum state back to its
+;; original representation.
+;; The inverse QFT can be used to recover the original quantum state from its
+;; frequency domain representation.
+;;
 ;;
 ;; ### Quantum Phase Estimation
 ;; The [Quantum Phase Estimation (QPE)](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
@@ -894,6 +934,14 @@ grover-result
 ;; The Quantum Period Finding algorithm allows us to find the period r
 ;; with high precision using a quantum circuit that requires only a polynomial
 ;; number of evaluations of the function f.
+;;
+;; To explore the Quantum Period Finding algorithm, we need to require the
+;; `quantum-period-finding` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-period-finding :as period-finding])
+
+;;
+;;
 ;;
 ;; #### Quantum Circuit
 ;; The Quantum Period Finding algorithm can be implemented using a quantum circuit with the following steps:
@@ -944,3 +992,21 @@ grover-result
 ;; 5. If the order r is odd or if the above conditions are not met, repeat
 ;;    the process with a different random integer a.
 ;;
+;; Let's examine Shor's algorithm by requiring the `shor` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.shor :as shor])
+
+;; We can use Shor's algorithm to factor a composite integer.
+
+; (def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
+
+;; The result of Shor's algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+
+; shor-result
+
+;; The result shows that Shor's algorithm correctly factors the composite integer 15
+;; into its prime factors 3 and 5.
+;; The measurement outcome is the prime factors of 15, which are 3 and 5.
+
+; (:result shor-result)

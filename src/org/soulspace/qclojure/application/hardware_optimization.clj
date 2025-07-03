@@ -584,8 +584,8 @@
   [circuit supported-operations & [topology options]]
 
   (let [opts (or options {})
-        optimize-qubits? (get opts :optimize-qubits? true)
         optimize-gates? (get opts :optimize-gates? true)
+        optimize-qubits? (get opts :optimize-qubits? true)
         optimize-topology? (and topology (get opts :optimize-topology? false))
         transform-operations? (get opts :transform-operations? true)
 

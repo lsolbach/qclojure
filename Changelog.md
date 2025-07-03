@@ -4,6 +4,7 @@
 * added observables namespace
 * added gate cancellation optimization
 * updated circuit optimization pipeline
+* enhanced tutorial
 
 ## Version 0.5.0
 * improved svg blochsphere visualization

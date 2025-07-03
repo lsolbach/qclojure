@@ -4,6 +4,7 @@
 * added observables namespace
 * added gate cancellation optimization
 * updated circuit optimization pipeline
+* fixed layer assignment for circuit visualization
 * enhanced tutorial
 
 ## Version 0.5.0

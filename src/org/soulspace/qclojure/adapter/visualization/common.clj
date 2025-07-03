@@ -586,13 +586,29 @@
               conflicting-qubit-layers (if (empty? op-spans)
                                         (for [[span layer] span-layers
                                               qubit op-qubits
-                                              :when (qubit-in-span? qubit [span])]
+                                              :let [[start end] span]
+                                              :when (<= start qubit end)]
                                           layer)
                                         [])
               max-conflict-layer (safe-max 0 conflicting-qubit-layers)
 
-              ;; The new layer is one more than the maximum constraint
-              new-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
+              ;; For multi-qubit gates, check if any qubits in the proposed layer would conflict
+              ;; This is the reverse check: does this new gate's spans conflict with existing single-qubit gates?
+              proposed-layer (inc (max max-qubit-layer max-span-layer max-conflict-layer))
+              reverse-conflicts (if (seq op-spans)
+                                  ;; Check if any qubits already in the proposed layer would be within our spans
+                                  (for [q (range n-qubits)
+                                        :when (= (nth qubit-layers q) proposed-layer)
+                                        span op-spans
+                                        :let [[start end] span]
+                                        :when (<= start q end)]
+                                    proposed-layer)
+                                  [])
+
+              ;; The new layer is one more than the maximum constraint (including reverse conflicts)
+              new-layer (if (seq reverse-conflicts)
+                          (inc proposed-layer)  ; If there are reverse conflicts, bump to next layer
+                          proposed-layer)       ; Otherwise use the proposed layer
 
               ;; Update qubit layers
               updated-qubit-layers (reduce #(assoc %1 %2 new-layer)

@@ -5,6 +5,7 @@
             [fastmath.complex :as fc] 
             [org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy]
             [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.application.noise :as noise]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -140,7 +141,7 @@
   (testing "Circuit fidelity estimation"
     (testing "simple circuit"
       (let [circuit (-> (qc/create-circuit 2) (qc/h-gate 0) (qc/cnot-gate 0 1))
-            fidelity-data (noisy/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
+            fidelity-data (noise/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
         
         (is (contains? fidelity-data :estimated-fidelity) "Should contain fidelity estimate")
         (is (contains? fidelity-data :total-estimated-error) "Should contain total error")
@@ -153,10 +154,10 @@
                         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)
                         (qc/cnot-gate 0 1) (qc/cnot-gate 1 2) (qc/cnot-gate 0 2)
                         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2))
-            fidelity-data (noisy/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
+            fidelity-data (noise/estimate-circuit-fidelity circuit (noisy/noise-model-for :ibm-lagos))]
         
         (is (< (:estimated-fidelity fidelity-data) 
-               (:estimated-fidelity (noisy/estimate-circuit-fidelity (qc/create-circuit 1) (noisy/noise-model-for :ibm-lagos))))
+               (:estimated-fidelity (noise/estimate-circuit-fidelity (qc/create-circuit 1) (noisy/noise-model-for :ibm-lagos))))
             "Complex circuit should have lower fidelity than simple circuit")))))
 
 ;; Tests for platform comparison
@@ -165,7 +166,7 @@
     (let [circuit (qc/ghz-state-circuit 3)
           platforms {:ibm-lagos (noisy/noise-model-for :ibm-lagos)
                      :rigetti-aspen (noisy/noise-model-for :rigetti-aspen)}
-          comparison (noisy/compare-hardware-platforms circuit platforms)]
+          comparison (noise/compare-hardware-platforms circuit platforms)]
       
       (is (map? comparison) "Should return comparison map")
       (is (contains? comparison :ibm-lagos) "Should contain IBM Lagos")

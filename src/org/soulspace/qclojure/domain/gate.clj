@@ -984,8 +984,8 @@
                 (let [swapped-i (-> i
                                     (bit-and (bit-not (bit-shift-left 1 (- n 1 target1))))
                                     (bit-and (bit-not (bit-shift-left 1 (- n 1 target2))))
-                                    (bit-or (bit-shift-left target2-bit (- n 1 target1)))
-                                    (bit-or (bit-shift-left target1-bit (- n 1 target2))))]
+                                    (bit-or (bit-shift-left (if target2-bit 1 0) (- n 1 target1)))
+                                    (bit-or (bit-shift-left (if target1-bit 1 0) (- n 1 target2))))]
                   (recur (inc i) (update result swapped-i fc/add amplitude)))))
             ;; Control is 0: no change
             (recur (inc i) (update result i fc/add amplitude))))))))

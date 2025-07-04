@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.6.0
 * added observables namespace
 * added gate cancellation optimization
 * added rydberg and global-drive gate support for neutral atom QPUs

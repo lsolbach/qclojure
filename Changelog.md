@@ -7,6 +7,7 @@
 * defined computational basis states for 3 qubits
 * updated circuit optimization pipeline
 * consolidated operation-qubits-with-spans functions
+* fixed measurement filtering in circuit inversion
 * fixed layer assignment for circuit visualization
 * improved gate tests
 * fixed fredkin gate

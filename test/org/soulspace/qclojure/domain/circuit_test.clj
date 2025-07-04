@@ -448,6 +448,41 @@
       (is (= (get-in inverse-circuit [:operations 1 :operation-type]) :cnot))
       (is (= (get-in inverse-circuit [:operations 2 :operation-type]) :h)))))
 
+(deftest test-inverse-circuit-with-measurements
+  (testing "Circuit inversion correctly filters out measurement operations"
+    (let [circuit-with-measurement (-> (qc/create-circuit 3)
+                                      (qc/h-gate 0)
+                                      (qc/cnot-gate 0 1)
+                                      (qc/x-gate 2)
+                                      (qc/measure-operation [0 1 2]))
+          inverse-circuit (qc/inverse-circuit circuit-with-measurement)]
+      
+      ; Measurements should be filtered out
+      (is (= (count (:operations inverse-circuit)) 3)) ; No measurement in inverse
+      (is (= (:num-qubits inverse-circuit) (:num-qubits circuit-with-measurement)))
+      
+      ; Check that only gate operations are present and reversed
+      ; Original gates: H(0), CNOT(0,1), X(2)
+      ; Inverse: X(2), CNOT(0,1), H(0)
+      (is (= (get-in inverse-circuit [:operations 0 :operation-type]) :x))
+      (is (= (get-in inverse-circuit [:operations 0 :operation-params :target]) 2))
+      (is (= (get-in inverse-circuit [:operations 1 :operation-type]) :cnot))
+      (is (= (get-in inverse-circuit [:operations 2 :operation-type]) :h))
+      (is (= (get-in inverse-circuit [:operations 2 :operation-params :target]) 0))))
+  
+  (testing "Circuit with only measurements produces empty inverse"
+    (let [only-measurements (-> (qc/create-circuit 2)
+                               (qc/measure-operation [0 1]))
+          inverse-circuit (qc/inverse-circuit only-measurements)]
+      
+      (is (empty? (:operations inverse-circuit)))
+      (is (= (:num-qubits inverse-circuit) (:num-qubits only-measurements)))))
+  
+  (testing "Measurement operations cannot be individually inverted"
+    (let [measurement-op {:operation-type :measure
+                         :operation-params {:measurement-qubits [0 1]}}]
+      (is (nil? (qc/inverse-operation measurement-op))))))
+
 (comment
   (run-tests)
 

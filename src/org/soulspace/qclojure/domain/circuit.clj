@@ -1129,11 +1129,10 @@
   Returns:
   Operation map representing the inverse operation, or nil for measurements"
   [operation]
-  (let [operation-kind (:operation-kind operation)
-        operation-type (:operation-type operation)]
-    (case operation-kind
+  (let [operation-type (:operation-type operation)]
+    (case operation-type
       ;; Measurements cannot be inverted
-      :measurement nil
+      :measure nil
       ;; For all other operations, treat as gates and invert
       (let [as-gate {:operation-type operation-type 
                      :operation-params (:operation-params operation)}

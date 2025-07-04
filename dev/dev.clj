@@ -1,6 +1,5 @@
 (ns dev
-  (:require [clojure.repl :as repl]
-            [scicloj.clay.v2.api :as clay]))
+  (:require [scicloj.clay.v2.api :as clay]))
 
 (comment ; Clay 
   (clay/make! {:base-source-path "notebook"

@@ -10,15 +10,15 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 ## Main Features of QClojure
 1. **Pure Functional Quantum Circuit Construction**
 
-   Build quantum circuits using    immutable data structures and functional composition with convenience gate functions (H, X, Y, Z, CNOT, etc.)
+   Build quantum circuits using immutable data structures and functional composition with convenience gate functions (H, X, Y, Z, CNOT, etc.)
 
 2. **Comprehensive Gate Library**
 
-   Support for 20+ quantum gates including single-qubit gates (Pauli, Hadamard, phase), controlled gates (CNOT, CZ, CY), rotation gates (RX, RY, RZ), and multi-qubit gates (Toffoli, Fredkin, SWAP)
+   Support for 20+ quantum gates including single-qubit gates (Pauli, Hadamard, phase), controlled gates (CNOT, CZ, CY), rotation gates (RX, RY, RZ), multi-qubit gates (Toffoli, Fredkin, SWAP), rydberg and global gates
 
 3. **Quantum Algorithm Implementations**
 
-   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon and Grover's search algorithms
+   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL and Shor algorithms
 
 4. **Extensible Backend System**
 
@@ -26,11 +26,11 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 5. **Circuit Transformation & Optimization**
 
-   Automatic gate decomposition and circuit transformation to match backend-supported gate sets and topologies
+   Automatic gate cancellation, qubit optimization, gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
 6. **Local Quantum Simulator Backend**
 
-   Local ideal/noisy simulators with job submission, status tracking, and statistical measurement results with configurable shot counts
+   Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles
 
 7. **OpenQASM Integration**
 

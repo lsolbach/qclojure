@@ -827,6 +827,38 @@
   "Two-qubit |11⟩ computational basis state."
   (tensor-product |1⟩ |1⟩))
 
+(def |000⟩
+  "Three-qubit |000⟩ computational basis state."
+  (zero-state 3))
+
+(def |001⟩
+  "Three-qubit |001⟩ computational basis state."
+  (computational-basis-state 3 [0 0 1]))
+
+(def |010⟩
+  "Three-qubit |010⟩ computational basis state."
+  (computational-basis-state 3 [0 1 0]))
+
+(def |011⟩
+  "Three-qubit |011⟩ computational basis state."
+  (computational-basis-state 3 [0 1 1]))
+
+(def |100⟩
+  "Three-qubit |100⟩ computational basis state."
+  (computational-basis-state 3 [1 0 0]))
+
+(def |101⟩
+  "Three-qubit |101⟩ computational basis state."
+  (computational-basis-state 3 [1 0 1]))
+
+(def |110⟩
+  "Three-qubit |110⟩ computational basis state."
+  (computational-basis-state 3 [1 1 0]))
+
+(def |111⟩
+  "Three-qubit |111⟩ computational basis state."
+  (computational-basis-state 3 [1 1 1]))
+
 (comment
 
   ;; Test normalization
@@ -844,7 +876,7 @@
   (bits-to-index [1 1 0])
   (index-to-bits 6 3) ;=> [1 1 0]
   (computational-basis-state 3 [1 1 0]) ;=> |110⟩ state
-  (measure-state (computational-basis-state 3 [1 1 0]))
+  (measure-state |110⟩)
 
   ;
   )

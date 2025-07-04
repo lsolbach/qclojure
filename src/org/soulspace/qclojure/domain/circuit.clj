@@ -1636,3 +1636,26 @@
       (iswap-gate 1 2)
       (toffoli-gate 0 1 2)
       (fredkin-gate 0 1 2)))
+
+(comment
+
+  (def test-circuit
+    (-> (create-circuit 2 "Test Circuit")
+        (h-gate 0)
+        (cnot-gate 0 1)
+        (measure-operation [0 1])))
+
+  (print-circuit test-circuit)
+  (execute-circuit test-circuit (qs/zero-state 2))
+  (circuit-depth test-circuit)
+  (circuit-operation-count test-circuit)
+  (circuit-gate-count test-circuit)
+  (circuit-operation-types test-circuit)
+  (circuit-gate-types test-circuit)
+  (inverse-circuit test-circuit)
+  (measure-operation test-circuit [0 1])
+  (measure-all-operation test-circuit)
+  (measure-subsystem (qs/zero-state 3) [0 2])
+
+  ;
+  )

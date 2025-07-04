@@ -4,9 +4,12 @@
 * added observables namespace
 * added gate cancellation optimization
 * added rydberg and global-drive gate support for neutral atom QPUs
+* defined computational basis states for 3 qubits
 * updated circuit optimization pipeline
-* fixed layer assignment for circuit visualization
 * consolidated operation-qubits-with-spans functions
+* fixed layer assignment for circuit visualization
+* improved gate tests
+* fixed fredkin gate
 * enhanced tutorial
 
 ## Version 0.5.0

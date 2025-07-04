@@ -19,6 +19,7 @@
       :braket-simulator gr/braket-simulator-gates
       :superconducting gr/superconducting-hardware-gates
       :trapped-ion gr/trapped-ion-hardware-gates
+      :neutral-atom gr/neutral-atom-hardware-gates
       :universal gr/universal-gate-set
       #{})
     ;; If it's already a set, return as-is
@@ -77,6 +78,48 @@
                  (not (contains? resolved-supported-ops :t)))
             [{:operation-type :rz
               :operation-params (assoc operation-params :angle (/ Math/PI 4))}]
+
+            ;; Rydberg CZ to standard CZ when supported
+            (and (= operation-type :rydberg-cz)
+                 (contains? resolved-supported-ops :cz)
+                 (not (contains? resolved-supported-ops :rydberg-cz)))
+            [{:operation-type :cz
+              :operation-params operation-params}]
+
+            ;; Rydberg CPhase to CRZ when supported  
+            (and (= operation-type :rydberg-cphase)
+                 (contains? resolved-supported-ops :crz)
+                 (not (contains? resolved-supported-ops :rydberg-cphase)))
+            [{:operation-type :crz
+              :operation-params operation-params}]
+
+            ;; Global gates decomposition to individual gates when circuit context available
+            (and (contains? #{:global-x :global-y :global-z :global-h} operation-type)
+                 (not (contains? resolved-supported-ops operation-type))
+                 (:circuit-qubits operation-params))
+            (let [n-qubits (:circuit-qubits operation-params)
+                  base-gate (case operation-type
+                              :global-x :x
+                              :global-y :y  
+                              :global-z :z
+                              :global-h :h)]
+              (mapv (fn [i] {:operation-type base-gate
+                             :operation-params {:target i}})
+                    (range n-qubits)))
+
+            ;; Global rotation gates decomposition when circuit context available
+            (and (contains? #{:global-rx :global-ry :global-rz} operation-type)
+                 (not (contains? resolved-supported-ops operation-type))
+                 (:circuit-qubits operation-params))
+            (let [n-qubits (:circuit-qubits operation-params)
+                  angle (:angle operation-params)
+                  base-gate (case operation-type
+                              :global-rx :rx
+                              :global-ry :ry
+                              :global-rz :rz)]
+              (mapv (fn [i] {:operation-type base-gate
+                             :operation-params {:target i :angle angle}})
+                    (range n-qubits)))
 
             ;; Otherwise return original operation
             :else

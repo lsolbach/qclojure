@@ -51,7 +51,11 @@
   - :cswap (CSWAP): Alias for Fredkin, CSWAP² = I
   
   Note: iSWAP is NOT self-inverse (iSWAP² ≠ I) and is not included."
-  #{:x :y :z :h :cnot :cx :cy :cz :swap :toffoli :ccx :fredkin :cswap})
+  #{:x :y :z :h :cnot :cx :cy :cz :swap :toffoli :ccx :fredkin :cswap
+    ;; Rydberg gates - some are self-inverse
+    :rydberg-cz
+    ;; Global gates - self-inverse single-qubit gates applied globally  
+    :global-x :global-y :global-z :global-h})
 
 (defn gate-qubits
   "Extract the qubits that a gate operation acts upon.
@@ -84,6 +88,14 @@
       (:cnot :cx :cz :cy :crx :cry :crz)
       #{(:control params) (:target params)}
       
+      ;; Rydberg two-qubit gates
+      (:rydberg-cz :rydberg-cphase)
+      #{(:control params) (:target params)}
+      
+      ;; Rydberg multi-qubit blockade gate
+      :rydberg-blockade
+      (set (:qubit-indices params))
+      
       ;; SWAP gates
       (:swap :iswap)
       #{(:qubit1 params) (:qubit2 params)}
@@ -94,6 +106,14 @@
       
       :fredkin
       #{(:control params) (:target1 params) (:target2 params)}
+      
+      ;; Global gates - affect all qubits in the circuit (need circuit context)
+      (:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz)
+      ;; For global gates, we need the circuit context to determine num-qubits
+      ;; For now, return empty set - this will be handled by circuit analysis
+      (if-let [circuit-qubits (:circuit-qubits params)]
+        (set (range circuit-qubits))
+        #{})
       
       ;; Default: empty set for unknown operations
       #{})))

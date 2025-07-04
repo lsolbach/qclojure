@@ -223,7 +223,19 @@
                    :cry {:fill "#10b981" :symbol "CRY"}
                    :crz {:fill "#6366f1" :symbol "CRZ"}
                    :toffoli {:fill "#64748b" :symbol "CCX"}
-                   :fredkin {:fill "#fb923c" :symbol "C×"}}
+                   :fredkin {:fill "#fb923c" :symbol "C×"}
+                   ;; Rydberg gates
+                   :rydberg-cz {:fill "#b91c1c" :symbol "R●"}
+                   :rydberg-cphase {:fill "#dc2626" :symbol "R●"}
+                   :rydberg-blockade {:fill "#7f1d1d" :symbol "RB"}
+                   ;; Global gates
+                   :global-x {:fill "#f59e0b" :symbol "GX"}
+                   :global-y {:fill "#84cc16" :symbol "GY"}
+                   :global-z {:fill "#3b82f6" :symbol "GZ"}
+                   :global-h {:fill "#8b5cf6" :symbol "GH"}
+                   :global-rx {:fill "#ec4899" :symbol "GRX"}
+                   :global-ry {:fill "#10b981" :symbol "GRY"}
+                   :global-rz {:fill "#6366f1" :symbol "GRZ"}}
 
       ;; Qubit lines
       qubit-lines (for [q (range n-qubits)]
@@ -444,6 +456,103 @@
                                       :x2 x :y2 (max control-y (max target1-y target2-y))
                                       :stroke "#374151" :stroke-width 2}]
                               [:title (str "Fredkin (CSWAP): control=" control ", targets=[" target1 ", " target2 "]")]])
+
+                           ;; Rydberg CZ gate
+                           (= gate-type :rydberg-cz)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot with Rydberg styling
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#b91c1c" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol - Rydberg controlled gate
+                              [:circle {:cx x :cy target-y :r 12
+                                        :fill "none" :stroke "#b91c1c" :stroke-width 2}]
+                              [:text {:x x :y (+ target-y 5)
+                                      :text-anchor "middle" :font-size "10" :fill "#b91c1c" :font-weight "bold"}
+                               "R●"]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control-y target-y)
+                                      :x2 x :y2 (max control-y target-y)
+                                      :stroke "#b91c1c" :stroke-width 2}]
+                              [:title (str "Rydberg CZ: control=" control ", target=" target)]])
+
+                           ;; Rydberg CPhase gate
+                           (= gate-type :rydberg-cphase)
+                           (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                 target-y (+ (:top margin) (* target qubit-spacing))
+                                 phi (:angle params)]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Control dot with Rydberg styling
+                              [:circle {:cx x :cy control-y :r 6
+                                        :fill "#dc2626" :stroke "#ffffff" :stroke-width 2}]
+                              ;; Target symbol - Rydberg controlled phase gate
+                              [:circle {:cx x :cy target-y :r 12
+                                        :fill "none" :stroke "#dc2626" :stroke-width 2}]
+                              [:text {:x x :y (+ target-y 2)
+                                      :text-anchor "middle" :font-size "9" :fill "#dc2626" :font-weight "bold"}
+                               "R●"]
+                              [:text {:x x :y (+ target-y 12)
+                                      :text-anchor "middle" :font-size "7" :fill "#dc2626"}
+                               (when phi (str "φ=" (qmath/round-precision phi 2)))]
+                              ;; Connection line
+                              [:line {:x1 x :y1 (min control-y target-y)
+                                      :x2 x :y2 (max control-y target-y)
+                                      :stroke "#dc2626" :stroke-width 2}]
+                              [:title (str "Rydberg CPhase: control=" control ", target=" target
+                                           (when phi (str ", φ=" (qmath/round-precision phi 2))))]])
+
+                           ;; Rydberg blockade gate
+                           (= gate-type :rydberg-blockade)
+                           (let [qubit-indices (:qubit-indices params)
+                                 phi (:angle params)
+                                 min-qubit (apply min qubit-indices)
+                                 max-qubit (apply max qubit-indices)
+                                 min-y (+ (:top margin) (* min-qubit qubit-spacing))
+                                 max-y (+ (:top margin) (* max-qubit qubit-spacing))]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Blockade symbols on each participating qubit
+                              (for [q qubit-indices]
+                                (let [qubit-y (+ (:top margin) (* q qubit-spacing))]
+                                  [:g {:key (str "blockade-" q)}
+                                   [:rect {:x (- x 15) :y (- qubit-y 12) :width 30 :height 24
+                                           :fill "#7f1d1d" :stroke "#ffffff" :stroke-width 2
+                                           :rx 4}]
+                                   [:text {:x x :y (+ qubit-y 5)
+                                           :text-anchor "middle" :font-size "9" :fill "#ffffff" :font-weight "bold"}
+                                    "RB"]]))
+                              ;; Connection line spanning all participating qubits
+                              [:line {:x1 x :y1 min-y
+                                      :x2 x :y2 max-y
+                                      :stroke "#7f1d1d" :stroke-width 3}]
+                              [:title (str "Rydberg Blockade: qubits=" qubit-indices
+                                           (when phi (str ", φ=" (qmath/round-precision phi 2))))]])
+
+                           ;; Global gates - affect all qubits
+                           (#{:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz} gate-type)
+                           (let [gate-info (get operation-styles gate-type)
+                                 angle (:angle params)]
+                             [:g {:class (when interactive "gate-group")}
+                              ;; Global gate indicator - spans all qubits
+                              [:rect {:x (- x 20) :y (+ (:top margin) -20)
+                                      :width 40 :height (+ (* n-qubits qubit-spacing) 40)
+                                      :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
+                                      :rx 8 :opacity 0.8}]
+                              ;; Gate symbol in center
+                              [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 5)
+                                      :text-anchor "middle" :font-size "14" :fill "#ffffff" :font-weight "bold"}
+                               (:symbol gate-info)]
+                              ;; Angle annotation for rotation gates
+                              (when (and (#{:global-rx :global-ry :global-rz} gate-type) angle)
+                                [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 20)
+                                        :text-anchor "middle" :font-size "10" :fill "#ffffff"}
+                                 (str "θ=" (qmath/round-precision angle 2))])
+                              ;; Global indicator text
+                              [:text {:x x :y (+ (:top margin) -10)
+                                      :text-anchor "middle" :font-size "8" :fill (:fill gate-info) :font-weight "bold"}
+                               "GLOBAL"]
+                              [:title (str "Global " (name gate-type) " gate on all qubits"
+                                           (when angle (str ", angle=" (qmath/round-precision angle 2))))]])
 
                            ;; Single-qubit gates (default case)
                            :else

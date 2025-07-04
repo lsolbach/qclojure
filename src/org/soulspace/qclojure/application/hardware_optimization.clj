@@ -173,7 +173,7 @@
          (map (fn [op]
                 (let [params (:operation-params op)]
                   (cond
-                    ;; Standard control-target operations (CNOT, CZ, etc.)
+                    ;; Standard control-target operations (CNOT, CZ, Rydberg gates etc.)
                     (and (:control params) (:target params))
                     {:control (:control params) :target (:target params) :operation-type (:operation-type op)}
 

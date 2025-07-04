@@ -9,6 +9,7 @@
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]))
 
 ;;
@@ -383,161 +384,9 @@
                    (when show-distances
                      (str "Distances: " (format-reference-distances distance-info) "\n")))}))
 
-(comment
-  ;; REPL testing of common utilities
-  (require '[org.soulspace.qclojure.domain.state :as qs])
-  
-  ;; Test state preparation
-  (def test-state (qs/zero-state 2))
-  (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0) 
-                                 (fc/complex 0 0) (fc/complex 0.7 0)] 
-                  :num-qubits 2})
-  
-  ;; Test probability extraction
-  (extract-state-probabilities test-state)
-  (generate-basis-labels 2)
-  
-  ;; Test bar chart data preparation
-  (prepare-bar-chart-data bell-like)
-  
-  ;; Test amplitude formatting
-  (format-amplitude-display (fc/complex 0.707 0.0))
-  (format-amplitude-display (fc/complex 0.5 -0.3))
-  
-  ;; Test summary calculations
-  (let [probs [0.5 0.3 0.2 0.0]
-        labels ["|00⟩" "|01⟩" "|10⟩" "|11⟩"]
-        filtered (filter-significant-probabilities probs labels)]
-    filtered)
-  ;; Test Bloch sphere utilities
-  (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)] 
-                            :num-qubits 1})
-  (def bloch-coords {:cartesian {:x 0.5 :y 0.5 :z 0.707}
-                      :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
-  
-  (format-single-qubit-state single-qubit-state)
-  (format-bloch-coordinates bloch-coords)
-  (calculate-reference-distances bloch-coords)
-  (format-reference-distances (calculate-reference-distances bloch-coords))
-  (generate-bloch-legend :ascii)
-  (prepare-bloch-display-data single-qubit-state bloch-coords)
-  )
-
 ;;
 ;; Circuit Layer Assignment - shared between visualizations
 ;;
-
-(defn operation-qubits-with-spans
-  "Extract qubits used by an operation and any spans it creates.
-  
-  For circuit layer assignment, we need to know:
-  1. Which qubits an operation affects
-  2. Whether it creates spans between qubits (for controlled/multi-qubit gates)
-  
-  Parameters:
-  - operation: Operation map with :operation-type and :operation-params
-  
-  Returns:
-  Map with :qubits (vector of affected qubit indices) and :spans (vector of [start end] pairs)"
-  [operation]
-  (let [params (:operation-params operation)
-        operation-type (:operation-type operation)]
-    (case operation-type
-      :measure
-      {:qubits (or (:measurement-qubits params) [])
-       :spans []}
-      
-      ;; Single-qubit gates - no spans
-      (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
-      {:qubits [(:target params)]
-       :spans []}
-      
-      ;; Two-qubit controlled gates - create spans
-      (:cnot :cx :cz :cy :crx :cry :crz)
-      (let [control (:control params)
-            target (:target params)]
-        {:qubits [control target]
-         :spans [(if (< control target) 
-                   [control target] 
-                   [target control])]})
-      
-      ;; SWAP gates - span between qubits
-      (:swap :iswap)
-      (let [q1 (:qubit1 params)
-            q2 (:qubit2 params)]
-        {:qubits [q1 q2]
-         :spans [(if (< q1 q2) [q1 q2] [q2 q1])]})
-      
-      ;; Three-qubit gates
-      :toffoli
-      (let [c1 (:control1 params)
-            c2 (:control2 params)
-            target (:target params)
-            all-qubits [c1 c2 target]
-            min-q (apply min all-qubits)
-            max-q (apply max all-qubits)]
-        {:qubits all-qubits
-         :spans [[min-q max-q]]})
-      
-      :fredkin
-      (let [control (:control params)
-            t1 (:target1 params)
-            t2 (:target2 params)
-            all-qubits [control t1 t2]
-            min-q (apply min all-qubits)
-            max-q (apply max all-qubits)]
-        {:qubits all-qubits
-         :spans [[min-q max-q]]})
-      
-      ;; Default case - legacy support
-      {:qubits (remove nil? [(:target params)
-                            (:control params)
-                            (:qubit1 params)
-                            (:qubit2 params)
-                            (:control1 params)
-                            (:control2 params)
-                            (:target1 params)
-                            (:target2 params)])
-       :spans []})))
-
-(defn spans-conflict?
-  "Check if two spans (ranges) conflict/overlap.
-  
-  Parameters:
-  - span1: [start1 end1] pair
-  - span2: [start2 end2] pair
-  
-  Returns:
-  Boolean indicating if spans overlap"
-  [[start1 end1] [start2 end2]]
-  (not (or (< end1 start2) (< end2 start1))))
-
-(defn qubit-in-span?
-  "Check if a qubit index falls within any of the given spans.
-  
-  Parameters:
-  - qubit: Qubit index
-  - spans: Collection of [start end] pairs
-  
-  Returns:
-  Boolean indicating if qubit is within any span"
-  [qubit spans]
-  (some (fn [[start end]] (<= start qubit end)) spans))
-
-(defn safe-max
-  "Get maximum value from collection with default for empty collections.
-  
-  Parameters:
-  - default-val: Value to return for empty collections
-  - coll: Collection to find maximum in
-  
-  Returns:
-  Maximum value or default"
-  [default-val coll]
-  (if (empty? coll)
-    default-val
-    (apply max coll)))
-
 (defn assign-gates-to-layers
   "Assign gates to non-overlapping layers for circuit visualization.
   
@@ -568,19 +417,19 @@
       (if (empty? remaining-gates)
         assignments
         (let [gate (first remaining-gates)
-              op-info (operation-qubits-with-spans gate)
+              op-info (qc/operation-qubits-with-spans gate)
               op-qubits (remove nil? (:qubits op-info))
               op-spans (:spans op-info)
 
               ;; Find the maximum layer from affected qubits
-              max-qubit-layer (safe-max 0 (map #(nth qubit-layers %) op-qubits))
+              max-qubit-layer (qc/safe-max 0 (map #(nth qubit-layers %) op-qubits))
 
               ;; For controlled gates, check if any existing spans conflict
               conflicting-span-layers (for [[span layer] span-layers
                                            op-span op-spans
-                                           :when (spans-conflict? span op-span)]
+                                           :when (qc/spans-conflict? span op-span)]
                                        layer)
-              max-span-layer (safe-max 0 conflicting-span-layers)
+              max-span-layer (qc/safe-max 0 conflicting-span-layers)
 
               ;; For single-qubit gates, check if they conflict with existing spans
               conflicting-qubit-layers (if (empty? op-spans)
@@ -590,7 +439,7 @@
                                               :when (<= start qubit end)]
                                           layer)
                                         [])
-              max-conflict-layer (safe-max 0 conflicting-qubit-layers)
+              max-conflict-layer (qc/safe-max 0 conflicting-qubit-layers)
 
               ;; For multi-qubit gates, check if any qubits in the proposed layer would conflict
               ;; This is the reverse check: does this new gate's spans conflict with existing single-qubit gates?
@@ -641,3 +490,43 @@
   Vector of gate operations (excluding measurements)"
   [circuit]
   (filter #(not= (:operation-type %) :measure) (:operations circuit)))
+
+(comment
+  ;; REPL testing of common utilities
+  
+  ;; Test state preparation
+  (def test-state (qs/zero-state 2))
+  (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0) 
+                                 (fc/complex 0 0) (fc/complex 0.7 0)] 
+                  :num-qubits 2})
+  
+  ;; Test probability extraction
+  (extract-state-probabilities test-state)
+  (generate-basis-labels 2)
+  
+  ;; Test bar chart data preparation
+  (prepare-bar-chart-data bell-like)
+  
+  ;; Test amplitude formatting
+  (format-amplitude-display (fc/complex 0.707 0.0))
+  (format-amplitude-display (fc/complex 0.5 -0.3))
+  
+  ;; Test summary calculations
+  (let [probs [0.5 0.3 0.2 0.0]
+        labels ["|00⟩" "|01⟩" "|10⟩" "|11⟩"]
+        filtered (filter-significant-probabilities probs labels)]
+    filtered)
+  ;; Test Bloch sphere utilities
+  (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)] 
+                            :num-qubits 1})
+  (def bloch-coords {:cartesian {:x 0.5 :y 0.5 :z 0.707}
+                      :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
+  
+  (format-single-qubit-state single-qubit-state)
+  (format-bloch-coordinates bloch-coords)
+  (calculate-reference-distances bloch-coords)
+  (format-reference-distances (calculate-reference-distances bloch-coords))
+  (generate-bloch-legend :ascii)
+  (prepare-bloch-display-data single-qubit-state bloch-coords)
+  )
+

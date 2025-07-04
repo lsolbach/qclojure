@@ -992,3 +992,285 @@
 
 ; Disable fastmath operator macros to avoid conflicts
 #_(m/unuse-primitive-operators)
+
+;; Neutral Atom Quantum Computing Gates
+
+;; Rydberg gates - Specific to neutral atom quantum processors
+(defn rydberg-cz-gate
+  "Apply a Rydberg-based CZ gate to a quantum state.
+  
+  In neutral atom quantum computers, the Rydberg CZ gate is implemented using
+  the Rydberg blockade mechanism. When atoms are excited to Rydberg states,
+  they experience strong dipole-dipole interactions that prevent neighboring
+  atoms from being simultaneously excited to the same Rydberg state.
+  
+  This gate is equivalent to a standard CZ gate but implemented through
+  Rydberg state manipulation with specific pulse sequences.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to (≥2 qubits)
+  - control: Index of control qubit (0-indexed)
+  - target: Index of target qubit (0-indexed)
+  
+  Returns:
+  New quantum state with Rydberg CZ gate applied
+  
+  Example:
+  (rydberg-cz-gate (qs/zero-state 2) 0 1)
+  ;=> Applies CZ gate using Rydberg blockade mechanism"
+  [state control target]
+  ;; Rydberg CZ is equivalent to standard CZ gate
+  (controlled-z state control target))
+
+(defn rydberg-cphase-gate
+  "Apply a Rydberg-based controlled phase gate with arbitrary phase.
+  
+  This gate applies a phase φ to the |11⟩ state while leaving other states
+  unchanged. It's implemented using Rydberg interactions and allows for
+  arbitrary phase control based on the laser detuning and interaction time.
+  
+  Matrix representation (in computational basis |00⟩, |01⟩, |10⟩, |11⟩):
+  CPhase(φ) = [[1, 0, 0, 0],
+               [0, 1, 0, 0],
+               [0, 0, 1, 0],
+               [0, 0, 0, e^(iφ)]]
+  
+  Parameters:
+  - state: Quantum state to apply the gate to (≥2 qubits)
+  - control: Index of control qubit (0-indexed)
+  - target: Index of target qubit (0-indexed)
+  - phi: Phase angle in radians
+  
+  Returns:
+  New quantum state with Rydberg controlled phase gate applied
+  
+  Example:
+  (rydberg-cphase-gate (qs/zero-state 2) 0 1 (/ Math/PI 2))
+  ;=> Applies controlled phase(π/2) gate using Rydberg interactions"
+  [state control target phi]
+  (let [n (:num-qubits state)
+        state-vector (:state-vector state)
+        size (int (Math/pow 2 n))
+        new-vector (vec (repeat size (fc/complex 0 0)))
+        phase-factor (fc/complex (m/cos phi) (m/sin phi))]
+    ;; Transform each basis state according to controlled phase gate logic
+    (loop [i 0
+           result new-vector]
+      (if (>= i size)
+        {:state-vector result :num-qubits n}
+        (let [amplitude (nth state-vector i)
+              control-bit (bit-test i (- n 1 control))
+              target-bit (bit-test i (- n 1 target))]
+          (if (and control-bit target-bit)
+            ;; Both control and target are 1: apply phase
+            (recur (inc i)
+                   (update result i fc/add (fc/mult amplitude phase-factor)))
+            ;; Otherwise: no change
+            (recur (inc i)
+                   (update result i fc/add amplitude))))))))
+
+(defn rydberg-blockade-gate
+  "Apply a multi-qubit Rydberg blockade gate.
+  
+  The Rydberg blockade gate exploits the fact that multiple atoms within
+  the blockade radius cannot be simultaneously excited to Rydberg states.
+  This creates entanglement between atoms and can implement complex multi-qubit
+  operations in a single step.
+  
+  This implementation creates a symmetric multi-qubit phase gate where
+  a phase is applied when exactly one of the target qubits is in |1⟩.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  - qubit-indices: Collection of qubit indices to include in the blockade
+  - phi: Phase angle in radians to apply
+  
+  Returns:
+  New quantum state with Rydberg blockade gate applied
+  
+  Example:
+  (rydberg-blockade-gate (qs/zero-state 3) [0 1 2] (/ Math/PI 4))
+  ;=> Applies blockade gate to qubits 0, 1, and 2"
+  [state qubit-indices phi]
+  {:pre [(seq qubit-indices)
+         (apply distinct? qubit-indices)
+         (every? #(< % (:num-qubits state)) qubit-indices)]}
+  (let [n (:num-qubits state)
+        state-vector (:state-vector state)
+        size (int (Math/pow 2 n))
+        new-vector (vec (repeat size (fc/complex 0 0)))
+        phase-factor (fc/complex (m/cos phi) (m/sin phi))]
+    ;; Transform each basis state according to blockade logic
+    (loop [i 0
+           result new-vector]
+      (if (>= i size)
+        {:state-vector result :num-qubits n}
+        (let [amplitude (nth state-vector i)
+              ;; Count how many of the blockade qubits are in |1⟩
+              ones-count (count (filter #(bit-test i (- n 1 %)) qubit-indices))]
+          (if (= ones-count 1)
+            ;; Exactly one qubit in |1⟩: apply phase (blockade condition)
+            (recur (inc i)
+                   (update result i fc/add (fc/mult amplitude phase-factor)))
+            ;; Otherwise: no change
+            (recur (inc i)
+                   (update result i fc/add amplitude))))))))
+
+;; Global-drive gates - Applied to all qubits simultaneously
+(defn global-rx-gate
+  "Apply a global RX rotation to all qubits in a quantum state.
+  
+  In neutral atom quantum computers, global gates are efficient because
+  they use global laser pulses that affect all atoms simultaneously.
+  This gate applies the same RX rotation to every qubit in the system.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  - theta: Rotation angle in radians
+  
+  Returns:
+  New quantum state with global RX rotation applied to all qubits
+  
+  Example:
+  (global-rx-gate (qs/zero-state 3) (/ Math/PI 2))
+  ;=> Applies RX(π/2) to all 3 qubits simultaneously"
+  [state theta]
+  (let [n (:num-qubits state)
+        rx-matrix (rx-gate theta)]
+    ;; Apply RX gate to each qubit sequentially
+    ;; This could be optimized with tensor products, but sequential is clear
+    (loop [current-state state
+           qubit-idx 0]
+      (if (>= qubit-idx n)
+        current-state
+        (recur (apply-single-qubit-gate rx-matrix current-state qubit-idx)
+               (inc qubit-idx))))))
+
+(defn global-ry-gate
+  "Apply a global RY rotation to all qubits in a quantum state.
+  
+  Global RY rotations are commonly used in neutral atom quantum computers
+  for state preparation and manipulation. All atoms receive the same
+  laser pulse, creating uniform rotations across the entire system.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  - theta: Rotation angle in radians
+  
+  Returns:
+  New quantum state with global RY rotation applied to all qubits
+  
+  Example:
+  (global-ry-gate (qs/zero-state 4) Math/PI)
+  ;=> Applies RY(π) to all 4 qubits, equivalent to global Y gate"
+  [state theta]
+  (let [n (:num-qubits state)
+        ry-matrix (ry-gate theta)]
+    ;; Apply RY gate to each qubit sequentially
+    (loop [current-state state
+           qubit-idx 0]
+      (if (>= qubit-idx n)
+        current-state
+        (recur (apply-single-qubit-gate ry-matrix current-state qubit-idx)
+               (inc qubit-idx))))))
+
+(defn global-rz-gate
+  "Apply a global RZ rotation to all qubits in a quantum state.
+  
+  Global phase rotations are easily implemented in neutral atom systems
+  using global laser detuning. This gate applies the same phase rotation
+  to all qubits simultaneously.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  - theta: Rotation angle in radians
+  
+  Returns:
+  New quantum state with global RZ rotation applied to all qubits
+  
+  Example:
+  (global-rz-gate (qs/zero-state 2) (/ Math/PI 4))
+  ;=> Applies RZ(π/4) to both qubits simultaneously"
+  [state theta]
+  (let [n (:num-qubits state)
+        rz-matrix (rz-gate theta)]
+    ;; Apply RZ gate to each qubit sequentially
+    (loop [current-state state
+           qubit-idx 0]
+      (if (>= qubit-idx n)
+        current-state
+        (recur (apply-single-qubit-gate rz-matrix current-state qubit-idx)
+               (inc qubit-idx))))))
+
+(defn global-hadamard-gate
+  "Apply Hadamard gate to all qubits in a quantum state.
+  
+  Global Hadamard operations are fundamental for creating large superposition
+  states in neutral atom quantum computers. A single laser pulse can create
+  superposition across all atoms simultaneously.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  
+  Returns:
+  New quantum state with Hadamard gate applied to all qubits
+  
+  Example:
+  (global-hadamard-gate (qs/zero-state 3))
+  ;=> Creates equal superposition state (|000⟩ + |001⟩ + ... + |111⟩)/√8"
+  [state]
+  (let [n (:num-qubits state)]
+    ;; Apply Hadamard gate to each qubit sequentially
+    (loop [current-state state
+           qubit-idx 0]
+      (if (>= qubit-idx n)
+        current-state
+        (recur (apply-single-qubit-gate hadamard current-state qubit-idx)
+               (inc qubit-idx))))))
+
+(defn global-x-gate
+  "Apply Pauli-X gate to all qubits in a quantum state.
+  
+  Global bit flip operations implemented with global π pulses in neutral
+  atom quantum computers. All atoms are flipped simultaneously.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  
+  Returns:
+  New quantum state with X gate applied to all qubits
+  
+  Example:
+  (global-x-gate (qs/zero-state 3))
+  ;=> Transforms |000⟩ → |111⟩"
+  [state]
+  (global-rx-gate state m/PI))
+
+(defn global-y-gate
+  "Apply Pauli-Y gate to all qubits in a quantum state.
+  
+  Global Y rotations implemented with global π pulses around the Y-axis
+  in neutral atom quantum computers.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  
+  Returns:
+  New quantum state with Y gate applied to all qubits"
+  [state]
+  (global-ry-gate state m/PI))
+
+(defn global-z-gate
+  "Apply Pauli-Z gate to all qubits in a quantum state.
+  
+  Global phase flip operations implemented with global phase shifts
+  in neutral atom quantum computers.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  
+  Returns:
+  New quantum state with Z gate applied to all qubits"
+  [state]
+  (global-rz-gate state m/PI))
+

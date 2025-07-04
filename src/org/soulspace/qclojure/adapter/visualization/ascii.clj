@@ -496,7 +496,12 @@
                       :rx "RX" :ry "RY" :rz "RZ" :phase "P"
                       :crx "●" :cry "●" :crz "●" 
                       :swap "×" :iswap "i×" 
-                      :toffoli "●●" :fredkin "●×"}
+                      :toffoli "●●" :fredkin "●×"
+                      ;; Rydberg gates
+                      :rydberg-cz "R●" :rydberg-cphase "R●" :rydberg-blockade "RB"
+                      ;; Global gates
+                      :global-x "GX" :global-y "GY" :global-z "GZ" :global-h "GH"
+                      :global-rx "GRX" :global-ry "GRY" :global-rz "GRZ"}
 
         ;; Build circuit as a grid (qubit x layer)
         ;; Each cell contains the gate symbol or connection info
@@ -609,6 +614,63 @@
                                                grid-acc))
                                            g
                                            (range n-qubits))))))
+                          
+                          ;; Rydberg controlled gates
+                          (:rydberg-cz :rydberg-cphase)
+                          (let [control (:control params)
+                                target (:target params)
+                                min-q (min control target)
+                                max-q (max control target)
+                                control-symbol (format-gate-symbol "R●" column-width)
+                                target-symbol (if (= gate-type :rydberg-cz) 
+                                                (format-gate-symbol "[RZ]" column-width)
+                                                (format-gate-symbol "[RP]" column-width))
+                                connector-symbol (format-gate-symbol "│" column-width)]
+                            (-> grid
+                                (assoc-in [control layer] control-symbol)
+                                (assoc-in [target layer] target-symbol)
+                                ;; Add vertical connections
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (> q min-q) (< q max-q))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          ;; Rydberg blockade gate - multi-qubit
+                          :rydberg-blockade
+                          (let [qubit-indices (:qubit-indices params)
+                                min-q (apply min qubit-indices)
+                                max-q (apply max qubit-indices)
+                                blockade-symbol (format-gate-symbol "[RB]" column-width)
+                                connector-symbol (format-gate-symbol "│" column-width)]
+                            (-> grid
+                                ;; Place blockade symbols on all target qubits
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (assoc-in grid-acc [q layer] blockade-symbol))
+                                           g
+                                           qubit-indices)))
+                                ;; Add vertical connections between qubits
+                                ((fn [g]
+                                   (reduce (fn [grid-acc q]
+                                             (if (and (>= q min-q) (<= q max-q)
+                                                      (not (contains? (set qubit-indices) q)))
+                                               (assoc-in grid-acc [q layer] connector-symbol)
+                                               grid-acc))
+                                           g
+                                           (range n-qubits))))))
+                          
+                          ;; Global gates - affect all qubits
+                          (:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz)
+                          (let [symbol (str "[" (get gate-symbols gate-type (name gate-type)) "]")
+                                formatted-symbol (format-gate-symbol symbol column-width)]
+                            ;; Apply gate symbol to all qubits
+                            (reduce (fn [g q]
+                                      (assoc-in g [q layer] formatted-symbol))
+                                    grid
+                                    (range n-qubits)))
                           
                           ;; Default case
                           grid)))

@@ -3,8 +3,10 @@
 ## Version (NEXT)
 * added observables namespace
 * added gate cancellation optimization
+* added rydberg and global-drive gate support for neutral atom QPUs
 * updated circuit optimization pipeline
 * fixed layer assignment for circuit visualization
+* consolidated operation-qubits-with-spans functions
 * enhanced tutorial
 
 ## Version 0.5.0

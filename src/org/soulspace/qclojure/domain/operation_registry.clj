@@ -261,6 +261,104 @@
              :decomposition {:cnot-toffoli [[:cnot :target2 :target1] 
                                            [:toffoli :control :target1 :target2] 
                                            [:cnot :target2 :target1]]}}
+
+   ;; Rydberg gates - Specific to neutral atom quantum processors
+   :rydberg-cz {:operation-kind :gate
+                :operation-id :rydberg-cz
+                :operation-name "Rydberg CZ"
+                :operation-type :two-qubit
+                :description "Rydberg blockade-based controlled-Z gate"
+                :hardware-specific :neutral-atom
+                :decomposition {:standard [:cz]}}
+
+   :rydberg-cphase {:operation-kind :gate
+                    :operation-id :rydberg-cphase
+                    :operation-name "Rydberg CPhase"
+                    :operation-type :parametric
+                    :parameter-count 1
+                    :parameters [:phi]
+                    :description "Rydberg controlled phase gate with arbitrary phase"
+                    :hardware-specific :neutral-atom
+                    :decomposition {:standard-fn (fn [phi] [[:crz phi]])}}
+
+   :rydberg-blockade {:operation-kind :gate
+                      :operation-id :rydberg-blockade
+                      :operation-name "Rydberg Blockade"
+                      :operation-type :multi-qubit
+                      :parameter-count 1
+                      :parameters [:phi]
+                      :description "Multi-qubit Rydberg blockade gate"
+                      :hardware-specific :neutral-atom}
+
+   ;; Global gates - Applied to all qubits simultaneously
+   :global-rx {:operation-kind :gate
+               :operation-id :global-rx
+               :operation-name "Global RX"
+               :operation-type :global-parametric
+               :parameter-count 1
+               :parameters [:theta]
+               :description "Global X rotation applied to all qubits"
+               :hardware-specific :neutral-atom
+               :decomposition {:single-qubit-fn (fn [n theta] 
+                                                  (for [i (range n)] [:rx theta :target i]))}}
+
+   :global-ry {:operation-kind :gate
+               :operation-id :global-ry
+               :operation-name "Global RY"
+               :operation-type :global-parametric
+               :parameter-count 1
+               :parameters [:theta]
+               :description "Global Y rotation applied to all qubits"
+               :hardware-specific :neutral-atom
+               :decomposition {:single-qubit-fn (fn [n theta] 
+                                                  (for [i (range n)] [:ry theta :target i]))}}
+
+   :global-rz {:operation-kind :gate
+               :operation-id :global-rz
+               :operation-name "Global RZ"
+               :operation-type :global-parametric
+               :parameter-count 1
+               :parameters [:theta]
+               :description "Global Z rotation applied to all qubits"
+               :hardware-specific :neutral-atom
+               :decomposition {:single-qubit-fn (fn [n theta] 
+                                                  (for [i (range n)] [:rz theta :target i]))}}
+
+   :global-h {:operation-kind :gate
+              :operation-id :global-h
+              :operation-name "Global H"
+              :operation-type :global
+              :description "Global Hadamard gate applied to all qubits"
+              :hardware-specific :neutral-atom
+              :decomposition {:single-qubit-fn (fn [n] 
+                                                 (for [i (range n)] [:h :target i]))}}
+
+   :global-x {:operation-kind :gate
+              :operation-id :global-x
+              :operation-name "Global X"
+              :operation-type :global
+              :description "Global X gate applied to all qubits"
+              :hardware-specific :neutral-atom
+              :decomposition {:single-qubit-fn (fn [n] 
+                                                 (for [i (range n)] [:x :target i]))}}
+
+   :global-y {:operation-kind :gate
+              :operation-id :global-y
+              :operation-name "Global Y"
+              :operation-type :global
+              :description "Global Y gate applied to all qubits"
+              :hardware-specific :neutral-atom
+              :decomposition {:single-qubit-fn (fn [n] 
+                                                 (for [i (range n)] [:y :target i]))}}
+
+   :global-z {:operation-kind :gate
+              :operation-id :global-z
+              :operation-name "Global Z"
+              :operation-type :global
+              :description "Global Z gate applied to all qubits"
+              :hardware-specific :neutral-atom
+              :decomposition {:single-qubit-fn (fn [n] 
+                                                 (for [i (range n)] [:z :target i]))}}
    
    ;; Measurement operations
    ;; TODO add measurement ops
@@ -291,6 +389,19 @@
 (def trapped-ion-hardware-gates
   "Typical gate set for trapped ion quantum processors."
   #{:x :y :z :h :rx :ry :rz :cnot :swap})
+
+(def neutral-atom-hardware-gates
+  "Typical gate set for neutral atom quantum processors."
+  #{:x :y :z :h :rx :ry :rz :rydberg-cz :rydberg-cphase :rydberg-blockade
+    :global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz})
+
+(def neutral-atom-global-gates
+  "Global gate subset for neutral atom quantum processors."
+  #{:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz})
+
+(def neutral-atom-rydberg-gates
+  "Rydberg-specific gate subset for neutral atom quantum processors."
+  #{:rydberg-cz :rydberg-cphase :rydberg-blockade})
 
 ;; Hardware-specific gate sets (Amazon Braket examples)
 (def braket-ionq-gates
@@ -465,7 +576,7 @@
       :else [])))
 
 ;; Enhanced decomposition functions
-(defn get-decomposition-for-target
+#_(defn get-decomposition-for-target
   "Get decomposition for a specific target gate set.
   
   Parameters:
@@ -523,7 +634,7 @@
       ;; No decomposition available
       :else nil)))
 
-(defn decompose-circuit-for-hardware
+#_(defn decompose-circuit-for-hardware
   "Decompose a quantum circuit for specific hardware.
   
   Parameters:

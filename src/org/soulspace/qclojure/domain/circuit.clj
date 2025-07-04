@@ -98,8 +98,10 @@
   [circuit operation-type params]
   {:pre [(s/valid? ::quantum-circuit circuit)
          (keyword? operation-type)]}
-  (let [operation {:operation-type operation-type
-                   :operation-params params}]
+  (let [operation (if (seq params)
+                    {:operation-type operation-type
+                     :operation-params params}
+                    {:operation-type operation-type})]
     (update circuit :operations conj operation)))
 
 (defn add-gate
@@ -622,6 +624,203 @@
   ([circuit control target1 target2]
    (add-gate circuit :fredkin :control control :target1 target1 :target2 target2)))
 
+;; Rydberg gates - Specific to neutral atom quantum processors
+(defn rydberg-cz-gate
+  "Add a Rydberg CZ gate to the quantum circuit.
+  
+  The Rydberg CZ gate is a two-qubit gate that uses Rydberg interactions in neutral
+  atom quantum processors. It applies a phase flip when both qubits are in the 
+  Rydberg state, effectively implementing a controlled-Z operation through 
+  Rydberg blockade physics.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - control: Integer index of the control qubit (0-indexed)
+  - target: Integer index of the target qubit (0-indexed)
+  
+  Returns:
+  Updated quantum circuit with Rydberg CZ gate appended
+  
+  Example:
+  (rydberg-cz-gate (create-circuit 2) 0 1)
+  ;=> Circuit with Rydberg CZ gate, control on qubit 0, target on qubit 1"
+  ([circuit control target]
+   (add-gate circuit :rydberg-cz :control control :target target)))
+
+(defn rydberg-cphase-gate
+  "Add a Rydberg controlled-phase gate to the quantum circuit.
+  
+  The Rydberg CPhase gate applies a phase to the |11⟩ state using Rydberg 
+  interactions. The phase angle is determined by the interaction strength 
+  and gate time in neutral atom quantum processors.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - control: Integer index of the control qubit (0-indexed)
+  - target: Integer index of the target qubit (0-indexed)
+  - phi: Phase angle in radians
+  
+  Returns:
+  Updated quantum circuit with Rydberg CPhase gate appended
+  
+  Example:
+  (rydberg-cphase-gate (create-circuit 2) 0 1 (/ Math/PI 4))
+  ;=> Circuit with Rydberg CPhase(π/4) gate"
+  ([circuit control target phi]
+   (add-gate circuit :rydberg-cphase :control control :target target :angle phi)))
+
+(defn rydberg-blockade-gate
+  "Add a Rydberg blockade gate to the quantum circuit.
+  
+  The Rydberg blockade gate applies a phase only when exactly one qubit in the
+  specified set is in the |1⟩ state, implementing the Rydberg blockade mechanism
+  where multiple excitations are energetically forbidden.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - qubit-indices: Vector of qubit indices participating in the blockade
+  - phi: Phase angle in radians applied to single-excitation states
+  
+  Returns:
+  Updated quantum circuit with Rydberg blockade gate appended
+  
+  Example:
+  (rydberg-blockade-gate (create-circuit 3) [0 1 2] (/ Math/PI 3))
+  ;=> Circuit with Rydberg blockade gate on qubits [0 1 2] with phase π/3"
+  ([circuit qubit-indices phi]
+   (add-gate circuit :rydberg-blockade :qubit-indices qubit-indices :angle phi)))
+
+;; Global gates - Applied to all qubits simultaneously
+(defn global-x-gate
+  "Add a global X gate to the quantum circuit.
+  
+  The global X gate applies a Pauli-X (NOT) gate to all qubits in the circuit
+  simultaneously. This is a common operation in neutral atom quantum processors
+  where global laser pulses can address all atoms at once.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  
+  Returns:
+  Updated quantum circuit with global X gate appended
+  
+  Example:
+  (global-x-gate (create-circuit 3))
+  ;=> Circuit with global X gate applied to all qubits"
+  ([circuit]
+   (add-gate circuit :global-x)))
+
+(defn global-y-gate
+  "Add a global Y gate to the quantum circuit.
+  
+  The global Y gate applies a Pauli-Y gate to all qubits in the circuit
+  simultaneously, providing a global bit flip with phase.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  
+  Returns:
+  Updated quantum circuit with global Y gate appended
+  
+  Example:
+  (global-y-gate (create-circuit 3))
+  ;=> Circuit with global Y gate applied to all qubits"
+  ([circuit]
+   (add-gate circuit :global-y)))
+
+(defn global-z-gate
+  "Add a global Z gate to the quantum circuit.
+  
+  The global Z gate applies a Pauli-Z (phase flip) gate to all qubits in the 
+  circuit simultaneously, providing a global phase flip.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  
+  Returns:
+  Updated quantum circuit with global Z gate appended
+  
+  Example:
+  (global-z-gate (create-circuit 3))
+  ;=> Circuit with global Z gate applied to all qubits"
+  ([circuit]
+   (add-gate circuit :global-z)))
+
+(defn global-hadamard-gate
+  "Add a global Hadamard gate to the quantum circuit.
+  
+  The global Hadamard gate applies a Hadamard gate to all qubits in the circuit
+  simultaneously, creating superposition states across all qubits.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  
+  Returns:
+  Updated quantum circuit with global Hadamard gate appended
+  
+  Example:
+  (global-hadamard-gate (create-circuit 3))
+  ;=> Circuit with global Hadamard gate applied to all qubits"
+  ([circuit]
+   (add-gate circuit :global-h)))
+
+(defn global-rx-gate
+  "Add a global RX rotation gate to the quantum circuit.
+  
+  The global RX gate applies an X-axis rotation to all qubits in the circuit
+  simultaneously. The rotation angle is applied uniformly to all qubits.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - angle: Rotation angle in radians
+  
+  Returns:
+  Updated quantum circuit with global RX gate appended
+  
+  Example:
+  (global-rx-gate (create-circuit 3) (/ Math/PI 2))
+  ;=> Circuit with global RX(π/2) gate applied to all qubits"
+  ([circuit angle]
+   (add-gate circuit :global-rx :angle angle)))
+
+(defn global-ry-gate
+  "Add a global RY rotation gate to the quantum circuit.
+  
+  The global RY gate applies a Y-axis rotation to all qubits in the circuit
+  simultaneously. The rotation angle is applied uniformly to all qubits.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - angle: Rotation angle in radians
+  
+  Returns:
+  Updated quantum circuit with global RY gate appended
+  
+  Example:
+  (global-ry-gate (create-circuit 3) (/ Math/PI 4))
+  ;=> Circuit with global RY(π/4) gate applied to all qubits"
+  ([circuit angle]
+   (add-gate circuit :global-ry :angle angle)))
+
+(defn global-rz-gate
+  "Add a global RZ rotation gate to the quantum circuit.
+  
+  The global RZ gate applies a Z-axis rotation to all qubits in the circuit
+  simultaneously. The rotation angle is applied uniformly to all qubits.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - angle: Rotation angle in radians
+  
+  Returns:
+  Updated quantum circuit with global RZ gate appended
+  
+  Example:
+  (global-rz-gate (create-circuit 3) (/ Math/PI 6))
+  ;=> Circuit with global RZ(π/6) gate applied to all qubits"
+  ([circuit angle]
+   (add-gate circuit :global-rz :angle angle)))
+
 (defn measure-operation
   "Add a measurement operation to the quantum circuit.
   
@@ -759,6 +958,53 @@
                    (qg/fredkin-gate state control target1 target2)
                    (throw (ex-info "Fredkin requires control, target1, and target2 parameters"
                                    {:gate gate}))))
+      
+      ;; Rydberg gates - Specific to neutral atom quantum processors
+      :rydberg-cz (if (and control target)
+                    (qg/rydberg-cz-gate state control target)
+                    (throw (ex-info "Rydberg CZ requires both control and target qubits"
+                                    {:gate gate})))
+      
+      :rydberg-cphase (let [phi (:angle params)]
+                        (if (and control target phi)
+                          (qg/rydberg-cphase-gate state control target phi)
+                          (throw (ex-info "Rydberg CPhase requires control, target qubits and phase angle"
+                                          {:gate gate}))))
+      
+      :rydberg-blockade (let [qubit-indices (:qubit-indices params)
+                              phi (:angle params)]
+                          (if (and qubit-indices phi)
+                            (qg/rydberg-blockade-gate state qubit-indices phi)
+                            (throw (ex-info "Rydberg blockade requires qubit-indices vector and phase angle"
+                                            {:gate gate}))))
+      
+      ;; Global gates - Applied to all qubits simultaneously
+      :global-rx (let [theta (:angle params)]
+                   (if theta
+                     (qg/global-rx-gate state theta)
+                     (throw (ex-info "Global RX requires rotation angle"
+                                     {:gate gate}))))
+      
+      :global-ry (let [theta (:angle params)]
+                   (if theta
+                     (qg/global-ry-gate state theta)
+                     (throw (ex-info "Global RY requires rotation angle"
+                                     {:gate gate}))))
+      
+      :global-rz (let [theta (:angle params)]
+                   (if theta
+                     (qg/global-rz-gate state theta)
+                     (throw (ex-info "Global RZ requires rotation angle"
+                                     {:gate gate}))))
+      
+      :global-h (qg/global-hadamard-gate state)
+      
+      :global-x (qg/global-x-gate state)
+      
+      :global-y (qg/global-y-gate state)
+      
+      :global-z (qg/global-z-gate state)
+      
       :controlled (throw (ex-info "General controlled gates not yet implemented"
                                   {:gate gate}))
       (throw (ex-info "Unknown gate type" {:operation-type gate-type})))))
@@ -924,8 +1170,18 @@
         (update :name #(str (or % "Circuit") " (inverse)")))))
 
 ;; Circuit analysis and utility functions
-(defn- operation-qubits-with-spans
-  "Extract all qubit indices that an operation operates on, including span information for proper layering."
+(defn operation-qubits-with-spans
+  "Extract qubits used by an operation and any spans it creates.
+  
+  For circuit layer assignment, we need to know:
+  1. Which qubits an operation affects
+  2. Whether it creates spans between qubits (for controlled/multi-qubit gates)
+  
+  Parameters:
+  - operation: Operation map with :operation-type and :operation-params
+  
+  Returns:
+  Map with :qubits (vector of affected qubit indices) and :spans (vector of [start end] pairs)"
   [operation]
   (let [params (:operation-params operation)
         operation-type (:operation-type operation)]
@@ -947,6 +1203,29 @@
          :spans [(if (< control target) 
                    [control target] 
                    [target control])]})
+      
+      ;; Rydberg two-qubit gates - create spans
+      (:rydberg-cz :rydberg-cphase)
+      (let [control (:control params)
+            target (:target params)]
+        {:qubits [control target]
+         :spans [(if (< control target) 
+                   [control target] 
+                   [target control])]})
+      
+      ;; Rydberg blockade gate - multi-qubit with span across all
+      :rydberg-blockade
+      (let [qubit-indices (:qubit-indices params)
+            min-q (apply min qubit-indices)
+            max-q (apply max qubit-indices)]
+        {:qubits qubit-indices
+         :spans [[min-q max-q]]})
+      
+      ;; Global gates - affect all qubits, no spans needed for visualization
+      (:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz)
+      (let [n-qubits (count (:qubits operation))] ; Determine from operation context
+        {:qubits (range n-qubits) ; All qubits
+         :spans []})
       
       ;; SWAP gates - span between qubits
       (:swap :iswap)
@@ -992,18 +1271,39 @@
   [operation]
   (:qubits (operation-qubits-with-spans operation)))
 
-(defn- spans-conflict?
-  "Check if two spans conflict (one span intersects another)."
+(defn spans-conflict?
+  "Check if two spans (ranges) conflict/overlap.
+  
+  Parameters:
+  - span1: [start1 end1] pair
+  - span2: [start2 end2] pair
+  
+  Returns:
+  Boolean indicating if spans overlap"
   [[start1 end1] [start2 end2]]
   (not (or (< end1 start2) (< end2 start1))))
 
-(defn- qubit-in-span?
-  "Check if a qubit is within any of the spans."
+(defn qubit-in-span?
+  "Check if a qubit index falls within any of the given spans.
+  
+  Parameters:
+  - qubit: Qubit index
+  - spans: Collection of [start end] pairs
+  
+  Returns:
+  Boolean indicating if qubit is within any span"
   [qubit spans]
   (some (fn [[start end]] (<= start qubit end)) spans))
 
-(defn- safe-max 
-  "Safe max that handles empty collections"
+(defn safe-max
+  "Get maximum value from collection with default for empty collections.
+  
+  Parameters:
+  - default-val: Value to return for empty collections
+  - coll: Collection to find maximum in
+  
+  Returns:
+  Maximum value or default"
   [default-val coll]
   (if (empty? coll)
     default-val
@@ -1084,7 +1384,6 @@
                    updated-qubit-layers
                    updated-span-layers
                    (max max-layer new-layer))))))))
-                   
 
 (defn circuit-operation-count
   "Count the total number of operations in a quantum circuit.
@@ -1203,6 +1502,20 @@
       :toffoli (str "TOFFOLI(" (:control1 params) "," (:control2 params) "→" (:target params) ")")
       :fredkin (str "FREDKIN(" (:control params) "→" (:target1 params) "↔" (:target2 params) ")")
       :controlled (str "C" (name (:gate-type params)) "(" (:control params) "→" (:target params) ")")
+      
+      ;; Rydberg gates - Specific to neutral atom quantum processors
+      :rydberg-cz (str "RYDBERG-CZ(" (:control params) "→" (:target params) ")")
+      :rydberg-cphase (str "RYDBERG-CPHASE(" (:control params) "→" (:target params) ", " (format "%.3f" (:angle params)) ")")
+      :rydberg-blockade (str "RYDBERG-BLOCKADE(" (str/join "," (:qubit-indices params)) ", " (format "%.3f" (:angle params)) ")")
+      
+      ;; Global gates - Applied to all qubits simultaneously
+      :global-x "GLOBAL-X(all)"
+      :global-y "GLOBAL-Y(all)"
+      :global-z "GLOBAL-Z(all)"
+      :global-h "GLOBAL-H(all)"
+      :global-rx (str "GLOBAL-RX(all, " (format "%.3f" (:angle params)) ")")
+      :global-ry (str "GLOBAL-RY(all, " (format "%.3f" (:angle params)) ")")
+      :global-rz (str "GLOBAL-RZ(all, " (format "%.3f" (:angle params)) ")")
       
       ;; Default case for unknown operations
       (str (name operation-type) "(" (pr-str params) ")"))))
@@ -1323,87 +1636,3 @@
       (iswap-gate 1 2)
       (toffoli-gate 0 1 2)
       (fredkin-gate 0 1 2)))
-
-(comment
-  ;; Create a simple circuit with a CZ gate
-  (def cz-circuit
-    (-> (create-circuit 2 "CZ Test")
-        (h-gate 0)
-        (h-gate 1)
-        (cz-gate 0 1)))
-
-  ;; Print the circuit
-  (print-circuit cz-circuit)
-
-  ;; Execute the circuit
-  (def initial-state (qs/zero-state 2))
-  (def final-state (execute-circuit cz-circuit initial-state))
-
-  ;; Check the final state - should be (|00⟩ + |01⟩ + |10⟩ - |11⟩)/2
-  (:state-vector final-state)
-
-
-  ;; Test circuit creation in REPL
-
-  ;; Create a simple Bell state circuit
-  (def bell-circuit (bell-state-circuit))
-  (print-circuit bell-circuit)
-
-  ;; Execute the circuit
-  (def |00⟩ (qs/zero-state 2))
-  (def bell-state (execute-circuit bell-circuit |00⟩))
-  (:state-vector bell-state)
-
-  ;; Create a custom circuit
-  (def custom-circuit
-    (-> (create-circuit 2 "Custom Circuit")
-        (x-gate 0)
-        (h-gate 1)
-        (cnot-gate 0 1)))
-
-  (print-circuit custom-circuit)
-
-  ;; Create a measured circuit
-  (def measured-circuit
-    (-> (create-circuit 2 "Measured Circuit")
-        (x-gate 0)
-        (h-gate 1)
-        (cnot-gate 0 1)
-        (measure-operation 1)))
-  
-  (print-circuit measured-circuit)
-
-  ;; Create GHZ state
-  (def ghz-circuit (ghz-state-circuit 3))
-  (print-circuit ghz-circuit)
-
-  (print-circuit (all-gates-circuit))
-
-  ;; Inverse circuit
-  (def bell-inverse (inverse-circuit bell-circuit))
-  (print-circuit bell-inverse)
-
-  ;; Circuit analysis
-  (circuit-depth bell-circuit)
-  (circuit-gate-count bell-circuit)
-
-  ;; Test the circuit-depth function
-  (let [;; Create a simple Bell state circuit (2 layers)
-        bell-circuit (bell-state-circuit)
-
-        ;; Create a more complex circuit with 3 layers
-        complex-circuit (-> (create-circuit 3 "Complex Circuit")
-                            (h-gate 0)          ;; Layer 1
-                            (h-gate 1)          ;; Also Layer 1 (parallel with previous)
-                            (cnot-gate 0 2)     ;; Layer 2
-                            (x-gate 1)          ;; Also Layer 2 (parallel with previous)
-                            (cnot-gate 1 2))    ;; Layer 3 (must wait for previous gates)
-
-        ;; Create a circuit with no gates (depth 0)
-        empty-circuit (create-circuit 2 "Empty Circuit")]
-
-    (println "Bell state circuit depth:" (circuit-depth bell-circuit))
-    (println "Complex circuit depth:" (circuit-depth complex-circuit))
-    (println "Empty circuit depth:" (circuit-depth empty-circuit)))
-  ;  
-  )

@@ -1,5 +1,10 @@
 # Changelog
 
+## Version (NEXT)
+* moved noise functions to application.noise namespace
+* added correlated readout errors
+* refactored noisy simulator to use noise namespace
+
 ## Version 0.6.0
 * added observables namespace
 * added gate cancellation optimization

@@ -1,6 +1,11 @@
 # Changelog
 
 ## Version (NEXT)
+* added error mitigation strategies
+  * readout error mitigation
+  * zero noise extrapolation
+  * symmetry verification
+  * virtual distillation
 * moved noise functions to application.noise namespace
 * added correlated readout errors
 * refactored noisy simulator to use noise namespace

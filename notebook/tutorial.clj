@@ -233,6 +233,9 @@ qg/pauli-y
 
 qg/pauli-z
 
+;; The Pauli gates are self inverse, applying the same gate twice gives results
+;; in the original value.
+;;
 ;; ### Hadamard Gate
 ;; The [Hadamard gate](https://en.wikipedia.org/wiki/Hadamard_gate) is a
 ;; quantum gate that creates superposition states.
@@ -258,6 +261,9 @@ qg/hadamard
 
 ;; The Bloch sphere representation shows that the Hadamard state is on the
 ;; equator of the sphere.
+;;
+;; The Hadamard gate is also self inverse, resulting in the input state again
+;; if applied twice.
 ;;
 ;; ### Phase Gates
 ;; Phase gates are quantum gates that add a phase to the state of a qubit.

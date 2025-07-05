@@ -205,7 +205,7 @@
       (is (contains? result :success))
       (is (contains? result :solution-vector))
       (is (contains? result :circuit))
-      (is (contains? result :measurements))
+      (is (contains? result :execution-result))
       (is (contains? result :condition-number))))
   
   (testing "Returns proper result structure"

@@ -390,12 +390,12 @@
          circuit (hhl-circuit matrix b-vector precision-qubits ancilla-qubits)
 
          ;; Execute on backend
-         results (qb/execute-circuit backend circuit {:shots shots})
+         execution-result (qb/execute-circuit backend circuit {:shots shots})
 
          ;; Calculate qubit allocation for post-processing
          n (count matrix)
          vector-qubits (max 1 (int (Math/ceil (/ (Math/log n) (Math/log 2)))))
-         measurements (:measurement-results results)
+         measurements (:measurement-results execution-result)
          total-shots (reduce + (vals measurements))
 
          ;; Post-select on ancilla qubit being |1⟩ (indicating successful inversion)
@@ -439,8 +439,8 @@
      {:success (> success-probability 0.1) ; Success if > 10% success rate
       :result solution-vector
       :solution-vector solution-vector
+      :execution-result execution-result
       :circuit circuit
-      :measurements results
       :condition-number condition-num
       :precision-qubits precision-qubits
       :ancilla-qubits ancilla-qubits

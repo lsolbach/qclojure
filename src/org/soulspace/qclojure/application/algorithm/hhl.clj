@@ -371,79 +371,82 @@
   - :circuit - The quantum circuit used
   - :measurements - Raw measurement results
   - :condition-number - Estimated condition number of matrix"
-  [backend matrix b-vector options]
-  {:pre [(validate-hermitian-matrix matrix)
-         (s/valid? ::vector-b b-vector)
-         (= (count matrix) (count b-vector))]}
-  
-  (let [{:keys [precision-qubits ancilla-qubits shots]
-         :or {precision-qubits 4
-              ancilla-qubits 1
-              shots 1000}} options
-        
-        ;; Validate and estimate matrix properties
-        condition-num (estimate-condition-number matrix)
-        
-        ;; Build HHL circuit
-        circuit (hhl-circuit matrix b-vector precision-qubits ancilla-qubits)
-        
-        ;; Execute on backend
-        results (qb/execute-circuit backend circuit {:shots shots})
-        
-        ;; Calculate qubit allocation for post-processing
-        n (count matrix)
-        vector-qubits (max 1 (int (Math/ceil (/ (Math/log n) (Math/log 2)))))
-        measurements (:measurement-results results)
-        total-shots (reduce + (vals measurements))
-        
-        ;; Post-select on ancilla qubit being |1⟩ (indicating successful inversion)
-        ancilla-qubit-idx (+ vector-qubits precision-qubits) ; First ancilla qubit
-        successful-measurements (filter (fn [[measurement _]]
-                                         (= \1 (nth measurement ancilla-qubit-idx \0)))
-                                       measurements)
-        
-        ;; Calculate success probability
-        success-count (reduce + (map second successful-measurements))
-        success-probability (if (> total-shots 0) (/ success-count total-shots) 0.0)
-        
-        ;; Extract solution vector from successful measurements
-        ;; For a working HHL, we need to properly decode the vector register
-        solution-vector (if (> success-count 0)
-                         ;; Extract vector register states from successful measurements
-                         (let [vector-measurements (map (fn [[measurement count]]
-                                                         [(subs measurement 0 vector-qubits) count])
-                                                       successful-measurements)
-                               ;; Weight the solution based on measurement frequencies
-                               solution-components (vec (for [i (range (count b-vector))]
-                                                         (let [binary-i (format (str "%" vector-qubits "s") 
-                                                                               (Integer/toBinaryString i))
-                                                               binary-i (str/replace binary-i " " "0")
-                                                               matches (filter #(= (first %) binary-i) vector-measurements)
-                                                               weight (if (seq matches) 
-                                                                       (reduce + (map second matches))
-                                                                       0)]
-                                                           (/ weight (double success-count)))))
-                               ;; Normalize the solution
-                               norm (Math/sqrt (reduce + (map #(* % %) solution-components)))]
-                           (if (> norm 1e-10)
-                             (mapv #(/ % norm) solution-components)
-                             solution-components))
-                         ;; Fallback: return normalized input vector 
-                         (let [norm (Math/sqrt (reduce + (map #(* % %) b-vector)))]
-                           (if (> norm 1e-10)
-                             (mapv #(/ % norm) b-vector)
-                             b-vector)))]
-      
-    {:success (> success-probability 0.1) ; Success if > 10% success rate
-     :solution-vector solution-vector
-     :circuit circuit
-     :measurements results
-     :condition-number condition-num
-     :precision-qubits precision-qubits
-     :ancilla-qubits ancilla-qubits
-     :success-probability success-probability
-     :total-shots total-shots
-     :successful-shots success-count}))
+  ([backend matrix b-vector]
+   (hhl-algorithm backend matrix b-vector {}))
+  ([backend matrix b-vector options]
+   {:pre [(validate-hermitian-matrix matrix)
+          (s/valid? ::vector-b b-vector)
+          (= (count matrix) (count b-vector))]}
+
+   (let [{:keys [precision-qubits ancilla-qubits shots]
+          :or {precision-qubits 4
+               ancilla-qubits 1
+               shots 1000}} options
+
+         ;; Validate and estimate matrix properties
+         condition-num (estimate-condition-number matrix)
+
+         ;; Build HHL circuit
+         circuit (hhl-circuit matrix b-vector precision-qubits ancilla-qubits)
+
+         ;; Execute on backend
+         results (qb/execute-circuit backend circuit {:shots shots})
+
+         ;; Calculate qubit allocation for post-processing
+         n (count matrix)
+         vector-qubits (max 1 (int (Math/ceil (/ (Math/log n) (Math/log 2)))))
+         measurements (:measurement-results results)
+         total-shots (reduce + (vals measurements))
+
+         ;; Post-select on ancilla qubit being |1⟩ (indicating successful inversion)
+         ancilla-qubit-idx (+ vector-qubits precision-qubits) ; First ancilla qubit
+         successful-measurements (filter (fn [[measurement _]]
+                                           (= \1 (nth measurement ancilla-qubit-idx \0)))
+                                         measurements)
+
+         ;; Calculate success probability
+         success-count (reduce + (map second successful-measurements))
+         success-probability (if (> total-shots 0) (/ success-count total-shots) 0.0)
+
+         ;; Extract solution vector from successful measurements
+         ;; For a working HHL, we need to properly decode the vector register
+         solution-vector (if (> success-count 0)
+                           ;; Extract vector register states from successful measurements
+                           (let [vector-measurements (map (fn [[measurement count]]
+                                                            [(subs measurement 0 vector-qubits) count])
+                                                          successful-measurements)
+                                 ;; Weight the solution based on measurement frequencies
+                                 solution-components (vec (for [i (range (count b-vector))]
+                                                            (let [binary-i (format (str "%" vector-qubits "s")
+                                                                                   (Integer/toBinaryString i))
+                                                                  binary-i (str/replace binary-i " " "0")
+                                                                  matches (filter #(= (first %) binary-i) vector-measurements)
+                                                                  weight (if (seq matches)
+                                                                           (reduce + (map second matches))
+                                                                           0)]
+                                                              (/ weight (double success-count)))))
+                                 ;; Normalize the solution
+                                 norm (Math/sqrt (reduce + (map #(* % %) solution-components)))]
+                             (if (> norm 1e-10)
+                               (mapv #(/ % norm) solution-components)
+                               solution-components))
+                           ;; Fallback: return normalized input vector 
+                           (let [norm (Math/sqrt (reduce + (map #(* % %) b-vector)))]
+                             (if (> norm 1e-10)
+                               (mapv #(/ % norm) b-vector)
+                               b-vector)))]
+
+     {:success (> success-probability 0.1) ; Success if > 10% success rate
+      :result solution-vector
+      :solution-vector solution-vector
+      :circuit circuit
+      :measurements results
+      :condition-number condition-num
+      :precision-qubits precision-qubits
+      :ancilla-qubits ancilla-qubits
+      :success-probability success-probability
+      :total-shots total-shots
+      :successful-shots success-count})))
 
 (comment
   ;; Create a simulator for testing

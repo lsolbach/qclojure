@@ -1,9 +1,22 @@
 (comment
+(require '[org.soulspace.qclojure.domain.state :as qs])
+(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
+
+;; The plus state, a state in superposition with equal
+;; probabilities of measuring |0⟩ or |1⟩
+qs/|+⟩
+
+;; Create two SVG visualizations of the plus state 
+(spit "prob-plus-state.svg" (vis/visualize-quantum-state :svg qs/|+⟩))
+(spit "bloch-plus-state.svg" (vis/visualize-bloch-sphere :svg qs/|+⟩))
+)
+
+(comment
 (require '[org.soulspace.qclojure.domain.circuit :as qc])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
 (require '[org.soulspace.qclojure.adapter.visualization :as vis])
-(require '[org.soulspace.qclojure.adapter.visualization.ascii :as ascii])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; Create a Bell state circuit

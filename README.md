@@ -53,6 +53,31 @@ QClojure is a library to be used in programs or interactive within the REPL.
 
 To use QClojure, add a dependency to your project definition.
 
+### Simple Plus State Qubit Example
+The plus state is a single qubit state in superposition with equal
+probabilities of measuring |0⟩ or |1⟩.
+This example prints the internal representation of the plus state
+and generates two different SVG visualizations of this state.
+
+```clojure
+(require '[org.soulspace.qclojure.domain.state :as qs])
+(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
+
+;; The plus state, a state in superposition with equal
+;; probabilities of measuring |0⟩ or |1⟩
+qs/|+⟩
+
+;; Create two SVG visualizations of the plus state 
+(spit "prob-plus-state.svg" (vis/visualize-quantum-state :svg qs/|+⟩))
+(spit "bloch-plus-state.svg" (vis/visualize-bloch-sphere :svg qs/|+⟩))
+```
+#### Visualizations of the Plus State
+![Bloch Sphere Visualization of the Plus state](/doc/images/bloch-plus-state.svg)
+![Visualization of the probabilities of the Plus state](/doc/images/prob-plus-state.svg)
+
+
+
 ### Bell Circuit Example
 This example shows the creation of a quantum circuit in a functional way and
 the execution of the circuit on the simulator. It also prints the final state

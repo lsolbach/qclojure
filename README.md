@@ -28,6 +28,10 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    Automatic gate cancellation, qubit optimization, gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
+6. **Error Mitigation**
+   
+   Different strategies like readout error mitigation, ZNE, symmetry verification and virtual distillation, support for autoselection based on circuit and noise profile properties
+
 6. **Local Quantum Simulator Backend**
 
    Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles

@@ -638,8 +638,11 @@
         amplitudes (:state-vector state)
         n-qubits (:num-qubits state)
 
-        ;; Chart layout
-        margin {:top 60 :right 40 :bottom 100 :left 80}
+        ;; Chart layout - adaptive bottom margin for label overlap handling
+        total-basis-states (bit-shift-left 1 n-qubits) ; 2^n_qubits
+        needs-rotation (> total-basis-states 8)
+        bottom-margin (if needs-rotation 120 100) ; Extra space for rotated labels
+        margin {:top 60 :right 40 :bottom bottom-margin :left 80}
         chart-width (- width (:left margin) (:right margin))
         chart-height (- height (:top margin) (:bottom margin))
 
@@ -668,7 +671,10 @@
                            :stroke "#ffffff" :stroke-width 1}
                     [:title tooltip-text]]
                    [:text {:x (+ x (/ bar-width 2)) :y (+ (:top margin) chart-height 20)
-                           :text-anchor "middle" :font-size "12" :fill "#374151"}
+                           :text-anchor (if needs-rotation "end" "middle") 
+                           :font-size "12" :fill "#374151"
+                           :transform (when needs-rotation 
+                                        (str "rotate(-45 " (+ x (/ bar-width 2)) " " (+ (:top margin) chart-height 20) ")"))}
                     (nth labels i)]
                    [:text {:x (+ x (/ bar-width 2)) :y (- y 5)
                            :text-anchor "middle" :font-size "10" :fill "#6b7280"}

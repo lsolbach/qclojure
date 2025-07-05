@@ -520,9 +520,9 @@ lagos-10k-result
 ;;
 ;; ### Deutsch Algorithm
 ;; The [Deutsch algorithm](https://en.wikipedia.org/wiki/Deutsch_algorithm) is
-;; a quantum algorithm that determines whether a function is constant or balanced.
-;; It uses a quantum circuit to evaluate the function with only one query,
-;; compared to two queries needed for classical algorithms.
+;; a simple quantum algorithm that determines whether a function is constant or
+;; balanced. It uses a quantum circuit to evaluate the function with only one
+;; query, compared to two queries needed for classical algorithms.
 ;; The quantum circuit uses an oracle to implement the function and applies a
 ;; Hadamard gate to the input qubit.
 ;;
@@ -829,6 +829,10 @@ simon-result
 
 grover-result
 
+;; The result shows that Grover's search algorithm correctly identifies the marked item.
+
+(:result grover-result)
+
 ;; #### Quantum Fourier Transform
 ;; The [Quantum Fourier Transform (QFT)](https://en.wikipedia.org/wiki/Quantum_Fourier_transform)
 ;; is a quantum algorithm that performs the discrete Fourier transform on a quantum state.
@@ -1018,3 +1022,99 @@ qft-state
 ;; The measurement outcome is the prime factors of 15, which are 3 and 5.
 
 ; (:result shor-result)
+
+;; ### HHL Algorithm
+;; The [HHL algorithm](https://en.wikipedia.org/wiki/HHL_algorithm) is a
+;; quantum algorithm for solving linear systems of equations.
+;; It is named after its inventors Harrow, Hassidim, and Lloyd.
+;; The HHL algorithm can solve a system of linear equations in polynomial time,
+;; which is a significant improvement over classical algorithms that require
+;; exponential time for large systems.
+;; The current implementation works for a hermitian n x n matrix A and a vector b.
+;;
+;; #### Problem Statement
+;; Given a system of linear equations Ax = b, where A is a hermitian matrix,
+;; x is the vector of unknowns, and b is the vector of constants, the goal is to
+;; find the vector x that satisfies the equations using as few evaluations
+;; of the matrix A as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, solving a system of linear equations requires
+;; O(N³) time complexity, where N is the number of equations in the system.
+;; Classical algorithms such as Gaussian elimination or LU decomposition
+;; can be used to solve the system, but they are computationally expensive
+;; for large systems.
+;;
+;; #### Quantum Approach
+;; The HHL algorithm allows us to solve a system of linear equations in
+;; O(log N) time complexity by leveraging quantum superposition, interference,
+;; and the quantum Fourier transform.
+;;
+;; #### Quantum Circuit
+;; The HHL algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Prepare the input state |b⟩, which represents the vector of constants b.
+;; 2. Use the quantum phase estimation algorithm to estimate the eigenvalues
+;;    of the matrix A. This involves:
+;;    - Initialize n qubits in the state |0⟩.
+;;    - Apply a Hadamard gate to all n qubits to create superposition.
+;;    - Apply controlled-U gates to the qubits, where U is the unitary operator
+;;      that represents the matrix A.
+;;    - Apply the inverse quantum Fourier transform to the qubits.
+;;    - Measure the qubits to obtain the estimated eigenvalues of A.
+;; 3. Use the estimated eigenvalues to compute the inverse of the matrix A.
+;; 4. Apply the inverse of the matrix A to the input state |b⟩ to obtain the
+;;    output state |x⟩, which represents the solution to the system of
+;;    linear equations Ax = b.
+;; 5. Measure the output state |x⟩ to obtain the vector of unknowns x that
+;;    satisfies the equations.
+;;
+;; Let's examine the HHL algorithm by requiring the `hhl` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.hhl :as hhl])
+
+;; We can use the HHL algorithm to solve a system of linear equations.
+;; For example, let's solve the system of equations represented by the
+;; hermitian matrix A and the vector b.
+
+(def hhl-matrix [[1 2] [2 3]]) ; Hermitian matrix A
+(def hhl-vector [5 6])          ; Vector b
+
+;; Now we can create the circuit for the HHL algorithm with the given matrix
+;; and vector.
+
+(def hhl-circuit
+  (hhl/hhl-circuit hhl-matrix hhl-vector 4 1))
+
+;; We can visualize the circuit for the HHL algorithm.
+
+(kind/html (viz/visualize-circuit :svg hhl-circuit))
+
+;; The circuit shows that the HHL algorithm applies a series of controlled-U gates
+;; to the qubits, which represent the matrix A, and applies the inverse quantum
+;; Fourier transform to the qubits. The circuit also applies the inverse of the
+;; matrix A to the input state |b⟩ to obtain the output state |x⟩, which represents
+;; the solution to the system of linear equations Ax = b.
+
+(def hhl-result
+  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector))
+
+;; The result of the HHL algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+
+hhl-result
+
+;; The result shows that the HHL algorithm correctly solves the system of
+;; linear equations represented by the matrix A and the vector b.
+
+;; The measurement outcome is the vector of unknowns x that satisfies the equations.
+
+(:result hhl-result)
+
+;; Lets visualize the final quantum state after executing the HHL algorithm.
+
+(kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :final-state])))
+
+;; The final quantum state shows that the HHL algorithm correctly solves the
+;; system of linear equations Ax = b. The final quantum state is a superposition
+;; of the states that represent the solution to the system of equations.
+

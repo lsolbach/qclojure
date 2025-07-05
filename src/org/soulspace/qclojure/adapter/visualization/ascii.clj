@@ -831,3 +831,45 @@
 
   ;
   )
+
+(defmethod viz/visualize-measurement-histogram :ascii
+  [_format measurements & {:keys [width threshold max-bars show-percentages]
+                          :or {width 40 threshold 1 max-bars 16 show-percentages true}}]
+  (let [;; Use common utilities for data preparation
+        chart-data (vcommon/prepare-measurement-histogram-data measurements
+                                                              :threshold threshold
+                                                              :max-bars max-bars
+                                                              :normalize true) ; Always normalize for ASCII
+        counts (:counts chart-data)
+        labels (:labels chart-data)
+        max-count (:max-count chart-data)
+        total-shots (:total-shots chart-data)
+        
+        ;; Create normalized counts for bar length calculation
+        normalize-count #(if (zero? max-count) 0 (double (/ % max-count)))
+        
+        ;; Bar creation function
+        create-bar (fn [count label]
+                     (let [bar-length (int (* (normalize-count count) width))
+                           bar (str/join (repeat bar-length "█"))
+                           spaces (str/join (repeat (- width bar-length) " "))
+                           percentage (qmath/round-precision (* (double (/ count total-shots)) 100) 1)
+                           percentage-text (if show-percentages
+                                             (str " " percentage "% (" count " shots)")
+                                             (str " " count " shots"))]
+                       (str label ": " bar spaces percentage-text)))
+        
+        ;; Chart header
+        header (str "Measurement Histogram (" total-shots " total shots)\n"
+                   (str/join (repeat (+ width 25) "=")) "\n")
+        
+        ;; Generate bars
+        bars (str/join "\n" (map create-bar counts labels))
+        
+        ;; Summary footer
+        summary (:summary chart-data)
+        footer (str "\n" (str/join (repeat (+ width 25) "=")) "\n"
+                   "Outcomes shown: " (:num-shown summary) "/" (:num-outcomes summary)
+                   " (" (qmath/round-precision (:percentage-shown summary) 1) "%)")]
+    
+    (str header bars footer)))

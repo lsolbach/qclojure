@@ -6,13 +6,166 @@
   web pages or saved as standalone files."
   (:require [clojure.string :as str]
             [hiccup2.core :as h]
-            [org.soulspace.qclojure.util.io :as qio]
-            [org.soulspace.qclojure.domain.state :as qs]
+
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
+
+;;
+;; Bar Chart Common SVG Components  
+;;
+(defn generate-bar-chart-layout
+  "Generate layout parameters for bar charts.
+  
+  Parameters:
+  - data-count: Number of data points (bars)
+  - width: Chart width
+  - height: Chart height
+  - options: Layout options
+  
+  Returns:
+  Map with layout parameters including margins, bar dimensions, rotation settings"
+  [data-count width height & {:keys [force-rotation] :or {force-rotation false}}]
+  (let [;; Determine if labels need rotation based on bar count
+        needs-rotation (or force-rotation (> data-count 8))
+        bottom-margin (if needs-rotation 120 100)
+        margin {:top 60 :right 40 :bottom bottom-margin :left 80}
+        chart-width (- width (:left margin) (:right margin))
+        chart-height (- height (:top margin) (:bottom margin))
+        bar-width (/ chart-width (max 1 data-count))]
+    
+    {:margin margin
+     :chart-width chart-width
+     :chart-height chart-height
+     :bar-width bar-width
+     :needs-rotation needs-rotation}))
+
+(defn generate-svg-bars
+  "Generate SVG bar elements for charts.
+  
+  Parameters:
+  - values: Vector of bar values (probabilities or counts)
+  - labels: Vector of bar labels
+  - layout: Layout parameters from generate-bar-chart-layout
+  - options: Bar generation options
+    - :max-value - Maximum value for scaling
+    - :value-formatter - Function to format values for display
+    - :tooltip-formatter - Function to format tooltips
+    - :unit-suffix - Unit suffix for values (e.g., '%', 'shots')
+  
+  Returns:
+  Vector of SVG bar group elements"
+  [values labels layout & {:keys [max-value value-formatter tooltip-formatter unit-suffix]
+                           :or {value-formatter identity
+                                tooltip-formatter str
+                                unit-suffix ""}}]
+  (let [{:keys [margin chart-height bar-width needs-rotation]} layout
+        bar-colors (generate-color-palette (count values) :scheme :quantum)]
+
+    (map-indexed
+     (fn [i value]
+       (let [bar-height (* (/ value max-value) chart-height)
+             x (+ (:left margin) (* i bar-width))
+             y (+ (:top margin) (- chart-height bar-height))
+             color (nth bar-colors i)
+             label (nth labels i)
+             tooltip-text (tooltip-formatter label value)
+             value-text (str (value-formatter value) unit-suffix)]
+         [:g {:class "bar-group"}
+          [:rect {:x x :y y
+                  :width (- bar-width 2) :height bar-height
+                  :fill color :opacity 0.8
+                  :stroke "#ffffff" :stroke-width 1}
+           [:title tooltip-text]]
+          [:text {:x (+ x (/ bar-width 2)) :y (+ (:top margin) chart-height 20)
+                  :text-anchor (if needs-rotation "end" "middle")
+                  :font-size "12" :fill "#374151"
+                  :transform (when needs-rotation
+                               (str "rotate(-45 " (+ x (/ bar-width 2)) " " (+ (:top margin) chart-height 20) ")"))}
+           label]
+          [:text {:x (+ x (/ bar-width 2)) :y (- y 5)
+                  :text-anchor "middle" :font-size "10" :fill "#6b7280"}
+           value-text]]))
+     values)))
+
+(defn generate-svg-y-axis
+  "Generate SVG Y-axis with ticks and labels.
+  
+  Parameters:
+  - layout: Layout parameters
+  - max-value: Maximum value for scaling
+  - unit-label: Unit label for axis (e.g., 'Probability (%)', 'Count')
+  - tick-formatter: Function to format tick labels
+  
+  Returns:
+  SVG Y-axis group element"
+  [layout max-value unit-label & {:keys [tick-formatter] :or {tick-formatter str}}]
+  (let [{:keys [margin chart-height]} layout
+        max-display (if (= unit-label "Probability (%)")
+                      (int (Math/ceil (* max-value 100)))
+                      (int (Math/ceil max-value)))
+        tick-step (max (if (= unit-label "Probability (%)")
+                         10
+                         (max 1 (int (/ max-display 5))))
+                       1)
+        y-ticks (range 0 (inc max-display) tick-step)]
+
+    [:g
+     [:line {:x1 (:left margin) :y1 (:top margin)
+             :x2 (:left margin) :y2 (+ (:top margin) chart-height)
+             :stroke "#9ca3af" :stroke-width 1}]
+     (map (fn [tick]
+            (let [normalized-tick (if (= unit-label "Probability (%)")
+                                    (/ tick 100.0)
+                                    tick)
+                  y (+ (:top margin) (- chart-height (* (/ normalized-tick max-value) chart-height)))]
+              [:g
+               [:line {:x1 (- (:left margin) 5) :y1 y :x2 (:left margin) :y2 y
+                       :stroke "#9ca3af" :stroke-width 1}]
+               [:text {:x (- (:left margin) 10) :y (+ y 3)
+                       :text-anchor "end" :font-size "10" :fill "#6b7280"}
+                (tick-formatter tick)]]))
+          y-ticks)]))
+
+(defn generate-svg-chart-labels
+  "Generate SVG chart title and axis labels.
+  
+  Parameters:
+  - width: Chart width
+  - height: Chart height
+  - title: Chart title
+  - y-label: Y-axis label
+  - x-label: X-axis label
+  
+  Returns:
+  Vector of SVG text elements [title y-label x-label]"
+  [width height title y-label x-label]
+  [[:text {:x (/ width 2) :y 25
+           :text-anchor "middle" :font-size "16" :font-weight "bold" :fill "#111827"}
+    title]
+   [:text {:x 20 :y (/ height 2)
+           :text-anchor "middle" :font-size "12" :fill "#374151"
+           :transform (str "rotate(-90 20 " (/ height 2) ")")}
+    y-label]
+   [:text {:x (/ width 2) :y (- height 10)
+           :text-anchor "middle" :font-size "12" :fill "#374151"}
+    x-label]])
+
+(defn generate-svg-x-axis
+  "Generate SVG X-axis line.
+  
+  Parameters:
+  - layout: Layout parameters
+  
+  Returns:
+  SVG line element"
+  [layout]
+  (let [{:keys [margin chart-width chart-height]} layout]
+    [:line {:x1 (:left margin) :y1 (+ (:top margin) chart-height)
+            :x2 (+ (:left margin) chart-width) :y2 (+ (:top margin) chart-height)
+            :stroke "#9ca3af" :stroke-width 1}]))
 
 ;;;
 ;;; SVG Format Implementations
@@ -183,8 +336,6 @@
             :or {gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
 
 (let [n-qubits (:num-qubits circuit)
-      operations (:operations circuit)
-      gates (filter #(not= (:operation-type %) :measure) operations)
       circuit-depth (qc/circuit-depth circuit)
       margin {:top 40 :right 40 :bottom 80 :left 100}
 
@@ -743,6 +894,58 @@
   [_format algorithm-result & options]
   ;; Algorithm summaries are primarily textual, delegate to HTML
   (viz/visualize-algorithm-summary :html algorithm-result options))
+
+(defmethod viz/visualize-measurement-histogram :svg
+  [_format measurements & {:keys [width height threshold max-bars normalize show-percentages]
+                          :or {width 600 height 400 threshold 1 max-bars 16 normalize false show-percentages true}}]
+  (let [;; Use common utilities for data preparation
+        chart-data (common/prepare-measurement-histogram-data measurements
+                                                             :threshold threshold
+                                                             :max-bars max-bars
+                                                             :normalize normalize)
+        counts (:counts chart-data)
+        labels (:labels chart-data)
+        max-count (:max-count chart-data)
+        total-shots (:total-shots chart-data)
+        
+        ;; Generate layout parameters
+        layout (common/generate-bar-chart-layout (count counts) width height)
+        
+        ;; Generate SVG elements using common components
+        bars (common/generate-svg-bars counts labels layout
+                                       :max-value max-count
+                                       :value-formatter identity
+                                       :tooltip-formatter (fn [label count]
+                                                            (str label ": " count " shots"
+                                                                 (when show-percentages
+                                                                   (str " (" (qmath/round-precision 
+                                                                             (* (/ count total-shots) 100) 1) "%)"))))
+                                       :unit-suffix " shots")
+        
+        ;; Y-axis with measurement counts
+        y-axis (common/generate-svg-y-axis layout max-count "Measurement Counts")
+        
+        ;; X-axis line
+        x-axis (common/generate-svg-x-axis layout)
+        
+        ;; Chart labels
+        title (str "Measurement Results (" total-shots " shots)")
+        [title-elem y-label-elem x-label-elem] (common/generate-svg-chart-labels width height title "Measurement Counts" "Basis States")]
+    
+    (str
+     (h/html
+      [:svg {:width width :height height
+             :xmlns "http://www.w3.org/2000/svg"
+             :style "background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"}
+       [:defs
+        [:style "text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }
+                     rect:hover { opacity: 1; stroke-width: 2; }"]]
+       title-elem
+       y-label-elem
+       x-label-elem
+       y-axis
+       x-axis
+       bars]))))
 
 (comment
   ;; REPL examples for SVG visualization

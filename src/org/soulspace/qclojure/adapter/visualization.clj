@@ -105,6 +105,24 @@
   String containing formatted algorithm summary"
   visualization-format)
 
+(defmulti visualize-measurement-histogram
+  "Visualize measurement results as histogram in specified format.
+  
+  Dispatches on format keyword (:ascii, :svg, :html).
+  
+  Parameters:
+  - format: Visualization format (:ascii, :svg, :html)
+  - measurement-results: Map of measurement outcomes to counts
+  - options: Format-specific visualization options
+    - :threshold - Minimum count threshold (default 1)
+    - :max-bars - Maximum number of bars (default 16)
+    - :width, :height - Chart dimensions
+    - :title - Chart title
+  
+  Returns:
+  String containing formatted measurement histogram"
+  visualization-format)
+
 (comment
   ;; REPL examples for both the new unified API and legacy API
   (require '[org.soulspace.qclojure.domain.circuit :as qc])

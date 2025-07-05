@@ -181,6 +181,13 @@
                                :description "Quantum algorithm execution summary"
                                :additional-content html-summary)))
 
+(defmethod viz/visualize-measurement-histogram :html
+  [_format measurements & options]
+  (let [svg-content (apply viz/visualize-measurement-histogram :svg measurements options)]
+    (create-html-page-with-svg [svg-content]
+                                    :title "Measurement Histogram"
+                                    :description "Interactive measurement results histogram")))
+
 
 (comment
   ;; REPL examples for HTML page generation

@@ -11,7 +11,6 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]))
-
 ;;
 ;; Data Extraction and Calculation
 ;;
@@ -191,6 +190,7 @@
   - :labels - Corresponding state labels  
   - :normalized - Normalized probabilities (0-1 scale)
   - :max-probability - Maximum probability value
+  - :indices - Indices of significant probabilities
   - :summary - Summary information"
   [state & {:keys [threshold max-bars normalize]
             :or {threshold 0.001 max-bars 16 normalize true}}]
@@ -220,7 +220,71 @@
      :summary summary}))
 
 ;;
-;; Format-agnostic Styling Helpers
+;; Measurement Histogram Data
+;;
+(defn prepare-measurement-histogram-data
+  "Prepare measurement counts data for histogram bar charts across different formats.
+  
+  This function takes measurement results (counts) and converts them to chart-ready data.
+  
+  Parameters:
+  - measurement-results: Map of measurement outcomes to counts (e.g., {\"000\" 145, \"111\" 155})
+  - options: Chart options
+    :threshold - Minimum count threshold (default 1)
+    :max-bars - Maximum number of bars (default 16)
+    :normalize - Whether to normalize to max count (default true)
+  
+  Returns:
+  Map with chart data:
+  - :counts - Filtered count values
+  - :labels - Corresponding state labels  
+  - :normalized - Normalized counts (0-1 scale)
+  - :max-count - Maximum count value
+  - :total-shots - Total number of measurements
+  - :summary - Summary information"
+  [measurement-results & {:keys [threshold max-bars normalize]
+                          :or {threshold 1 max-bars 16 normalize true}}]
+  (let [;; Guard against invalid input
+        _ (when (or (nil? measurement-results) (not (map? measurement-results)))
+            (throw (ex-info "Invalid measurement results: must be a map" 
+                           {:measurement-results measurement-results})))
+        
+        ;; Extract counts and labels from measurement results
+        sorted-outcomes (sort-by val > measurement-results) ; Sort by count descending
+        filtered-outcomes (->> sorted-outcomes
+                               (filter #(>= (val %) threshold))
+                               (take max-bars))
+        
+        counts (mapv val filtered-outcomes)
+        labels (mapv key filtered-outcomes)
+        
+        ;; Calculate statistics
+        max-count (if (empty? counts) 1 (apply max counts))
+        total-shots (reduce + (vals measurement-results))
+        
+        ;; Normalize if requested
+        normalized (when normalize
+                     (mapv #(if (zero? max-count) 0 (/ % max-count)) counts))
+        
+        ;; Generate basis labels with ket notation
+        ket-labels (mapv #(str "|" % "⟩") labels)
+        
+        ;; Summary information
+        summary {:total-shots total-shots
+                 :num-outcomes (count measurement-results)
+                 :num-shown (count counts)
+                 :num-hidden (- (count measurement-results) (count counts))
+                 :percentage-shown (* 100.0 (/ (reduce + counts) total-shots))}]
+    
+    {:counts counts
+     :labels ket-labels
+     :normalized normalized
+     :max-count max-count
+     :total-shots total-shots
+     :summary summary}))
+
+;;
+;; Color Palette Generation
 ;;
 (defn generate-color-palette
   "Generate color palette for quantum visualizations.
@@ -237,29 +301,6 @@
                       :rainbow ["#ff0000" "#ff7f00" "#ffff00" "#00ff00" "#0000ff" "#4b0082" "#9400d3"]
                       :monochrome ["#6b7280"])]
     (vec (take n-colors (cycle base-colors)))))
-
-(defn calculate-bar-dimensions
-  "Calculate bar dimensions for different chart formats.
-  
-  Parameters:
-  - chart-data: Result from prepare-bar-chart-data
-  - total-width: Total available width
-  - total-height: Total available height
-  
-  Returns:
-  Map with dimension calculations for bars"
-  [chart-data total-width total-height]
-  (let [n-bars (count (:probabilities chart-data))
-        bar-spacing (max 2 (/ total-width (* n-bars 20)))
-        bar-width (max 10 (/ (- total-width (* bar-spacing (inc n-bars))) n-bars))
-        max-bar-height (* total-height 0.8)]
-    
-    {:bar-count n-bars
-     :bar-width bar-width
-     :bar-spacing bar-spacing
-     :max-bar-height max-bar-height
-     :chart-area-width (- total-width (* bar-spacing 2))
-     :chart-area-height max-bar-height}))
 
 ;;
 ;; Bloch Sphere Common Utilities

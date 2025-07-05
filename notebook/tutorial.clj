@@ -220,20 +220,22 @@ qs/|00⟩
 ;; The [Pauli gates](https://en.wikipedia.org/wiki/Pauli_matrices) are a set of
 ;; quantum gates that can be applied to single qubits.
 ;; 
-;; The Pauli-X gate is a quantum gate that flips the state of a qubit.
+;; The Pauli-X gate is a quantum gate that flips the state of a qubit around
+;; the X axis which swaps the amplitudes of |0⟩ and |1⟩.
 
 qg/pauli-x
 
-;; The Pauli-Y gate is a quantum gate that flips the state of a qubit and adds
-;; a phase.
+;; The Pauli-Y gate is a quantum gate that flips the state of a qubit around
+;; the Y axis which swaps the amplitudes of |0⟩ and |1⟩ and also adds a phase.
 
 qg/pauli-y
 
-;; The Pauli-Z gate is a quantum gate that adds a phase to the state of a qubit.
+;; The Pauli-Z gate is a quantum gate that flips the state of a qubit around
+;; the Y axis which adds a phase to the state of a qubit.
 
 qg/pauli-z
 
-;; The Pauli gates are self inverse, applying the same gate twice gives results
+;; The Pauli gates are self inverse, applying the same gate twice results
 ;; in the original value.
 ;;
 ;; ### Hadamard Gate

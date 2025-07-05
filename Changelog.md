@@ -1,5 +1,11 @@
 # Changelog
 
+## Version (NEXT)
+* improved x-axis label placement in bar charts
+* improved color palette generation
+* aligned return value of the HHL algorithm with other algorithms
+* enhanced tutorial
+
 ## Version 0.7.0
 * added error mitigation strategies
   * readout error mitigation

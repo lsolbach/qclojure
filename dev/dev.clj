@@ -4,10 +4,12 @@
 (comment ; Clay 
   (clay/make! {:base-source-path "notebook"
                :source-path ["tutorial.clj"]
+               :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
+                             :branch "main"}
                :format [:html]
-               :title "QClojure Docs"
+               :title "QClojure Tutorial"
                :hide-ui-header true
-               :hide-info-line true
+               :hide-info-line false
                ;:live-reload true
                :browse true})
   ;

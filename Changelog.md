@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.7.0
 * added error mitigation strategies
   * readout error mitigation
   * zero noise extrapolation

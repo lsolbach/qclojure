@@ -232,10 +232,11 @@
   Returns:
   Vector of color codes (format depends on target: hex for web, ANSI for terminal)"
   [n-colors & {:keys [scheme] :or {scheme :quantum}}]
-  (case scheme
-    :quantum ["#7c3aed" "#3b82f6" "#10b981" "#f59e0b" "#ef4444" "#8b5cf6" "#06b6d4" "#84cc16"]
-    :rainbow (take n-colors ["#ff0000" "#ff7f00" "#ffff00" "#00ff00" "#0000ff" "#4b0082" "#9400d3"])
-    :monochrome (take n-colors (repeat "#6b7280"))))
+  (let [base-colors (case scheme
+                      :quantum ["#7c3aed" "#3b82f6" "#10b981" "#f59e0b" "#ef4444" "#8b5cf6" "#06b6d4" "#84cc16"]
+                      :rainbow ["#ff0000" "#ff7f00" "#ffff00" "#00ff00" "#0000ff" "#4b0082" "#9400d3"]
+                      :monochrome ["#6b7280"])]
+    (vec (take n-colors (cycle base-colors)))))
 
 (defn calculate-bar-dimensions
   "Calculate bar dimensions for different chart formats.

@@ -493,6 +493,7 @@
   
   ;; Examine results
   (:success hhl-result)
+  (:result hhl-result)
   (:condition-number hhl-result)
   (:precision-qubits hhl-result)
   

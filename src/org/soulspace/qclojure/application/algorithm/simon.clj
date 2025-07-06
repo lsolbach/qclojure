@@ -405,16 +405,7 @@
       :complexity {:classical "O(2^(n/2))"
                    :quantum "O(n)"
                    :speedup "Exponential"}
-      :circuit {:name "Simon's Algorithm"
-                :description (str "Find hidden period of length " n-qubits)
-                :qubits (* 2 n-qubits)  ; Input and output registers
-                :operations ["Initialize |0⟩ⁿ|0⟩ⁿ"
-                             "Apply H to input register"
-                             "Apply oracle Uf"
-                             "Measure output register"
-                             "Apply H to input register"
-                             "Measure input register"
-                             "Repeat and solve linear system over GF(2)"]}})))
+      :circuit circuit})))
 
 ;; Legacy function for backward compatibility - delegates to new implementation
 (defn simon-algorithm-legacy

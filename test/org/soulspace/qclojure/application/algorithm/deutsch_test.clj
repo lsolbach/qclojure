@@ -37,9 +37,7 @@
     (let [simulator (sim/create-simulator)
           result (deutsch/deutsch-algorithm simulator identity)]
       (is (contains? result :circuit))
-      (is (contains? result :execution-result))
-      (is (contains? result :oracle-function))
-      (is (fn? (:oracle-function result))))))
+      (is (contains? result :execution-result)))))
 
 ;; Property-based tests using test.check
 (def deutsch-algorithm-deterministic

@@ -19,17 +19,15 @@
           test-hidden-string (fn [s]
                                (let [result (bv/bernstein-vazirani-algorithm (sim/create-simulator) s)]
                                  (is (= (:hidden-string result) s))
-                                 (is (contains? result :success))
-                                 (is (contains? result :algorithm))
-                                 (is (= (:algorithm result) "Bernstein-Vazirani"))))]
+                                 (is (contains? result :success))))]
       (doseq [s hidden-strings]
         (test-hidden-string s))))
   
   (testing "BV algorithm includes circuit information"
     (let [result (bv/bernstein-vazirani-algorithm (sim/create-simulator) [1 0 1])]
       (is (contains? result :circuit))
-      (is (= (get-in result [:circuit :name]) "Bernstein-Vazirani"))
-      (is (contains? (:circuit result) :qubits))
+      (is (= (get-in result [:circuit :name]) "Bernstein-Vazirani Algorithm"))
+      (is (contains? (:circuit result) :num-qubits))
       (is (contains? (:circuit result) :operations)))))
 
 ;; Property-based tests using test.check

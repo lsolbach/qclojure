@@ -145,7 +145,6 @@
       :measurement-outcome measurement-outcome
       :circuit circuit
       :execution-result execution-result
-      :oracle-function oracle-fn
       :measurement-statistics {:outcome-0-count outcome-0-count
                                :outcome-1-count outcome-1-count
                                :total-shots total-shots}})))

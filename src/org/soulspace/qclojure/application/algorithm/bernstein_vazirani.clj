@@ -129,17 +129,8 @@
         success (= measured-bits hidden-string)]
     
     {:result measured-bits
-     :hidden-string hidden-string
      :success success
-     :final-state (:final-state execution-result)
+     :hidden-string hidden-string
      :execution-result execution-result
-     :algorithm "Bernstein-Vazirani"
-     :circuit {:name "Bernstein-Vazirani"
-               :description (str "Find hidden " n "-bit string")
-               :qubits (inc n)
-               :operations ["Initialize |0⟩^⊗n|1⟩"
-                           "Apply Hadamard to all qubits"
-                           "Apply oracle f(x) = s·x"
-                           "Apply Hadamard to input qubits"
-                           "Measure input qubits"]}})))
+     :circuit circuit})))
 

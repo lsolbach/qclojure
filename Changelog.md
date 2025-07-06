@@ -3,7 +3,11 @@
 ## Version (NEXT)
 * improved x-axis label placement in bar charts
 * improved color palette generation
-* aligned return value of the HHL algorithm with other algorithms
+* aligned return value of algorithms to include
+  * success
+  * result
+  * execution result
+  * circuit
 * fixed bugs in grover algorithm
 * enhanced tutorial
 

@@ -44,7 +44,7 @@
   - :success - Boolean indicating if factorization succeeded
   - :N - The input number
   - :attempts - Vector of maps describing each attempt with different 'a' values
-  - :quantum-circuit - The quantum circuit from the successful attempt (if any)
+  - :circuit - The quantum circuit from the successful attempt (if any)
   - :statistics - Performance statistics and confidence metrics
   
   Example:
@@ -108,6 +108,7 @@
                    (empty? remaining-values))
              ;; Failed to find factors or exhausted all values
              {:factors []
+              :result []
               :success false
               :N N
               :attempts @attempts
@@ -127,6 +128,7 @@
                  (do
                    (swap! attempts conj {:a a :gcd gcd-a-N :method :classical-gcd})
                    {:factors [gcd-a-N (/ N gcd-a-N)]
+                    :result [gcd-a-N (/ N gcd-a-N)]
                     :success true
                     :N N
                     :attempts @attempts
@@ -153,10 +155,11 @@
                          ;; First factor is valid
                          (and (> factor1 1) (< factor1 N))
                          {:factors [factor1 (/ N factor1)]
+                          :result [factor1 (/ N factor1)]
                           :success true
                           :N N
                           :attempts @attempts
-                          :quantum-circuit (:circuit period-result)
+                          :circuit (:circuit period-result)
                           :method :quantum-period-finding
                           :statistics {:runtime (- (System/currentTimeMillis) start-time)
                                        :attempts (inc attempt)
@@ -167,10 +170,11 @@
                          ;; Second factor is valid 
                          (and (> factor2 1) (< factor2 N))
                          {:factors [factor2 (/ N factor2)]
+                          :result [factor2 (/ N factor2)]
                           :success true
                           :N N
                           :attempts @attempts
-                          :quantum-circuit (:circuit period-result)
+                          :circuit (:circuit period-result)
                           :method :quantum-period-finding
                           :statistics {:runtime (- (System/currentTimeMillis) start-time)
                                        :attempts (inc attempt)
@@ -248,6 +252,7 @@
        (let [result (factor-completely N [])
              end-time (System/currentTimeMillis)]
          {:prime-factors (sort (:factors result))
+          :result (sort (:factors result))
           :success (seq (:factors result))
           :N N
           :factorization-tree (:tree result)

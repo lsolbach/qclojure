@@ -62,7 +62,7 @@
                                 tooltip-formatter str
                                 unit-suffix ""}}]
   (let [{:keys [margin chart-height bar-width needs-rotation]} layout
-        bar-colors (generate-color-palette (count values) :scheme :quantum)]
+        bar-colors (common/generate-color-palette (count values) :scheme :quantum)]
 
     (map-indexed
      (fn [i value]
@@ -909,10 +909,10 @@
         total-shots (:total-shots chart-data)
         
         ;; Generate layout parameters
-        layout (common/generate-bar-chart-layout (count counts) width height)
+        layout (generate-bar-chart-layout (count counts) width height)
         
         ;; Generate SVG elements using common components
-        bars (common/generate-svg-bars counts labels layout
+        bars (generate-svg-bars counts labels layout
                                        :max-value max-count
                                        :value-formatter identity
                                        :tooltip-formatter (fn [label count]
@@ -923,14 +923,14 @@
                                        :unit-suffix " shots")
         
         ;; Y-axis with measurement counts
-        y-axis (common/generate-svg-y-axis layout max-count "Measurement Counts")
+        y-axis (generate-svg-y-axis layout max-count "Measurement Counts")
         
         ;; X-axis line
-        x-axis (common/generate-svg-x-axis layout)
+        x-axis (generate-svg-x-axis layout)
         
         ;; Chart labels
         title (str "Measurement Results (" total-shots " shots)")
-        [title-elem y-label-elem x-label-elem] (common/generate-svg-chart-labels width height title "Measurement Counts" "Basis States")]
+        [title-elem y-label-elem x-label-elem] (generate-svg-chart-labels width height title "Measurement Counts" "Basis States")]
     
     (str
      (h/html

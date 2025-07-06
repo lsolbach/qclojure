@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.8.0
 * improved x-axis label placement in bar charts
 * improved color palette generation
 * aligned return value of algorithms to include

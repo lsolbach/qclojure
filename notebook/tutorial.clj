@@ -490,10 +490,10 @@ lagos-50-result
 
 lagos-10k-result
 
-(kind/html (viz/visualize-quantum-state :svg (:final-state lagos-10k-result)))
-
 ;; With 10000 shots, the difference of the counts of the correct answers
 ;; and the counts of the wrong anwsers should be quite significant.
+
+(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result)))
 
 ;; We can also use the noisy simulator with a different noise profile,
 ;; e.g. for an IonQ Forte quantum computer.
@@ -504,14 +504,18 @@ lagos-10k-result
 
 (def forte-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ionq-forte)))
 
-;; We now execute the GHZ circuit on this simulator with 10240 shots and
+;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.
 
-(qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10240})
+(def forte-10k-result (qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10000}))
+
+forte-10k-result
 
 ;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 ;; distinctly lower noise and thus a higher count for the correct answers.
-;;
+
+(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
+
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used
 ;; to solve specific problems.

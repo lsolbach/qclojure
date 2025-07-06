@@ -129,7 +129,7 @@
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should handle all-targets case")
-      (is (= 1 (:probability result)) "Success probability should be 100%")
+      (is (== 1 (:probability result)) "Success probability should be 100%")
       (is (= [0 1 2 3] (:target-indices result)) "All indices should be targets")))
 
   (testing "No targets exist"
@@ -141,7 +141,7 @@
           result (grover/grover-algorithm backend search-space-size oracle-fn {:shots 1024})]
 
       (is (:result result) "Algorithm should return some result even with no targets")
-      (is (= 0 (:probability result)) "Success probability should be 0%")
+      (is (== 0 (:probability result)) "Success probability should be 0%")
       (is (empty? (:target-indices result)) "No indices should be targets"))))
 
 (deftest test-grover-algorithm-measurement-statistics

@@ -34,40 +34,6 @@
 ;;;
 ;;; Grover's Search Algorithm
 ;;;
-#_(defn multi-controlled-z
-  "Apply a multi-controlled Z gate to flip the phase of |11...1⟩ state.
-  
-  Parameters:
-  - circuit: Quantum circuit to add the gate to
-  - control-qubits: Vector of control qubit indices
-  - target: Index of target qubit
-  
-  Returns:
-  Updated quantum circuit with multi-controlled Z gate"
-  [circuit control-qubits target]
-  (case (count control-qubits)
-    0 (qc/z-gate circuit target)
-    1 (qc/cz-gate circuit (first control-qubits) target)
-    2 ;; For 2 controls, we can use decomposition with Toffoli and single-qubit gates
-    (let [c1 (first control-qubits)
-          c2 (second control-qubits)]
-      ;; Decompose CCZ using Toffoli: CCZ = CZ(c2,t) CNOT(c1,c2) CZ(c2,t) CNOT(c1,c2) CZ(c1,t)
-      (-> circuit
-          (qc/cz-gate c1 target)
-          (qc/cnot-gate c1 c2)
-          (qc/cz-gate c2 target)
-          (qc/cnot-gate c1 c2)
-          (qc/cz-gate c2 target)))
-    ;; For more controls, use recursive decomposition
-    (let [aux-qubit (dec (+ (apply max control-qubits) 1)) ; simplified auxiliary qubit selection
-          [c1 & rest-controls] control-qubits]
-      (-> circuit
-          (multi-controlled-z rest-controls aux-qubit)
-          (qc/cnot-gate c1 aux-qubit)
-          (multi-controlled-z rest-controls aux-qubit)
-          (qc/cnot-gate c1 aux-qubit)
-          (qc/cz-gate c1 target)))))
-
 (defn multi-controlled-z
   "Apply a multi-controlled Z gate to flip the phase of |11...1⟩ state.
   
@@ -96,7 +62,7 @@
 
       3 ;; CCCZ using a working 3-control decomposition without auxiliary qubits
       (let [c1 (nth control-qubits 0)
-            c2 (nth control-qubits 1) 
+            c2 (nth control-qubits 1)
             c3 (nth control-qubits 2)]
         ;; Use a reliable decomposition for 3-control Z gate
         ;; This implementation ensures phase flip ONLY when all controls are |1⟩
@@ -172,9 +138,9 @@
                         ;; Step 1: Apply X gates to qubits that should be |0⟩
                         ((fn [circuit]
                            (reduce (fn [c qubit-idx]
-                                     (if (bits qubit-idx)
-                                       c  ; Qubit should be |1⟩, leave unchanged
-                                       (qc/x-gate c qubit-idx)))  ; Qubit should be |0⟩, flip it
+                                     (if (zero? (bits qubit-idx))
+                                       (qc/x-gate c qubit-idx)  ; Qubit should be |0⟩, flip it
+                                       c))  ; Qubit should be |1⟩, leave unchanged
                                    circuit
                                    (range n-qubits))))
                         ;; Step 2: Apply multi-controlled Z gate (all qubits now |1⟩ for target state)
@@ -189,9 +155,9 @@
                         ;; Step 3: Apply X gates again to flip back
                         ((fn [circuit]
                            (reduce (fn [c qubit-idx]
-                                     (if (bits qubit-idx)
-                                       c  ; Qubit should be |1⟩, leave unchanged
-                                       (qc/x-gate c qubit-idx)))  ; Qubit should be |0⟩, flip it back
+                                     (if (zero? (bits qubit-idx))
+                                       (qc/x-gate c qubit-idx)  ; Qubit should be |0⟩, flip it back
+                                       c))  ; Qubit should be |1⟩, leave unchanged
                                    circuit
                                    (range n-qubits)))))))
                 circuit
@@ -267,14 +233,14 @@
    {:pre [(pos-int? n-qubits)
           (fn? oracle-fn)
           (pos-int? iterations)]}
-   
+
    (let [search-space-size (bit-shift-left 1 n-qubits)
          add-measurements? (get options :add-measurements? false)
          oracle-circuit-fn (add-oracle-fn oracle-fn n-qubits)
          diffusion-circuit-fn (grover-diffusion-circuit n-qubits)]
-     
+
      (-> (qc/create-circuit n-qubits "Grover Search"
-                           (str "Search " search-space-size " items using " iterations " iterations"))
+                            (str "Search " search-space-size " items using " iterations " iterations"))
          ;; Step 1: Initialize uniform superposition |+⟩^⊗n
          ((fn [c]
             (reduce (fn [circuit qubit-idx]
@@ -307,7 +273,24 @@
                         :org.soulspace.qclojure.application.algorithms/circuit
                         :org.soulspace.qclojure.application.algorithms/execution-result]))
 
-; TODO use backend and circuit functions
+(defn optimal-grover-iterations
+  "Calculate the optimal number of iterations for Grover's algorithm.
+  
+  For N items with M marked items, optimal iterations ≈ π√(N/M)/4
+  Special case: when M=0 (no targets), returns 0 iterations
+  
+  Parameters:
+  - N: Total number of items in search space
+  - M: Number of marked (target) items
+  
+  Returns:
+  Optimal number of iterations (integer)"
+  [N M]
+  {:pre [(pos-int? N) (>= M 0) (<= M N)]}
+  (if (zero? M)
+    0  ; No targets - no iterations needed
+    (max 1 (int (* (/ m/PI 4) (m/sqrt (/ N M)))))))
+
 (defn grover-algorithm
   "Implement Grover's search algorithm.
   
@@ -350,64 +333,62 @@
 
    (let [n-qubits (m/log2int search-space-size)
 
-         ;; Calculate optimal number of iterations: π√N/4
-         n-iterations (max 1 (int (* (/ m/PI 4) (m/sqrt search-space-size))))
-
-         ;; Build the complete quantum circuit with measurements
-         circuit (grover-circuit n-qubits oracle-fn n-iterations {:add-measurements? true})
-
-         ;; Execute circuit on backend
-         execution-result (qb/execute-circuit backend circuit options)
-
-         ;; Extract measurement results and determine outcome
-         measurements (:measurement-results execution-result)
-         
-         ;; Calculate target indices for analysis
+         ;; Calculate target indices for optimal iteration count
          target-indices (filter oracle-fn (range search-space-size))
-         
-         ;; Analyze measurement outcomes to find most likely result
-         ;; Convert measurement strings to integers and find most frequent
-         outcome-counts (into {} 
-                             (map (fn [[outcome-str count]]
-                                    [(Integer/parseInt outcome-str 2) count])
-                                  measurements))
-         
-         total-shots (reduce + (vals outcome-counts))
-         
-         ;; Find the most likely measurement outcome
-         most-likely-outcome (first (apply max-key second outcome-counts))
-         
-         ;; Calculate success probability (probability of measuring a target state)
-         target-counts (reduce + (map #(get outcome-counts % 0) target-indices))
-         success-probability (/ target-counts total-shots)]
+         n-targets (count target-indices)
 
-     {:result most-likely-outcome
-      :probability success-probability
-      :iterations n-iterations
-      :circuit circuit
-      :execution-result execution-result
-      :target-indices target-indices
-      :search-space-size search-space-size
-      :oracle-function oracle-fn
-      :measurement-statistics {:outcome-counts outcome-counts
-                               :target-counts target-counts
-                               :total-shots total-shots
-                               :success-probability success-probability}})))
+         ;; Calculate optimal number of iterations: π√(N/M)/4 where M is number of targets
+         n-iterations (optimal-grover-iterations search-space-size n-targets)]
 
-(defn optimal-grover-iterations
-  "Calculate the optimal number of iterations for Grover's algorithm.
-  
-  For N items with M marked items, optimal iterations ≈ π√(N/M)/4
-  
-  Parameters:
-  - N: Total number of items in search space
-  - M: Number of marked (target) items
-  
-  Returns:
-  Optimal number of iterations (integer)"
-  [N M]
-  {:pre [(pos-int? N) (pos-int? M) (<= M N)]}
-  (max 1 (int (* (/ m/PI 4) (m/sqrt (/ N M))))))
+     (if (> n-iterations 0)
+       (let [;; Build the complete quantum circuit with measurements
+             circuit (grover-circuit n-qubits oracle-fn n-iterations {:add-measurements? true})
+
+             ;; Execute circuit on backend
+             execution-result (qb/execute-circuit backend circuit options)
+
+             ;; Extract measurement results and determine outcome
+             measurements (:measurement-results execution-result)
+
+             ;; Use pre-calculated target indices for analysis
+
+             ;; Analyze measurement outcomes to find most likely result
+             ;; Convert measurement strings to integers and find most frequent
+             outcome-counts (into {}
+                                  (map (fn [[outcome-str count]]
+                                         [(Integer/parseInt outcome-str 2) count])
+                                       measurements))
+
+             total-shots (reduce + (vals outcome-counts))
+
+             ;; Find the most likely measurement outcome
+             most-likely-outcome (first (apply max-key second outcome-counts))
+
+             ;; Calculate success probability (probability of measuring a target state)
+             target-counts (reduce + (map #(get outcome-counts % 0) target-indices))
+             success-probability (/ target-counts total-shots)]
+         {:success true
+          :result most-likely-outcome
+          :probability success-probability
+          :iterations n-iterations
+          :circuit circuit
+          :execution-result execution-result
+          :target-indices target-indices
+          :search-space-size search-space-size
+          :measurement-statistics {:outcome-counts outcome-counts
+                                   :target-counts target-counts
+                                   :total-shots total-shots
+                                   :success-probability success-probability}})
+       {:success true
+        :result []
+        :probability 0.0
+        :iterations 0
+        :target-indices []
+        :search-space-size search-space-size
+        :measurement-statistics {:outcome-counts {}
+                                 :target-counts 0
+                                 :total-shots 0
+                                 :success-probability 0.0}}))))
 
 ;;;
 ;;; Oracle Functions
@@ -429,15 +410,3 @@
   [state-index]
   (even? state-index))
 
-(comment
-  (let [circuit (-> (qc/create-circuit 4 "Test Circuit")
-                    (qc/x-gate 0)
-                    (qc/x-gate 1)
-                    (qc/x-gate 2)
-                    (qc/toffoli-gate 1 2 3)
-                    (multi-controlled-z [0 1 2] 3)
-                    ;
-                    )]
-    (qc/execute-circuit circuit (qs/zero-state 4)))
-  ;
-  )

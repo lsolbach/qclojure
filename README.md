@@ -159,7 +159,6 @@ lein test
 ```
 
 ## Known Issues
-* Grover algorithm doesn't use the provided backend
 * Error handling on backend failure missing, e.g. timeouts on Shor algorithm
 
 ## Copyright

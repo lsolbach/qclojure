@@ -4,6 +4,7 @@
 * improved x-axis label placement in bar charts
 * improved color palette generation
 * aligned return value of the HHL algorithm with other algorithms
+* fixed bugs in grover algorithm
 * enhanced tutorial
 
 ## Version 0.7.0

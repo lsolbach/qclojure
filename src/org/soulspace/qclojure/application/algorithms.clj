@@ -4,6 +4,7 @@
 
 ;; Specs for algorithm inputs and outputs
 (s/def ::oracle-function fn?)
-(s/def ::search-items (s/coll-of any?))
-(s/def ::algorithm-result (s/keys :req-un [::result ::measurements ::circuit]))
-
+(s/def ::success boolean?)
+(s/def ::algorithm-result
+  (s/keys :req-un [::success]
+          :opt-un [::result ::execution-result ::circuit]))

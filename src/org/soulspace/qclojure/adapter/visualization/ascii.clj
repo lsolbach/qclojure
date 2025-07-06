@@ -283,10 +283,10 @@
          (:legend display-data) "\n"
          distance-text)))
 
-(def gate-symbols
+(defn gate-symbols
   "Map of gate types to their ASCII symbols.
-  
   Used for circuit diagram visualization."
+  []
   {:x "X" :y "Y" :z "Z" :h "H" :s "S" :t "T"
    :s-dag "S†" :t-dag "T†"
    :cnot "●" :cx "●" :cy "●" :cz "●"
@@ -294,7 +294,12 @@
    :rx "RX" :ry "RY" :rz "RZ" :phase "P"
    :crx "●" :cry "●" :crz "●"
    :swap "×" :iswap "i×"
-   :toffoli "●●" :fredkin "●×"})
+   :toffoli "●●" :fredkin "●×"
+   ;; Rydberg gates
+   :rydberg-cz "R●" :rydberg-cphase "R●" :rydberg-blockade "RB"
+   ;; Global gates
+   :global-x "GX" :global-y "GY" :global-z "GZ" :global-h "GH"
+   :global-rx "GRX" :global-ry "GRY" :global-rz "GRZ"})
 
 (defn add-gate-to-lines
   "Helper function to add a gate to the ASCII circuit lines.
@@ -489,19 +494,7 @@
         max-layer (if (empty? gates-by-layer) 0 (apply max (keys gates-by-layer)))
 
         ;; Gate symbols
-        gate-symbols {:x "X" :y "Y" :z "Z" :h "H" :s "S" :t "T"
-                      :s-dag "S†" :t-dag "T†" 
-                      :cnot "●" :cx "●" :cy "●" :cz "●" 
-                      :target "⊕" 
-                      :rx "RX" :ry "RY" :rz "RZ" :phase "P"
-                      :crx "●" :cry "●" :crz "●" 
-                      :swap "×" :iswap "i×" 
-                      :toffoli "●●" :fredkin "●×"
-                      ;; Rydberg gates
-                      :rydberg-cz "R●" :rydberg-cphase "R●" :rydberg-blockade "RB"
-                      ;; Global gates
-                      :global-x "GX" :global-y "GY" :global-z "GZ" :global-h "GH"
-                      :global-rx "GRX" :global-ry "GRY" :global-rz "GRZ"}
+        gate-symbols (gate-symbols)
 
         ;; Build circuit as a grid (qubit x layer)
         ;; Each cell contains the gate symbol or connection info

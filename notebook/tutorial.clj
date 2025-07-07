@@ -453,6 +453,28 @@ qg/t-dag-gate
 (qb/execute-circuit simulator (qc/ghz-state-circuit 3) {:shots 10})
 
 ;; ### Noisy Simulator Backend
+;; Real quantum hardware is subject to various kinds of noise, which can
+;; affect the results of quantum computations. The noisy simulator backend
+;; simulates a quantum computer with noise, allowing us to study the effects of
+;; noise on quantum circuits.
+;;
+;; The noisy simulator backend simulates these kinds of noise:
+;; * depolarizing noise is a type of noise that randomly flips the state of a
+;;   qubit with a certain probability.
+;; * amplitude damping noise is a type of noise that causes the state of a
+;;   qubit to decay over time with a certain probability.
+;; * bit flip noise is a type of noise that flips the state of a qubit from
+;;   |0⟩ to |1⟩ or from |1⟩ to |0⟩ with a certain probability.
+;; * phase flip noise is a type of noise that flips the phase of the state of
+;;   a qubit from |0⟩ to |1⟩ or from |1⟩ to |0⟩ with a certain probability.
+;; * readout noise is a type of noise that affects the measurement of the
+;;   state of a qubit, causing the measured value to be incorrect with a
+;;   certain probability.
+;;
+;; The noisy simulator backend applies the noise to the quantum states
+;; and gates in the circuit, simulating the effects of noise on the quantum
+;; computation.
+;;
 ;; Let's try the noisy simulator first by requiring the `noisy-similator` namespace.
 
 (require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])

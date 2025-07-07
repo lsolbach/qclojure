@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* updated tutorial
+
 ## Version 0.8.0
 * improved x-axis label placement in bar charts
 * improved color palette generation

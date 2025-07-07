@@ -1,9 +1,9 @@
 # TODOs
 
 ## Next steps
+* integrate error mitigation in the noisy simulator
 * handle backend job failures in algorithms
 * optimize shor's algorithm implementation and quantum period finding
-* check grover algorithm
 
 ## Backlog
 * use :operation-registry/operation-id instead of ::operation-type in circuit

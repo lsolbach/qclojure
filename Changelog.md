@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* added heavy-hex-topology (up to 127 qubits)
 * updated tutorial
 
 ## Version 0.8.0

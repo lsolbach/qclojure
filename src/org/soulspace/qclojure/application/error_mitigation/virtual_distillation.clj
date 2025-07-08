@@ -1,8 +1,7 @@
 (ns org.soulspace.qclojure.application.error-mitigation.virtual-distillation
   "Virtual distillation for error mitigation in quantum circuits."
   (:require [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.util.math :as math]))
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;;;
 ;;; Virtual Distillation

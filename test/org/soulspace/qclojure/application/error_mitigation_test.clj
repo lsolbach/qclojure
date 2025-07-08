@@ -22,7 +22,6 @@
   {:noise-model test-noise-model
    :supported-gates #{:h :x :z :cnot}})
 
-
 ;; Tests for circuit analysis
 (deftest test-circuit-analysis
   (testing "Circuit noise profile analysis"

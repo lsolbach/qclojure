@@ -21,6 +21,8 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.application.noise :as noise]
+            [org.soulspace.qclojure.application.error-mitigation.readout-error :as rem]
+            [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
             [org.soulspace.qclojure.application.backend :as qb]))
 
 ;;
@@ -104,7 +106,6 @@
 ;;
 ;; Utility Functions
 ;;
-
 (defn get-strategy-info
   "Get metadata information about a mitigation strategy."
   [strategy]
@@ -114,297 +115,6 @@
   "List all available error mitigation strategies with their metadata."
   []
   strategy-metadata)
-
-;;
-;; Readout Error Mitigation
-;;
-
-(defn create-single-qubit-readout-matrix
-  "Create readout error matrix for a single qubit.
-  
-  Returns 2x2 matrix where element (i,j) = P(measure i | prepared j)."
-  [readout-errors]
-  (let [prob-0-to-1 (:prob-0-to-1 readout-errors) ; P(measure 1 | prepared 0)
-        prob-1-to-0 (:prob-1-to-0 readout-errors) ; P(measure 0 | prepared 1)
-        p00 (- 1.0 prob-0-to-1) ; P(measure 0 | prepared 0)
-        p01 prob-1-to-0         ; P(measure 0 | prepared 1)
-        p10 prob-0-to-1         ; P(measure 1 | prepared 0)
-        p11 (- 1.0 prob-1-to-0)] ; P(measure 1 | prepared 1)
-    [[p00 p10]
-     [p01 p11]]))
-
-(defn create-calibration-matrix
-  "Create calibration matrix from readout error characterization.
-  
-  For n qubits, this creates a 2^n x 2^n matrix where element (i,j)
-  represents P(measure state i | prepared state j).
-  
-  Uses tensor product to properly construct multi-qubit calibration matrices."
-  [num-qubits readout-errors]
-  {:pre [(pos-int? num-qubits) (<= num-qubits 10)]} ; Reasonable limit for memory
-  (let [single-qubit-matrix (create-single-qubit-readout-matrix readout-errors)]
-    (if (= num-qubits 1)
-      single-qubit-matrix
-      ;; Compute tensor product iteratively for multi-qubit systems
-      (reduce (fn [acc-matrix _]
-                (qmath/tensor-product acc-matrix single-qubit-matrix))
-              single-qubit-matrix
-              (range (dec num-qubits))))))
-
-(defn generate-state-labels
-  "Generate binary state labels for n qubits.
-  
-  Returns vector of strings like ['00', '01', '10', '11'] for 2 qubits."
-  [num-qubits]
-  (if (<= num-qubits 6) ; Reasonable limit for explicit enumeration
-    (let [num-states (int (Math/pow 2 num-qubits))]
-      (mapv (fn [i]
-              (let [binary-str (Integer/toBinaryString i)
-                    padded-str (str (apply str (repeat (- num-qubits (count binary-str)) "0")) binary-str)]
-                padded-str))
-            (range num-states)))
-    (throw (ex-info "Too many qubits for explicit state enumeration" {:num-qubits num-qubits}))))
-
-(defn mitigate-readout-errors
-  "Apply readout error mitigation using calibration matrix.
-  
-  This inverts the effect of readout errors by solving the linear system:
-  measured_counts = calibration_matrix * true_counts
-  
-  Production implementation supports arbitrary number of qubits using proper matrix inversion."
-  [measured-counts calibration-matrix num-qubits]
-  (let [num-states (count calibration-matrix)
-        total-shots (reduce + (vals measured-counts))
-        
-        ;; Generate proper state labels
-        state-keys (generate-state-labels num-qubits)
-        
-        ;; Convert counts to probability distribution vector in correct order
-        measured-probs (mapv #(/ (double (get measured-counts % 0)) 
-                                 (double total-shots)) 
-                             state-keys)
-        
-        ;; Solve the linear system: C * true_probs = measured_probs
-        ;; where C is the calibration matrix
-        corrected-probs (try
-                          (qmath/solve-linear-system calibration-matrix measured-probs)
-                          (catch Exception e
-                            (println "Matrix inversion failed, using measured probabilities:" (.getMessage e))
-                            measured-probs))
-        
-        ;; Ensure probabilities are non-negative and normalized
-        clipped-probs (mapv #(max 0.0 %) corrected-probs)
-        prob-sum (reduce + clipped-probs)
-        normalized-probs (if (> prob-sum 1e-10)
-                           (mapv #(/ % prob-sum) clipped-probs)
-                           measured-probs)
-        
-        ;; Convert back to counts
-        corrected-counts (zipmap state-keys
-                                 (mapv #(max 0 (int (* % total-shots))) 
-                                       normalized-probs))
-        
-        ;; Calculate improvement based on fidelity improvement 
-        ;; Use first state as target for demonstration (could be customized)
-        target-state (first state-keys)
-        ideal-fidelity 0.95  ; Assume high fidelity target
-        measured-fidelity (/ (double (get measured-counts target-state 0)) total-shots)
-        corrected-fidelity (/ (double (get corrected-counts target-state 0)) total-shots)
-        error-before (Math/abs (- ideal-fidelity measured-fidelity))
-        error-after (Math/abs (- ideal-fidelity corrected-fidelity))
-        improvement-factor (if (> error-before 1e-10)
-                            (/ error-after error-before)
-                            1.0)]
-    
-    {:measured-counts measured-counts
-     :corrected-counts corrected-counts
-     :improvement-factor improvement-factor
-     :total-shots total-shots
-     :target-state target-state
-     :measured-fidelity measured-fidelity
-     :corrected-fidelity corrected-fidelity}))
-
-;;
-;; Zero Noise Extrapolation (ZNE)
-;;
-
-(defn scale-noise-model
-  "Scale the noise parameters in a noise model by a given factor."
-  [noise-model scale-factor]
-  (-> noise-model
-      (update :gate-noise 
-              (fn [gate-noise]
-                (into {} (map (fn [[gate config]]
-                                [gate (update config :noise-strength 
-                                              #(when % (* % scale-factor)))])
-                              gate-noise))))
-      (update :readout-error 
-              (fn [readout-error]
-                (when readout-error
-                  (-> readout-error
-                      (update :prob-0-to-1 #(when % (min 1.0 (* % scale-factor))))
-                      (update :prob-1-to-0 #(when % (min 1.0 (* % scale-factor))))))))))
-
-(defn simulate-circuit-execution
-  "Simulate realistic quantum circuit execution under noise.
-  
-  This provides a more realistic simulation for ZNE by modeling:
-  - Gate-dependent error accumulation
-  - Readout errors  
-  - Decoherence effects
-  - Circuit depth impact
-  
-  Returns measurement results that reflect actual quantum hardware behavior."
-  [circuit noise-model num-shots]
-  (let [operations (:operations circuit)
-        num-qubits (:num-qubits circuit)
-        
-        ;; Calculate accumulated noise from gates
-        gate-noise-accumulation
-        (reduce (fn [acc-noise op]
-                  (let [gate-type (:operation-type op)
-                        base-noise (get-in noise-model [:gate-noise gate-type :noise-strength] 0.01)
-                        ;; Two-qubit gates typically have higher error rates
-                        gate-error (case gate-type
-                                     (:cnot :cz :swap) (* base-noise 2.0)
-                                     base-noise)]
-                    (+ acc-noise gate-error)))
-                0.0
-                operations)
-        
-        ;; Circuit depth affects decoherence
-        circuit-depth (count operations)
-        depth-penalty (* circuit-depth 0.002) ; Small additional error per gate
-        
-        ;; Total coherent error
-        total-coherent-error (+ gate-noise-accumulation depth-penalty)
-        
-        ;; Calculate ideal state fidelity after noise
-        ideal-fidelity (Math/exp (- total-coherent-error))
-        
-        ;; Readout errors
-        readout-error-strength (+ (get-in noise-model [:readout-error :prob-0-to-1] 0.0)
-                                  (get-in noise-model [:readout-error :prob-1-to-0] 0.0))
-        
-        ;; Simulate measurement distribution
-        ;; For demonstration, assume circuit prepares |00...0⟩ + |11...1⟩ superposition
-        ideal-state-prob (* ideal-fidelity 0.5) ; Half for each ideal state
-        error-state-prob (- 1.0 (* ideal-fidelity))
-        
-        ;; Generate state labels
-        state-labels (generate-state-labels num-qubits)
-        all-zeros (first state-labels)  ; |00...0⟩
-        all-ones (last state-labels)    ; |11...1⟩ 
-        error-states (drop 1 (drop-last state-labels)) ; intermediate states
-        
-        ;; Distribute shots based on fidelity model
-        ideal-shots-per-state (int (* num-shots ideal-state-prob))
-        error-shots-total (- num-shots (* 2 ideal-shots-per-state))
-        error-shots-per-state (if (seq error-states)
-                                (quot error-shots-total (count error-states))
-                                0)
-        
-        ;; Apply readout errors to the distribution
-        readout-error-shots (int (* num-shots readout-error-strength 0.5))
-        
-        measurement-results
-        (-> {}
-            (assoc all-zeros (max 0 (- ideal-shots-per-state readout-error-shots)))
-            (assoc all-ones (max 0 (- ideal-shots-per-state readout-error-shots)))
-            (into (map (fn [state]
-                         [state (max 0 error-shots-per-state)])
-                       error-states)))]
-    
-    {:measurement-results measurement-results
-     :ideal-fidelity ideal-fidelity
-     :total-coherent-error total-coherent-error
-     :circuit-depth circuit-depth
-     :readout-error-strength readout-error-strength}))
-
-(defn fit-exponential-decay
-  "Fit exponential decay model to ZNE data points.
-  
-  Model: f(x) = a * exp(-b * x) + c
-  Simple linear fit for demonstration."
-  [data-points]
-  (if (>= (count data-points) 2)
-    (let [sorted-points (sort-by :x data-points)
-          [p1 p2] (take 2 sorted-points)
-          slope (/ (- (:y p2) (:y p1)) (- (:x p2) (:x p1)))
-          ;; Extrapolate to x = 0 (zero noise)
-          y-intercept (- (:y p1) (* slope (:x p1)))]
-      {:extrapolated-value y-intercept
-       :slope slope
-       :model-type :linear})
-    {:extrapolated-value (:y (first data-points))
-     :slope 0
-     :model-type :single-point}))
-
-(defn extract-expectation-value
-  "Extract an expectation value from measurement results for ZNE.
-  
-  This could be:
-  - Probability of success state
-  - Parity expectation  
-  - Custom observable
-  
-  For now, uses probability of most likely ideal state."
-  [measurement-results ideal-states]
-  (let [total-shots (reduce + (vals measurement-results))
-        ideal-state-counts (reduce + (map #(get measurement-results % 0) ideal-states))]
-    (if (pos? total-shots)
-      (/ (double ideal-state-counts) (double total-shots))
-      0.0)))
-
-(defn zero-noise-extrapolation
-  "Apply Zero Noise Extrapolation to mitigate coherent errors.
-  
-  Production implementation using realistic circuit simulation instead of mock data."
-  [circuit backend noise-scales ideal-states num-shots]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
-  (try
-    (let [base-noise-model (get backend :noise-model {})
-          
-          ;; Run circuit at different noise scales using realistic simulation
-          results (mapv (fn [scale]
-                          (let [;; Scale the noise model  
-                                scaled-noise-model (scale-noise-model base-noise-model scale)
-                                ;; Use realistic circuit simulation
-                                simulation-result (simulate-circuit-execution circuit scaled-noise-model num-shots)
-                                measurement-results (:measurement-results simulation-result)]
-                            {:noise-scale scale
-                             :results simulation-result
-                             :expectation-value (extract-expectation-value measurement-results ideal-states)}))
-                        noise-scales)
-          
-          ;; Extract data points for fitting - ZNE expects degrading performance with higher noise
-          data-points (mapv (fn [{:keys [noise-scale expectation-value]}]
-                              {:x noise-scale :y expectation-value})
-                            results)
-          
-          ;; Fit exponential decay model: f(x) = a * exp(-b * x) + c
-          fit-result (fit-exponential-decay data-points)
-          extrapolated-value (:extrapolated-value fit-result)
-          
-          ;; Calculate improvement factor  
-          baseline-expectation (:y (first (sort-by :x data-points)))
-          improvement-factor (if (pos? baseline-expectation)
-                               (/ extrapolated-value baseline-expectation)
-                               1.0)]
-      
-      {:noise-scales noise-scales
-       :raw-results results
-       :data-points data-points
-       :fit-result fit-result
-       :extrapolated-value extrapolated-value
-       :improvement-factor improvement-factor
-       :baseline-expectation baseline-expectation})
-    
-    (catch Exception e
-      {:error {:message (.getMessage e)
-               :type (class e)}
-       :extrapolated-value 0.0
-       :improvement-factor 1.0})))
 
 ;;
 ;; Circuit Analysis for Mitigation Strategy Selection
@@ -683,7 +393,7 @@
                                                         (update-in [:readout-error :prob-1-to-0] 
                                                                    #(when % (+ % (* 0.01 (- (rand) 0.5))))))
                                      shots-per-copy (quot num-shots num-copies)
-                                     simulation-result (simulate-circuit-execution circuit perturbed-noise shots-per-copy)]
+                                     simulation-result (zne/simulate-circuit-execution circuit perturbed-noise shots-per-copy)]
                                  {:copy-index copy-idx
                                   :measurement-results (:measurement-results simulation-result)
                                   :fidelity-estimate (:ideal-fidelity simulation-result)}))
@@ -770,10 +480,10 @@
                           num-qubits (:num-qubits circuit)
 
                           ;; Create proper calibration matrix using tensor products
-                          cal-matrix (create-calibration-matrix num-qubits readout-errors)
+                          cal-matrix (rem/create-calibration-matrix num-qubits readout-errors)
 
                           ;; Apply full matrix-based readout error mitigation
-                          mitigation-result (mitigate-readout-errors
+                          mitigation-result (rem/mitigate-readout-errors
                                              (:measurement-counts result)
                                              cal-matrix
                                              num-qubits)]
@@ -783,7 +493,7 @@
                           (assoc-in [:improvements :readout-error-mitigation] mitigation-result)))
 
                     :zero-noise-extrapolation
-                    (let [zne-result (zero-noise-extrapolation
+                    (let [zne-result (zne/zero-noise-extrapolation
                                       (:circuit result)
                                       backend
                                       (get mitigation-config :noise-scales [1.0 1.5 2.0])

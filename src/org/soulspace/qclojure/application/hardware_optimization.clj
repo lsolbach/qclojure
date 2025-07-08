@@ -91,6 +91,7 @@
                    ;; Right neighbor
                    (when (< col (dec cols)) [(inc i)]))))))))
 
+; TODO refactor parameters and add higher qubit heavy hex topologies
 (defn heavy-hex-topology
   "Create a heavy-hex hardware topology as used by IBM quantum computers.
    
@@ -239,31 +240,6 @@
                                                      (conj (+ i 11))))]             ; Diagonal down-right
                                 neighbors)))]
           (ensure-symmetric topology))))))
-
-;; Backward compatibility function
-(defn heavy-hex-topology-legacy
-  "Legacy function for backward compatibility with simple size parameter.
-   
-   DEPRECATED: Use heavy-hex-topology with processor-type keywords instead.
-   
-   Parameters:
-   - size: Integer size (1, 2, 27, 65, 127)
-   
-   Returns:
-   Vector of vectors representing adjacency list (topology only)"
-  [size]
-  {:pre [(pos-int? size)]}
-  (let [result (case size
-                 1 (heavy-hex-topology :basic)
-                 2 (heavy-hex-topology :basic)  ; Map size 2 to basic for compatibility
-                 27 (heavy-hex-topology :falcon)
-                 65 (heavy-hex-topology :hummingbird)
-                 127 (heavy-hex-topology :eagle)
-                 (throw (ex-info "Heavy-hex topology size not supported"
-                                {:size size
-                                 :supported-sizes [1 2 27 65 127]
-                                 :recommended "Use heavy-hex-topology with processor keywords"})))]
-    (:topology result)))
 
 ;;
 ;; Hardware Topology Optimization Functions

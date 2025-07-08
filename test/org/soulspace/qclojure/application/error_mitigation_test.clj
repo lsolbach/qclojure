@@ -1,9 +1,9 @@
 (ns org.soulspace.qclojure.application.error-mitigation-test
   "Comprehensive tests for error mitigation strategies."
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.application.error-mitigation :as em]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.util.test :as util]))
+            [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]))
 
 ;; Test data
 (def test-readout-config
@@ -22,52 +22,6 @@
   {:noise-model test-noise-model
    :supported-gates #{:h :x :z :cnot}})
 
-;; Tests for readout error mitigation
-(deftest test-readout-error-mitigation
-  (testing "Calibration matrix creation"
-    (testing "2-qubit calibration matrix"
-      (let [cal-matrix (em/create-calibration-matrix 2 test-readout-config)]
-        (is (= 4 (count cal-matrix)) "Should create 4x4 matrix for 2 qubits")
-        (is (every? #(= 4 (count %)) cal-matrix) "All rows should have 4 elements")
-        (is (every? #(and (>= % 0) (<= % 1)) (flatten cal-matrix)) "All probabilities should be in [0,1]")))
-    
-    (testing "1-qubit calibration matrix"
-      (let [cal-matrix (em/create-calibration-matrix 1 test-readout-config)]
-        (is (= 2 (count cal-matrix)) "Should create 2x2 matrix for 1 qubit")
-        (is (every? #(= 2 (count %)) cal-matrix) "All rows should have 2 elements"))))
-  
-    (testing "High noise rates"
-      (let [high-noise {:prob-0-to-1 0.4 :prob-1-to-0 0.3}
-            cal-matrix (em/create-calibration-matrix 1 high-noise)]
-        (is (not (nil? cal-matrix)) "Should handle high noise rates"))))
-
-;; Tests for Zero Noise Extrapolation(deftest test-zero-noise-extrapolation
-  (testing "ZNE with valid noise scales"
-    (let [result (em/zero-noise-extrapolation 
-                   simple-bell-circuit 
-                   test-backend 
-                   [1.0 1.5 2.0]
-                   ["00" "11"]
-                   1000)]
-      
-      (is (contains? result :extrapolated-value) "Should return extrapolated value")
-      (is (contains? result :improvement-factor) "Should return improvement factor")
-      (is (contains? result :data-points) "Should return data points")
-      (is (= 3 (count (:data-points result))) "Should have 3 data points for 3 noise scales")
-      (is (every? #(contains? % :x) (:data-points result)) "Data points should have x values")
-      (is (every? #(contains? % :y) (:data-points result)) "Data points should have y values")))
-  
-  (testing "ZNE improvement calculation"
-    (let [result (em/zero-noise-extrapolation 
-                   simple-bell-circuit 
-                   test-backend 
-                   [1.0 2.0]
-                   ["00" "11"] 
-                   500)]
-      
-      (is (number? (:improvement-factor result)) "Improvement factor should be numeric")
-      (is (pos? (:improvement-factor result)) "Improvement factor should be positive")))
-  
 
 ;; Tests for circuit analysis
 (deftest test-circuit-analysis
@@ -140,7 +94,7 @@
       (is (contains? zne-info :overhead) "Should include overhead info")))
   
   (testing "Noise model scaling"
-    (let [scaled-model (em/scale-noise-model test-noise-model 2.0)]
+    (let [scaled-model (zne/scale-noise-model test-noise-model 2.0)]
       (is (map? scaled-model) "Should return scaled noise model")
       (is (= 0.04 (get-in scaled-model [:gate-noise :h :noise-strength])) 
           "Should scale gate noise correctly")

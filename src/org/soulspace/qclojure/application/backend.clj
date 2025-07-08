@@ -565,7 +565,7 @@
 
 ;; Predefined quantum devices
 (def devices
-  {:atom-computing
+  {:atom-computing ; TODO native gates and noise doesn't match
    {:name "Atom Computing"
     :provider "Atom Computing"
     :description
@@ -574,6 +574,12 @@
 * Reconfigurable architectures 
 * Long coherence times
 * Potential for large-scale systems"
+    :architecture
+    {:max-qubits 100
+     :native-gates #{:rydberg-cz :rydberg-cphase :rydberg-blockade
+                     :global-x :global-y :global-z
+                     :global-h :global-rx :global-ry :global-rz}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.003
                       :t1-time 2000.0 :t2-time 200.0 :gate-time 1500.0}
@@ -591,6 +597,10 @@
     "High-Fidelity Superconducting Reference characteristics:
 * 20 qubits
 * theoretical maximum fidelity of superconducting qubits"
+    :architecture
+    {:max-qubits 20
+     :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :phase-damping :noise-strength 0.0001
                       :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
@@ -609,6 +619,10 @@
 * Falcon r5.11 processor
 * Heavy-hex topology
 * Advanced error suppression"
+    :architecture
+    {:max-qubits 127
+     :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
+     :topology :heavy-hex}
     :noise-model
     {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0004
                       :t1-time 180.0 :t2-time 120.0 :gate-time 35.6}
@@ -632,6 +646,10 @@
 * Condor r1 processor
 * Enhanced error correction features
 * Dynamic decoupling capabilities"
+    :architecture
+    {:max-qubits 127
+     :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
+     :topology :heavy-hex}
     :noise-model
     {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0003
                       :t1-time 220.0 :t2-time 150.0 :gate-time 35.6}
@@ -646,28 +664,6 @@
                   :cz {:noise-type :depolarizing :noise-strength 0.003
                        :t1-time 220.0 :t2-time 150.0 :gate-time 420.0}}
      :readout-error {:prob-0-to-1 0.008 :prob-1-to-0 0.018}}}
-   :ionq-harmony
-   {:name "IonQ Harmony"
-    :provider "IonQ"
-    :description
-    "IonQ Harmony characteristics:
-* 11 qubits
-* Very high single-qubit gate fidelity (~99.8%)
-* High two-qubit gate fidelity (~99.0-99.3%)
-* Long coherence times
-* Slower gate times due to laser operations"
-    :noise-model
-    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :y}
-                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0} ; 50μs gate time
-                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :x}
-                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
-                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
-                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
-                  :z {:noise-type :phase-damping :noise-strength 0.0001
-                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 100.0} ; Virtual Z gate
-                  :cnot {:noise-type :depolarizing :noise-strength 0.007
-                         :t1-time 10000.0 :t2-time 5000.0 :gate-time 200000.0}} ; 200μs two-qubit gate
-     :readout-error {:prob-0-to-1 0.003 :prob-1-to-0 0.004}}}
    :ionq-aria
    {:name "IonQ Aria"
     :provider "IonQ"
@@ -677,6 +673,10 @@
 * Improved single-qubit gate fidelity (~99.9%)
 * Improved two-qubit gate fidelity (~99.5%)
 * Better connectivity and faster gates than Harmony"
+    :architecture
+    {:max-qubits 25
+     :native-gates #{:x :y :z :h :cnot :rx :ry :rz :ms}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0005 :rotation-axis :y}
                       :t1-time 15000.0 :t2-time 7000.0 :gate-time 40000.0} ; 40μs gate time
@@ -698,6 +698,10 @@
 * Latest generation with highest fidelity
 * Enhanced error correction capabilities
 * Fastest gate times in IonQ family"
+    :architecture
+    {:max-qubits 32
+     :native-gates #{:x :y :z :h :cnot :rx :ry :rz :ms}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0003 :rotation-axis :y}
                       :t1-time 20000.0 :t2-time 10000.0 :gate-time 30000.0} ; 30μs gate time
@@ -710,6 +714,32 @@
                   :cnot {:noise-type :depolarizing :noise-strength 0.003
                          :t1-time 20000.0 :t2-time 10000.0 :gate-time 120000.0}} ; 120μs two-qubit gate
      :readout-error {:prob-0-to-1 0.001 :prob-1-to-0 0.002}}}
+   :ionq-harmony
+   {:name "IonQ Harmony"
+    :provider "IonQ"
+    :description
+    "IonQ Harmony characteristics:
+* 11 qubits
+* Very high single-qubit gate fidelity (~99.8%)
+* High two-qubit gate fidelity (~99.0-99.3%)
+* Long coherence times
+* Slower gate times due to laser operations"
+    :architecture
+    {:max-qubits 11
+     :native-gates #{:x :y :z :h :cnot :rx :ry :rz :ms}
+     :topology :all-to-all}
+    :noise-model
+    {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.001 :rotation-axis :y}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0} ; 50μs gate time
+                  :x {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :x}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
+                  :y {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 50000.0}
+                  :z {:noise-type :phase-damping :noise-strength 0.0001
+                      :t1-time 10000.0 :t2-time 5000.0 :gate-time 100.0} ; Virtual Z gate
+                  :cnot {:noise-type :depolarizing :noise-strength 0.007
+                         :t1-time 10000.0 :t2-time 5000.0 :gate-time 200000.0}} ; 200μs two-qubit gate
+     :readout-error {:prob-0-to-1 0.003 :prob-1-to-0 0.004}}}
    :oxford-lucy
    {:name "Oxford Lucy"
     :provider "Oxford Quantum Circuits"
@@ -719,6 +749,10 @@
 * High-fidelity trapped ion qubits
 * Competitive with IonQ systems
 * Focus on networking and modular architectures"
+    :architecture
+    {:max-qubits 8
+     :native-gates #{:x :y :z :h :cnot :rx :ry :rz}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :coherent :coherent-error {:rotation-angle 0.0008 :rotation-axis :y}
                       :t1-time 12000.0 :t2-time 6000.0 :gate-time 45000.0}
@@ -740,6 +774,11 @@
 * Reconfigurable connectivity
 * Rydberg blockade mechanism
 * Unique noise sources from atom loading/transport"
+    :architecture
+    {:max-qubits 256
+     :native-gates #{:rydberg-cz :rydberg-cphase :rydberg-blockade
+                     :global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz}
+     :topology :all-to-all} ; TODO check topology
     :noise-model
     {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.005
                       :t1-time 1000.0 :t2-time 100.0 :gate-time 2000.0} ; Microsecond timescales
@@ -760,6 +799,10 @@
 * Superconducting transmon qubits
 * Fast gate times but shorter coherence
 * Tunable coupling architecture"
+    :architecture
+    {:max-qubits 80
+     :native-gates #{:rx :ry :rz :cz :x :y :z :h}
+     :topology :octagonal}
     :noise-model
     {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.001
                       :t1-time 45.0 :t2-time 35.0 :gate-time 40.0}
@@ -783,6 +826,10 @@
 * Continuous variable quantum computing
 * Different noise characteristics from discrete systems
 * Gate errors primarily from optical losses and thermal noise"
+    :architecture
+    {:max-qubits 216
+     :native-gates #{:s :d :r :mz :bs}
+     :topology :all-to-all}
     :noise-model
     {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.02 ; Higher loss rates
                       :t1-time 1000.0 :t2-time 1000.0 :gate-time 1000.0} ; Photonic operations
@@ -800,10 +847,14 @@
     :provider "IBM"
     :description
     "IBM Lagos characteristics:
-* 433 qubits
+* 7 qubits
 * Heavy-hex topology
 * Advanced error suppression techniques
 * High connectivity and low crosstalk"
+    :architecture
+    {:max-qubits 7
+     :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
+     :topology :heavy-hex}
     :noise-model
     {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.0005
                       :t1-time 125.0 :t2-time 89.0 :gate-time 35.6}
@@ -816,12 +867,16 @@
    :rigetti-aspen
    {:name "Rigetti Aspen"
     :provider "Rigetti Computing"
-    :description 
+    :description
     "Rigetti Aspen characteristics:
 * 40 qubits
 * Superconducting transmon qubits
 * Fast gate times but shorter coherence
 * Tunable coupling architecture"
+    :architecture
+    {:max-qubits 8
+     :native-gates #{:rx :ry :rz :cz :x :y :z :h}
+     :topology :octagonal}
     :noise-model
     {:gate-noise {:h {:noise-type :amplitude-damping :noise-strength 0.002
                       :t1-time 18.5 :t2-time 15.2 :gate-time 60.0}

@@ -2,6 +2,8 @@
 
 ## Version (NEXT)
 * added heavy-hex-topology (up to 127 qubits)
+* added QPU data to backend namespace
+* refactored error mitigation
 * updated tutorial
 
 ## Version 0.8.0

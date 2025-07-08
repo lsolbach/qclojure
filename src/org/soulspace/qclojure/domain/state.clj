@@ -42,8 +42,22 @@
                                value))]
      (str (str/join (repeat (- n-qubits (count binary-string)) "0")) binary-string))))
 
+(defn basis-strings
+  "Generate binary basis strings for n qubits.
+  
+  Returns vector of strings like ['00', '01', '10', '11'] for 2 qubits.
+  
+  Parameters:
+  - n-qubits: Number of qubits
+   
+  Returns:
+  Vector of basis strings"
+  [n-qubits]
+  (mapv basis-string
+        (range (bit-shift-left 1 n-qubits))))
+
 (defn basis-label
-  "Generate a string representation of a computational basis state.
+  "Generate a string representation of a computational basis state in ket form.
    For a given value, this function produces the corresponding basis state label
    in the form |b₀b₁...bₙ₋₁⟩ where bᵢ are the bits of the state.
    If value is an integer, it is interpreted as the index of the state in the computational basis.
@@ -58,6 +72,18 @@
    (str "|" (basis-string value) "⟩"))
   ([value n-qubits]
    (str "|" (basis-string value n-qubits) "⟩")))
+
+(defn basis-labels
+  "Generate binary basis labels for n qubits.
+    
+  Parameters:
+  - n-qubits: Number of qubits
+   
+  Returns:
+  Vector of basis labels."
+  [n-qubits]
+  (mapv basis-string
+        (range (bit-shift-left 1 n-qubits))))
 
 (defn bits-to-index
   "Convert a vector of bits to the corresponding state vector index.

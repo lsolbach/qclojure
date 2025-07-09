@@ -121,7 +121,6 @@
 ;;
 ;; Circuit Analysis for Mitigation Strategy Selection
 ;;
-
 (defn analyze-circuit-noise-profile
   "Analyze circuit characteristics to recommend mitigation strategies."
   [circuit noise-model]
@@ -352,7 +351,6 @@
 ;;
 ;; Integration with Circuit Transformation
 ;;
-
 (defn create-error-mitigation-backend
   "Create a backend wrapper that applies error mitigation transparently.
   

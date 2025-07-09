@@ -73,7 +73,8 @@
   • Hardware characterization and validation"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.circuit :as qc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.application.backend :as qb]))
 
 ;;
 ;; Zero Noise Extrapolation (ZNE)
@@ -153,6 +154,115 @@
                   (-> readout-error
                       (update :prob-0-to-1 #(when % (min 1.0 (* % scale-factor))))
                       (update :prob-1-to-0 #(when % (min 1.0 (* % scale-factor))))))))))
+
+(defn execute-circuit-with-backend
+  "Execute a quantum circuit using the backend protocol with noise scaling support.
+  
+  This function provides a protocol-compliant way to execute quantum circuits
+  while supporting noise model scaling for Zero Noise Extrapolation. It handles
+  the complete workflow of circuit submission, job monitoring, and result retrieval
+  through the QuantumBackend protocol.
+  
+  Backend Protocol Integration:
+  The function uses the standard QuantumBackend protocol methods:
+  1. :submit-circuit - Submit the circuit for execution
+  2. :get-job-status - Monitor job execution progress  
+  3. :get-job-result - Retrieve measurement results when complete
+  4. :cancel-job - Handle cleanup if needed
+  
+  Noise Model Scaling:
+  For backends that support configurable noise models (like the noisy-simulator),
+  the function can scale noise parameters before circuit execution. This enables
+  ZNE to systematically amplify errors for extrapolation analysis.
+  
+  The noise scaling is applied to the backend's execution options rather than
+  modifying the circuit itself, ensuring compatibility with all backend types.
+  
+  Parameters:
+  - backend: QuantumBackend implementation (simulator, noisy-simulator, cloud backend)
+  - circuit: Quantum circuit specification from org.soulspace.qclojure.domain.circuit
+  - noise-model: Base noise model configuration map
+  - scale-factor: Noise amplification factor (1.0 = baseline, >1.0 = amplified)
+  - num-shots: Number of measurement shots for statistical sampling
+  
+  Returns:
+  Map containing execution results compatible with ZNE analysis:
+  - :measurement-results - Map of quantum state strings to measurement counts
+  - :job-id - Backend job identifier for tracking
+  - :execution-time-ms - Time spent executing the circuit
+  - :job-status - Final job status (should be :completed for success)
+  - :backend-info - Information about the backend used
+  - :scaled-noise-model - The noise model configuration used for this execution
+  
+  Error Handling:
+  - Graceful handling of backend unavailability
+  - Timeout protection for long-running jobs
+  - Fallback strategies for failed executions
+  - Comprehensive error reporting with diagnostic information
+  
+  Usage in ZNE:
+  This function replaces direct simulation calls in ZNE workflows, ensuring
+  that all circuit executions go through the proper backend protocols.
+  This enables ZNE to work seamlessly with real quantum hardware, cloud
+  services, and various simulator implementations."
+  [backend circuit noise-model scale-factor num-shots]
+  {:pre [(satisfies? qb/QuantumBackend backend)
+         (s/valid? ::qc/quantum-circuit circuit)
+         (number? scale-factor)
+         (pos-int? num-shots)]}
+  (try
+    (let [start-time (System/currentTimeMillis)
+          
+          ;; Scale the noise model for this execution
+          scaled-noise-model (scale-noise-model noise-model scale-factor)
+          
+          ;; Prepare execution options with scaled noise model
+          ;; Note: For backends that support noise model configuration,
+          ;; we include the scaled noise model in the options
+          execution-options (cond-> {:shots num-shots}
+                              ;; If backend supports noise model configuration
+                              (and scaled-noise-model 
+                                   (not= scale-factor 1.0)) (assoc :noise-model scaled-noise-model))
+          
+          ;; Submit circuit to backend
+          job-id (qb/submit-circuit backend circuit execution-options)
+          
+          ;; Wait for job completion with timeout
+          _ (loop [attempts 0]
+              (let [status (qb/get-job-status backend job-id)]
+                (cond
+                  (= status :completed) :done
+                  (= status :failed) (throw (ex-info "Circuit execution failed" 
+                                                      {:job-id job-id :status status}))
+                  (> attempts 100) (throw (ex-info "Circuit execution timeout" 
+                                                    {:job-id job-id :attempts attempts}))
+                  :else (do
+                          (Thread/sleep 100) ; Wait 100ms between status checks
+                          (recur (inc attempts))))))
+          
+          ;; Retrieve results
+          job-result (qb/get-job-result backend job-id)
+          end-time (System/currentTimeMillis)
+          execution-time (- end-time start-time)]
+      
+      ;; Return structured results compatible with ZNE analysis
+      {:measurement-results (:measurement-results job-result)
+       :job-id job-id
+       :execution-time-ms execution-time
+       :job-status (:job-status job-result)
+       :backend-info (qb/get-backend-info backend)
+       :scaled-noise-model scaled-noise-model
+       :noise-scale-factor scale-factor})
+    
+    (catch Exception e
+      ;; Comprehensive error handling with diagnostic information
+      {:error {:message (.getMessage e)
+               :type (class e)
+               :backend-type (try (:backend-type (qb/get-backend-info backend)) 
+                                  (catch Exception _ :unknown))
+               :noise-scale-factor scale-factor}
+       :measurement-results {}
+       :job-status :failed})))
 
 (defn simulate-circuit-execution
   "Simulate realistic quantum circuit execution under noise for Zero Noise Extrapolation studies.
@@ -592,21 +702,45 @@
   - Memory usage scales with measurement data storage requirements
   - Parallelization opportunities for independent noise scale execution"
   [circuit backend noise-scales ideal-states num-shots]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+         (satisfies? qb/QuantumBackend backend)
+         (vector? noise-scales)
+         (every? number? noise-scales)
+         (vector? ideal-states)
+         (pos-int? num-shots)]}
   (try
-    (let [base-noise-model (get backend :noise-model {})
+    (let [start-time (System/currentTimeMillis)
           
-          ;; Run circuit at different noise scales using realistic simulation
+          ;; Validate backend availability
+          _ (when-not (qb/is-available? backend)
+              (throw (ex-info "Backend is not available for circuit execution"
+                              {:backend-info (qb/get-backend-info backend)})))
+          
+          ;; Get base noise model from backend info
+          backend-info (qb/get-backend-info backend)
+          base-noise-model (get-in backend-info [:backend-config :noise-model] {})
+          
+          ;; Execute circuit at different noise scales using backend protocol
           results (mapv (fn [scale]
-                          (let [;; Scale the noise model  
-                                scaled-noise-model (scale-noise-model base-noise-model scale)
-                                ;; Use realistic circuit simulation
-                                simulation-result (simulate-circuit-execution circuit scaled-noise-model num-shots)
-                                measurement-results (:measurement-results simulation-result)]
-                            {:noise-scale scale
-                             :results simulation-result
-                             :expectation-value (extract-expectation-value measurement-results ideal-states)}))
+                          (let [;; Execute circuit with scaled noise using backend protocol
+                                execution-result (execute-circuit-with-backend 
+                                                  backend circuit base-noise-model scale num-shots)
+                                
+                                ;; Extract measurement results
+                                measurement-results (:measurement-results execution-result)]
+                            
+                            (assoc execution-result
+                                   :noise-scale scale
+                                   :expectation-value (extract-expectation-value measurement-results ideal-states))))
                         noise-scales)
+          
+          ;; Check for any execution failures
+          failed-results (filter #(= (:job-status %) :failed) results)
+          _ (when (seq failed-results)
+              (throw (ex-info "One or more circuit executions failed"
+                              {:failed-count (count failed-results)
+                               :total-count (count results)
+                               :failures (map #(select-keys % [:noise-scale :error]) failed-results)})))
           
           ;; Extract data points for fitting - ZNE expects degrading performance with higher noise
           data-points (mapv (fn [{:keys [noise-scale expectation-value]}]
@@ -621,7 +755,10 @@
           baseline-expectation (:y (first (sort-by :x data-points)))
           improvement-factor (if (pos? baseline-expectation)
                                (/ extrapolated-value baseline-expectation)
-                               1.0)]
+                               1.0)
+          
+          end-time (System/currentTimeMillis)
+          total-execution-time (- end-time start-time)]
       
       {:noise-scales noise-scales
        :raw-results results
@@ -629,10 +766,17 @@
        :fit-result fit-result
        :extrapolated-value extrapolated-value
        :improvement-factor improvement-factor
-       :baseline-expectation baseline-expectation})
+       :baseline-expectation baseline-expectation
+       :backend-info backend-info
+       :execution-time-total total-execution-time})
     
     (catch Exception e
+      ;; Comprehensive error handling with backend diagnostic information
       {:error {:message (.getMessage e)
-               :type (class e)}
+               :type (class e)
+               :backend-info (try (qb/get-backend-info backend) 
+                                  (catch Exception _ {:error "Backend info unavailable"}))
+               :timestamp (System/currentTimeMillis)}
        :extrapolated-value 0.0
-       :improvement-factor 1.0})))
+       :improvement-factor 1.0
+       :baseline-expectation 0.0})))

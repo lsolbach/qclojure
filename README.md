@@ -18,7 +18,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 3. **Quantum Algorithm Implementations**
 
-   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL and Shor algorithms
+   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE and Shor algorithms
 
 4. **Extensible Backend System**
 

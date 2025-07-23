@@ -1,7 +1,7 @@
 # QClojure
 The QClojure library provides a Clojure interface to quantum computing concepts. It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style. QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware.
 
-*The API should be reasonable stable now, especially for states, gates and circuits. It may change for the backends and visualization.*
+*The API should be quite stable now, especially for states, gates and circuits.*
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
 [![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure)
@@ -18,7 +18,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 3. **Quantum Algorithm Implementations**
 
-   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL and Shor algorithms
+   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE and Shor algorithms
 
 4. **Extensible Backend System**
 

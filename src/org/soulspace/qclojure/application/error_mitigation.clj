@@ -253,9 +253,11 @@
   and noise model, selects appropriate strategies, and orchestrates their application."
   [circuit backend mitigation-config]
   {:pre [(s/valid? ::qc/quantum-circuit circuit)
+         (satisfies? qb/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)
-        noise-model (get backend :noise-model {})
+        backend-info (qb/get-backend-info backend)
+        noise-model (get-in backend-info [:backend-config :noise-model] {})
         num-shots (get mitigation-config :num-shots 1000)
         constraints (get mitigation-config :constraints {:resource-limit :moderate
                                                          :priority :fidelity})
@@ -265,19 +267,22 @@
                               (get mitigation-config :strategies)  ; Use user-specified strategies
                               (get strategy-selection :selected-strategies [:readout-error-mitigation]))
 
-        ;; Initialize result with simulated raw execution
-        initial-result {:measurement-counts {"00" 400, "01" 100, "10" 100, "11" 400}
+        ;; Initialize result with actual backend execution
+        initial-execution (qb/execute-circuit backend circuit {:shots num-shots})
+        initial-result {:measurement-counts (:measurement-results initial-execution)
                         :circuit circuit
                         :mitigation-applied []
-                        :improvements {}}
+                        :improvements {}
+                        :backend-info backend-info}
         ;; Apply strategies sequentially
         final-result
         (reduce (fn [result strategy]
                   (case strategy
                     :circuit-optimization
-                    (let [opt-result (apply-circuit-optimization
+                    (let [supported-gates (qb/get-supported-gates backend)
+                          opt-result (apply-circuit-optimization
                                       (:circuit result)
-                                      (get backend :supported-gates #{:h :x :z :cnot}))
+                                      supported-gates)
                           optimized-circuit (:optimized-circuit opt-result)]
                       (-> result
                           (assoc :circuit optimized-circuit)
@@ -373,26 +378,30 @@
   error mitigation, and result post-processing in a single function."
   [circuit backend mitigation-config]
   {:pre [(s/valid? ::qc/quantum-circuit circuit)
-         (map? backend)
+         (satisfies? qb/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)
         
         ;; Step 1: Circuit optimization (if requested)
         optimized-circuit (if (contains? (set (:strategies mitigation-config)) :circuit-optimization)
-                            (let [supported-gates (get backend :supported-gates #{:h :x :z :cnot})
+                            (let [supported-gates (qb/get-supported-gates backend)
                                   opt-result (apply-circuit-optimization circuit supported-gates)]
                               (:optimized-circuit opt-result))
                             circuit)
         
-        ;; Step 2: Execute circuit (simulated here)
-        execution-result {:measurement-counts {"00" 450, "01" 150, "10" 100, "11" 300}
-                          :shots-executed (get mitigation-config :num-shots 1000)}
+        ;; Step 2: Execute circuit using backend protocol
+        execution-result (qb/execute-circuit backend optimized-circuit 
+                                             {:shots (get mitigation-config :num-shots 1000)})
         
         ;; Step 3: Apply post-processing mitigation
         mitigation-result (apply-error-mitigation optimized-circuit backend mitigation-config)
         
         ;; Step 4: Combine results
-        final-result (merge execution-result mitigation-result)
+        execution-measurement-counts (:measurement-results execution-result)
+        final-result (-> mitigation-result
+                         (assoc :raw-measurement-counts execution-measurement-counts)
+                         (assoc :shots-executed (:shots-executed execution-result 
+                                                  (get mitigation-config :num-shots 1000))))
         execution-time (- (System/currentTimeMillis) start-time)]
     
     (assoc final-result

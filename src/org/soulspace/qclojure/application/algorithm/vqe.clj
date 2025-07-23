@@ -79,7 +79,8 @@
   (and (coll? hamiltonian)
        (every? #(s/valid? ::pauli-term %) hamiltonian)
        (let [string-lengths (map #(count (:pauli-string %)) hamiltonian)]
-         (apply = string-lengths))))
+         (or (empty? string-lengths) ; empty Hamiltonian is valid
+             (apply = string-lengths)))))
 
 (defn molecular-hydrogen-hamiltonian
   "Create the Hamiltonian for molecular hydrogen (H2) in the STO-3G basis.

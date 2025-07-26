@@ -538,6 +538,42 @@ forte-10k-result
 
 (kind/html (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
 
+;; ## Error Mitigation
+;; Error mitigation is a collection of techniques used to reduce the effects
+;; of noise in quantum computations. It is not a full error correction, but it
+;; can improve the results of quantum computations by reducing the errors
+;; caused by noise.
+;; Error mitigation techniques can be applied to quantum circuits to improve
+;; the results of quantum computations.
+;; QClojure provides a set of error mitigation techniques that can be used to
+;; reduce the effects of noise in quantum computations.
+;;
+;; ### Readout Error Mitigation
+;; Readout error mitigation is a technique used to reduce the effects of readout
+;; noise in quantum computations. It is based on the idea that the readout noise
+;; can be modeled as a matrix that describes the probability of measuring a
+;; certain state given the true state of the qubit.
+;;
+;; ### Zero Noise Extrapolation
+;; Zero noise extrapolation is a technique used to reduce the effects of noise
+;; in quantum computations by extrapolating the results of the computation to
+;; zero noise. It is based on the idea that the results of the computation can
+;; be extrapolated to zero noise by measuring the results of the computation
+;; with different noise levels and fitting a curve to the results.
+;; 
+;; ### Symmetry Verification
+;; Symmetry verification is a technique used to reduce the effects of noise in
+;; quantum computations by verifying the symmetry of the quantum circuit.
+;; It is based on the idea that the results of the computation can be verified
+;; by checking the symmetry of the quantum circuit. If the circuit is symmetric,
+;; the results of the computation should be the same for all qubits.
+;;
+;; ### Virtual Distillation
+;; Virtual distillation is a technique that improves computation fidelity
+;; by running multiple copies of quantum circuits and applying sophisticated
+;; post-processing to extract high-fidelity results through probabilistic error
+;; cancellation.
+;;
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used
 ;; to solve specific problems.

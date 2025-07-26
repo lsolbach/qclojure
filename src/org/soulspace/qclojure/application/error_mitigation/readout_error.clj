@@ -1,10 +1,10 @@
 (ns org.soulspace.qclojure.application.error-mitigation.readout-error
   "Readout error mitigation for quantum measurement correction.
   
-  This namespace provides production-ready functions for correcting measurement
-  errors that occur during quantum state readout. Readout errors are one of the
-  most significant sources of noise in current quantum hardware, and proper
-  mitigation can substantially improve algorithm fidelity.
+  This namespace provides functions for correcting measurement errors
+  that occur during quantum state readout. Readout errors are one of the
+  most significant sources of noise in current quantum hardware, and
+  proper mitigation can substantially improve algorithm fidelity.
   
   Key capabilities:
   - Single and multi-qubit readout error characterization

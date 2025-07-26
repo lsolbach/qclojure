@@ -1,8 +1,8 @@
 (ns org.soulspace.qclojure.application.error-mitigation.symmetry-verification
   "Quantum symmetry verification for comprehensive error mitigation and circuit validation.
   
-  This namespace provides production-ready symmetry verification tools for quantum circuits,
-  enabling sophisticated error mitigation strategies through systematic symmetry analysis.
+  This namespace provides symmetry verification tools for quantum circuits, enabling
+  sophisticated error mitigation strategies through systematic symmetry analysis.
   Symmetries in quantum circuits are fundamental for error detection and mitigation because
   they provide expected invariant properties that should be preserved during ideal quantum
   computation.

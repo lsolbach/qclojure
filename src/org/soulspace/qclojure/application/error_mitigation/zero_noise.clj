@@ -1,10 +1,10 @@
 (ns org.soulspace.qclojure.application.error-mitigation.zero-noise
   "Zero Noise Extrapolation (ZNE) for quantum error mitigation in production environments.
   
-  This namespace provides a comprehensive implementation of Zero Noise Extrapolation,
-  a powerful error mitigation technique that extrapolates quantum computation results
-  to the zero-noise limit. ZNE is particularly effective for mitigating coherent errors
-  and systematic noise that scales predictably with noise strength.
+  This namespace provides an implementation of Zero Noise Extrapolation, a
+  powerful error mitigation technique that extrapolates quantum computation results
+  to the zero-noise limit. ZNE is particularly effective for mitigating coherent
+  errors and systematic noise that scales predictably with noise strength.
   
   Key capabilities:
   • Production-grade noise model scaling with realistic error accumulation

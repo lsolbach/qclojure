@@ -1,11 +1,11 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.9.0
 * added variational quantum eigensolver algorithm
 * added heavy-hex-topology (up to 127 qubits)
+* refactored error mitigation for backend support
 * added QPU data to backend namespace
 * added basis-strings and basis-labels functions
-* refactored error mitigation
 * updated tutorial
 
 ## Version 0.8.0

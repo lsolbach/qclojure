@@ -1071,18 +1071,18 @@ qft-state
 
 ;; We can use Shor's algorithm to factor a composite integer.
 
-; (def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
+(def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
 
 ;; The result of Shor's algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
-; shor-result
+shor-result
 
 ;; The result shows that Shor's algorithm correctly factors the composite integer 15
 ;; into its prime factors 3 and 5.
 ;; The measurement outcome is the prime factors of 15, which are 3 and 5.
 
-; (:result shor-result)
+(:result shor-result)
 
 ;; ### HHL Algorithm
 ;; The [HHL algorithm](https://en.wikipedia.org/wiki/HHL_algorithm) is a
@@ -1179,5 +1179,58 @@ hhl-result
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
 
-;; ### Variational Quantum Eigensolver Algorithm
-;; 
+;; ### Variational Quantum Eigensolver (VQE) Algorithm
+;; The [Variational Quantum Eigensolver (VQE)](https://en.wikipedia.org/wiki/Variational_quantum_eigensolver)
+;; is a hybrid quantum-classical algorithm used to find the ground state energy
+;; of a quantum system. It is particularly useful for simulating molecular systems
+;; and materials, where the Hamiltonian of the system can be represented as a
+;; sum of Pauli operators.
+;; The VQE algorithm uses a parameterized quantum circuit to prepare a trial state,
+;; and a classical optimization algorithm to minimize the expectation value of
+;; the Hamiltonian with respect to the trial state.
+;;
+;; #### Problem Statement
+;; Given a Hamiltonian H of a quantum system, the goal is to find the ground state
+;; energy E₀ of the system, which is the lowest eigenvalue of H, using as few evaluations
+;; of the Hamiltonian as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, finding the ground state energy of a quantum system
+;; requires solving the eigenvalue problem for the Hamiltonian H, which can be
+;; computationally expensive for large systems. Classical algorithms such as
+;; diagonalization or iterative methods can be used to find the ground state energy,
+;; but they are limited by the size of the system and the complexity of the Hamiltonian.
+;;
+;; #### Quantum Approach
+;; The VQE algorithm allows us to find the ground state energy of a quantum system
+;; using a hybrid quantum-classical approach. It leverages the power of quantum
+;; computing to prepare trial states and measure the expectation value of the
+;; Hamiltonian, while using classical optimization algorithms to minimize the
+;; expectation value and find the optimal parameters for the trial state.
+;;
+;; #### Quantum Circuit
+;; The VQE algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Prepare a parameterized quantum circuit that represents the trial state.
+;;    The circuit can be represented as a series of quantum gates that depend on
+;;    a set of parameters θ.
+;; 2. Initialize the parameters θ to some initial values.
+;; 3. Execute the quantum circuit to prepare the trial state |ψ(θ)⟩.
+;; 4. Measure the expectation value of the Hamiltonian H with respect to
+;;    the trial state |ψ(θ)⟩. This involves applying the Hamiltonian as a quantum gate
+;;    and measuring the qubits to obtain the expectation value ⟨H⟩.
+;; 5. Use a classical optimization algorithm to update the parameters θ based on the
+;;    measured expectation value ⟨H⟩. The optimization algorithm can be
+;;    gradient-based or gradient-free, depending on the problem.
+;; 6. Repeat steps 3-5 until convergence, i.e., until the expectation value ⟨H⟩
+;;    does not change significantly or a maximum number of iterations is reached.
+;; 7. The final expectation value ⟨H⟩ represents the ground state energy E₀ of the quantum system.
+;;
+;; To explore the VQE algorithm, we need to require the `variational-quantum-eigensolver`
+;; namespace from the `application.algorithm` package.
+
+(require '[org.soulspace.qclojure.application.algorithm.vqe :as vqe])
+
+;; We can use the VQE algorithm to find the ground state energy of a quantum system.
+;; For example, let's find the ground state energy of a simple Hamiltonian
+;; represented by a sum of Pauli operators.
+

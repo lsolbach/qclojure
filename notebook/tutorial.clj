@@ -964,7 +964,6 @@ qft-state
 ;; The inverse QFT can be used to recover the original quantum state from its
 ;; frequency domain representation.
 ;;
-;;
 ;; ### Quantum Phase Estimation
 ;; The [Quantum Phase Estimation (QPE)](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
 ;; is a quantum algorithm that estimates the eigenvalues of a unitary operator.
@@ -990,6 +989,9 @@ qft-state
 ;; 3. Apply controlled-U gates to the auxiliary qubit, where U is the unitary operator.
 ;; 4. Apply the inverse Quantum Fourier Transform (QFT) to the auxiliary qubit.
 ;; 5. Measure the auxiliary qubit to obtain the estimated phase θ.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe])
+
 ;;
 ;; ### Quantum Period Finding
 ;; The [Quantum Period Finding](https://en.wikipedia.org/wiki/Quantum_period_finding)
@@ -1009,14 +1011,6 @@ qft-state
 ;; with high precision using a quantum circuit that requires only a polynomial
 ;; number of evaluations of the function f.
 ;;
-;; To explore the Quantum Period Finding algorithm, we need to require the
-;; `quantum-period-finding` namespace.
-
-(require '[org.soulspace.qclojure.application.algorithm.quantum-period-finding :as period-finding])
-
-;;
-;;
-;;
 ;; #### Quantum Circuit
 ;; The Quantum Period Finding algorithm can be implemented using a quantum circuit with the following steps:
 ;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
@@ -1025,6 +1019,11 @@ qft-state
 ;; 4. Apply the Quantum Fourier Transform (QFT) to the qubits.
 ;; 5. Measure the qubits to obtain a value that can be used to find the period r.
 ;;
+;; To explore the Quantum Period Finding algorithm, we need to require the
+;; `quantum-period-finding` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf])
+
 ;; ### Shor's Algorithm
 ;; [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm) is a quantum algorithm
 ;; that can factor large integers in polynomial time.
@@ -1180,3 +1179,5 @@ hhl-result
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
 
+;; ### Variational Quantum Eigensolver Algorithm
+;; 

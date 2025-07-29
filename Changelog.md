@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+*
+
 ## Version 0.9.0
 * added variational quantum eigensolver algorithm
 * added heavy-hex-topology (up to 127 qubits)

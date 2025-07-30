@@ -1,7 +1,8 @@
 # Changelog
 
 ## Version (NEXT)
-*
+* added `:gradient-descent` and `:adam` optimization methods to vqe-optimization
+* updated tutorial
 
 ## Version 0.9.0
 * added variational quantum eigensolver algorithm

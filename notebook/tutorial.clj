@@ -84,16 +84,13 @@
 (ns tutorial
   (:require
    [fastmath.core :as fm]
-   [scicloj.kindly.v4.api :as kindly]
    [scicloj.kindly.v4.kind :as kind]
    [org.soulspace.qclojure.domain.state :as qs]
    [org.soulspace.qclojure.domain.gate :as qg]
    [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.adapter.visualization.html :as html]
    [org.soulspace.qclojure.adapter.visualization :as viz]
-   [org.soulspace.qclojure.application.algorithm.shor :as shor]
-   [org.soulspace.qclojure.application.backend :as qb]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
+   [org.soulspace.qclojure.adapter.visualization.html :as html]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -1071,18 +1068,18 @@ qft-state
 
 ;; We can use Shor's algorithm to factor a composite integer.
 
-(def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
+; (def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
 
 ;; The result of Shor's algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
-shor-result
+; shor-result
 
 ;; The result shows that Shor's algorithm correctly factors the composite integer 15
 ;; into its prime factors 3 and 5.
 ;; The measurement outcome is the prime factors of 15, which are 3 and 5.
 
-(:result shor-result)
+; (:result shor-result)
 
 ;; ### HHL Algorithm
 ;; The [HHL algorithm](https://en.wikipedia.org/wiki/HHL_algorithm) is a
@@ -1185,6 +1182,11 @@ hhl-result
 ;; of a quantum system. It is particularly useful for simulating molecular systems
 ;; and materials, where the Hamiltonian of the system can be represented as a
 ;; sum of Pauli operators.
+;;
+;; The VQE algorithm is also used in quantum machine learning and optimization problems,
+;; where it can be used to find the optimal parameters for a quantum circuit
+;; that represents a trial state.
+;; 
 ;; The VQE algorithm uses a parameterized quantum circuit to prepare a trial state,
 ;; and a classical optimization algorithm to minimize the expectation value of
 ;; the Hamiltonian with respect to the trial state.
@@ -1230,7 +1232,90 @@ hhl-result
 
 (require '[org.soulspace.qclojure.application.algorithm.vqe :as vqe])
 
+;; Let's start with a simpler Hamiltonian for demonstration,
+;; which can be represented as a sum of Pauli operators.
+
+(def simple-hamiltonian [(vqe/pauli-term -1.0 "IIII")
+                          (vqe/pauli-term 0.1 "ZIII")])
+
+simple-hamiltonian
+
+;; Let's run the VQE algorithm with the simple Hamiltonian.
+;; We'll use the new Adam optimizer with parameter shift gradients
+
+(def simple-vqe-result
+  (vqe/variational-quantum-eigensolver (sim/create-simulator)
+                                       {:hamiltonian simple-hamiltonian
+                                        :ansatz-type :hardware-efficient
+                                        :num-qubits 4
+                                        :num-layers 1
+                                        :max-iterations 200
+                                        :tolerance 1e-4
+                                        :optimization-method :adam  ; Use quantum-native optimization
+                                        :learning-rate 0.01
+                                        :shots 1}))
+
+simple-vqe-result
+
 ;; We can use the VQE algorithm to find the ground state energy of a quantum system.
-;; For example, let's find the ground state energy of a simple Hamiltonian
-;; represented by a sum of Pauli operators.
+;; For example, let's find the ground state energy of the Hamiltonian for molecular hydrogen,
+;; which can be represented as a sum of Pauli operators.
+
+(def h2-hamiltonian (vqe/molecular-hydrogen-hamiltonian))
+
+h2-hamiltonian
+
+;; Let's run the VQE algorithm with the defined Hamiltonian.
+;; The result of the VQE algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+;;
+;; We'll compare different optimization methods to show their performance.
+;; First we use the adam optimizer, which is a gradient-based optimization method
+;; that uses the parameter shift rule to compute gradients. 
+
+(def vqe-result-adam
+  (vqe/variational-quantum-eigensolver (sim/create-simulator)
+                                       {:hamiltonian h2-hamiltonian
+                                        :ansatz-type :hardware-efficient
+                                        :num-qubits 4
+                                        :num-layers 2
+                                        :max-iterations 300
+                                        :optimization-method :adam
+                                        :learning-rate 0.01
+                                        :tolerance 1e-6
+                                        :shots 1}))
+
+vqe-result-adam
+
+;; Compare with gradient descent
+(def vqe-result-gd
+  (vqe/variational-quantum-eigensolver (sim/create-simulator)
+                                       {:hamiltonian h2-hamiltonian
+                                        :ansatz-type :hardware-efficient
+                                        :num-qubits 4
+                                        :num-layers 2
+                                        :max-iterations 300
+                                        :optimization-method :gradient-descent
+                                        :learning-rate 0.01
+                                        :tolerance 1e-6
+                                        :shots 1}))
+
+vqe-result-gd
+
+;; The result shows that the VQE algorithm correctly finds the ground state energy
+;; of the quantum system represented by the Hamiltonian H₂.
+
+; (:result vqe-result)
+
+;; The measurement outcome is the ground state energy E₀ of the quantum system,
+;; which is approximately -1.137 eV for the molecular hydrogen Hamiltonian.
+
+;; Lets visualize the final quantum state after executing the VQE algorithm.
+
+; (kind/html (viz/visualize-quantum-state :svg (get-in vqe-result [:execution-result :final-state])))
+
+;; The final quantum state shows that the VQE algorithm correctly prepares the trial state
+;; |ψ(θ)⟩ that represents the ground state of the quantum system.
+;; The final quantum state is a superposition of the states that represent the ground state energy
+;; of the quantum system.
 

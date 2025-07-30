@@ -42,7 +42,7 @@
   #{:hardware-efficient :uccsd :symmetry-preserving :custom})
 
 (s/def ::optimization-method 
-  #{:nelder-mead :powell :bfgs :cobyla})
+  #{:gradient-descent :adam :quantum-natural-gradient :nelder-mead})
 
 (s/def ::vqe-config
   (s/keys :req-un [::hamiltonian ::ansatz-type ::num-qubits]
@@ -459,25 +459,22 @@
     (try
       (let [;; Step 1: Create ansatz circuit with current parameters
             circuit (ansatz-fn parameters)
-            
+
             ;; Step 2: Execute circuit to get final quantum state
-            final-state (if backend
-                          ;; Use backend if provided
-                          (try
-                            (let [execution-result (qb/execute-circuit backend circuit options)]
-                              (if (= (:job-status execution-result) :completed)
-                                (:final-state execution-result)
-                                ;; Fallback to simulation if backend execution fails
-                                (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
-                            (catch Exception _e
-                              ;; Fallback to direct simulation if backend unavailable
+            final-state (try
+                          (let [execution-result (qb/execute-circuit backend circuit options)]
+                            (if (= (:job-status execution-result) :completed)
+                              (:final-state execution-result)
+                              ;; Fallback to simulation if backend execution fails
                               (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
-                          ;; Direct simulation if no backend
-                          (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit))))
-            
+                          (catch Exception _e
+                            ;; Fallback to direct simulation if backend unavailable
+                            (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
+
+
             ;; Step 3: Calculate Hamiltonian expectation value (energy)
             energy (hamiltonian-expectation hamiltonian final-state)]
-        
+
         ;; Return the energy (real number to be minimized)
         energy)
       
@@ -487,8 +484,227 @@
         (.printStackTrace e)
         1000.0))))
 
+(defn parameter-shift-gradient
+  "Calculate gradient using the parameter shift rule.
+  
+  For a parameterized gate with parameter θ, the gradient is:
+  ∂⟨H⟩/∂θ = (1/2)[⟨H⟩(θ + π/2) - ⟨H⟩(θ - π/2)]
+  
+  This gives exact gradients for quantum circuits with rotation gates.
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - parameters: Current parameter vector
+  - param-index: Index of parameter to compute gradient for
+  
+  Returns:
+  Gradient value for the specified parameter"
+  [objective-fn parameters param-index]
+  (let [shift (/ m/PI 2)  ; Standard π/2 shift for rotation gates
+        params-plus (assoc parameters param-index 
+                          (+ (nth parameters param-index) shift))
+        params-minus (assoc parameters param-index 
+                           (- (nth parameters param-index) shift))
+        energy-plus (objective-fn params-plus)
+        energy-minus (objective-fn params-minus)]
+    (* 0.5 (- energy-plus energy-minus))))
+
+(defn calculate-vqe-gradient
+  "Calculate full gradient vector using parameter shift rule.
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - parameters: Current parameter vector
+  
+  Returns:
+  Vector of gradients for all parameters"
+  [objective-fn parameters]
+  (mapv #(parameter-shift-gradient objective-fn parameters %)
+        (range (count parameters))))
+
+(defn gradient-descent-optimization
+  "VQE optimization using gradient descent with parameter shift rules.
+  
+  This is the preferred optimization method for VQE as it:
+  1. Uses exact quantum gradients via parameter shift rule
+  2. Has theoretical convergence guarantees
+  3. Is efficient (2 circuit evaluations per parameter per iteration)
+  4. Handles quantum circuit structure naturally
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - initial-parameters: Starting parameter values
+  - options: Optimization options
+  
+  Returns:
+  Map with optimization results"
+  [objective-fn initial-parameters options]
+  (let [learning-rate (:learning-rate options 0.01)  ; Conservative default
+        max-iter (:max-iterations options 500)        ; Reasonable default
+        tolerance (:tolerance options 1e-6)
+        adaptive-lr (:adaptive-learning-rate options true)
+        momentum (:momentum options 0.9)
+        
+        ;; Initialize momentum vector
+        velocity (vec (repeat (count initial-parameters) 0.0))]
+    
+    (loop [params initial-parameters
+           v velocity
+           iteration 0
+           prev-energy (objective-fn initial-parameters)
+           lr learning-rate
+           energies [prev-energy]]
+      
+      (if (>= iteration max-iter)
+        {:success false
+         :optimal-parameters params
+         :optimal-energy (objective-fn params)
+         :iterations iteration
+         :function-evaluations (* iteration (count params) 2) ; 2 evals per param per iteration
+         :convergence-history energies
+         :reason "max-iterations-reached"}
+        
+        (let [;; Calculate gradient using parameter shift rule
+              gradient (calculate-vqe-gradient objective-fn params)
+              
+              ;; Update velocity (momentum)
+              new-velocity (mapv #(+ (* momentum %1) (* lr %2)) v gradient)
+              
+              ;; Update parameters
+              new-params (mapv - params new-velocity)
+              
+              ;; Calculate new energy
+              new-energy (objective-fn new-params)
+              energy-diff (abs (- prev-energy new-energy))
+              
+              ;; Adaptive learning rate (decrease if energy increases)
+              new-lr (if (and adaptive-lr (> new-energy prev-energy))
+                       (* lr 0.8)  ; Reduce learning rate
+                       lr)
+              
+              new-energies (conj energies new-energy)]
+          
+          (if (< energy-diff tolerance)
+            {:success true
+             :optimal-parameters new-params
+             :optimal-energy new-energy
+             :iterations iteration
+             :function-evaluations (* iteration (count params) 2)
+             :convergence-history new-energies
+             :final-gradient gradient
+             :reason "converged"}
+            
+            (recur new-params new-velocity (inc iteration) new-energy new-lr new-energies)))))))
+
+(defn adam-optimization
+  "VQE optimization using Adam optimizer with parameter shift gradients.
+  
+  Adam combines momentum with adaptive learning rates per parameter,
+  often providing faster and more stable convergence than plain gradient descent.
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - initial-parameters: Starting parameter values
+  - options: Optimization options
+  
+  Returns:
+  Map with optimization results"
+  [objective-fn initial-parameters options]
+  (let [learning-rate (:learning-rate options 0.001)
+        max-iter (:max-iterations options 500)
+        tolerance (:tolerance options 1e-6)
+        beta1 (:beta1 options 0.9)   ; Momentum decay
+        beta2 (:beta2 options 0.999) ; RMSprop decay
+        epsilon (:epsilon options 1e-8)
+        
+        param-count (count initial-parameters)
+        m (vec (repeat param-count 0.0))  ; First moment
+        v (vec (repeat param-count 0.0))] ; Second moment
+    
+    (loop [params initial-parameters
+           m-vec m
+           v-vec v
+           iteration 1  ; Adam uses 1-based iteration for bias correction
+           prev-energy (objective-fn initial-parameters)
+           energies [prev-energy]]
+      
+      (if (>= iteration max-iter)
+        {:success false
+         :optimal-parameters params
+         :optimal-energy (objective-fn params)
+         :iterations iteration
+         :function-evaluations (* iteration param-count 2)
+         :convergence-history energies
+         :reason "max-iterations-reached"}
+        
+        (let [;; Calculate gradient
+              gradient (calculate-vqe-gradient objective-fn params)
+              
+              ;; Update biased first moment estimate
+              new-m (mapv #(+ (* beta1 %1) (* (- 1 beta1) %2)) m-vec gradient)
+              
+              ;; Update biased second moment estimate
+              new-v (mapv #(+ (* beta2 %1) (* (- 1 beta2) %2 %2)) v-vec gradient)
+              
+              ;; Bias correction
+              m-corrected (mapv #(/ % (- 1 (m/pow beta1 iteration))) new-m)
+              v-corrected (mapv #(/ % (- 1 (m/pow beta2 iteration))) new-v)
+              
+              ;; Parameter update
+              new-params (mapv #(- %1 (* learning-rate (/ %2 (+ (m/sqrt %3) epsilon))))
+                              params m-corrected v-corrected)
+              
+              ;; Energy evaluation
+              new-energy (objective-fn new-params)
+              energy-diff (abs (- prev-energy new-energy))
+              new-energies (conj energies new-energy)]
+          
+          (if (< energy-diff tolerance)
+            {:success true
+             :optimal-parameters new-params
+             :optimal-energy new-energy
+             :iterations iteration
+             :function-evaluations (* iteration param-count 2)
+             :convergence-history new-energies
+             :final-gradient gradient
+             :reason "converged"}
+            
+            (recur new-params new-m new-v (inc iteration) new-energy new-energies)))))))
+
+(defn quantum-natural-gradient-optimization
+  "VQE optimization using Quantum Natural Gradient (QNG).
+  
+  QNG uses the quantum Fisher information matrix to define a more natural
+  metric for parameter updates, often leading to faster convergence than
+  standard gradient descent.
+  
+  Note: This is a simplified implementation. Full QNG requires computing
+  the quantum Fisher information matrix, which is computationally expensive.
+  
+  Parameters:
+  - objective-fn: VQE objective function  
+  - initial-parameters: Starting parameter values
+  - options: Optimization options
+  
+  Returns:
+  Map with optimization results"
+  [objective-fn initial-parameters options]
+  ;; For now, fall back to Adam optimization with different defaults
+  ;; Full QNG implementation would require Fisher information matrix calculation
+  (adam-optimization objective-fn initial-parameters 
+                    (merge {:learning-rate 0.1
+                            :beta1 0.999
+                            :beta2 0.999} 
+                           options)))
+
 (defn vqe-optimization
-  "Run VQE optimization using classical optimizer.
+  "Run VQE optimization using the specified method.
+  
+  Supports multiple optimization methods:
+  - :gradient-descent - Parameter shift rule with gradient descent (recommended)
+  - :adam - Adam optimizer with parameter shift gradients (often fastest)
+  - :quantum-natural-gradient - Quantum Natural Gradient (experimental)
+  - :nelder-mead - Classical derivative-free optimizer (fallback only)
   
   Parameters:
   - objective-fn: Objective function to minimize
@@ -498,32 +714,50 @@
   Returns:
   Map with optimization results"
   [objective-fn initial-parameters options]
-  (let [method (:optimization-method options :nelder-mead)
-        max-iter (:max-iterations options 100)
-        tolerance (:tolerance options 1e-6)
-        param-count (count initial-parameters)
-        
-        ;; Wrap objective function for fastmath (converts varargs to vector)
-        wrapped-objective (fn [& params] (objective-fn (vec params)))
-        
-        ;; Configure fastmath optimization with proper bounds
-        config {:max-evals max-iter
-                :rel-threshold tolerance
-                :abs-threshold tolerance
-                ;; Add parameter bounds for optimization stability
-                :bounds (vec (repeat param-count [-4.0 4.0]))  ; Allow rotations up to ~2π
-                ;; Provide initial parameters
-                :initial initial-parameters}
-        
-        ;; Run optimization (correct API: method, wrapped-objective-fn, config)
-        result (opt/minimize method wrapped-objective config)]
-    
-    {:success (:converged result false)
-     :optimal-parameters (:arg result initial-parameters)
-     :optimal-energy (:value result (objective-fn initial-parameters))
-     :iterations (:iterations result 0)
-     :function-evaluations (:evaluations result 0)
-     :optimization-result result}))
+  (let [method (:optimization-method options :gradient-descent)]  ; Default to Adam
+    (case method
+      :gradient-descent 
+      (gradient-descent-optimization objective-fn initial-parameters options)
+      
+      :adam
+      (adam-optimization objective-fn initial-parameters options)
+      
+      :quantum-natural-gradient
+      (quantum-natural-gradient-optimization objective-fn initial-parameters options)
+      
+      :nelder-mead
+      (do 
+        (println "Warning: Using Nelder-Mead optimizer. Consider :adam or :gradient-descent for better performance.")
+        (let [max-iter (:max-iterations options 1000)  ; Much higher default for Nelder-Mead
+              tolerance (:tolerance options 1e-6)
+              param-count (count initial-parameters)
+              
+              ;; Wrap objective function for fastmath (converts varargs to vector)
+              wrapped-objective (fn [& params] (objective-fn (vec params)))
+              
+              ;; Configure fastmath optimization with proper bounds
+              config {:max-evals max-iter
+                      :rel-threshold tolerance
+                      :abs-threshold tolerance
+                      ;; Add parameter bounds for optimization stability
+                      :bounds (vec (repeat param-count [-4.0 4.0]))  ; Allow rotations up to ~2π
+                      ;; Provide initial parameters
+                      :initial initial-parameters}
+              
+              ;; Run optimization (correct API: method, wrapped-objective-fn, config)
+              result (opt/minimize :nelder-mead wrapped-objective config)]
+          
+          {:success (:converged result false)
+           :optimal-parameters (:arg result initial-parameters)
+           :optimal-energy (:value result (objective-fn initial-parameters))
+           :iterations (:iterations result 0)
+           :function-evaluations (:evaluations result 0)
+           :optimization-result result}))
+      
+      ;; Default fallback
+      (throw (ex-info (str "Unknown optimization method: " method)
+                      {:method method
+                       :available-methods [:gradient-descent :adam :quantum-natural-gradient :nelder-mead]})))))
 
 (defn variational-quantum-eigensolver
   "Main VQE algorithm implementation.
@@ -542,9 +776,9 @@
    (let [hamiltonian (:hamiltonian config)
          ansatz-type (:ansatz-type config)
          num-qubits (:num-qubits config)
-         max-iter (:max-iterations config 100)
+         max-iter (:max-iterations config 500)  ; Higher default for gradient-based methods
          tolerance (:tolerance config 1e-6)
-         opt-method (:optimization-method config :nelder-mead)
+         opt-method (:optimization-method config :gradient-descent)  ; Default to Adam optimizer
          shots (:shots config 1024)
          
          ;; Create ansatz function

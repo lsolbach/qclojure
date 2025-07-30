@@ -1251,7 +1251,7 @@ simple-hamiltonian
                                         :num-layers 1
                                         :max-iterations 200
                                         :tolerance 1e-4
-                                        :optimization-method :adam  ; Use quantum-native optimization
+                                        :optimization-method :gradient-descent  ; Use gradient descent optimization
                                         :learning-rate 0.01
                                         :shots 1}))
 
@@ -1279,10 +1279,10 @@ h2-hamiltonian
                                         :ansatz-type :hardware-efficient
                                         :num-qubits 4
                                         :num-layers 2
-                                        :max-iterations 300
+                                        :max-iterations 500
                                         :optimization-method :adam
                                         :learning-rate 0.01
-                                        :tolerance 1e-6
+                                        :tolerance 1e-5
                                         :shots 1}))
 
 vqe-result-adam
@@ -1294,10 +1294,10 @@ vqe-result-adam
                                         :ansatz-type :hardware-efficient
                                         :num-qubits 4
                                         :num-layers 2
-                                        :max-iterations 300
+                                        :max-iterations 500
                                         :optimization-method :gradient-descent
                                         :learning-rate 0.01
-                                        :tolerance 1e-6
+                                        :tolerance 1e-5
                                         :shots 1}))
 
 vqe-result-gd

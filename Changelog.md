@@ -1,7 +1,8 @@
 # Changelog
 
 ## Version (NEXT)
-* added `:gradient-descent` and `:adam` optimization methods to vqe-optimization
+* added various optimization methods to vqe-optimization
+* added chemical ansatz
 * updated tutorial
 
 ## Version 0.9.0

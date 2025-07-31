@@ -147,7 +147,7 @@
   (testing "VQE objective function creation and evaluation"
     (let [hamiltonian (test-hamiltonian)
           ansatz-fn (vqe/hardware-efficient-ansatz 2 1)
-          backend nil  ; Use nil for direct simulation
+          backend (sim/create-simulator)
           options {}
           objective-fn (vqe/create-vqe-objective hamiltonian ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]]
@@ -164,7 +164,7 @@
                        (vqe/pauli-term 0.1 "ZI")]
           ansatz-fn (vqe/hardware-efficient-ansatz 2 1)
           initial-params [0.1 0.2 0.3 0.4 0.5 0.6]
-          backend nil  ; Use nil for direct simulation
+          backend (sim/create-simulator)
           options {:shots 100}
           objective-fn (vqe/create-vqe-objective hamiltonian ansatz-fn backend options)]
       
@@ -223,7 +223,7 @@
   (testing "VQE energy landscape analysis"
     (let [hamiltonian (test-hamiltonian)
           ansatz-fn (vqe/hardware-efficient-ansatz 2 1)
-          backend nil
+          backend (sim/create-simulator)
           options {}
           objective-fn (vqe/create-vqe-objective hamiltonian ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]
@@ -402,7 +402,7 @@
   (testing "VQE objective with empty Hamiltonian"
     (let [empty-h []
           ansatz-fn (vqe/hardware-efficient-ansatz 2 1)
-          backend nil
+          backend (sim/create-simulator)
           options {}
           objective-fn (vqe/create-vqe-objective empty-h ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]]
@@ -417,7 +417,7 @@
     (let [simple-h [(vqe/pauli-term -1.0 "II")]
           ansatz-fn (vqe/hardware-efficient-ansatz 2 1)
           initial-params [0.1 0.2 0.3 0.4 0.5 0.6]
-          backend nil
+          backend (sim/create-simulator)
           options {}
           objective-fn (vqe/create-vqe-objective simple-h ansatz-fn backend options)]
       

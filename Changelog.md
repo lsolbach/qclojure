@@ -2,7 +2,8 @@
 
 ## Version (NEXT)
 * added various optimization methods to vqe-optimization
-* added chemical ansatz
+* added chemical ansatz for VQE
+* fixed HHL measurement
 * updated tutorial
 
 ## Version 0.9.0

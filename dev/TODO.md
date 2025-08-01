@@ -16,3 +16,5 @@
   * a gate is an operation, so is a measurement
 * add separation between text and graphics in svg visualization
 * extract formatting information to edn
+* remove hardware references from    gate-decomposition (domain layer)
+* move general math code to math namespace

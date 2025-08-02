@@ -1,8 +1,10 @@
 # Changelog
 
 ## Version (NEXT)
-* added various optimization methods to vqe-optimization
-* added chemical ansatz for VQE
+* added domain namespaces for hamiltonian and ansatz functions
+* added chemical ansatz
+* added optimization namespace in application/algorithms
+* added various optimization methods to be used with vqe-optimization
 * fixed HHL measurement
 * updated tutorial
 

@@ -4,16 +4,13 @@
   This namespace provides functionality to decompose complex quantum gates into simpler,
   hardware-native operations. It enables quantum circuits to be transformed to match the
   specific gate sets supported by different quantum hardware platforms and simulators.
-  
-  Core Functionality
-  
-  Gate Decomposition
+    
+  Gate Decomposition:
   - Decomposes complex gates (Toffoli, Fredkin, etc.) into universal gate sets
   - Handles parametric gates (rotation gates with arbitrary angles)
   - Supports multiple decomposition strategies based on target hardware
   
-  Circuit Transformation
-  
+  Circuit Transformation:
   - Transforms entire quantum circuits to use only supported operations
   - Preserves quantum circuit semantics while changing implementation
   - Provides iterative decomposition with cycle detection
@@ -36,7 +33,7 @@
   See also: `org.soulspace.qclojure.domain.operation-registry` for gate definitions."
   (:require [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
-;; TODO remove
+;; TODO remove, in domain, only gate sets should be used
 (defn resolve-supported-operations
   "Resolve supported operations - converts keyword targets to gate sets or returns the set as-is.
   

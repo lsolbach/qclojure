@@ -241,8 +241,10 @@
   {:pre [(ham/validate-hamiltonian hamiltonian) (fn? ansatz-fn)]}
   (fn objective [parameters]
     (try
-      (let [;; Step 1: Create ansatz circuit with current parameters
-            circuit (ansatz-fn parameters)
+      (let [;; Ensure parameters is a vector (fastmath optimizers may pass ArraySeq)
+            params-vec (if (vector? parameters) parameters (vec parameters))
+            ;; Step 1: Create ansatz circuit with current parameters
+            circuit (ansatz-fn params-vec)
 
             ;; Step 2: Execute circuit to get final quantum state
             final-state (try

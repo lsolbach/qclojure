@@ -6,6 +6,7 @@
 * added optimization namespace in application/algorithms
 * added various optimization methods to be used with vqe-optimization
 * fixed HHL measurement
+* updated docstrings
 * updated tutorial
 
 ## Version 0.9.0

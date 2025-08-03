@@ -111,6 +111,8 @@
   #{:gradient-descent :adam :quantum-natural-gradient
     ;; Fastmath derivative-free optimizers (verified working)
     :nelder-mead :powell :cmaes :bobyqa
+    ;; Fastmath gradient-based optimizers
+    :lbfgsb :gradient
     ;; Note: :cobyla :bfgs :lbfgs :cg not available in this fastmath version
     })
 
@@ -824,9 +826,8 @@
   convergence than derivative-free methods.
   
   Supported methods:
-  - :bfgs - Broyden-Fletcher-Goldfarb-Shanno (quasi-Newton)
-  - :lbfgs - Limited-memory BFGS (memory efficient)
-  - :cg - Conjugate Gradient (simple and effective)
+  - :lbfgsb - L-BFGS-B (limited memory BFGS with bounds)
+  - :gradient - Simple gradient descent (not recommended for VQE)
   
   Parameters:
   - method: Fastmath optimization method keyword
@@ -840,16 +841,16 @@
   (let [max-iter (:max-iterations options 500)  ; Lower default for gradient-based
         tolerance (:tolerance options 1e-6)
         param-count (count initial-parameters)
-        
+
         ;; Gradient evaluation counter
         gradient-evaluations (atom 0)
         function-evaluations (atom 0)
-        
+
         ;; Wrap objective function to count evaluations
         wrapped-objective (fn [& params]
                             (swap! function-evaluations inc)
                             (objective-fn (vec params)))
-        
+
         ;; Wrap gradient function using our parameter shift rule
         wrapped-gradient (fn [& params]
                            (swap! gradient-evaluations inc)
@@ -857,23 +858,23 @@
                                  gradient (calculate-parameter-shift-gradient objective-fn param-vec)]
                              ;; Convert to array for fastmath
                              (double-array gradient)))
-        
+
         ;; Configure optimization
         config (merge {:max-evals max-iter
                        :rel-threshold tolerance
                        :abs-threshold tolerance
                        :initial initial-parameters
                        :gradient wrapped-gradient  ; Provide our gradient function
-                       :bounds (:parameter-bounds options 
-                                (vec (repeat param-count [-10.0 10.0])))}  ; Default bounds
-                      
+                       :bounds (:parameter-bounds options
+                                                  (vec (repeat param-count [-10.0 10.0])))}  ; Default bounds
+
                       ;; Method-specific parameters
                       (case method
                         :lbfgs {:memory (:lbfgs-memory options 10)  ; History size
                                 :step-size (:lbfgs-step-size options 1.0)}
                         :cg {:beta-type (:cg-beta-type options :fletcher-reeves)}  ; or :polak-ribiere
                         {}))
-        
+
         ;; Run optimization
         start-time (System/currentTimeMillis)
         result (try
@@ -882,11 +883,11 @@
                    (println "Fastmath gradient optimization failed:" (.getMessage e))
                    [initial-parameters (objective-fn initial-parameters)]))
         end-time (System/currentTimeMillis)
-        
+
         ;; Extract results from vector format [parameters value]
         optimal-params (if (vector? result) (first result) initial-parameters)
         optimal-value (if (vector? result) (second result) (objective-fn initial-parameters))]
-    
+
     {:success (< (abs (- optimal-value (objective-fn initial-parameters))) tolerance)
      :optimal-parameters optimal-params
      :optimal-energy optimal-value

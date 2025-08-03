@@ -549,17 +549,27 @@
 (comment
   (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
   
-  ;; Example 1: Hardware-efficient ansatz (original)
+  ;; Example 1: UCCSD-inspired ansatz for H₂ molecule
+  ;; This example uses the UCCSD ansatz with a 4-qubit representation of H₂.
+  ;; The ansatz is designed to capture electron correlation effects in molecular systems.
+  ;; The Hamiltonian is defined in the Jordan-Wigner encoding, and the VQE algorithm
+  ;; is configured to find the ground state energy of H₂.
   (def vqe-config
     {:hamiltonian         (molecular-hydrogen-hamiltonian)
-     :ansatz-type         :hardware-efficient
+     :ansatz-type         :uccsd
+     :num-excitations     2
      :num-qubits          4
      :num-layers          2
      :max-iterations      200
      :tolerance           1e-6
-     :optimization-method :powell})
+     :optimization-method :adam})
 
-  ;; Example 2: Chemistry-inspired ansatz (NEW - better for molecular problems)
+  ;; Example 2: Chemistry-inspired ansatz for H₂ molecule
+  ;; This example uses a chemistry-inspired ansatz with excitation layers.
+  ;; The ansatz is designed to efficiently capture the electronic structure of H₂.
+  ;; The ansatz uses a single excitation layer to capture the essential correlation effects.
+  ;; The Hamiltonian is defined in the Jordan-Wigner encoding, and the VQE algorithm
+  ;; is configured to find the ground state energy of H₂.
   (def chemistry-vqe-config
     {:hamiltonian           (molecular-hydrogen-hamiltonian)
      :ansatz-type           :chemistry-inspired
@@ -570,67 +580,17 @@
      :optimization-method   :adam})
 
   ;; Run the VQE algorithm
-  (def vqe-result (variational-quantum-eigensolver (sim/create-simulator) vqe-config))
+  (def uccsd-result (variational-quantum-eigensolver (sim/create-simulator) vqe-config))
   (def chemistry-result (variational-quantum-eigensolver (sim/create-simulator) chemistry-vqe-config))
 
   ;; Print the key results
   (println (format "VQE Ground State Energy: %.8f Ha"
-                   (get-in vqe-result [:results :optimal-energy])))
+                   (get-in uccsd-result [:results :optimal-energy])))
   (println (format "Chemistry VQE Energy:    %.8f Ha"
                    (get-in chemistry-result [:results :optimal-energy])))
   (println (format "Hartree-Fock Energy:     %.8f Ha"
-                   (get-in vqe-result [:analysis :initial-energy])))
+                   (get-in uccsd-result [:analysis :initial-energy])))
   (println (format "Correlation Energy:      %.8f Ha"
-                   (- (get-in vqe-result [:results :optimal-energy])
-                      (get-in vqe-result [:analysis :initial-energy]))))
-  )
-
-
-(comment
-  ;; Run VQE (requires backend)
-  ;; (def vqe-result (variational-quantum-eigensolver backend vqe-config))
-
-  ;; Analyze results
-  ;; (:optimal-energy (:results vqe-result))
-  ;; (:energy-improvement (:analysis vqe-result))
-
-  ;;
-  ;; OPTIMIZATION METHOD SELECTION GUIDE
-  ;; 
-  ;; For fast prototyping and good general performance:
-  ;; :adam - Adaptive learning rates, fast convergence, good default choice
-
-  ;; For small problems (few parameters, <20):
-  ;; :nelder-mead - Simple, derivative-free, works well for small parameter spaces
-  ;; :powell - Coordinate descent, good for small dimensions
-  ;; :cmaes - Robust, handles noise, good for small to medium problems
-  ;; :bobyqa - Handles bounds, good for small to medium problems
-  ;; :gradient-descent - Simple, reliable, but may be slow for complex landscapes
-
-  ;; For medium problems (20-50 parameters):
-  ;; :cmaes - Scales well, robust to noise, good for medium problems
-  ;; :bobyqa - Handles bounds, good for medium problems
-  ;; :lbfgs - Quasi-Newton method, good for medium problems with gradients available
-
-  ;; For robust convergence with theoretical guarantees:
-  ;; :gradient-descent - Simple, reliable, uses exact quantum gradients
-
-  ;; For problems requiring high precision:
-  ;; :bfgs or :lbfgs - Quasi-Newton methods with superlinear convergence
-
-  ;; For noisy objectives or when gradients are unreliable:
-  ;; :cmaes - Robust global optimizer, handles noise well
-  ;; :nelder-mead - Simple derivative-free, good for quick tests
-
-  ;; For constrained problems or bounded parameters:
-  ;; :bobyqa - Handles bounds naturally
-  ;; :cobyla - Can handle constraints
-
-  ;; For many parameters (>50):
-  ;; :lbfgs - Memory efficient quasi-Newton
-  ;; :cmaes - Scales well with dimensionality
-
-  ;; For experimental/research purposes:
-  ;; :quantum-natural-gradient - Uses quantum Fisher information
-
+                   (- (get-in uccsd-result [:results :optimal-energy])
+                      (get-in uccsd-result [:analysis :initial-energy]))))
   )

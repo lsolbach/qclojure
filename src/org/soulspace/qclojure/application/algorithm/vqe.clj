@@ -441,6 +441,9 @@
         opt-result (vqe-optimization objective-fn initial-params opt-options)
         end-time (System/currentTimeMillis)
 
+        ;; Initial value
+        initial-energy (objective-fn initial-params)
+
         ;; Calculate final results
         optimal-params (:optimal-parameters opt-result)
         optimal-energy (:optimal-energy opt-result)
@@ -456,23 +459,24 @@
 
     {:algorithm "Variational Quantum Eigensolver"
      :config options
+     :success (:success opt-result)
+     :result optimal-energy
+     :circuit final-circuit
+     :parameter-count param-count
+     :ansatz-type ansatz-type
      :results {:optimal-energy optimal-energy
                :optimal-parameters optimal-params
                :success (:success opt-result)
                :iterations (:iterations opt-result)
                :function-evaluations (:function-evaluations opt-result)}
-     :circuit {:final-circuit final-circuit
-               :num-qubits num-qubits
-               :parameter-count param-count
-               :ansatz-type ansatz-type}
      :hamiltonian {:terms (count hamiltonian)
                    :grouped-terms (when grouped-terms (count grouped-terms))
                    :classical-bound classical-energy}
      :timing {:execution-time-ms (- end-time start-time)
               :start-time start-time
               :end-time end-time}
-     :analysis {:initial-energy (objective-fn initial-params)
-                :energy-improvement (- (objective-fn initial-params) optimal-energy)
+     :analysis {:initial-energy initial-energy
+                :energy-improvement (- initial-energy optimal-energy)
                 :convergence-achieved (:success opt-result)}
      :optimization opt-result}))
 

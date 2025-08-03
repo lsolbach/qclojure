@@ -1280,9 +1280,7 @@ h2-hamiltonian
 ;; The result of the VQE algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 ;;
-;; We use the `:chemistry-inspired` ansatz type, which is suitable for
-;; chemistry problems.
-;; There are other ansatz types available, such as `:hardware-efficient`,
+;; There are different ansatz types available, such as `:hardware-efficient`,
 ;; `:chemistry-inspired`, `:uccsd`, `:symmetry-preserving` and `:custom`.
 ;; The `:hardware-efficient` ansatz type is not suitable for chemistry problems,
 ;; as it does not preserve the symmetries of the Hamiltonian. The `:uccsd` ansatz
@@ -1291,13 +1289,16 @@ h2-hamiltonian
 ;; problems, as it preserves the symmetries of the Hamiltonian. The `:custom`
 ;; ansatz type allows you to define your own ansatz circuit.
 ;;
+;; We use the `:chemistry-inspired` ansatz type, which is suitable for
+;; chemistry problems.
+;;
 ;; We'll compare different optimization methods to show their performance.
 ;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
 ;;
 ;; For gradient-free optimizers, we can use the following methods: `:nelder-mead`,
 ;; `:powell`, `:cmaes` and `:bobyqa`. 
 ;;
-;; First we use the adam optimizer, which is a gradient-based optimization method
+;; Here we use the adam optimizer, which is a gradient-based optimization method
 ;; that uses the parameter shift rule to compute gradients. 
 
 (def vqe-result-adam
@@ -1313,5 +1314,10 @@ h2-hamiltonian
 
 vqe-result-adam
 
+;; The calculated ground state energy is
 
+(:result vqe-result-adam)
 
+;; The final circuit with the optimal parameters is
+
+;(kind/html (viz/visualize-circuit :svg (:circuit vqe-result-adam)))

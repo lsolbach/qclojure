@@ -1088,6 +1088,9 @@ qft-state
 ;; The HHL algorithm can solve a system of linear equations in polynomial time,
 ;; which is a significant improvement over classical algorithms that require
 ;; exponential time for large systems.
+;; The result is an approximation of the solution vector x that satisfies
+;; the equations Ax = b, where A is a hermitian matrix and b is a vector of constants.
+;;
 ;; The current implementation works for a hermitian n x n matrix A and a vector b.
 ;;
 ;; #### Problem Statement
@@ -1132,10 +1135,18 @@ qft-state
 
 ;; We can use the HHL algorithm to solve a system of linear equations.
 ;; For example, let's solve the system of equations represented by the
-;; hermitian matrix A and the vector b.
+;; positive definite matrix A and the vector b.
+;; 
+;; IMPORTANT: HHL works best with positive definite hermitian matrices
+;; (all eigenvalues > 0). 
 
-(def hhl-matrix [[1 2] [2 3]]) ; Hermitian matrix A
-(def hhl-vector [5 6])          ; Vector b
+;; Positive definite matrix A
+
+(def hhl-matrix [[3 1] [1 2]])
+
+;; Vector b
+
+(def hhl-vector [7 5])
 
 ;; Now we can create the circuit for the HHL algorithm with the given matrix
 ;; and vector.
@@ -1154,7 +1165,7 @@ qft-state
 ;; the solution to the system of linear equations Ax = b.
 
 (def hhl-result
-  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector))
+  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 10000}))
 
 ;; The result of the HHL algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -1236,7 +1247,7 @@ hhl-result
 ;; which can be represented as a sum of Pauli operators.
 
 (def simple-hamiltonian [(vqe/pauli-term -1.0 "IIII")
-                          (vqe/pauli-term 0.1 "ZIII")])
+                         (vqe/pauli-term 0.1 "ZIII")])
 
 simple-hamiltonian
 
@@ -1269,53 +1280,38 @@ h2-hamiltonian
 ;; The result of the VQE algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 ;;
+;; We use the `:chemistry-inspired` ansatz type, which is suitable for
+;; chemistry problems.
+;; There are other ansatz types available, such as `:hardware-efficient`,
+;; `:chemistry-inspired`, `:uccsd`, `:symmetry-preserving` and `:custom`.
+;; The `:hardware-efficient` ansatz type is not suitable for chemistry problems,
+;; as it does not preserve the symmetries of the Hamiltonian. The `:uccsd` ansatz
+;; type is suitable for chemistry problems, as it uses the unitary coupled cluster
+;; ansatz. The `:symmetry-preserving` ansatz type is suitable for chemistry
+;; problems, as it preserves the symmetries of the Hamiltonian. The `:custom`
+;; ansatz type allows you to define your own ansatz circuit.
+;;
 ;; We'll compare different optimization methods to show their performance.
+;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
+;;
+;; For gradient-free optimizers, we can use the following methods: `:nelder-mead`,
+;; `:powell`, `:cmaes` and `:bobyqa`. 
+;;
 ;; First we use the adam optimizer, which is a gradient-based optimization method
 ;; that uses the parameter shift rule to compute gradients. 
 
 (def vqe-result-adam
   (vqe/variational-quantum-eigensolver (sim/create-simulator)
-                                       {:hamiltonian h2-hamiltonian
-                                        :ansatz-type :hardware-efficient
-                                        :num-qubits 4
-                                        :num-layers 2
-                                        :max-iterations 500
-                                        :optimization-method :adam
-                                        :learning-rate 0.01
-                                        :tolerance 1e-5
-                                        :shots 1}))
+                                       {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
+                                        :ansatz-type           :chemistry-inspired
+                                        :num-qubits            4
+                                        :num-excitation-layers 1
+                                        :max-iterations        200
+                                        :tolerance             1e-5
+                                        :learning-rate         0.2
+                                        :optimization-method   :adam}))
 
 vqe-result-adam
 
-;; Compare with gradient descent
-(def vqe-result-gd
-  (vqe/variational-quantum-eigensolver (sim/create-simulator)
-                                       {:hamiltonian h2-hamiltonian
-                                        :ansatz-type :hardware-efficient
-                                        :num-qubits 4
-                                        :num-layers 2
-                                        :max-iterations 500
-                                        :optimization-method :gradient-descent
-                                        :learning-rate 0.01
-                                        :tolerance 1e-5
-                                        :shots 1}))
 
-vqe-result-gd
-
-;; The result shows that the VQE algorithm correctly finds the ground state energy
-;; of the quantum system represented by the Hamiltonian H₂.
-
-; (:result vqe-result)
-
-;; The measurement outcome is the ground state energy E₀ of the quantum system,
-;; which is approximately -1.137 eV for the molecular hydrogen Hamiltonian.
-
-;; Lets visualize the final quantum state after executing the VQE algorithm.
-
-; (kind/html (viz/visualize-quantum-state :svg (get-in vqe-result [:execution-result :final-state])))
-
-;; The final quantum state shows that the VQE algorithm correctly prepares the trial state
-;; |ψ(θ)⟩ that represents the ground state of the quantum system.
-;; The final quantum state is a superposition of the states that represent the ground state energy
-;; of the quantum system.
 

@@ -47,7 +47,8 @@
 ;; have the following prerequisites installed on your system:
 ;; * [JDK 11 or higher](https://openjdk.org/install/)
 ;; * [Clojure](https://clojure.org/)
-;; * [Leiningen](https://leiningen.org/) or [Clojure CLI](https://clojure.org/guides/getting_started) to manage dependencies and run Clojure code.
+;; * [Leiningen](https://leiningen.org/) or [Clojure CLI](https://clojure.org/guides/getting_started)
+;;   to manage dependencies and run Clojure code.
 ;;
 ;; If you are new to Clojure, I recommend reading the
 ;; [Clojure Getting Started Guide](https://clojure.org/guides/getting_started).
@@ -542,9 +543,9 @@ forte-10k-result
 ;; Error mitigation is a collection of techniques used to reduce the effects
 ;; of noise in quantum computations. It is not a full error correction, but it
 ;; can improve the results of quantum computations by reducing the errors
-;; caused by noise.
-;; Error mitigation techniques can be applied to quantum circuits to improve
-;; the results of quantum computations.
+;; caused by noise. Error mitigation techniques can be applied to quantum
+;; circuits to improve the results of quantum computations.
+;;
 ;; QClojure provides a set of error mitigation techniques that can be used to
 ;; reduce the effects of noise in quantum computations.
 ;;

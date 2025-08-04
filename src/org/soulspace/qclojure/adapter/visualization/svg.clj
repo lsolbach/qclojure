@@ -6,7 +6,6 @@
   web pages or saved as standalone files."
   (:require [clojure.string :as str]
             [hiccup2.core :as h]
-
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.adapter.visualization :as viz]
@@ -951,7 +950,9 @@
   ;; REPL examples for SVG visualization
 
   ;; Create SVG bar chart for Bell state
+  (require '[org.soulspace.qclojure.domain.state :as qs])
   (require '[org.soulspace.qclojure.domain.gate :as qg])
+  (require '[org.soulspace.qclojure.util.io :as qio])
 
   (def bell-state (-> (qs/zero-state 2)
                       (qg/h-gate 0)

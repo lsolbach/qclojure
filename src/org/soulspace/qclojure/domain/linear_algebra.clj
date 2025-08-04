@@ -1,1 +1,0 @@
-(ns org.soulspace.qclojure.domain.linear-algebra)

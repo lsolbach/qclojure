@@ -111,9 +111,7 @@
   {:pre [(vector? hidden-string)
          (every? #(or (= % 0) (= % 1)) hidden-string)]}
   
-  (let [n (count hidden-string)
-        
-        ;; Build circuit for Bernstein-Vazirani algorithm
+  (let [;; Build circuit for Bernstein-Vazirani algorithm
         circuit (bernstein-vazirani-circuit hidden-string)
         
         ;; Execute circuit on backend

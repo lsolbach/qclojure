@@ -5,6 +5,7 @@
 * added chemical ansatz
 * added optimization namespace in application/algorithms
 * added various optimization methods to be used with vqe-optimization
+* moved linear algebra functions to seperate namespace
 * fixed HHL measurement
 * updated docstrings
 * updated tutorial

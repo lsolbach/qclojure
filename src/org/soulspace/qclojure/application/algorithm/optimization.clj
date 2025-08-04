@@ -103,9 +103,10 @@
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.optimization :as opt]
-            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.domain.math.linear-algebra :as qla]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]))
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.application.backend :as qb]))
 
 (s/def ::optimization-method
   #{:gradient-descent :adam :quantum-natural-gradient
@@ -400,95 +401,6 @@
 ;;
 
 ;; TODO move matrix operations to math namespace
-(defn matrix-multiply
-  "Multiply two matrices represented as vectors of vectors.
-  
-  Parameters:
-  - A: Matrix A as vector of row vectors
-  - B: Matrix B as vector of row vectors
-  
-  Returns:
-  Matrix product A*B"
-  [A B]
-  (let [rows-A (count A)
-        cols-A (count (first A))
-        cols-B (count (first B))]
-    (vec (for [i (range rows-A)]
-           (vec (for [j (range cols-B)]
-                  (reduce + (for [k (range cols-A)]
-                              (* (get-in A [i k]) (get-in B [k j]))))))))))
-
-(defn matrix-transpose
-  "Transpose a matrix.
-  
-  Parameters:
-  - M: Matrix as vector of row vectors
-  
-  Returns:
-  Transposed matrix"
-  [M]
-  (let [rows (count M)
-        cols (count (first M))]
-    (vec (for [j (range cols)]
-           (vec (for [i (range rows)]
-                  (get-in M [i j])))))))
-
-(defn matrix-inverse
-  "Compute matrix inverse using Gauss-Jordan elimination.
-  
-  This is a simple implementation suitable for small matrices (< 20x20).
-  For larger matrices, consider using a dedicated linear algebra library.
-  
-  Parameters:
-  - M: Square matrix as vector of row vectors
-  
-  Returns:
-  Inverse matrix, or nil if matrix is singular"
-  [M]
-  (let [n (count M)
-        ;; Create augmented matrix [M | I]
-        augmented (vec (for [i (range n)]
-                        (vec (concat (nth M i) 
-                                    (for [j (range n)] (if (= i j) 1.0 0.0))))))]
-    (try
-      ;; Gauss-Jordan elimination
-      (loop [mat augmented
-             row 0]
-        (if (>= row n)
-          ;; Extract inverse from right half of augmented matrix
-          (vec (for [i (range n)]
-                 (vec (for [j (range n n (* 2 n))]
-                        (get-in mat [i j])))))
-          (let [;; Find pivot
-                pivot-row (reduce (fn [best-row curr-row]
-                                   (if (> (abs (get-in mat [curr-row row]))
-                                          (abs (get-in mat [best-row row])))
-                                     curr-row
-                                     best-row))
-                                 row (range row n))
-                pivot-val (get-in mat [pivot-row row])]
-            (if (< (abs pivot-val) 1e-12)
-              nil ; Matrix is singular
-              (let [;; Swap rows if needed
-                    mat-swapped (if (= pivot-row row)
-                                 mat
-                                 (assoc mat 
-                                        row (nth mat pivot-row)
-                                        pivot-row (nth mat row)))
-                    ;; Scale pivot row
-                    mat-scaled (assoc mat-swapped row
-                                     (mapv #(/ % pivot-val) (nth mat-swapped row)))
-                    ;; Eliminate column
-                    mat-eliminated (vec (for [i (range n)]
-                                         (if (= i row)
-                                           (nth mat-scaled i)
-                                           (let [factor (get-in mat-scaled [i row])]
-                                             (mapv - (nth mat-scaled i)
-                                                  (mapv #(* factor %) (nth mat-scaled row)))))))]
-                (recur mat-eliminated (inc row)))))))
-      (catch Exception _
-        nil))))
-
 (defn compute-state-derivative
   "Compute the derivative of the quantum state with respect to a parameter.
   
@@ -708,12 +620,12 @@
               regularized-fisher (regularize-fisher-matrix fisher-matrix regularization)
               
               ;; Compute Fisher matrix inverse
-              fisher-inverse (matrix-inverse regularized-fisher)
+              fisher-inverse (qla/matrix-inverse regularized-fisher)
               
               ;; Check if matrix is invertible
               new-params (if fisher-inverse
                           ;; QNG update: θ_{k+1} = θ_k - α * F⁻¹ * ∇E
-                          (let [natural-gradient (first (matrix-multiply fisher-inverse [gradient]))]
+                          (let [natural-gradient (first (qla/matrix-multiply fisher-inverse [gradient]))]
                             (mapv #(- %1 (* learning-rate %2)) params natural-gradient))
                           ;; Fallback to regular gradient descent if Fisher matrix is singular
                           (do

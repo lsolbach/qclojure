@@ -255,19 +255,19 @@
     (let [h2-hamiltonian (vqe/molecular-hydrogen-hamiltonian)
           backend (sim/create-simulator)]
 
-      ;; Test hardware-efficient ansatz
+      ;; Test chemistry inspired ansatz
       (let [config-he {:hamiltonian h2-hamiltonian
-                       :ansatz-type :hardware-efficient
+                       :ansatz-type :chemistry-inspired
                        :num-qubits 4
                        :num-layers 1
                        :max-iterations 1
                        :tolerance 1e-1}]
         (try
           (let [result (vqe/variational-quantum-eigensolver backend config-he)]
-            (is (map? result) "Hardware-efficient ansatz should work")
-            (is (= :hardware-efficient (get-in result [:circuit :ansatz-type]))))
+            (is (map? result) "Chemistry inspired ansatz should work")
+            (is (= :chemistry-inspired (get result :ansatz-type))))
           (catch Exception _e
-            (is true "Hardware-efficient ansatz setup works"))))
+            (is true "Chemistry inspired ansatz setup works"))))
 
       ;; Test UCCSD ansatz
       (let [config-uccsd {:hamiltonian h2-hamiltonian
@@ -279,7 +279,7 @@
         (try
           (let [result (vqe/variational-quantum-eigensolver backend config-uccsd)]
             (is (map? result) "UCCSD ansatz should work")
-            (is (= :uccsd (get-in result [:circuit :ansatz-type]))))
+            (is (= :uccsd (get result :ansatz-type))))
           (catch Exception _e
             (is true "UCCSD ansatz setup works")))))))
 

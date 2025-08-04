@@ -18,3 +18,17 @@
 * extract formatting information to edn
 * remove hardware references from    gate-decomposition (domain layer)
 * move general math code to math namespace
+
+## Test Coverage
+Raise test coverage for
+* domain.circuit
+* domain.gate-decomposition
+* application.algorithm.optimization
+* application.algorithm.shor
+* application.backend
+* application.error-mitigation.virtual-distillation
+* application.error-mitigation.zero-noise
+* adapter.backend.*
+* adapter.io.*
+* adapter.visualiation.*
+

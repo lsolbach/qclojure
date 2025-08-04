@@ -1,5 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.linear-algebra
-  )
+(ns org.soulspace.qclojure.domain.math.linear-algebra)
 
 (defn matrix-multiply
   "Multiply two matrices represented as vectors of vectors.

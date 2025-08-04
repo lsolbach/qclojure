@@ -13,8 +13,7 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.channel :as channel]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.application.noise :as noise]))
+            [org.soulspace.qclojure.domain.state :as qs]))
 
 ;; Specs for noise application functions
 (s/def ::noise-type keyword?) ; Allow any keyword, function will handle unknown types gracefully

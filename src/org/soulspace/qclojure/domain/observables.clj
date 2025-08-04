@@ -11,7 +11,7 @@
    - Compose complex observables from simple primitives
    - Separate representation, computation, and measurement concerns"
   (:require [clojure.spec.alpha :as s]
-            [fastmath.complex :as c]
+            [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.gate :as gate]
             [org.soulspace.qclojure.domain.state :as state]))
 
@@ -51,60 +51,60 @@
 ;; Standard computational basis projectors
 (def projector-0
   "Projector onto |0⟩ state"
-  [[c/ONE c/ZERO]
-   [c/ZERO c/ZERO]])
+  [[fc/ONE fc/ZERO]
+   [fc/ZERO fc/ZERO]])
 
 (def projector-1
   "Projector onto |1⟩ state"  
-  [[c/ZERO c/ZERO]
-   [c/ZERO c/ONE]])
+  [[fc/ZERO fc/ZERO]
+   [fc/ZERO fc/ONE]])
 
 ;;
 ;; Helper Functions for Matrix Operations
 ;;
 (defn matrix-add
-  "Add two matrices element-wise"
+  "Add two matrices of complex numbers element-wise"
   [m1 m2]
   (mapv (fn [row1 row2]
-          (mapv c/add row1 row2))
+          (mapv fc/add row1 row2))
         m1 m2))
 
 (defn matrix-scalar-mult
-  "Multiply matrix by scalar"
+  "Multiply matrix of complex numbers by scalar"
   [scalar matrix]
   (mapv (fn [row]
-          (mapv (fn [elem] (c/mult (c/complex scalar 0) elem)) row))
+          (mapv (fn [elem] (fc/mult (fc/complex scalar 0) elem)) row))
         matrix))
 
 (defn zero-matrix
-  "Create a zero matrix of given dimensions"
+  "Create a zero matrix of complex numbers of given dimensions"
   [rows cols]
-  (vec (repeat rows (vec (repeat cols c/ZERO)))))
+  (vec (repeat rows (vec (repeat cols fc/ZERO)))))
 
 (defn matrix-mult
-  "Multiply two matrices"
+  "Multiply two matrices of complex numbers"
   [m1 m2]
   (let [rows1 (count m1)
         cols1 (count (first m1))
         cols2 (count (first m2))]
     (vec (for [i (range rows1)]
            (vec (for [j (range cols2)]
-                  (reduce c/add c/ZERO
+                  (reduce fc/add fc/ZERO
                           (for [k (range cols1)]
-                            (c/mult (get-in m1 [i k])
+                            (fc/mult (get-in m1 [i k])
                                    (get-in m2 [k j]))))))))))
 
 (defn hermitian-conjugate
-  "Compute Hermitian conjugate (complex conjugate transpose) of matrix"
+  "Compute Hermitian conjugate (complex conjugate transpose) of matrix of complex numbers"
   [matrix]
   (let [rows (count matrix)
         cols (count (first matrix))]
     (vec (for [j (range cols)]
            (vec (for [i (range rows)]
-                  (c/conjugate (get-in matrix [i j]))))))))
+                  (fc/conjugate (get-in matrix [i j]))))))))
 
 (defn matrix-equal?
-  "Check if two matrices are equal within tolerance"
+  "Check if two matrices of complex numbers are equal within tolerance"
   [m1 m2]
   (let [tolerance 1e-10]
     (and (= (count m1) (count m2))
@@ -113,7 +113,7 @@
                    (every? (fn [j]
                              (let [elem1 (get-in m1 [i j])
                                    elem2 (get-in m2 [i j])
-                                   diff (c/abs (c/sub elem1 elem2))]
+                                   diff (fc/abs (fc/sub elem1 elem2))]
                                (< diff tolerance)))
                            (range (count (first m1)))))
                  (range (count m1))))))
@@ -203,8 +203,8 @@
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
         obs-psi (gate/matrix-vector-mult observable state-vec)
-        conj-psi (map c/conjugate state-vec)]
-    (c/re (reduce c/add (map c/mult conj-psi obs-psi)))))
+        conj-psi (map fc/conjugate state-vec)]
+    (fc/re (reduce fc/add (map fc/mult conj-psi obs-psi)))))
 
 (defn variance
   "Calculate variance of observable: ⟨O²⟩ - ⟨O⟩²
@@ -319,8 +319,8 @@
   ;; Test with Bell states
   (def bell-state (state/normalize-state 
                     (state/multi-qubit-state 
-                      [(c/complex 1.0) (c/complex 0.0) 
-                       (c/complex 0.0) (c/complex 1.0)])))
+                      [(fc/complex 1.0) (fc/complex 0.0) 
+                       (fc/complex 0.0) (fc/complex 1.0)])))
   
   (obs/expectation-value (obs/pauli-string->observable "ZZ") bell-state)  ; => 1.0
   

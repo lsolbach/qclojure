@@ -85,16 +85,13 @@
 (ns tutorial
   (:require
    [fastmath.core :as fm]
-   [scicloj.kindly.v4.api :as kindly]
    [scicloj.kindly.v4.kind :as kind]
    [org.soulspace.qclojure.domain.state :as qs]
    [org.soulspace.qclojure.domain.gate :as qg]
    [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.adapter.visualization.html :as html]
    [org.soulspace.qclojure.adapter.visualization :as viz]
-   [org.soulspace.qclojure.application.algorithm.shor :as shor]
-   [org.soulspace.qclojure.application.backend :as qb]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
+   [org.soulspace.qclojure.adapter.visualization.html :as html]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -965,7 +962,6 @@ qft-state
 ;; The inverse QFT can be used to recover the original quantum state from its
 ;; frequency domain representation.
 ;;
-;;
 ;; ### Quantum Phase Estimation
 ;; The [Quantum Phase Estimation (QPE)](https://en.wikipedia.org/wiki/Quantum_phase_estimation_algorithm)
 ;; is a quantum algorithm that estimates the eigenvalues of a unitary operator.
@@ -991,6 +987,9 @@ qft-state
 ;; 3. Apply controlled-U gates to the auxiliary qubit, where U is the unitary operator.
 ;; 4. Apply the inverse Quantum Fourier Transform (QFT) to the auxiliary qubit.
 ;; 5. Measure the auxiliary qubit to obtain the estimated phase θ.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe])
+
 ;;
 ;; ### Quantum Period Finding
 ;; The [Quantum Period Finding](https://en.wikipedia.org/wiki/Quantum_period_finding)
@@ -1010,14 +1009,6 @@ qft-state
 ;; with high precision using a quantum circuit that requires only a polynomial
 ;; number of evaluations of the function f.
 ;;
-;; To explore the Quantum Period Finding algorithm, we need to require the
-;; `quantum-period-finding` namespace.
-
-(require '[org.soulspace.qclojure.application.algorithm.quantum-period-finding :as period-finding])
-
-;;
-;;
-;;
 ;; #### Quantum Circuit
 ;; The Quantum Period Finding algorithm can be implemented using a quantum circuit with the following steps:
 ;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
@@ -1026,6 +1017,11 @@ qft-state
 ;; 4. Apply the Quantum Fourier Transform (QFT) to the qubits.
 ;; 5. Measure the qubits to obtain a value that can be used to find the period r.
 ;;
+;; To explore the Quantum Period Finding algorithm, we need to require the
+;; `quantum-period-finding` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf])
+
 ;; ### Shor's Algorithm
 ;; [Shor's algorithm](https://en.wikipedia.org/wiki/Shor%27s_algorithm) is a quantum algorithm
 ;; that can factor large integers in polynomial time.
@@ -1093,6 +1089,9 @@ qft-state
 ;; The HHL algorithm can solve a system of linear equations in polynomial time,
 ;; which is a significant improvement over classical algorithms that require
 ;; exponential time for large systems.
+;; The result is an approximation of the solution vector x that satisfies
+;; the equations Ax = b, where A is a hermitian matrix and b is a vector of constants.
+;;
 ;; The current implementation works for a hermitian n x n matrix A and a vector b.
 ;;
 ;; #### Problem Statement
@@ -1137,10 +1136,18 @@ qft-state
 
 ;; We can use the HHL algorithm to solve a system of linear equations.
 ;; For example, let's solve the system of equations represented by the
-;; hermitian matrix A and the vector b.
+;; positive definite matrix A and the vector b.
+;; 
+;; IMPORTANT: HHL works best with positive definite hermitian matrices
+;; (all eigenvalues > 0). 
 
-(def hhl-matrix [[1 2] [2 3]]) ; Hermitian matrix A
-(def hhl-vector [5 6])          ; Vector b
+;; Positive definite matrix A
+
+(def hhl-matrix [[3 1] [1 2]])
+
+;; Vector b
+
+(def hhl-vector [7 5])
 
 ;; Now we can create the circuit for the HHL algorithm with the given matrix
 ;; and vector.
@@ -1159,7 +1166,7 @@ qft-state
 ;; the solution to the system of linear equations Ax = b.
 
 (def hhl-result
-  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector))
+  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 10000}))
 
 ;; The result of the HHL algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -1181,3 +1188,137 @@ hhl-result
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
 
+;; ### Variational Quantum Eigensolver (VQE) Algorithm
+;; The [Variational Quantum Eigensolver (VQE)](https://en.wikipedia.org/wiki/Variational_quantum_eigensolver)
+;; is a hybrid quantum-classical algorithm used to find the ground state energy
+;; of a quantum system. It is particularly useful for simulating molecular systems
+;; and materials, where the Hamiltonian of the system can be represented as a
+;; sum of Pauli operators.
+;;
+;; The VQE algorithm is also used in quantum machine learning and optimization problems,
+;; where it can be used to find the optimal parameters for a quantum circuit
+;; that represents a trial state.
+;; 
+;; The VQE algorithm uses a parameterized quantum circuit to prepare a trial state,
+;; and a classical optimization algorithm to minimize the expectation value of
+;; the Hamiltonian with respect to the trial state.
+;;
+;; #### Problem Statement
+;; Given a Hamiltonian H of a quantum system, the goal is to find the ground state
+;; energy E₀ of the system, which is the lowest eigenvalue of H, using as few evaluations
+;; of the Hamiltonian as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, finding the ground state energy of a quantum system
+;; requires solving the eigenvalue problem for the Hamiltonian H, which can be
+;; computationally expensive for large systems. Classical algorithms such as
+;; diagonalization or iterative methods can be used to find the ground state energy,
+;; but they are limited by the size of the system and the complexity of the Hamiltonian.
+;;
+;; #### Quantum Approach
+;; The VQE algorithm allows us to find the ground state energy of a quantum system
+;; using a hybrid quantum-classical approach. It leverages the power of quantum
+;; computing to prepare trial states and measure the expectation value of the
+;; Hamiltonian, while using classical optimization algorithms to minimize the
+;; expectation value and find the optimal parameters for the trial state.
+;;
+;; #### Quantum Circuit
+;; The VQE algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Prepare a parameterized quantum circuit that represents the trial state.
+;;    The circuit can be represented as a series of quantum gates that depend on
+;;    a set of parameters θ.
+;; 2. Initialize the parameters θ to some initial values.
+;; 3. Execute the quantum circuit to prepare the trial state |ψ(θ)⟩.
+;; 4. Measure the expectation value of the Hamiltonian H with respect to
+;;    the trial state |ψ(θ)⟩. This involves applying the Hamiltonian as a quantum gate
+;;    and measuring the qubits to obtain the expectation value ⟨H⟩.
+;; 5. Use a classical optimization algorithm to update the parameters θ based on the
+;;    measured expectation value ⟨H⟩. The optimization algorithm can be
+;;    gradient-based or gradient-free, depending on the problem.
+;; 6. Repeat steps 3-5 until convergence, i.e., until the expectation value ⟨H⟩
+;;    does not change significantly or a maximum number of iterations is reached.
+;; 7. The final expectation value ⟨H⟩ represents the ground state energy E₀ of the quantum system.
+;;
+;; To explore the VQE algorithm, we need to require the `variational-quantum-eigensolver`
+;; namespace from the `application.algorithm` package.
+
+(require '[org.soulspace.qclojure.application.algorithm.vqe :as vqe])
+
+;; Let's start with a simpler Hamiltonian for demonstration,
+;; which can be represented as a sum of Pauli operators.
+
+(def simple-hamiltonian [(vqe/pauli-term -1.0 "IIII")
+                         (vqe/pauli-term 0.1 "ZIII")])
+
+simple-hamiltonian
+
+;; Let's run the VQE algorithm with the simple Hamiltonian.
+;; We'll use the new Adam optimizer with parameter shift gradients
+
+(def simple-vqe-result
+  (vqe/variational-quantum-eigensolver (sim/create-simulator)
+                                       {:hamiltonian simple-hamiltonian
+                                        :ansatz-type :hardware-efficient
+                                        :num-qubits 4
+                                        :num-layers 1
+                                        :max-iterations 200
+                                        :tolerance 1e-4
+                                        :optimization-method :gradient-descent  ; Use gradient descent optimization
+                                        :learning-rate 0.01
+                                        :shots 1}))
+
+simple-vqe-result
+
+;; We can use the VQE algorithm to find the ground state energy of a quantum system.
+;; For example, let's find the ground state energy of the Hamiltonian for molecular hydrogen,
+;; which can be represented as a sum of Pauli operators.
+
+(def h2-hamiltonian (vqe/molecular-hydrogen-hamiltonian))
+
+h2-hamiltonian
+
+;; Let's run the VQE algorithm with the defined Hamiltonian.
+;; The result of the VQE algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+;;
+;; There are different ansatz types available, such as `:hardware-efficient`,
+;; `:chemistry-inspired`, `:uccsd`, `:symmetry-preserving` and `:custom`.
+;; The `:hardware-efficient` ansatz type is not suitable for chemistry problems,
+;; as it does not preserve the symmetries of the Hamiltonian. The `:uccsd` ansatz
+;; type is suitable for chemistry problems, as it uses the unitary coupled cluster
+;; ansatz. The `:symmetry-preserving` ansatz type is suitable for chemistry
+;; problems, as it preserves the symmetries of the Hamiltonian. The `:custom`
+;; ansatz type allows you to define your own ansatz circuit.
+;;
+;; We use the `:chemistry-inspired` ansatz type, which is suitable for
+;; chemistry problems.
+;;
+;; We'll compare different optimization methods to show their performance.
+;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
+;;
+;; For gradient-free optimizers, we can use the following methods: `:nelder-mead`,
+;; `:powell`, `:cmaes` and `:bobyqa`. 
+;;
+;; Here we use the adam optimizer, which is a gradient-based optimization method
+;; that uses the parameter shift rule to compute gradients. 
+
+(def vqe-result-adam
+  (vqe/variational-quantum-eigensolver (sim/create-simulator)
+                                       {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
+                                        :ansatz-type           :chemistry-inspired
+                                        :num-qubits            4
+                                        :num-excitation-layers 1
+                                        :max-iterations        200
+                                        :tolerance             1e-5
+                                        :learning-rate         0.2
+                                        :optimization-method   :adam}))
+
+vqe-result-adam
+
+;; The calculated ground state energy is
+
+(:result vqe-result-adam)
+
+;; The final circuit with the optimal parameters is
+
+;(kind/html (viz/visualize-circuit :svg (:circuit vqe-result-adam)))

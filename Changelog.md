@@ -1,5 +1,14 @@
 # Changelog
 
+## Version (NEXT)
+* added domain namespaces for hamiltonian and ansatz functions
+* added chemical ansatz
+* added optimization namespace in application/algorithms
+* added various optimization methods to be used with vqe-optimization
+* fixed HHL measurement
+* updated docstrings
+* updated tutorial
+
 ## Version 0.9.0
 * added variational quantum eigensolver algorithm
 * added heavy-hex-topology (up to 127 qubits)

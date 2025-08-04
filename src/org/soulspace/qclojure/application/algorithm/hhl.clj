@@ -71,6 +71,40 @@
                       (range n)))
             (range n))))
 
+(defn validate-positive-definite
+  "Validate that a Hermitian matrix is positive definite (all eigenvalues > 0).
+  
+  HHL algorithm requires positive definite matrices for proper matrix inversion.
+  Negative eigenvalues cause the conditional rotation step to fail.
+  
+  Parameters:
+  - matrix: 2D vector representing the Hermitian matrix
+  
+  Returns:
+  Boolean indicating if matrix is positive definite
+  
+  Example:
+  (validate-positive-definite [[3 1] [1 2]]) ;=> true (eigenvalues: 3.62, 1.38)
+  (validate-positive-definite [[1 2] [2 3]]) ;=> false (eigenvalues: 4.24, -0.24)"
+  [matrix]
+  {:pre [(validate-hermitian-matrix matrix)]}
+  (let [n (count matrix)]
+    (if (= n 2)
+      ;; For 2x2 matrices, compute eigenvalues directly
+      (let [[[a b] [c d]] matrix
+            trace (+ a d)
+            det (- (* a d) (* b c))
+            discriminant (- (* trace trace) (* 4 det))]
+        (if (>= discriminant 0)
+          (let [sqrt-disc (Math/sqrt discriminant)
+                lambda1 (/ (+ trace sqrt-disc) 2)
+                lambda2 (/ (- trace sqrt-disc) 2)]
+            (and (pos? lambda1) (pos? lambda2)))
+          false)) ; Complex eigenvalues indicate not positive definite
+      ;; For larger matrices, use Sylvester's criterion or other methods
+      (throw (ex-info "Positive definiteness check not implemented for matrices > 2x2"
+                      {:matrix matrix :size n})))))
+
 (defn estimate-condition-number
   "Estimate the condition number κ(A) = λ_max / λ_min of a Hermitian matrix.
   
@@ -409,32 +443,56 @@
          success-probability (if (> total-shots 0) (/ success-count total-shots) 0.0)
 
          ;; Extract solution vector from successful measurements
-         ;; For a working HHL, we need to properly decode the vector register
+         ;; STANDARD HHL POST-PROCESSING:
+         ;; 1. HHL produces quantum state |x⟩ where A|x⟩ ∝ |b⟩
+         ;; 2. Measurement probabilities P(|i⟩) = |amplitude_i|²  
+         ;; 3. Extract amplitudes: amplitude_i = √(P_i)
+         ;; 4. Scale to satisfy A*x = b using least-squares optimization
+         ;; 
+         ;; NOTE: Theoretically, amplitude estimation would be used for exact extraction,
+         ;; but practical implementations use measurement statistics + classical scaling.
          solution-vector (if (> success-count 0)
                            ;; Extract vector register states from successful measurements
                            (let [vector-measurements (map (fn [[measurement count]]
                                                             [(subs measurement 0 vector-qubits) count])
                                                           successful-measurements)
-                                 ;; Weight the solution based on measurement frequencies
-                                 solution-components (vec (for [i (range (count b-vector))]
-                                                            (let [binary-i (format (str "%" vector-qubits "s")
-                                                                                   (Integer/toBinaryString i))
-                                                                  binary-i (str/replace binary-i " " "0")
-                                                                  matches (filter #(= (first %) binary-i) vector-measurements)
-                                                                  weight (if (seq matches)
-                                                                           (reduce + (map second matches))
-                                                                           0)]
-                                                              (/ weight (double success-count)))))
-                                 ;; Normalize the solution
-                                 norm (Math/sqrt (reduce + (map #(* % %) solution-components)))]
-                             (if (> norm 1e-10)
-                               (mapv #(/ % norm) solution-components)
-                               solution-components))
-                           ;; Fallback: return normalized input vector 
-                           (let [norm (Math/sqrt (reduce + (map #(* % %) b-vector)))]
-                             (if (> norm 1e-10)
-                               (mapv #(/ % norm) b-vector)
-                               b-vector)))]
+                                 ;; Calculate probabilities for each basis state
+                                 quantum-amplitudes (vec (for [i (range (count b-vector))]
+                                                           (let [binary-i (format (str "%" vector-qubits "s")
+                                                                                  (Integer/toBinaryString i))
+                                                                 binary-i (str/replace binary-i " " "0")
+                                                                 matches (filter #(= (first %) binary-i) vector-measurements)
+                                                                 probability (if (seq matches)
+                                                                              (/ (reduce + (map second matches))
+                                                                                 (double success-count))
+                                                                              0.0)]
+                                                             ;; Extract amplitude from probability: amp = sqrt(P)
+                                                             (Math/sqrt probability))))
+                                 ;; Normalize the quantum amplitudes for consistency
+                                 norm (Math/sqrt (reduce + (map #(* % %) quantum-amplitudes)))
+                                 normalized-amplitudes (if (> norm 1e-10)
+                                                        (mapv #(/ % norm) quantum-amplitudes)
+                                                        quantum-amplitudes)
+                                 
+                                 ;; Scale to satisfy A*x = b by finding the appropriate scaling factor
+                                 ;; STANDARD APPROACH: Use least-squares to find optimal scaling
+                                 ;; This minimizes ||A*(k*amplitudes) - b||² which is more robust
+                                 ;; than using just the first non-zero component
+                                 scaling-factor (if (and (> norm 1e-10) (> (count normalized-amplitudes) 0))
+                                                 ;; Least-squares solution: k = (A*amp · b) / (A*amp · A*amp)
+                                                 (let [A-times-amplitudes (mapv (fn [row] (reduce + (map * row normalized-amplitudes))) matrix)
+                                                       numerator (reduce + (map * A-times-amplitudes b-vector))
+                                                       denominator (reduce + (map * A-times-amplitudes A-times-amplitudes))]
+                                                   (if (> (Math/abs denominator) 1e-10)
+                                                     (/ numerator denominator)
+                                                     1.0))
+                                                 1.0)
+                                 
+                                 ;; Apply the scaling to get the actual solution
+                                 actual-solution (mapv #(* % scaling-factor) normalized-amplitudes)]
+                             actual-solution)
+                           ;; Fallback: return zero vector if no successful measurements
+                           (vec (repeat (count b-vector) 0.0)))]
 
      {:success (> success-probability 0.1) ; Success if > 10% success rate
       :result solution-vector
@@ -447,6 +505,33 @@
       :success-probability success-probability
       :total-shots total-shots
       :successful-shots success-count})))
+
+(defn solve
+  "Solve the linear system Ax = b using the HHL quantum algorithm.
+  
+  This is a convenience function that provides a simple interface to the HHL algorithm
+  for solving linear systems. The solution is properly scaled to satisfy A*x = b.
+  
+  Parameters:
+  - backend: Quantum backend to use for execution
+  - matrix: Hermitian matrix A (must be positive definite for HHL to work)
+  - vector: Input vector b
+  - options: Optional configuration map (see hhl-algorithm for details)
+  
+  Returns:
+  The solution vector x such that A*x ≈ b, or nil if algorithm fails
+  
+  Example:
+  (solve backend [[2 1] [1 2]] [1 1] {:shots 5000})
+  ;=> [0.333... 0.333...]  ; approximate solution"
+  ([backend matrix vector]
+   (solve backend matrix vector {}))
+  ([backend matrix vector options]
+   {:pre [(validate-hermitian-matrix matrix)
+          (validate-positive-definite matrix)]}
+   (let [result (hhl-algorithm backend matrix vector options)]
+     (when (:success result)
+       (:solution-vector result)))))
 
 (comment
   ;; Create a simulator for testing

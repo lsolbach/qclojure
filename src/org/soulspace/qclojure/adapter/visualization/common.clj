@@ -14,34 +14,6 @@
 ;;
 ;; Data Extraction and Calculation
 ;;
-(defn extract-state-probabilities
-  "Extract probability distribution from quantum state.
-  
-  Parameters:
-  - state: Quantum state with :state-vector and :num-qubits
-  
-  Returns:
-  Vector of probabilities (real numbers) for each computational basis state"
-  [state]
-  (mapv #(* (fc/abs %) (fc/abs %)) (:state-vector state)))
-
-(defn generate-basis-labels
-  "Generate computational basis state labels for given number of qubits.
-  
-  Parameters:
-  - n-qubits: Number of qubits in the system
-  
-  Returns:
-  Vector of basis state labels like [|00⟩ |01⟩ |10⟩ |11⟩] for 2 qubits
-  
-  Examples:
-  (generate-basis-labels 1) ;=> [|0⟩ |1⟩]
-  (generate-basis-labels 2) ;=> [|00⟩ |01⟩ |10⟩ |11⟩]"
-  [n-qubits]
-  (when (and n-qubits (pos? n-qubits))
-    (mapv #(qs/basis-label % n-qubits)
-          (range (bit-shift-left 1 n-qubits)))))
-
 (defn filter-significant-probabilities
   "Filter probabilities above threshold and limit count.
   
@@ -199,8 +171,8 @@
         _ (when (or (nil? num-qubits) (not (pos? num-qubits)))
             (throw (ex-info "Invalid quantum state: missing or invalid num-qubits" 
                            {:state state :num-qubits num-qubits})))
-        all-probabilities (extract-state-probabilities state)
-        all-labels (generate-basis-labels num-qubits)
+        all-probabilities (qs/measurement-probabilities state)
+        all-labels (qs/basis-labels num-qubits)
         filtered (filter-significant-probabilities all-probabilities all-labels
                                                    :threshold threshold
                                                    :max-count max-bars)
@@ -541,10 +513,6 @@
   (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0) 
                                  (fc/complex 0 0) (fc/complex 0.7 0)] 
                   :num-qubits 2})
-  
-  ;; Test probability extraction
-  (extract-state-probabilities test-state)
-  (generate-basis-labels 2)
   
   ;; Test bar chart data preparation
   (prepare-bar-chart-data bell-like)

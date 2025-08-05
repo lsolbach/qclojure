@@ -82,7 +82,7 @@
   Returns:
   Vector of basis labels."
   [n-qubits]
-  (mapv basis-string
+  (mapv basis-label
         (range (bit-shift-left 1 n-qubits))))
 
 (defn bits-to-index

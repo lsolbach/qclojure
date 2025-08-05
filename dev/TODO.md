@@ -17,10 +17,8 @@
 * remove hardware references from gate-decomposition (domain layer)
 * move general math code to math namespaces
 
-
 ## Test Coverage
 Raise test coverage for
-* domain.circuit
 * domain.gate-decomposition
 * application.algorithm.optimization
 * application.algorithm.shor

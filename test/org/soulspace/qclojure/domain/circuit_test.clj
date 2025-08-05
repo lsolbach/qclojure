@@ -483,8 +483,218 @@
                          :operation-params {:measurement-qubits [0 1]}}]
       (is (nil? (qc/inverse-operation measurement-op))))))
 
+;;;
+;;; Global Gate Tests
+;;;
+(deftest test-global-gates
+  (testing "Global gates apply to all qubits"
+    (let [circuit (qc/create-circuit 3)]
+      
+      (testing "Global X gate"
+        (let [global-x-circuit (qc/global-x-gate circuit)]
+          (is (= (count (:operations global-x-circuit)) 1))
+          (is (= (get-in global-x-circuit [:operations 0 :operation-type]) :global-x))
+          (is (nil? (get-in global-x-circuit [:operations 0 :operation-params])))))
+      
+      (testing "Global Y gate"
+        (let [global-y-circuit (qc/global-y-gate circuit)]
+          (is (= (count (:operations global-y-circuit)) 1))
+          (is (= (get-in global-y-circuit [:operations 0 :operation-type]) :global-y))))
+      
+      (testing "Global Z gate"
+        (let [global-z-circuit (qc/global-z-gate circuit)]
+          (is (= (count (:operations global-z-circuit)) 1))
+          (is (= (get-in global-z-circuit [:operations 0 :operation-type]) :global-z))))
+      
+      (testing "Global Hadamard gate"
+        (let [global-h-circuit (qc/global-hadamard-gate circuit)]
+          (is (= (count (:operations global-h-circuit)) 1))
+          (is (= (get-in global-h-circuit [:operations 0 :operation-type]) :global-hadamard))))
+      
+      (testing "Global RX gate with angle"
+        (let [global-rx-circuit (qc/global-rx-gate circuit pi)]
+          (is (= (count (:operations global-rx-circuit)) 1))
+          (is (= (get-in global-rx-circuit [:operations 0 :operation-type]) :global-rx))
+          (is (= (get-in global-rx-circuit [:operations 0 :operation-params :angle]) pi))))
+      
+      (testing "Global RY gate with angle"
+        (let [global-ry-circuit (qc/global-ry-gate circuit pi-2)]
+          (is (= (count (:operations global-ry-circuit)) 1))
+          (is (= (get-in global-ry-circuit [:operations 0 :operation-type]) :global-ry))
+          (is (= (get-in global-ry-circuit [:operations 0 :operation-params :angle]) pi-2))))
+      
+      (testing "Global RZ gate with angle"
+        (let [global-rz-circuit (qc/global-rz-gate circuit pi-4)]
+          (is (= (count (:operations global-rz-circuit)) 1))
+          (is (= (get-in global-rz-circuit [:operations 0 :operation-type]) :global-rz))
+          (is (= (get-in global-rz-circuit [:operations 0 :operation-params :angle]) pi-4)))))))
+
+;;;
+;;; Rydberg Gate Tests (for neutral atom quantum computing)
+;;;
+(deftest test-rydberg-gates
+  (testing "Rydberg gates for neutral atom quantum computing"
+    (let [circuit (qc/create-circuit 3)]
+      
+      (testing "Rydberg CZ gate"
+        (let [rydberg-cz-circuit (qc/rydberg-cz-gate circuit 0 1)]
+          (is (= (count (:operations rydberg-cz-circuit)) 1))
+          (is (= (get-in rydberg-cz-circuit [:operations 0 :operation-type]) :rydberg-cz))
+          (is (= (get-in rydberg-cz-circuit [:operations 0 :operation-params :control]) 0))
+          (is (= (get-in rydberg-cz-circuit [:operations 0 :operation-params :target]) 1))))
+      
+      (testing "Rydberg CPhase gate"
+        (let [rydberg-cphase-circuit (qc/rydberg-cphase-gate circuit 0 1 pi-4)]
+          (is (= (count (:operations rydberg-cphase-circuit)) 1))
+          (is (= (get-in rydberg-cphase-circuit [:operations 0 :operation-type]) :rydberg-cphase))
+          (is (= (get-in rydberg-cphase-circuit [:operations 0 :operation-params :control]) 0))
+          (is (= (get-in rydberg-cphase-circuit [:operations 0 :operation-params :target]) 1))
+          (is (= (get-in rydberg-cphase-circuit [:operations 0 :operation-params :angle]) pi-4))))
+      
+      (testing "Rydberg blockade gate"
+        (let [rydberg-blockade-circuit (qc/rydberg-blockade-gate circuit [0 1] 0.0)]
+          (is (= (count (:operations rydberg-blockade-circuit)) 1))
+          (is (= (get-in rydberg-blockade-circuit [:operations 0 :operation-type]) :rydberg-blockade))
+          (is (= (get-in rydberg-blockade-circuit [:operations 0 :operation-params :qubit-indices]) [0 1])))))))
+
+;;;
+;;; Circuit Printing Tests
+;;;
+(deftest test-print-circuit
+  (testing "Circuit printing functionality"
+    (let [unnamed-circuit (-> (qc/create-circuit 2)
+                             (qc/h-gate 0)
+                             (qc/cnot-gate 0 1))
+          named-circuit (-> (qc/create-circuit 3 "Test Circuit")
+                           (qc/x-gate 0)
+                           (qc/y-gate 1)
+                           (qc/z-gate 2))]
+      
+      (testing "Print unnamed circuit"
+        ;; Note: print-circuit returns nil and prints to stdout
+        ;; We can't easily test the output, but we can test it doesn't throw
+        (is (nil? (qc/print-circuit unnamed-circuit))))
+      
+      (testing "Print named circuit"
+        (is (nil? (qc/print-circuit named-circuit))))
+      
+      (testing "Print empty circuit"
+        (is (nil? (qc/print-circuit (qc/create-circuit 1))))))))
+
+;;;
+;;; All Gates Circuit Test
+;;;
+(deftest test-all-gates-circuit
+  (testing "Predefined circuit with all gate types"
+    (let [all-gates (qc/all-gates-circuit)]
+      
+      (is (= (:num-qubits all-gates) 3))
+      (is (> (count (:operations all-gates)) 15)) ; Should have many operations
+      (is (= (:name all-gates) "All Gates"))
+      (is (string? (:description all-gates)))
+      
+      ;; Check that various gate types are present
+      (let [operation-types (map :operation-type (:operations all-gates))]
+        (is (some #(= % :x) operation-types))
+        (is (some #(= % :y) operation-types))
+        (is (some #(= % :z) operation-types))
+        (is (some #(= % :h) operation-types))
+        (is (some #(= % :cnot) operation-types))))))
+
+;;;
+;;; Helper Function Tests
+;;;
+(deftest test-helper-functions
+  (testing "Circuit analysis helper functions"
+
+    (testing "spans-conflict? function"
+      (is (true? (qc/spans-conflict? [0 1] [1 2]))) ; Overlapping spans
+      (is (true? (qc/spans-conflict? [0 2] [1 3]))) ; Overlapping spans
+      (is (false? (qc/spans-conflict? [0 1] [2 3]))) ; Non-overlapping spans
+      (is (false? (qc/spans-conflict? [0 0] [1 1])))) ; Non-overlapping single points
+
+    (testing "qubit-in-span? function"
+      (is (true? (qc/qubit-in-span? 1 [[0 2]]))) ; Qubit within span
+      (is (true? (qc/qubit-in-span? 0 [[0 2]]))) ; Qubit at start of span
+      (is (true? (qc/qubit-in-span? 2 [[0 2]]))) ; Qubit at end of span
+      (is (nil? (qc/qubit-in-span? 3 [[0 2]]))) ; Qubit outside span
+      (is (true? (qc/qubit-in-span? 1 [[0 0] [1 2]]))) ; Qubit in second span
+      (is (nil? (qc/qubit-in-span? 5 [[0 1] [2 3]])))) ; Qubit outside all spans
+
+    (testing "safe-max function"
+      (is (= 5 (qc/safe-max 0 [1 5 3 2]))) ; Maximum of non-empty collection
+      (is (= 0 (qc/safe-max 0 []))) ; Default for empty collection
+      (is (= -1 (qc/safe-max -1 []))) ; Custom default for empty collection
+      (is (= 10 (qc/safe-max 0 [10]))) ; Single element collection
+      (is (= 7 (qc/safe-max 0 [7 1 3 7]))))) ; Collection with duplicates
+  )
+
+;;;
+;;; Measurement System Tests
+;;;
+(deftest test-measure-subsystem
+  (testing "Measuring quantum subsystems"
+    (let [bell-state (qc/execute-circuit (qc/bell-state-circuit) qs/|00⟩)]
+      
+      (testing "Measure single qubit from Bell state"
+        (let [measurement-result (qc/measure-subsystem bell-state [0])]
+          (is (contains? measurement-result :outcome))
+          (is (contains? measurement-result :collapsed-state))
+          (is (contains? measurement-result :probability))
+          
+          ;; Outcome should be 0 or 1
+          (is (or (= (:outcome measurement-result) 0)
+                  (= (:outcome measurement-result) 1)))
+          
+          ;; Probability should be approximately 0.5 for Bell state
+          (is (< (Math/abs (- (:probability measurement-result) 0.5)) 0.01))
+          
+          ;; Collapsed state should have fewer qubits
+          (is (= (:num-qubits (:collapsed-state measurement-result)) 1))))
+      
+      (testing "Measure multiple qubits"
+        (let [measurement-result (qc/measure-subsystem bell-state [0 1])]
+          (is (contains? measurement-result :outcome))
+          (is (contains? measurement-result :collapsed-state))
+          
+          ;; When measuring both qubits of Bell state, outcome should be 0 or 3 (|00⟩ or |11⟩)
+          (is (or (= (:outcome measurement-result) 0)
+                  (= (:outcome measurement-result) 3)))
+          
+          ;; After measuring all qubits, no state remains
+          (is (= (:num-qubits (:collapsed-state measurement-result)) 0)))))))
+
+;;;
+;;; Inverse Gate Tests  
+;;;
+(deftest test-inverse-gate
+  (testing "Individual gate inversion"
+    
+    (testing "Pauli gates are self-inverse"
+      (is (= (qc/inverse-gate :x) :x))
+      (is (= (qc/inverse-gate :y) :y))
+      (is (= (qc/inverse-gate :z) :z)))
+    
+    (testing "Hadamard gate is self-inverse"
+      (is (= (qc/inverse-gate :h) :h)))
+    
+    (testing "S and S-dagger are inverses"
+      (is (= (qc/inverse-gate :s) :s-dag))
+      (is (= (qc/inverse-gate :s-dag) :s)))
+    
+    (testing "T and T-dagger are inverses"
+      (is (= (qc/inverse-gate :t) :t-dag))
+      (is (= (qc/inverse-gate :t-dag) :t)))
+    
+    (testing "Two-qubit gates"
+      (is (= (qc/inverse-gate :cnot) :cnot)) ; CNOT is self-inverse
+      (is (= (qc/inverse-gate :cz) :cz)) ; CZ is self-inverse
+      (is (= (qc/inverse-gate :swap) :swap))) ; SWAP is self-inverse
+    
+    (testing "Unknown gates return nil"
+      (is (nil? (qc/inverse-gate :unknown-gate))))))
+
 (comment
   (run-tests)
-
   ;
   )

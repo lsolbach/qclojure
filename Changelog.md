@@ -1,6 +1,8 @@
 # Changelog
 
 ## Version (NEXT)
+* removed duplicated code
+
 
 ## Version 0.10.0
 * added domain namespaces for hamiltonian and ansatz functions

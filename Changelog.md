@@ -1,5 +1,7 @@
 # Changelog
 
+## Version (NEXT)
+
 ## Version 0.10.0
 * added domain namespaces for hamiltonian and ansatz functions
 * added chemistry inspired ansatz

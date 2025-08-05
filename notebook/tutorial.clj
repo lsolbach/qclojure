@@ -1240,20 +1240,23 @@ hhl-result
 ;; 7. The final expectation value ⟨H⟩ represents the ground state energy E₀ of the quantum system.
 ;;
 ;; To explore the VQE algorithm, we need to require the `variational-quantum-eigensolver`
-;; namespace from the `application.algorithm` package.
+;; namespace from the `application.algorithm` package. To create a simple Hamiltonian,
+;; we also require the `domain.hamiltonian` namespace.
 
+(require '[org.soulspace.qclojure.domain.hamiltonian :as ham])
 (require '[org.soulspace.qclojure.application.algorithm.vqe :as vqe])
 
 ;; Let's start with a simpler Hamiltonian for demonstration,
 ;; which can be represented as a sum of Pauli operators.
 
-(def simple-hamiltonian [(vqe/pauli-term -1.0 "IIII")
-                         (vqe/pauli-term 0.1 "ZIII")])
+(def simple-hamiltonian [(ham/pauli-term -1.0 "IIII")
+                         (ham/pauli-term 0.1 "ZIII")])
 
 simple-hamiltonian
 
 ;; Let's run the VQE algorithm with the simple Hamiltonian.
-;; We'll use the new Adam optimizer with parameter shift gradients
+;; We'll use the hardware-efficient ansatz and the Adam optimizer
+;; with parameter shift gradients.
 
 (def simple-vqe-result
   (vqe/variational-quantum-eigensolver (sim/create-simulator)
@@ -1270,8 +1273,8 @@ simple-hamiltonian
 simple-vqe-result
 
 ;; We can use the VQE algorithm to find the ground state energy of a quantum system.
-;; For example, let's find the ground state energy of the Hamiltonian for molecular hydrogen,
-;; which can be represented as a sum of Pauli operators.
+;; For example, let's find the ground state energy of molecular hydrogen,
+;; for which the Hamiltionian can be represented as a sum of Pauli operators.
 
 (def h2-hamiltonian (vqe/molecular-hydrogen-hamiltonian))
 

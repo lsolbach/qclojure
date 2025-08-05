@@ -1,9 +1,9 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.10.0
 * added domain namespaces for hamiltonian and ansatz functions
-* added chemical ansatz
-* added optimization namespace in application/algorithms
+* added chemistry inspired ansatz
+* added optimization namespace in algorithms
 * added various optimization methods to be used with vqe-optimization
 * moved linear algebra functions to seperate namespace
 * fixed HHL measurement

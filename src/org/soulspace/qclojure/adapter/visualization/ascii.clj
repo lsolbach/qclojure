@@ -72,7 +72,7 @@
   (let [amplitudes (:state-vector state)
         n-qubits (:num-qubits state)
 
-        basis-labels (vcommon/generate-basis-labels n-qubits)
+        basis-labels (qs/basis-labels n-qubits)
 
         non-zero-terms (filter (fn [[amp label]]
                                  (> (fc/abs amp) threshold))

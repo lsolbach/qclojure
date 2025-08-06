@@ -1,7 +1,7 @@
 
 ;; # QClojure Quantum Computing Tutorial
 ;; This is a simple tutorial to demonstrate the use of the
-;; [QClojure](https://github.com/soulspace/qclojure) library.
+;; [QClojure](https://github.com/lsolbach/qclojure) library.
 ;; It covers the creation of quantum states, gates, and circuits and the
 ;; excution of quantum and hybrid algorithms on a QClojure backend.
 ;;
@@ -61,13 +61,13 @@
 ;; `project.clj` file:
 ;;
 ;; ```clojure
-;; [org.soulspace/qclojure "0.7.0"]
+;; [org.soulspace/qclojure "0.10.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
 ;;
 ;; ```clojure
-;; {:deps {org.soulspace/qclojure {:mvn/version "0.7.0"}}}
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.10.0"}}}
 ;; ```
 ;;
 ;; ### Imports

@@ -1096,26 +1096,45 @@
   For unitary gates, this is the complex conjugate transpose.
   
   Parameters:
-  - gate: Gate map containing :gate-type and optional :gate-params
+  - gate: Gate map containing :operation-type and optional :operation-params,
+          OR a keyword representing the gate type
   
   Returns:
-  Gate map representing the inverse gate
+  Gate map representing the inverse gate, or keyword for gate type
   
   Example:
   (inverse-gate {:operation-type :s, :operation-params {:target 0}})
-  ;=> {:operation-type :s-dagger, :operation-params {:target 0}}"
-  [gate]
-  (let [gate-type (:operation-type gate)]
-    (case gate-type
-      ;; Self-inverse gates
-      (:x :y :z :h :cnot) gate
-      ;; Gates with simple inverses
-      :s (assoc gate :operation-type :s-dagger)
-      :t (assoc gate :operation-type :t-dagger)
-      ;; Rotation gates - negate angle
-      (:rx :ry :rz) (update-in gate [:operation-params :angle] -)
-      ;; Default: assume self-inverse
-      gate)))
+  ;=> {:operation-type :s-dag, :operation-params {:target 0}}
+  
+  (inverse-gate :s)
+  ;=> :s-dag"
+  ([gate-or-keyword]
+   (if (keyword? gate-or-keyword)
+     ;; Handle keyword input - return inverse gate type or nil for unknown
+     (case gate-or-keyword
+       ;; Self-inverse gates
+       (:x :y :z :h :cnot :cz :swap :toffoli :fredkin) gate-or-keyword
+       ;; Gates with specific inverses
+       :s :s-dag
+       :s-dag :s
+       :t :t-dag
+       :t-dag :t
+       ;; Unknown gates return nil
+       nil)
+     ;; Handle gate map input (existing logic)
+     (let [gate-type (:operation-type gate-or-keyword)]
+       (case gate-type
+         ;; Self-inverse gates
+         (:x :y :z :h :cnot :cz :swap :toffoli :fredkin) gate-or-keyword
+         ;; Gates with simple inverses
+         :s (assoc gate-or-keyword :operation-type :s-dag)
+         :s-dag (assoc gate-or-keyword :operation-type :s)
+         :t (assoc gate-or-keyword :operation-type :t-dag)
+         :t-dag (assoc gate-or-keyword :operation-type :t)
+         ;; Rotation gates - negate angle
+         (:rx :ry :rz) (update-in gate-or-keyword [:operation-params :angle] -)
+         ;; Default: assume self-inverse
+         gate-or-keyword)))))
 
 (defn inverse-operation
   "Get the inverse (adjoint) of a quantum operation.
@@ -1614,7 +1633,7 @@
   Returns:
   Quantum circuit that contains all supported gates"
   []
-  (-> (create-circuit 3 "All Gates Circuit")
+  (-> (create-circuit 3 "All Gates Circuit" "Demonstration circuit with all supported quantum gates")
       (x-gate 0)
       (y-gate 1)
       (z-gate 2)

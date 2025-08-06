@@ -45,16 +45,18 @@
   (cond
     ;; Handle fastmath complex numbers
     (complex? z)
-    (+ (* (fc/re z) (fc/re z)) (* (fc/im z) (fc/im z)))
+    (double (+ (* (fc/re z) (fc/re z)) (* (fc/im z) (fc/im z))))
 
     ;; Handle Clojure vectors [real imag]
     (vector? z)
-    (let [[real imag] z]
-      (+ (* real real) (* imag imag)))
+    (if (< (count z) 2)
+      (throw (IllegalArgumentException. "Vector must have at least 2 elements [real imag]"))
+      (let [[real imag] z]
+        (double (+ (* real real) (* imag imag)))))
 
     ;; Handle regular numbers (treat as real)
     (number? z)
-    (* z z)
+    (double (* z z))
 
     :else
     (throw (IllegalArgumentException. (str "Unsupported complex number format: " (type z))))))
@@ -317,17 +319,19 @@
   - factors: Vector of factors to complete
    
   Returns:
-  Vector of complete factors, e.g. [3 3 3] for input [3 9]."
+  Vector of complete prime factors, e.g. [3 3 3] for input [3 9]."
   [factors]
   {:pre [(seq factors)]}
-  (reduce (fn [acc factor]
-            (let [base (perfect-power-factor factor)]
-              (if (= base 1)
-                (conj acc factor)  ; Not a perfect power, keep as is
-                (let [power (int (/ factor base))]
-                  (concat acc (repeat power base))))))
-          []
-          factors))
+  (letfn [(prime-factors [n]
+            "Find all prime factors of n"
+            (loop [num n, divisor 2, result []]
+              (cond
+                (<= num 1) result
+                (> (* divisor divisor) num) (conj result num)  ; num is prime
+                (zero? (mod num divisor)) (recur (/ num divisor) divisor (conj result divisor))
+                :else (recur num (inc divisor) result))))]
+    
+    (vec (mapcat prime-factors factors))))
 
 (comment ;
 
@@ -338,9 +342,11 @@
   (round-precision 3.14159 2) ; => 3.14
   (find-period 5 3 15 2) ; => 4
   (perfect-power-factor 27) ; => 3
-  (perfect-power-factor 16) ; => 2
+  (perfect-power-factor 16)
+  (perfect-power-factor 81); => 2
   (complete-factorization [3 9]) ; => [3 3 3]
-  (complete-factorization [2 4 8]) ; => [2 2 2 2 2 2]   
+  (complete-factorization [2 4 8])
+  (complete-factorization [81]); => [2 2 2 2 2 2]   
   ;
   )
 

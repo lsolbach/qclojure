@@ -2,12 +2,199 @@
   "Unit tests for mathematical operations in the qclojure domain"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [fastmath.core :as fc]))
+            [fastmath.core :as fc]
+            [fastmath.complex :as complex]))
+
+(defn factors-equal?
+  "Compare two factorization results regardless of order"
+  [expected actual]
+  (= (sort expected) (sort actual)))
 
 ;;
-;; Test continued fraction expansion
+;; Test complex number handling functions
 ;;
-(deftest test-continued-fraction
+(deftest test-complex?
+  (testing "Complex number type detection"
+    ;; Test with fastmath complex numbers
+    (is (qmath/complex? (complex/complex 1.0 2.0)) "FastMath complex number should be detected")
+    (is (qmath/complex? (complex/complex 0 0)) "Zero complex number should be detected")
+    (is (qmath/complex? (complex/complex -1.5 3.7)) "Negative real complex number should be detected")
+    
+    ;; Test with non-complex types
+    (is (not (qmath/complex? 5)) "Regular integer should not be complex")
+    (is (not (qmath/complex? 3.14)) "Regular double should not be complex")
+    (is (not (qmath/complex? [1 2])) "Vector should not be complex")
+    (is (not (qmath/complex? "string")) "String should not be complex")
+    (is (not (qmath/complex? nil)) "Nil should not be complex")
+    (is (not (qmath/complex? {})) "Map should not be complex")))
+
+(deftest test-complex-magnitude-squared  
+  (testing "Complex magnitude squared calculation"
+    
+    (testing "FastMath complex numbers"
+      ;; Simple cases
+      (is (= 5.0 (qmath/complex-magnitude-squared (complex/complex 1 2))) "|1+2i|² = 5")
+      (is (= 25.0 (qmath/complex-magnitude-squared (complex/complex 3 4))) "|3+4i|² = 25")
+      (is (= 0.0 (qmath/complex-magnitude-squared (complex/complex 0 0))) "|0|² = 0")
+      (is (= 1.0 (qmath/complex-magnitude-squared (complex/complex 1 0))) "|1|² = 1")
+      (is (= 1.0 (qmath/complex-magnitude-squared (complex/complex 0 1))) "|i|² = 1")
+      
+      ;; Negative components
+      (is (= 5.0 (qmath/complex-magnitude-squared (complex/complex -1 -2))) "|-1-2i|² = 5")
+      (is (= 25.0 (qmath/complex-magnitude-squared (complex/complex -3 4))) "|-3+4i|² = 25"))
+    
+    (testing "Clojure vector format [real imag]"
+      (is (= 5.0 (qmath/complex-magnitude-squared [1 2])) "[1, 2] magnitude squared")
+      (is (= 25.0 (qmath/complex-magnitude-squared [3 4])) "[3, 4] magnitude squared")  
+      (is (= 0.0 (qmath/complex-magnitude-squared [0 0])) "[0, 0] magnitude squared")
+      (is (= 9.0 (qmath/complex-magnitude-squared [-3 0])) "[-3, 0] magnitude squared")
+      (is (= 16.0 (qmath/complex-magnitude-squared [0 -4])) "[0, -4] magnitude squared"))
+    
+    (testing "Regular numbers (treated as real)"
+      (is (= 25.0 (qmath/complex-magnitude-squared 5)) "Real number 5")
+      (is (= 9.0 (qmath/complex-magnitude-squared -3)) "Negative real number")
+      (is (= 0.0 (qmath/complex-magnitude-squared 0)) "Zero")
+      (is (= 6.25 (qmath/complex-magnitude-squared 2.5)) "Decimal number"))
+    
+    (testing "Error conditions"
+      (is (thrown? IllegalArgumentException (qmath/complex-magnitude-squared "invalid")))
+      (is (thrown? IllegalArgumentException (qmath/complex-magnitude-squared {})))
+      (is (thrown? IllegalArgumentException (qmath/complex-magnitude-squared []))))))
+
+(deftest test-max-coeff-magnitude-squared
+  (testing "Maximum coefficient magnitude squared from matrix"
+    
+    (testing "Simple 2x2 matrix"
+      (let [matrix [[(complex/complex 1 0) (complex/complex 0 1)]
+                    [(complex/complex 2 0) (complex/complex 0 2)]]]
+        (is (= 4.0 (qmath/max-coeff-magnitude-squared matrix)) "Max should be |2|² = 4")))
+    
+    (testing "Matrix with mixed magnitudes"
+      (let [matrix [[(complex/complex 3 4) (complex/complex 1 1)]  ; |3+4i|² = 25, |1+1i|² = 2
+                    [(complex/complex 0 5) (complex/complex 2 0)]]] ; |5i|² = 25, |2|² = 4
+        (is (= 25.0 (qmath/max-coeff-magnitude-squared matrix)) "Max should be 25")))
+    
+    (testing "Single element matrix"
+      (let [matrix [[(complex/complex 1.5 2.5)]]]  ; |1.5+2.5i|² = 2.25 + 6.25 = 8.5  
+        (is (= 8.5 (qmath/max-coeff-magnitude-squared matrix)))))
+    
+    (testing "Matrix with negative components"
+      (let [matrix [[(complex/complex -3 -4) (complex/complex 1 -1)]
+                    [(complex/complex 0 -2) (complex/complex -1 0)]]]
+        (is (= 25.0 (qmath/max-coeff-magnitude-squared matrix)) "|-3-4i|² = 25")))
+    
+    (testing "Larger matrix"
+      (let [matrix [[(complex/complex 1 0) (complex/complex 0 1) (complex/complex 2 1)]
+                    [(complex/complex 1 1) (complex/complex 3 0) (complex/complex 1 2)]
+                    [(complex/complex 0 4) (complex/complex 2 2) (complex/complex 0 0)]]]
+        (is (= 16.0 (qmath/max-coeff-magnitude-squared matrix)) "|4i|² = 16")))))
+
+(deftest test-prime?
+  (testing "Primality testing"
+    
+    (testing "Known primes"
+      (is (qmath/prime? 2) "2 is prime")
+      (is (qmath/prime? 3) "3 is prime") 
+      (is (qmath/prime? 5) "5 is prime")
+      (is (qmath/prime? 7) "7 is prime")
+      (is (qmath/prime? 11) "11 is prime")
+      (is (qmath/prime? 13) "13 is prime")
+      (is (qmath/prime? 17) "17 is prime")
+      (is (qmath/prime? 19) "19 is prime")
+      (is (qmath/prime? 23) "23 is prime")
+      (is (qmath/prime? 29) "29 is prime")
+      (is (qmath/prime? 31) "31 is prime"))
+    
+    (testing "Known composites"
+      (is (not (qmath/prime? 4)) "4 is not prime (2×2)")
+      (is (not (qmath/prime? 6)) "6 is not prime (2×3)")
+      (is (not (qmath/prime? 8)) "8 is not prime (2×4)")
+      (is (not (qmath/prime? 9)) "9 is not prime (3×3)")
+      (is (not (qmath/prime? 10)) "10 is not prime (2×5)")
+      (is (not (qmath/prime? 12)) "12 is not prime (3×4)")
+      (is (not (qmath/prime? 14)) "14 is not prime (2×7)")
+      (is (not (qmath/prime? 15)) "15 is not prime (3×5)")
+      (is (not (qmath/prime? 16)) "16 is not prime (4×4)")
+      (is (not (qmath/prime? 18)) "18 is not prime (2×9)")
+      (is (not (qmath/prime? 20)) "20 is not prime (4×5)")
+      (is (not (qmath/prime? 21)) "21 is not prime (3×7)")
+      (is (not (qmath/prime? 25)) "25 is not prime (5×5)"))
+    
+    (testing "Edge cases"
+      (is (not (qmath/prime? 0)) "0 is not prime")
+      (is (not (qmath/prime? 1)) "1 is not prime")
+      (is (not (qmath/prime? -5)) "Negative numbers are not prime"))
+    
+    (testing "Larger primes for performance"
+      (is (qmath/prime? 97) "97 is prime")
+      (is (qmath/prime? 101) "101 is prime")
+      (is (qmath/prime? 103) "103 is prime")
+      (is (qmath/prime? 107) "107 is prime") 
+      (is (qmath/prime? 109) "109 is prime")
+      (is (qmath/prime? 113) "113 is prime")
+      
+      ;; Test some larger composites
+      (is (not (qmath/prime? 99)) "99 is not prime (9×11)")
+      (is (not (qmath/prime? 100)) "100 is not prime (10×10)")
+      (is (not (qmath/prime? 102)) "102 is not prime (2×51)")
+      (is (not (qmath/prime? 104)) "104 is not prime (8×13)")
+      (is (not (qmath/prime? 105)) "105 is not prime (3×5×7)")
+      (is (not (qmath/prime? 111)) "111 is not prime (3×37)")))) 
+
+(deftest test-complete-factorization
+  (testing "Complete factorization of partial factors"
+    
+    (testing "Basic perfect power factorization"
+      ;; 9 = 3²
+      (is (factors-equal? [3 3] (qmath/complete-factorization [9])) "9 should factor to [3 3]")
+      ;; 4 = 2²  
+      (is (factors-equal? [2 2] (qmath/complete-factorization [4])) "4 should factor to [2 2]")
+      ;; 8 = 2³
+      (is (factors-equal? [2 2 2] (qmath/complete-factorization [8])) "8 should factor to [2 2 2]")
+      ;; 27 = 3³
+      (is (factors-equal? [3 3 3] (qmath/complete-factorization [27])) "27 should factor to [3 3 3]"))
+    
+    (testing "Mixed factorization"
+      ;; [3 9] → [3 3 3] (9 = 3²)
+      (is (factors-equal? [3 3 3] (qmath/complete-factorization [3 9])) "[3 9] should factor to [3 3 3]")
+      ;; [2 4 8] → [2 2 2 2 2 2] (4 = 2², 8 = 2³)
+      (is (factors-equal? [2 2 2 2 2 2] (qmath/complete-factorization [2 4 8])) "[2 4 8] should factor completely")
+      ;; [5 25] → [5 5 5] (25 = 5²)
+      (is (factors-equal? [5 5 5] (qmath/complete-factorization [5 25])) "[5 25] should factor to [5 5 5]"))
+    
+    (testing "Non-perfect powers remain unchanged"  
+      ;; Prime numbers should remain as-is
+      (is (factors-equal? [7] (qmath/complete-factorization [7])) "Prime 7 should remain unchanged")
+      (is (factors-equal? [11] (qmath/complete-factorization [11])) "Prime 11 should remain unchanged") 
+      ;; Products of primes should remain as-is
+      (is (factors-equal? [3 5] (qmath/complete-factorization [15])) "15 (3×5) should factor to [3 5]") 
+      (is (factors-equal? [3 7] (qmath/complete-factorization [21])) "21 (3×7) should factor to [3 7]"))
+    
+    (testing "Complex mixed cases"
+      ;; [2 3 16] → [2 3 2 2 2 2] (16 = 2⁴)
+      (is (factors-equal? [2 3 2 2 2 2] (qmath/complete-factorization [2 3 16])) "[2 3 16] should factor 16 to powers of 2")
+      ;; [7 49 11] → [7 7 7 11] (49 = 7²)
+      (is (factors-equal? [7 7 7 11] (qmath/complete-factorization [7 49 11])) "[7 49 11] should factor 49 to powers of 7"))
+    
+    (testing "Higher powers"
+      ;; 32 = 2⁵
+      (is (factors-equal? [2 2 2 2 2] (qmath/complete-factorization [32])) "32 should factor to five 2s")
+      ;; 81 = 3⁴
+      (is (factors-equal? [3 3 3 3] (qmath/complete-factorization [81])) "81 should factor to four 3s")
+      ;; 125 = 5³
+      (is (factors-equal? [5 5 5] (qmath/complete-factorization [125])) "125 should factor to three 5s"))
+    
+    (testing "Edge cases"
+      ;; Single prime
+      (is (factors-equal? [2] (qmath/complete-factorization [2])) "Prime 2 should remain unchanged")
+      (is (factors-equal? [3] (qmath/complete-factorization [3])) "Prime 3 should remain unchanged")
+      
+      ;; Multiple primes
+      (is (factors-equal? [2 3 5] (qmath/complete-factorization [2 3 5])) "Multiple primes should remain unchanged"))
+    
+    (testing "Invalid inputs should throw exceptions"
+      (is (thrown? AssertionError (qmath/complete-factorization [])) "Empty vector should throw")
+      (is (thrown? AssertionError (qmath/complete-factorization nil)) "Nil should throw"))))
   (testing "Continued fraction expansion of simple rational numbers"
     ;; 3/2 = 1 + 1/2 => [1, 2]
     (is (= (qmath/continued-fraction 3 2) [1 2]))
@@ -41,7 +228,7 @@
     (is (= (qmath/continued-fraction 0 5) [0]))
 
     ;; Equal numerator and denominator
-    (is (= (qmath/continued-fraction 7 7) [1]))))
+    (is (= (qmath/continued-fraction 7 7) [1])))
 
 ;;
 ;; Test convergents calculation

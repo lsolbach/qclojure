@@ -134,7 +134,7 @@
     (let [result (common/prepare-bar-chart-data (:bell-like test-states))]
       (is (= 2 (count (:probabilities result))))
       (is (every? #(> % 0.49) (:probabilities result))) ; Should be ~0.5 each
-      (is (= ["|0⟩" "|11⟩"] (:labels result)))
+      (is (= ["|00⟩" "|11⟩"] (:labels result)))
       (is (vector? (:normalized result)))
       (is (= 2 (get-in result [:summary :num-qubits])))))
   

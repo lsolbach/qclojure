@@ -8,7 +8,7 @@
   - Bloch sphere visualization
   - Bar chart visualization
   - Measurement result formatting"
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.string :as str]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -280,3 +280,9 @@
       (is (string? result))
       (is (str/includes? result "q0"))
       (is (str/includes? result "q1")))))
+
+(comment
+  (run-tests)
+  ;
+  )
+

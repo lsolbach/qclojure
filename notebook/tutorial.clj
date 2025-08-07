@@ -1293,9 +1293,6 @@ h2-hamiltonian
 ;; problems, as it preserves the symmetries of the Hamiltonian. The `:custom`
 ;; ansatz type allows you to define your own ansatz circuit.
 ;;
-;; We use the `:chemistry-inspired` ansatz type, which is suitable for
-;; chemistry problems.
-;;
 ;; We'll compare different optimization methods to show their performance.
 ;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
 ;;
@@ -1305,23 +1302,24 @@ h2-hamiltonian
 ;; Here we use the adam optimizer, which is a gradient-based optimization method
 ;; that uses the parameter shift rule to compute gradients. 
 
-(def vqe-result-adam
+(def vqe-result
   (vqe/variational-quantum-eigensolver (sim/create-simulator)
                                        {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
-                                        :ansatz-type           :chemistry-inspired
+                                        :ansatz-type           :uccsd
                                         :num-qubits            4
-                                        :num-excitation-layers 1
+                                        :num-excitations       2
+                                        :num-layers            2
                                         :max-iterations        200
                                         :tolerance             1e-5
                                         :learning-rate         0.2
                                         :optimization-method   :adam}))
 
-vqe-result-adam
+vqe-result
 
 ;; The calculated ground state energy is
 
-(:result vqe-result-adam)
+(:result vqe-result)
 
 ;; The final circuit with the optimal parameters is
 
-;(kind/html (viz/visualize-circuit :svg (:circuit vqe-result-adam)))
+(kind/html (viz/visualize-circuit :svg (:circuit vqe-result)))

@@ -50,8 +50,8 @@
 <link href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" rel="stylesheet" type="text/css" />
 <title>QClojure Tutorial</title></head><body data-spy="scroll" data-target="#toc" style="margin:auto;">
 <script src="tutorial_files/html-default0.js" type="text/javascript"></script><script src="tutorial_files/html-default1.js" type="text/javascript"></script><script src="tutorial_files/katex2.js" type="text/javascript"></script>
-<div class="container"><div class="row"><div class="col-sm-12"><div><div><div style="margin:15px;"><div><h1 id="qclojure-quantum-computing-tutorial">QClojure Quantum Computing Tutorial</h1><p>This is a simple tutorial to demonstrate the use of the <a href="https://github.com/soulspace/qclojure">QClojure</a> library. It covers the creation of quantum states, gates, and circuits and the excution of quantum and hybrid algorithms on a QClojure backend.</p><h2 id="introduction-to-quantum-computing">Introduction to Quantum Computing</h2><p>Quantum computing is a fascinating field that combines computer science, physics, and mathematics. It allows us to perform computations that are not possible with classical computers. Quantum computers use quantum bits, or <a href="https://en.wikipedia.org/wiki/Qubit">qubits</a>, which can be in a superposition of states. This means that a qubit can be in a state of 0, 1, or both at the same time. Quantum computing is based on the principles of quantum mechanics, which describe the behavior of particles at the quantum level.</p><p>Quantum computing has the potential to revolutionize many fields, including cryptography, optimization, and machine learning. It can solve certain problems much faster than classical computers, by performing many calculations at once. Quantum Algorithms, such as Shor's algorithm for factoring large numbers and Grover's algorithm for searching unsorted databases, demonstrate the power of quantum computing.</p><p>Quantum algorithms are defined in terms of quantum gates, which are operations that can be applied to qubits. Quantum gates manipulate the state of qubits and can be combined to create quantum circuits. Quantum circuits are sequences of quantum gates applied to qubits, similar to classical logic circuits.</p><p>For a general introduction to quantum computing, take a look at</p><ul><li><a href="https://en.wikipedia.org/wiki/Quantum_computing">Quantum Computing</a>.</li><li><a href="https://www.youtube.com/watch?v=RQWpF2Gb-gU">But what is quantum computing? (Grover's Algorithm) - 3blue1brown</a></li></ul><h2 id="qclojure">QClojure</h2><p>The QClojure library provides a Clojure interface to quantum computing concepts. It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style. QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware. This tutorial will guide you through the basics of quantum computing using QClojure.</p><h3 id="prerequisites">Prerequisites</h3><p>As QClojure is running on Clojure and Clojure itself on the JVM, you need to have the following prerequisites installed on your system:</p><ul><li><a href="https://openjdk.org/install/">JDK 11 or higher</a></li><li><a href="https://clojure.org/">Clojure</a></li><li><a href="https://leiningen.org/">Leiningen</a> or <a href="https://clojure.org/guides/getting_started">Clojure CLI</a> to manage dependencies and run Clojure code.</li></ul><p>If you are new to Clojure, I recommend reading the <a href="https://clojure.org/guides/getting_started">Clojure Getting Started Guide</a>.</p><h3 id="usage">Usage</h3><p>To use QClojure, you have to include it as a dependency in your Clojure project.</p><p>If you are using Leiningen, add the following dependency to your <code>project.clj</code> file:</p><pre class="viewer-code not-prose">[org.soulspace/qclojure "0.7.0"]
-</pre><p>If you are using Clojure CLI, add the following to your <code>deps.edn</code> file:</p><pre class="viewer-code not-prose">{:deps {org.soulspace/qclojure {:mvn/version "0.7.0"}}}
+<div class="container"><div class="row"><div class="col-sm-12"><div><div><div style="margin:15px;"><div><h1 id="qclojure-quantum-computing-tutorial">QClojure Quantum Computing Tutorial</h1><p>This is a simple tutorial to demonstrate the use of the <a href="https://github.com/lsolbach/qclojure">QClojure</a> library. It covers the creation of quantum states, gates, and circuits and the excution of quantum and hybrid algorithms on a QClojure backend.</p><h2 id="introduction-to-quantum-computing">Introduction to Quantum Computing</h2><p>Quantum computing is a fascinating field that combines computer science, physics, and mathematics. It allows us to perform computations that are not possible with classical computers. Quantum computers use quantum bits, or <a href="https://en.wikipedia.org/wiki/Qubit">qubits</a>, which can be in a superposition of states. This means that a qubit can be in a state of 0, 1, or both at the same time. Quantum computing is based on the principles of quantum mechanics, which describe the behavior of particles at the quantum level.</p><p>Quantum computing has the potential to revolutionize many fields, including cryptography, optimization, and machine learning. It can solve certain problems much faster than classical computers, by performing many calculations at once. Quantum Algorithms, such as Shor's algorithm for factoring large numbers and Grover's algorithm for searching unsorted databases, demonstrate the power of quantum computing.</p><p>Quantum algorithms are defined in terms of quantum gates, which are operations that can be applied to qubits. Quantum gates manipulate the state of qubits and can be combined to create quantum circuits. Quantum circuits are sequences of quantum gates applied to qubits, similar to classical logic circuits.</p><p>For a general introduction to quantum computing, take a look at</p><ul><li><a href="https://en.wikipedia.org/wiki/Quantum_computing">Quantum Computing</a>.</li><li><a href="https://www.youtube.com/watch?v=RQWpF2Gb-gU">But what is quantum computing? (Grover's Algorithm) - 3blue1brown</a></li></ul><h2 id="qclojure">QClojure</h2><p>The QClojure library provides a Clojure interface to quantum computing concepts. It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style. QClojure can also be used to simulate quantum circuits and, by implementing backends, run them on quantum hardware. This tutorial will guide you through the basics of quantum computing using QClojure.</p><h3 id="prerequisites">Prerequisites</h3><p>As QClojure is running on Clojure and Clojure itself on the JVM, you need to have the following prerequisites installed on your system:</p><ul><li><a href="https://openjdk.org/install/">JDK 11 or higher</a></li><li><a href="https://clojure.org/">Clojure</a></li><li><a href="https://leiningen.org/">Leiningen</a> or <a href="https://clojure.org/guides/getting_started">Clojure CLI</a> to manage dependencies and run Clojure code.</li></ul><p>If you are new to Clojure, I recommend reading the <a href="https://clojure.org/guides/getting_started">Clojure Getting Started Guide</a>.</p><h3 id="usage">Usage</h3><p>To use QClojure, you have to include it as a dependency in your Clojure project.</p><p>If you are using Leiningen, add the following dependency to your <code>project.clj</code> file:</p><pre class="viewer-code not-prose">[org.soulspace/qclojure "0.10.0"]
+</pre><p>If you are using Clojure CLI, add the following to your <code>deps.edn</code> file:</p><pre class="viewer-code not-prose">{:deps {org.soulspace/qclojure {:mvn/version "0.10.0"}}}
 </pre><h3 id="imports">Imports</h3><p>We use kindly to visualize the output of our code. Then we import the relevant namespaces for the domain concepts of the QClojure library. The <code>state</code> namespace provides functions to create and manipulate quantum states. The <code>gate</code> namespace provides functions to create quantum gates. The <code>circuit</code> namespace provides functions to create and manipulate quantum circuits.</p><p>We also import the visualization namespace and the svg renderer.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(ns tutorial
   (:require
    [fastmath.core :as fm]
@@ -125,7 +125,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
                          text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }</style></defs><text fill="#111827" font-size="18" font-weight="bold" text-anchor="middle" x="220" y="25">GHZ State</text><g><text fill="#374151" font-size="14" x="20" y="45">q0 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="400" y1="40" y2="40"></line></g><g><text fill="#374151" font-size="14" x="20" y="105">q1 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="400" y1="100" y2="100"></line></g><g><text fill="#374151" font-size="14" x="20" y="165">q2 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="400" y1="160" y2="160"></line></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><circle cx="220" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="220" cy="100" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="212" x2="228" y1="100" y2="100"></line><line stroke="#374151" stroke-width="2" x1="220" x2="220" y1="92" y2="108"></line><line stroke="#374151" stroke-width="2" x1="220" x2="220" y1="40" y2="100"></line><title>CNOT: control=0, target=1</title></g><g class="gate-group"><circle cx="280" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="280" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="272" x2="288" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="40" y2="160"></line><title>CNOT: control=0, target=2</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="405" y="28"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="420" y="45">M</text><title>Measure qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="405" y="88"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="420" y="105">M</text><title>Measure qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="405" y="148"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="420" y="165">M</text><title>Measure qubit 2</title></g><g><text fill="#6b7280" font-size="12" x="20" y="260">Qubits: 3 | Gates: 3 | Depth: 3</text><text fill="#6b7280" font-size="12" x="20" y="275">Prepares 3-qubit GHZ state</text></g></svg></div></div><div style="margin:15px;"><div><p>The GHZ circuit shows that the Hadamard gate is applied to the first qubit, followed by CNOT gates between the first and second qubits, and between the first and third qubits. The GHZ state is a multi-qubit state that is entangled.</p><p>We can apply the GHZ circuit to the state |000⟩ to create the GHZ state.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def ghz-state
   (qc/execute-circuit ghz-circuit (qs/zero-state 3)))</code></pre></div></div><div style="margin:15px;"><div><p>We can visualize the probability distribution of the GHZ state.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-quantum-state :svg ghz-state))</code></pre></div></div><div style="margin:15px;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
                    rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (3 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300.0" y2="300.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.0" y2="252.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.0">10%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="203.99999999999997" y2="203.99999999999997"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="206.99999999999997">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="155.99999999999997" y2="155.99999999999997"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="158.99999999999997">30%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="107.99999999999994" y2="107.99999999999994"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="110.99999999999994">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="59.99999999999994" y2="59.99999999999994"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="62.99999999999994">50%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="238" x="80" y="60.0"><title>|000⟩: 50.0%</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="200" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="200" y="55.0">50.0%</text></g><g class="bar-group"><rect fill="#3b82f6" height="240.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="238" x="320" y="60.0"><title>|111⟩: 50.0%</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="440" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="440" y="55.0">50.0%</text></g></svg></div></div><div style="margin:15px;"><div><p>The probability distribution shows that the GHZ state is in a superposition of the states |000⟩ and |111⟩.</p><h2 id="backends">Backends</h2><p>QClojure can be extended with backends to run quantum circuits on quantum hardware. The <em>application.backend</em> namespace contains the protocols to be implemented by a specific backend. A backend can be used to execute a quantum circuit.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.backend :as qb])</code></pre></div></div><div style="margin:15px;"><div><p>QClojure comes with two simulator backends in the <em>adapter.backend</em> that can be used to simulate quantum circuits on a classical computer.</p><ul><li>The ideal simulator backend simulates an ideal quantum computer without phyiscal constraints like noise.</li><li>The noisy simulator backend simulates a real quantum computer with various kinds of noise.</li></ul><h3 id="ideal-simulator-backend">Ideal Simulator Backend</h3><p>Let's try the ideal simulator first by requiring the <code>simulator</code> namespace.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.adapter.backend.simulator :as sim])</code></pre></div></div><div style="margin:15px;"><div><p>We create the simulator backend with the <code>create-simulator</code> function.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def simulator (sim/create-simulator))</code></pre></div></div><div style="margin:15px;"><div><p>Now we can use the simulator to execute the ghz circuit on the simulator.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(qb/execute-circuit simulator (qc/ghz-state-circuit 3))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
- :measurement-results {&quot;111&quot; 251, &quot;000&quot; 261},
+ :measurement-results {&quot;000&quot; 257, &quot;111&quot; 255},
  :final-state
  {:state-vector
   [[0.7071067811865475 0.0]
@@ -138,9 +138,9 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
    [0.7071067811865475 0.0]],
   :num-qubits 3},
  :execution-time-ms 1,
- :job-id &quot;sim_job_12_1754335285156&quot;}
+ :job-id &quot;sim_job_52_1754550526721&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><p>When executing a circuit on a backend, it will be executed multiple times, because of the probabilistic nature of quantum computing. One execution of the circuit is called a <em>shot</em>. The default number of shots is 512, but it can be configured via an options map.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(qb/execute-circuit simulator (qc/ghz-state-circuit 3) {:shots 10})</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
- :measurement-results {&quot;111&quot; 6, &quot;000&quot; 4},
+ :measurement-results {&quot;000&quot; 6, &quot;111&quot; 4},
  :final-state
  {:state-vector
   [[0.7071067811865475 0.0]
@@ -153,7 +153,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
    [0.7071067811865475 0.0]],
   :num-qubits 3},
  :execution-time-ms 1,
- :job-id &quot;sim_job_13_1754335285302&quot;}
+ :job-id &quot;sim_job_53_1754550526866&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><h3 id="noisy-simulator-backend">Noisy Simulator Backend</h3><p>Real quantum hardware is subject to various kinds of noise, which can affect the results of quantum computations. The noisy simulator backend simulates a quantum computer with noise, allowing us to study the effects of noise on quantum circuits.</p><p>The noisy simulator backend simulates these kinds of noise:</p><ul><li>depolarizing noise is a type of noise that randomly flips the state of a qubit with a certain probability.</li><li>amplitude damping noise is a type of noise that causes the state of a qubit to decay over time with a certain probability.</li><li>bit flip noise is a type of noise that flips the state of a qubit from |0⟩ to |1⟩ or from |1⟩ to |0⟩ with a certain probability.</li><li>phase flip noise is a type of noise that flips the phase of the state of a qubit from |0⟩ to |1⟩ or from |1⟩ to |0⟩ with a certain probability.</li><li>readout noise is a type of noise that affects the measurement of the state of a qubit, causing the measured value to be incorrect with a certain probability.</li></ul><p>The noisy simulator backend applies the noise to the quantum states and gates in the circuit, simulating the effects of noise on the quantum computation.</p><p>Let's try the noisy simulator first by requiring the <code>noisy-similator</code> namespace.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])</code></pre></div></div><div style="margin:15px;"><div><p>We can instanciate the noisy simulator with the <code>create-noisy-simulator</code> function and provide a noise profile. The noise profile we use is derived from the IBM Lagos Quantum Computer.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(noisy/noise-model-for :ibm-lagos)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:gate-noise
  {:h
   {:noise-type :depolarizing,
@@ -175,7 +175,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
    :gate-time 476.0}},
  :readout-error {:prob-0-to-1 0.013, :prob-1-to-0 0.028}}
 </code></pre></div></div><div style="margin:15px;"><div><p>The noise profile shows configurations for the different types of noise, a physical quantum computer can have. All different types of noise contribute to the errors in the measurement.</p><p>Let's instanciate the noisy simulator with the IBM Lagos profile.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def lagos-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))</code></pre></div></div><div style="margin:15px;"><div><p>Now we can use the simulator to execute the ghz circuit on the simulator. Because we use a noisy simulator, we may measure wrong answers.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def lagos-50-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 50}))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">lagos-50-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
- :measurement-results {&quot;000&quot; 24, &quot;111&quot; 25, &quot;011&quot; 1},
+ :measurement-results {&quot;000&quot; 23, &quot;111&quot; 24, &quot;001&quot; 3},
  :final-state
  {:state-vector
   [[0.7071067811865475 0.0]
@@ -189,19 +189,19 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :num-qubits 3},
  :noise-applied true,
  :shots-executed 50,
- :execution-time-ms 19,
- :job-id &quot;noisy_job_4_1754335285437&quot;}
+ :execution-time-ms 25,
+ :job-id &quot;noisy_job_4_1754550527010&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-quantum-state :svg (:final-state lagos-50-result)))</code></pre></div></div><div style="margin:15px;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
                    rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (3 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300.0" y2="300.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.0" y2="252.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.0">10%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="203.99999999999997" y2="203.99999999999997"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="206.99999999999997">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="155.99999999999997" y2="155.99999999999997"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="158.99999999999997">30%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="107.99999999999994" y2="107.99999999999994"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="110.99999999999994">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="59.99999999999994" y2="59.99999999999994"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="62.99999999999994">50%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="238" x="80" y="60.0"><title>|000⟩: 50.0%</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="200" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="200" y="55.0">50.0%</text></g><g class="bar-group"><rect fill="#3b82f6" height="240.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="238" x="320" y="60.0"><title>|111⟩: 50.0%</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="440" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="440" y="55.0">50.0%</text></g></svg></div></div><div style="margin:15px;"><div><p>We see, that not all measurements measure the states |000⟩ and |111⟩, even though those states should have the highest counts. The other states should have a distinctivly lower count. But if you use to few shots, you could be unlucky and measure the wrong answers. The probability to measure the wrong answers gets lower by increasing the number of shots.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def lagos-10k-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10000}))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">lagos-10k-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
  :measurement-results
- {&quot;111&quot; 4482,
-  &quot;000&quot; 4838,
-  &quot;010&quot; 85,
-  &quot;001&quot; 106,
-  &quot;011&quot; 128,
+ {&quot;111&quot; 4542,
+  &quot;000&quot; 4723,
+  &quot;011&quot; 138,
   &quot;110&quot; 172,
-  &quot;101&quot; 131,
-  &quot;100&quot; 58},
+  &quot;101&quot; 167,
+  &quot;001&quot; 93,
+  &quot;010&quot; 95,
+  &quot;100&quot; 70},
  :final-state
  {:state-vector
   [[0.7071067811865475 0.0]
@@ -215,10 +215,10 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :num-qubits 3},
  :noise-applied true,
  :shots-executed 10000,
- :execution-time-ms 3225,
- :job-id &quot;noisy_job_5_1754335285587&quot;}
+ :execution-time-ms 3574,
+ :job-id &quot;noisy_job_5_1754550527160&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><p>With 10000 shots, the difference of the counts of the correct answers and the counts of the wrong anwsers should be quite significant.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result)))</code></pre></div></div><div style="margin:15px;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
-                     rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Measurement Results (10000 shots)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Measurement Counts</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300" y2="300"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303">0</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.02977" y2="252.02977"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.02977">967</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="204.05952" y2="204.05952"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="207.05952">1934</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="156.0893" y2="156.0893"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="159.0893">2901</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="108.11906" y2="108.11906"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="111.11906">3868</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.148823" y2="60.148823"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.148823">4835</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="80" y="60"><title>|000⟩: 4838 shots (48.4%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="110" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="110" y="55">4838 shots</text></g><g class="bar-group"><rect fill="#3b82f6" height="222.33981" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="140" y="77.66019"><title>|111⟩: 4482 shots (44.8%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="170" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="170" y="72.66019">4482 shots</text></g><g class="bar-group"><rect fill="#10b981" height="8.532452" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="200" y="291.46756"><title>|110⟩: 172 shots (1.7%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="230" y="320">|110⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="230" y="286.46756">172 shots</text></g><g class="bar-group"><rect fill="#f59e0b" height="6.4985533" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="260" y="293.50143"><title>|101⟩: 131 shots (1.3%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="290" y="320">|101⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="290" y="288.50143">131 shots</text></g><g class="bar-group"><rect fill="#ef4444" height="6.3497314" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="320" y="293.65027"><title>|011⟩: 128 shots (1.3%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="350" y="320">|011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="350" y="288.65027">128 shots</text></g><g class="bar-group"><rect fill="#8b5cf6" height="5.2583714" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="380" y="294.74164"><title>|001⟩: 106 shots (1.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="410" y="320">|001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="410" y="289.74164">106 shots</text></g><g class="bar-group"><rect fill="#06b6d4" height="4.2166185" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="440" y="295.7834"><title>|010⟩: 85 shots (0.9%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="470" y="320">|010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="470" y="290.7834">85 shots</text></g><g class="bar-group"><rect fill="#84cc16" height="2.877222" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="500" y="297.12277"><title>|100⟩: 58 shots (0.6%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="530" y="320">|100⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="530" y="292.12277">58 shots</text></g></svg></div></div><div style="margin:15px;"><div><p>We can also use the noisy simulator with a different noise profile, e.g. for an IonQ Forte quantum computer.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(noisy/noise-model-for :ionq-forte)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:gate-noise
+                     rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Measurement Results (10000 shots)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Measurement Counts</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300" y2="300"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303">0</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.03049" y2="252.03049"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.03049">944</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="204.06097" y2="204.06097"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="207.06097">1888</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="156.09146" y2="156.09146"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="159.09146">2832</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="108.121956" y2="108.121956"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="111.121956">3776</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.152447" y2="60.152447"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.152447">4720</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="80" y="60"><title>|000⟩: 4723 shots (47.2%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="110" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="110" y="55">4723 shots</text></g><g class="bar-group"><rect fill="#3b82f6" height="230.80246" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="140" y="69.19754"><title>|111⟩: 4542 shots (45.4%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="170" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="170" y="64.19754">4542 shots</text></g><g class="bar-group"><rect fill="#10b981" height="8.740208" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="200" y="291.2598"><title>|110⟩: 172 shots (1.7%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="230" y="320">|110⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="230" y="286.2598">172 shots</text></g><g class="bar-group"><rect fill="#f59e0b" height="8.486132" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="260" y="291.51385"><title>|101⟩: 167 shots (1.7%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="290" y="320">|101⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="290" y="286.51385">167 shots</text></g><g class="bar-group"><rect fill="#ef4444" height="7.012492" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="320" y="292.98752"><title>|011⟩: 138 shots (1.4%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="350" y="320">|011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="350" y="287.98752">138 shots</text></g><g class="bar-group"><rect fill="#8b5cf6" height="4.8274403" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="380" y="295.17255"><title>|010⟩: 95 shots (1.0%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="410" y="320">|010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="410" y="290.17255">95 shots</text></g><g class="bar-group"><rect fill="#06b6d4" height="4.72581" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="440" y="295.2742"><title>|001⟩: 93 shots (0.9%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="470" y="320">|001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="470" y="290.2742">93 shots</text></g><g class="bar-group"><rect fill="#84cc16" height="3.5570612" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="500" y="296.44293"><title>|100⟩: 70 shots (0.7%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="530" y="320">|100⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="530" y="291.44293">70 shots</text></g></svg></div></div><div style="margin:15px;"><div><p>We can also use the noisy simulator with a different noise profile, e.g. for an IonQ Forte quantum computer.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(noisy/noise-model-for :ionq-forte)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:gate-noise
  {:h
   {:noise-type :coherent,
    :coherent-error {:rotation-angle 3.0E-4, :rotation-axis :y},
@@ -252,14 +252,14 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  :readout-error {:prob-0-to-1 0.001, :prob-1-to-0 0.002}}
 </code></pre></div></div><div style="margin:15px;"><div><p>Let's instanciate the noisy simulator with the IonQ Forte profile.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def forte-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ionq-forte)))</code></pre></div></div><div style="margin:15px;"><div><p>We now execute the GHZ circuit on this simulator with 10000 shots and compare the results with the IBM Lagos simulation.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def forte-10k-result (qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10000}))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">forte-10k-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
  :measurement-results
- {&quot;000&quot; 4962,
-  &quot;111&quot; 4959,
-  &quot;010&quot; 11,
-  &quot;101&quot; 23,
-  &quot;100&quot; 5,
-  &quot;110&quot; 17,
-  &quot;001&quot; 16,
-  &quot;011&quot; 7},
+ {&quot;111&quot; 4950,
+  &quot;000&quot; 4979,
+  &quot;001&quot; 13,
+  &quot;011&quot; 7,
+  &quot;010&quot; 10,
+  &quot;101&quot; 21,
+  &quot;110&quot; 14,
+  &quot;100&quot; 6},
  :final-state
  {:state-vector
   [[0.7071067811865475 0.0]
@@ -273,10 +273,10 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :num-qubits 3},
  :noise-applied true,
  :shots-executed 10000,
- :execution-time-ms 3604,
- :job-id &quot;noisy_job_6_1754335289001&quot;}
+ :execution-time-ms 3059,
+ :job-id &quot;noisy_job_6_1754550530822&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><p>Compared to the IBM Lagos simulation, the IonQ Forte simulation should have distinctly lower noise and thus a higher count for the correct answers.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))</code></pre></div></div><div style="margin:15px;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
-                     rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Measurement Results (10000 shots)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Measurement Counts</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300" y2="300"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303">0</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.01935" y2="252.01935"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.01935">992</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="204.0387" y2="204.0387"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="207.0387">1984</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="156.05804" y2="156.05804"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="159.05804">2976</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="108.077385" y2="108.077385"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="111.077385">3968</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.096737" y2="60.096737"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.096737">4960</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="80" y="60"><title>|000⟩: 4962 shots (49.6%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="110" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="110" y="55">4962 shots</text></g><g class="bar-group"><rect fill="#3b82f6" height="239.8549" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="140" y="60.145103"><title>|111⟩: 4959 shots (49.6%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="170" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="170" y="55.145103">4959 shots</text></g><g class="bar-group"><rect fill="#10b981" height="1.1124547" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="200" y="298.88754"><title>|101⟩: 23 shots (0.2%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="230" y="320">|101⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="230" y="293.88754">23 shots</text></g><g class="bar-group"><rect fill="#f59e0b" height="0.8222491" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="260" y="299.17776"><title>|110⟩: 17 shots (0.2%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="290" y="320">|110⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="290" y="294.17776">17 shots</text></g><g class="bar-group"><rect fill="#ef4444" height="0.7738815" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="320" y="299.2261"><title>|001⟩: 16 shots (0.2%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="350" y="320">|001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="350" y="294.2261">16 shots</text></g><g class="bar-group"><rect fill="#8b5cf6" height="0.5320435" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="380" y="299.46796"><title>|010⟩: 11 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="410" y="320">|010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="410" y="294.46796">11 shots</text></g><g class="bar-group"><rect fill="#06b6d4" height="0.33857316" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="440" y="299.66144"><title>|011⟩: 7 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="470" y="320">|011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="470" y="294.66144">7 shots</text></g><g class="bar-group"><rect fill="#84cc16" height="0.24183796" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="500" y="299.75815"><title>|100⟩: 5 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="530" y="320">|100⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="530" y="294.75815">5 shots</text></g></svg></div></div><div style="margin:15px;"><div><h2 id="error-mitigation">Error Mitigation</h2><p>Error mitigation is a collection of techniques used to reduce the effects of noise in quantum computations. It is not a full error correction, but it can improve the results of quantum computations by reducing the errors caused by noise. Error mitigation techniques can be applied to quantum circuits to improve the results of quantum computations.</p><p>QClojure provides a set of error mitigation techniques that can be used to reduce the effects of noise in quantum computations.</p><h3 id="readout-error-mitigation">Readout Error Mitigation</h3><p>Readout error mitigation is a technique used to reduce the effects of readout noise in quantum computations. It is based on the idea that the readout noise can be modeled as a matrix that describes the probability of measuring a certain state given the true state of the qubit.</p><h3 id="zero-noise-extrapolation">Zero Noise Extrapolation</h3><p>Zero noise extrapolation is a technique used to reduce the effects of noise in quantum computations by extrapolating the results of the computation to zero noise. It is based on the idea that the results of the computation can be extrapolated to zero noise by measuring the results of the computation with different noise levels and fitting a curve to the results.</p><h3 id="symmetry-verification">Symmetry Verification</h3><p>Symmetry verification is a technique used to reduce the effects of noise in quantum computations by verifying the symmetry of the quantum circuit. It is based on the idea that the results of the computation can be verified by checking the symmetry of the quantum circuit. If the circuit is symmetric, the results of the computation should be the same for all qubits.</p><h3 id="virtual-distillation">Virtual Distillation</h3><p>Virtual distillation is a technique that improves computation fidelity by running multiple copies of quantum circuits and applying sophisticated post-processing to extract high-fidelity results through probabilistic error cancellation.</p><h2 id="algorithms">Algorithms</h2><p>QClojure comes with a set of predefined quantum algorithms that can be used to solve specific problems. These algorithms are implemented as quantum circuits and can be executed on quantum hardware or simulated using the simulator backends.</p><h3 id="deutsch-algorithm">Deutsch Algorithm</h3><p>The <a href="https://en.wikipedia.org/wiki/Deutsch_algorithm">Deutsch algorithm</a> is a simple quantum algorithm that determines whether a function is constant or balanced. It uses a quantum circuit to evaluate the function with only one query, compared to two queries needed for classical algorithms. The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.</p><h4 id="problem-statement">Problem Statement</h4><p>Given a function f: {0, 1} → {0, 1}, the goal is to determine if f is constant (returns the same value for both inputs) or balanced (returns 0 for one input and 1 for the other).</p><h4 id="classical-approach">Classical Approach</h4><p>In a classical setting, we would need to evaluate the function f twice:</p><ul><li>If f(0) = f(1), then f is constant.</li><li>If f(0) != f(1), then f is balanced.</li></ul><h4 id="quantum-approach">Quantum Approach</h4><p>The Deutsch algorithm allows us to determine the nature of the function with only one evaluation by leveraging quantum superposition and interference.</p><h4 id="quantum-circuit">Quantum Circuit</h4><p>The Deutsch algorithm can be implemented using a quantum circuit with the following steps:</p><ol><li>Initialize a qubit in the state |0⟩ and an auxiliary qubit in the state |1⟩.</li><li>Apply a Hadamard gate to both qubits to create superposition.</li><li>Apply the function f as a quantum gate, which will entangle the qubits.</li><li>Apply another Hadamard gate to the first qubit.</li><li>Measure the first qubit.</li></ol><p>To examine the Deutsch algorithm, we need to require the <code>deutsch</code> namespace from the <code>application.algorithm</code> package.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])</code></pre></div></div><div style="margin:15px;"><div><p>Lets define a constant function and a balanced function first.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def constant-fn (fn [_x] true))</code></pre></div></div><div style="margin:15px;"><div><p>Constant function: f(x) = 1</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def balanced-fn (fn [x] x))</code></pre></div></div><div style="margin:15px;"><div><p>Balanced function: f(x) = x</p><p>Now we can create the circuit for the Deutsch algorithm for the constant function.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def constant-deutsch-circuit
+                     rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Measurement Results (10000 shots)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Measurement Counts</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="300"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="300" y2="300"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="303">0</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="252.03856" y2="252.03856"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="255.03856">995</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="204.07712" y2="204.07712"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="207.07712">1990</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="156.11569" y2="156.11569"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="159.11569">2985</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="108.15425" y2="108.15425"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="111.15425">3980</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.19281" y2="60.19281"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.19281">4975</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="300" y2="300"></line><g class="bar-group"><rect fill="#7c3aed" height="240" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="80" y="60"><title>|000⟩: 4979 shots (49.8%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="110" y="320">|000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="110" y="55">4979 shots</text></g><g class="bar-group"><rect fill="#3b82f6" height="238.60213" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="140" y="61.397873"><title>|111⟩: 4950 shots (49.5%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="170" y="320">|111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="170" y="56.397873">4950 shots</text></g><g class="bar-group"><rect fill="#10b981" height="1.0122515" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="200" y="298.98776"><title>|101⟩: 21 shots (0.2%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="230" y="320">|101⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="230" y="293.98776">21 shots</text></g><g class="bar-group"><rect fill="#f59e0b" height="0.6748343" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="260" y="299.32516"><title>|110⟩: 14 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="290" y="320">|110⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="290" y="294.32516">14 shots</text></g><g class="bar-group"><rect fill="#ef4444" height="0.62663186" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="320" y="299.37338"><title>|001⟩: 13 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="350" y="320">|001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="350" y="294.37338">13 shots</text></g><g class="bar-group"><rect fill="#8b5cf6" height="0.4820245" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="380" y="299.51797"><title>|010⟩: 10 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="410" y="320">|010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="410" y="294.51797">10 shots</text></g><g class="bar-group"><rect fill="#06b6d4" height="0.33741716" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="440" y="299.6626"><title>|011⟩: 7 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="470" y="320">|011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="470" y="294.6626">7 shots</text></g><g class="bar-group"><rect fill="#84cc16" height="0.2892147" opacity="0.8" stroke="#ffffff" stroke-width="1" width="58" x="500" y="299.7108"><title>|100⟩: 6 shots (0.1%)</title></rect><text fill="#374151" font-size="12" text-anchor="middle" x="530" y="320">|100⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="530" y="294.7108">6 shots</text></g></svg></div></div><div style="margin:15px;"><div><h2 id="error-mitigation">Error Mitigation</h2><p>Error mitigation is a collection of techniques used to reduce the effects of noise in quantum computations. It is not a full error correction, but it can improve the results of quantum computations by reducing the errors caused by noise. Error mitigation techniques can be applied to quantum circuits to improve the results of quantum computations.</p><p>QClojure provides a set of error mitigation techniques that can be used to reduce the effects of noise in quantum computations.</p><h3 id="readout-error-mitigation">Readout Error Mitigation</h3><p>Readout error mitigation is a technique used to reduce the effects of readout noise in quantum computations. It is based on the idea that the readout noise can be modeled as a matrix that describes the probability of measuring a certain state given the true state of the qubit.</p><h3 id="zero-noise-extrapolation">Zero Noise Extrapolation</h3><p>Zero noise extrapolation is a technique used to reduce the effects of noise in quantum computations by extrapolating the results of the computation to zero noise. It is based on the idea that the results of the computation can be extrapolated to zero noise by measuring the results of the computation with different noise levels and fitting a curve to the results.</p><h3 id="symmetry-verification">Symmetry Verification</h3><p>Symmetry verification is a technique used to reduce the effects of noise in quantum computations by verifying the symmetry of the quantum circuit. It is based on the idea that the results of the computation can be verified by checking the symmetry of the quantum circuit. If the circuit is symmetric, the results of the computation should be the same for all qubits.</p><h3 id="virtual-distillation">Virtual Distillation</h3><p>Virtual distillation is a technique that improves computation fidelity by running multiple copies of quantum circuits and applying sophisticated post-processing to extract high-fidelity results through probabilistic error cancellation.</p><h2 id="algorithms">Algorithms</h2><p>QClojure comes with a set of predefined quantum algorithms that can be used to solve specific problems. These algorithms are implemented as quantum circuits and can be executed on quantum hardware or simulated using the simulator backends.</p><h3 id="deutsch-algorithm">Deutsch Algorithm</h3><p>The <a href="https://en.wikipedia.org/wiki/Deutsch_algorithm">Deutsch algorithm</a> is a simple quantum algorithm that determines whether a function is constant or balanced. It uses a quantum circuit to evaluate the function with only one query, compared to two queries needed for classical algorithms. The quantum circuit uses an oracle to implement the function and applies a Hadamard gate to the input qubit.</p><h4 id="problem-statement">Problem Statement</h4><p>Given a function f: {0, 1} → {0, 1}, the goal is to determine if f is constant (returns the same value for both inputs) or balanced (returns 0 for one input and 1 for the other).</p><h4 id="classical-approach">Classical Approach</h4><p>In a classical setting, we would need to evaluate the function f twice:</p><ul><li>If f(0) = f(1), then f is constant.</li><li>If f(0) != f(1), then f is balanced.</li></ul><h4 id="quantum-approach">Quantum Approach</h4><p>The Deutsch algorithm allows us to determine the nature of the function with only one evaluation by leveraging quantum superposition and interference.</p><h4 id="quantum-circuit">Quantum Circuit</h4><p>The Deutsch algorithm can be implemented using a quantum circuit with the following steps:</p><ol><li>Initialize a qubit in the state |0⟩ and an auxiliary qubit in the state |1⟩.</li><li>Apply a Hadamard gate to both qubits to create superposition.</li><li>Apply the function f as a quantum gate, which will entangle the qubits.</li><li>Apply another Hadamard gate to the first qubit.</li><li>Measure the first qubit.</li></ol><p>To examine the Deutsch algorithm, we need to require the <code>deutsch</code> namespace from the <code>application.algorithm</code> package.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])</code></pre></div></div><div style="margin:15px;"><div><p>Lets define a constant function and a balanced function first.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def constant-fn (fn [_x] true))</code></pre></div></div><div style="margin:15px;"><div><p>Constant function: f(x) = 1</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def balanced-fn (fn [x] x))</code></pre></div></div><div style="margin:15px;"><div><p>Balanced function: f(x) = x</p><p>Now we can create the circuit for the Deutsch algorithm for the constant function.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def constant-deutsch-circuit
   (deutsch/deutsch-circuit constant-fn))</code></pre></div></div><div style="margin:15px;"><div><p>We can visualize the circuit for the constant oracle.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))</code></pre></div></div><div style="margin:15px;"><div><svg height="240" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;" width="440" xmlns="http://www.w3.org/2000/svg"><defs><style>.gate-group:hover rect { opacity: 1; stroke-width: 3; }
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }</style></defs><text fill="#111827" font-size="18" font-weight="bold" text-anchor="middle" x="220" y="25">Deutsch Algorithm</text><g><text fill="#374151" font-size="14" x="20" y="45">q0 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="400" y1="40" y2="40"></line></g><g><text fill="#374151" font-size="14" x="20" y="105">q1 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="400" y1="100" y2="100"></line></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="265" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="280" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="45">H</text><title>:h gate on qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="405" y="28"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="420" y="45">M</text><title>Measure qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="405" y="88"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="420" y="105">M</text><title>Measure qubit 1</title></g><g><text fill="#6b7280" font-size="12" x="20" y="200">Qubits: 2 | Gates: 5 | Depth: 3</text><text fill="#6b7280" font-size="12" x="20" y="215">Determines if function is constant or balanced</text></g></svg></div></div><div style="margin:15px;"><div><p>The circuit shows that the Hadamard gate is applied to the input qubit, followed by the oracle function Uf. The oracle function Uf is implemented as a series of quantum gates that applies the constant function. Now we can execute the Deutsch algorithm with the constant function. We use the simulator backend to execute the circuit.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def deutsch-constant-result
@@ -294,7 +294,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :description &quot;Determines if function is constant or balanced&quot;},
  :execution-result
  {:job-status :completed,
-  :measurement-results {&quot;00&quot; 482, &quot;01&quot; 542},
+  :measurement-results {&quot;00&quot; 519, &quot;01&quot; 505},
   :final-state
   {:state-vector
    [[-0.7071067811865474 0.0]
@@ -303,7 +303,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
     [0.0 0.0]],
    :num-qubits 2},
   :execution-time-ms 1,
-  :job-id &quot;sim_job_14_1754335292631&quot;},
+  :job-id &quot;sim_job_54_1754550533952&quot;},
  :measurement-statistics
  {:outcome-0-count 1024, :outcome-1-count 0, :total-shots 1024}}
 </code></pre></div></div><div style="margin:15px;"><div><p>The result shows that the Deutsch algorithm correctly identifies the constant function. The measurement outcome is 0, which indicates that the function is constant.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result deutsch-constant-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">:constant
@@ -326,7 +326,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :description &quot;Determines if function is constant or balanced&quot;},
  :execution-result
  {:job-status :completed,
-  :measurement-results {&quot;11&quot; 515, &quot;10&quot; 509},
+  :measurement-results {&quot;10&quot; 495, &quot;11&quot; 529},
   :final-state
   {:state-vector
    [[0.0 0.0]
@@ -334,8 +334,8 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
     [0.7071067811865474 0.0]
     [-0.7071067811865474 0.0]],
    :num-qubits 2},
-  :execution-time-ms 1,
-  :job-id &quot;sim_job_15_1754335292812&quot;},
+  :execution-time-ms 2,
+  :job-id &quot;sim_job_55_1754550534135&quot;},
  :measurement-statistics
  {:outcome-0-count 0, :outcome-1-count 1024, :total-shots 1024}}
 </code></pre></div></div><div style="margin:15px;"><div><p>The result shows that the Deutsch algorithm correctly identifies the balanced function.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result deutsch-balanced-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">:balanced
@@ -349,7 +349,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  :hidden-string [1 1 0],
  :execution-result
  {:job-status :completed,
-  :measurement-results {&quot;1100&quot; 518, &quot;1101&quot; 506},
+  :measurement-results {&quot;1101&quot; 511, &quot;1100&quot; 513},
   :final-state
   {:state-vector
    [[0.0 0.0]
@@ -369,8 +369,8 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
     [0.0 0.0]
     [0.0 0.0]],
    :num-qubits 4},
-  :execution-time-ms 11,
-  :job-id &quot;sim_job_16_1754335292970&quot;},
+  :execution-time-ms 7,
+  :job-id &quot;sim_job_56_1754550534316&quot;},
  :circuit
  {:operations
   [{:operation-type :x, :operation-params {:target 3}}
@@ -401,10 +401,27 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   (simon/simon-algorithm (sim/create-simulator) hidden-string-simon))</code></pre></div></div><div style="margin:15px;"><div><p>The result of Simon's algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">simon-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:algorithm &quot;Simon&quot;,
  :execution-results
  [{:job-status :completed,
-   :measurement-results {&quot;011000&quot; 1024},
+   :measurement-results {&quot;101001&quot; 1024},
    :final-state
    {:state-vector
     [[0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
      [0.0 0.0]
      [0.0 0.0]
      [0.0 0.0]
@@ -450,48 +467,31 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
      [0.0 0.0]
      [0.0 0.0]
      [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
      [0.0 0.0]],
     :num-qubits 6},
-   :execution-time-ms 77,
-   :job-id &quot;sim_job_17_1754335293223&quot;}
+   :execution-time-ms 46,
+   :job-id &quot;sim_job_57_1754550534536&quot;}
   {:job-status :completed,
-   :measurement-results {&quot;010000&quot; 1024},
+   :measurement-results {&quot;000001&quot; 1024},
    :final-state
    {:state-vector
     [[0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
-     [0.0 0.0]
      [1.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
+     [0.0 0.0]
      [0.0 0.0]
      [0.0 0.0]
      [0.0 0.0]
@@ -540,9 +540,9 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
      [0.0 0.0]
      [0.0 0.0]],
     :num-qubits 6},
-   :execution-time-ms 60,
-   :job-id &quot;sim_job_18_1754335293323&quot;}],
- :measurements [[1 1 1] [0 1 0]],
+   :execution-time-ms 65,
+   :job-id &quot;sim_job_58_1754550534637&quot;}],
+ :measurements [[0 1 0] [1 0 1]],
  :complexity
  {:classical &quot;O(2^(n/2))&quot;, :quantum &quot;O(n)&quot;, :speedup &quot;Exponential&quot;},
  :hidden-period [1 0 1],
@@ -550,8 +550,8 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  :success true,
  :result [1 0 1],
  :linear-system
- ({:equation [1 1 1], :dot-product 0}
-  {:equation [0 1 0], :dot-product 0}),
+ ({:equation [0 1 0], :dot-product 0}
+  {:equation [1 0 1], :dot-product 0}),
  :circuit
  {:operations
   [{:operation-type :h, :operation-params {:target 0}}
@@ -582,8 +582,8 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :description &quot;Find hidden period of length 3&quot;}}
 </code></pre></div></div><div style="margin:15px;"><div><p>The result shows that Simon's algorithm correctly identifies the hidden binary string.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result simon-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">[1 0 1]
 </code></pre></div></div><div style="margin:15px;"><div><p>Lets visualize the final quantum states after executing Simon's algorithm. As Simon's algorithm can return multiple results, depending on the size of the hidden string, we visualize the final states.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))</code></pre></div></div><div style="margin:15px;"><div><p>[</p><div class="clay-sequential" style="margin-left:10%;width:110%;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
-                   rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (6 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="280"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="280.0" y2="280.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="283.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="236.0" y2="236.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="239.0">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="192.0" y2="192.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="195.0">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="148.0" y2="148.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="151.0">60%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="104.0" y2="104.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="107.0">80%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.0" y2="60.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.0">100%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="280" y2="280"></line><g class="bar-group"><rect fill="#7c3aed" height="220.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="478" x="80" y="60.0"><title>|011000⟩: 100.0%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 320 300)" x="320" y="300">|011000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="320" y="55.0">100.0%</text></g></svg></div><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
-                   rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (6 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="280"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="280.0" y2="280.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="283.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="236.0" y2="236.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="239.0">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="192.0" y2="192.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="195.0">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="148.0" y2="148.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="151.0">60%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="104.0" y2="104.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="107.0">80%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.0" y2="60.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.0">100%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="280" y2="280"></line><g class="bar-group"><rect fill="#7c3aed" height="220.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="478" x="80" y="60.0"><title>|010000⟩: 100.0%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 320 300)" x="320" y="300">|010000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="320" y="55.0">100.0%</text></g></svg></div></div><p>]</p></div></div><div style="margin:15px;"><div><h3 id="grover&apos;s-search-algorithm">Grover's Search Algorithm</h3><p><a href="https://en.wikipedia.org/wiki/Grover%27s_algorithm">Grover's algorithm</a> is a quantum algorithm that provides a quadratic speedup for searching an unsorted database. It is one of the most well-known quantum algorithms and demonstrates the power of quantum computing for search problems.</p><h4 id="problem-statement">Problem Statement</h4><p>Given a function f: {0, 1}ⁿ → {0, 1}ⁿ that is promised to have exactly one input x such that f(x) = 1 (the "marked" item), the goal is to find this input x using as few evaluations of f as possible.</p><h4 id="classical-approach">Classical Approach</h4><p>In a classical setting, we would need to evaluate the function f up to 2^(n-1) times in the worst case to find the marked item. This is because we would have to check each possible input until we find the one that satisfies f(x) = 1.</p><h4 id="quantum-approach">Quantum Approach</h4><p>Grover's search algorithm allows us to find the marked item with only O(√2ⁿ) evaluations of f, which is a significant improvement over the classical approach.</p><h4 id="quantum-circuit">Quantum Circuit</h4><p>The Grover's search algorithm can be implemented using a quantum circuit with the following steps:</p><ol><li>Initialize n qubits in the state |0⟩.</li><li>Apply a Hadamard gate to all n qubits to create superposition, resulting in an equal superposition of all possible inputs.</li><li>Apply the Grover diffusion operator, which consists of:<ul><li>Applying the oracle function f as a quantum gate, which flips the sign of the amplitude of the marked item.</li><li>Applying a Hadamard gate to all qubits.</li><li>Applying a conditional phase shift to the |0⟩ state.</li><li>Applying another Hadamard gate to all qubits.</li></ul></li><li>Repeat the Grover diffusion operator O(√2ⁿ) times.</li></ol><p>To examine Grover's algorithm, we need to require the <code>grover</code> namespace from the <code>application.algorithm</code> package.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.algorithm.grover :as grover])</code></pre></div></div><div style="margin:15px;"><div><p>Let's define a function that marks a specific input.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def grover-oracle (grover/single-target-oracle 5))</code></pre></div></div><div style="margin:15px;"><div><p>Now we can define a circuit with a search space of 3 qubits for Grover's search algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def grover-circuit
+                   rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (6 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="280"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="280.0" y2="280.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="283.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="236.0" y2="236.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="239.0">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="192.0" y2="192.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="195.0">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="148.0" y2="148.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="151.0">60%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="104.0" y2="104.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="107.0">80%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.0" y2="60.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.0">100%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="280" y2="280"></line><g class="bar-group"><rect fill="#7c3aed" height="220.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="478" x="80" y="60.0"><title>|101001⟩: 100.0%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 320 300)" x="320" y="300">|101001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="320" y="55.0">100.0%</text></g></svg></div><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
+                   rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (6 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="280"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="280.0" y2="280.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="283.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="236.0" y2="236.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="239.0">20%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="192.0" y2="192.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="195.0">40%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="148.0" y2="148.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="151.0">60%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="104.0" y2="104.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="107.0">80%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="60.0" y2="60.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="63.0">100%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="280" y2="280"></line><g class="bar-group"><rect fill="#7c3aed" height="220.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="478" x="80" y="60.0"><title>|000001⟩: 100.0%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 320 300)" x="320" y="300">|000001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="320" y="55.0">100.0%</text></g></svg></div></div><p>]</p></div></div><div style="margin:15px;"><div><h3 id="grover&apos;s-search-algorithm">Grover's Search Algorithm</h3><p><a href="https://en.wikipedia.org/wiki/Grover%27s_algorithm">Grover's algorithm</a> is a quantum algorithm that provides a quadratic speedup for searching an unsorted database. It is one of the most well-known quantum algorithms and demonstrates the power of quantum computing for search problems.</p><h4 id="problem-statement">Problem Statement</h4><p>Given a function f: {0, 1}ⁿ → {0, 1}ⁿ that is promised to have exactly one input x such that f(x) = 1 (the "marked" item), the goal is to find this input x using as few evaluations of f as possible.</p><h4 id="classical-approach">Classical Approach</h4><p>In a classical setting, we would need to evaluate the function f up to 2^(n-1) times in the worst case to find the marked item. This is because we would have to check each possible input until we find the one that satisfies f(x) = 1.</p><h4 id="quantum-approach">Quantum Approach</h4><p>Grover's search algorithm allows us to find the marked item with only O(√2ⁿ) evaluations of f, which is a significant improvement over the classical approach.</p><h4 id="quantum-circuit">Quantum Circuit</h4><p>The Grover's search algorithm can be implemented using a quantum circuit with the following steps:</p><ol><li>Initialize n qubits in the state |0⟩.</li><li>Apply a Hadamard gate to all n qubits to create superposition, resulting in an equal superposition of all possible inputs.</li><li>Apply the Grover diffusion operator, which consists of:<ul><li>Applying the oracle function f as a quantum gate, which flips the sign of the amplitude of the marked item.</li><li>Applying a Hadamard gate to all qubits.</li><li>Applying a conditional phase shift to the |0⟩ state.</li><li>Applying another Hadamard gate to all qubits.</li></ul></li><li>Repeat the Grover diffusion operator O(√2ⁿ) times.</li></ol><p>To examine Grover's algorithm, we need to require the <code>grover</code> namespace from the <code>application.algorithm</code> package.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.algorithm.grover :as grover])</code></pre></div></div><div style="margin:15px;"><div><p>Let's define a function that marks a specific input.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def grover-oracle (grover/single-target-oracle 5))</code></pre></div></div><div style="margin:15px;"><div><p>Now we can define a circuit with a search space of 3 qubits for Grover's search algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def grover-circuit
   (grover/grover-circuit 3 grover-oracle))</code></pre></div></div><div style="margin:15px;"><div><p>Let's visualize the circuit for Grover's search algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-circuit :svg grover-circuit))</code></pre></div></div><div style="margin:15px;"><div><svg height="300" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;" width="1520" xmlns="http://www.w3.org/2000/svg"><defs><style>.gate-group:hover rect { opacity: 1; stroke-width: 3; }
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }</style></defs><text fill="#111827" font-size="18" font-weight="bold" text-anchor="middle" x="760" y="25">Grover Search</text><g><text fill="#374151" font-size="14" x="20" y="45">q0 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="1480" y1="40" y2="40"></line></g><g><text fill="#374151" font-size="14" x="20" y="105">q1 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="1480" y1="100" y2="100"></line></g><g><text fill="#374151" font-size="14" x="20" y="165">q2 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="1480" y1="160" y2="160"></line></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><circle cx="280" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="280" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="280" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="272" x2="288" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="40" y2="160"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="100" y2="160"></line><title>Toffoli (CCX): controls=[0, 1], target=2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="325" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="340" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="325" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="340" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="325" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="340" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="385" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="400" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="385" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="400" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="385" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="400" y="45">X</text><title>:x gate on qubit 0</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="445" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="460" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="445" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="460" y="165">X</text><title>:x gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="505" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="520" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><circle cx="580" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="580" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="580" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="572" x2="588" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="580" x2="580" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="580" x2="580" y1="40" y2="160"></line><line stroke="#374151" stroke-width="2" x1="580" x2="580" y1="100" y2="160"></line><title>Toffoli (CCX): controls=[0, 1], target=2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="625" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="640" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="625" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="640" y="45">X</text><title>:x gate on qubit 0</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="625" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="640" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="685" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="700" y="165">X</text><title>:x gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="685" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="700" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="685" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="700" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="745" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="760" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="745" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="760" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="805" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="820" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><circle cx="880" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="880" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="880" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="872" x2="888" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="880" x2="880" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="880" x2="880" y1="40" y2="160"></line><line stroke="#374151" stroke-width="2" x1="880" x2="880" y1="100" y2="160"></line><title>Toffoli (CCX): controls=[0, 1], target=2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="925" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="940" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="925" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="940" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="925" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="940" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="985" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1000" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="985" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1000" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="985" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1000" y="45">X</text><title>:x gate on qubit 0</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1045" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1060" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1045" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1060" y="165">X</text><title>:x gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1105" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1120" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><circle cx="1180" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="1180" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="1180" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="1172" x2="1188" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="1180" x2="1180" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="1180" x2="1180" y1="40" y2="160"></line><line stroke="#374151" stroke-width="2" x1="1180" x2="1180" y1="100" y2="160"></line><title>Toffoli (CCX): controls=[0, 1], target=2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1225" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1240" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1225" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1240" y="45">X</text><title>:x gate on qubit 0</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1225" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1240" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1285" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1300" y="165">X</text><title>:x gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1285" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1300" y="45">H</text><title>:h gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1285" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1300" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="1345" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="1360" y="165">H</text><title>:h gate on qubit 2</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="1485" y="28"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="1500" y="45">M</text><title>Measure qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="1485" y="88"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="1500" y="105">M</text><title>Measure qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="1485" y="148"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="1500" y="165">M</text><title>Measure qubit 2</title></g><g><text fill="#6b7280" font-size="12" x="20" y="260">Qubits: 3 | Gates: 43 | Depth: 21</text><text fill="#6b7280" font-size="12" x="20" y="275">Search 8 items using 2 iterations</text></g></svg></div></div><div style="margin:15px;"><div><p>Now we can execute Grover's search algorithm with the defined oracle.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def grover-result
@@ -601,8 +601,8 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
     [0.0 0.0]
     [0.0 0.0]],
    :num-qubits 3},
-  :execution-time-ms 7,
-  :job-id &quot;sim_job_19_1754335293840&quot;},
+  :execution-time-ms 6,
+  :job-id &quot;sim_job_59_1754550535056&quot;},
  :probability 1,
  :target-indices (5),
  :success true,
@@ -676,13 +676,13 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   (qb/execute-circuit (sim/create-simulator) qft-circuit))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">qft-state</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:job-status :completed,
  :measurement-results
  {&quot;110&quot; 69,
-  &quot;001&quot; 66,
-  &quot;111&quot; 68,
-  &quot;000&quot; 64,
-  &quot;100&quot; 60,
-  &quot;010&quot; 70,
-  &quot;011&quot; 54,
-  &quot;101&quot; 61},
+  &quot;100&quot; 69,
+  &quot;001&quot; 68,
+  &quot;111&quot; 65,
+  &quot;010&quot; 54,
+  &quot;011&quot; 58,
+  &quot;000&quot; 52,
+  &quot;101&quot; 77},
  :final-state
  {:num-qubits 3,
   :state-vector
@@ -695,7 +695,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
    [0.3535533905932737 0.0]
    [0.3535533905932737 0.0]]},
  :execution-time-ms 1,
- :job-id &quot;sim_job_20_1754335294164&quot;}
+ :job-id &quot;sim_job_60_1754550535368&quot;}
 </code></pre></div></div><div style="margin:15px;"><div><p>The circuit for the QFT can also be used to implement the inverse QFT, which is the reverse operation of the QFT.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def inverse-qft-circuit
   (qft/inverse-quantum-fourier-transform-circuit 3))</code></pre></div></div><div style="margin:15px;"><div><p>We can visualize the circuit for the inverse Quantum Fourier Transform.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-circuit :svg inverse-qft-circuit))</code></pre></div></div><div style="margin:15px;"><div><svg height="300" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;" width="620" xmlns="http://www.w3.org/2000/svg"><defs><style>.gate-group:hover rect { opacity: 1; stroke-width: 3; }
                          .gate-group:hover circle { stroke-width: 3; }
@@ -703,76 +703,76 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   (hhl/hhl-circuit hhl-matrix hhl-vector 4 1))</code></pre></div></div><div style="margin:15px;"><div><p>We can visualize the circuit for the HHL algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-circuit :svg hhl-circuit))</code></pre></div></div><div style="margin:15px;"><div><svg height="480" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;" width="860" xmlns="http://www.w3.org/2000/svg"><defs><style>.gate-group:hover rect { opacity: 1; stroke-width: 3; }
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }</style></defs><text fill="#111827" font-size="18" font-weight="bold" text-anchor="middle" x="430" y="25">Working HHL Algorithm</text><g><text fill="#374151" font-size="14" x="20" y="45">q0 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="40" y2="40"></line></g><g><text fill="#374151" font-size="14" x="20" y="105">q1 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="100" y2="100"></line></g><g><text fill="#374151" font-size="14" x="20" y="165">q2 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="160" y2="160"></line></g><g><text fill="#374151" font-size="14" x="20" y="225">q3 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="220" y2="220"></line></g><g><text fill="#374151" font-size="14" x="20" y="285">q4 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="280" y2="280"></line></g><g><text fill="#374151" font-size="14" x="20" y="345">q5 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="340" y2="340"></line></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="45">RY</text><title>:ry gate on qubit 0</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="105">H</text><title>:h gate on qubit 1</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="208"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="225">H</text><title>:h gate on qubit 3</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="268"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="285">H</text><title>:h gate on qubit 4</title></g><g class="gate-group"><circle cx="220" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#6366f1" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="45">CRZ</text><line stroke="#374151" stroke-width="2" x1="220" x2="220" y1="40" y2="100"></line><title>:crz gate: control=1, target=0</title></g><g class="gate-group"><circle cx="280" cy="160" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#6366f1" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="265" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="280" y="45">CRZ</text><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="40" y2="160"></line><title>:crz gate: control=2, target=0</title></g><g class="gate-group"><circle cx="340" cy="220" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#6366f1" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="325" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="340" y="45">CRZ</text><line stroke="#374151" stroke-width="2" x1="340" x2="340" y1="40" y2="220"></line><title>:crz gate: control=3, target=0</title></g><g class="gate-group"><circle cx="400" cy="280" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#6366f1" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="385" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="400" y="45">CRZ</text><line stroke="#374151" stroke-width="2" x1="400" x2="400" y1="40" y2="280"></line><title>:crz gate: control=4, target=0</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="328"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="345">RY</text><title>:ry gate on qubit 5</title></g><g class="gate-group"><circle cx="460" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="445" y="328"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="460" y="345">CRY</text><line stroke="#374151" stroke-width="2" x1="460" x2="460" y1="100" y2="340"></line><title>:cry gate: control=1, target=5</title></g><g class="gate-group"><circle cx="520" cy="160" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="505" y="328"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="520" y="345">CRY</text><line stroke="#374151" stroke-width="2" x1="520" x2="520" y1="160" y2="340"></line><title>:cry gate: control=2, target=5</title></g><g class="gate-group"><circle cx="580" cy="220" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="565" y="328"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="580" y="345">CRY</text><line stroke="#374151" stroke-width="2" x1="580" x2="580" y1="220" y2="340"></line><title>:cry gate: control=3, target=5</title></g><g class="gate-group"><circle cx="640" cy="280" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="625" y="328"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="640" y="345">CRY</text><line stroke="#374151" stroke-width="2" x1="640" x2="640" y1="280" y2="340"></line><title>:cry gate: control=4, target=5</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="685" y="268"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="700" y="285">H</text><title>:h gate on qubit 4</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="625" y="208"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="640" y="225">H</text><title>:h gate on qubit 3</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="565" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="580" y="165">H</text><title>:h gate on qubit 2</title></g><g class="gate-group"><rect fill="#8b5cf6" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="505" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="520" y="105">H</text><title>:h gate on qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="28"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="45">M</text><title>Measure qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="88"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="105">M</text><title>Measure qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="148"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="165">M</text><title>Measure qubit 2</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="208"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="225">M</text><title>Measure qubit 3</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="268"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="285">M</text><title>Measure qubit 4</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="328"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="345">M</text><title>Measure qubit 5</title></g><g><text fill="#6b7280" font-size="12" x="20" y="440">Qubits: 6 | Gates: 18 | Depth: 10</text><text fill="#6b7280" font-size="12" x="20" y="455">Functional HHL for 2×2 matrix</text></g></svg></div></div><div style="margin:15px;"><div><p>The circuit shows that the HHL algorithm applies a series of controlled-U gates to the qubits, which represent the matrix A, and applies the inverse quantum Fourier transform to the qubits. The circuit also applies the inverse of the matrix A to the input state |b⟩ to obtain the output state |x⟩, which represents the solution to the system of linear equations Ax = b.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def hhl-result
-  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 10000}))</code></pre></div></div><div style="margin:15px;"><div><p>The result of the HHL algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">hhl-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:solution-vector [1.9332787814417296 1.3891684318204753],
+  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 10000}))</code></pre></div></div><div style="margin:15px;"><div><p>The result of the HHL algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">hhl-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:solution-vector [1.9394617661920688 1.3790311243159075],
  :condition-number 1.5491933384829668,
- :success-probability 5063/10000,
+ :success-probability 5131/10000,
  :execution-result
  {:job-status :completed,
   :measurement-results
-  {&quot;010011&quot; 121,
-   &quot;100011&quot; 358,
-   &quot;010110&quot; 30,
-   &quot;010101&quot; 31,
-   &quot;000111&quot; 119,
-   &quot;101010&quot; 47,
-   &quot;010010&quot; 123,
-   &quot;111100&quot; 4,
+  {&quot;010011&quot; 136,
+   &quot;100011&quot; 360,
+   &quot;010110&quot; 26,
+   &quot;010101&quot; 37,
+   &quot;000111&quot; 110,
+   &quot;101010&quot; 29,
+   &quot;010010&quot; 152,
+   &quot;111100&quot; 2,
    &quot;111000&quot; 15,
-   &quot;101000&quot; 50,
+   &quot;101000&quot; 69,
    &quot;001100&quot; 29,
-   &quot;100100&quot; 67,
-   &quot;110010&quot; 71,
-   &quot;111101&quot; 1,
-   &quot;101111&quot; 11,
-   &quot;100101&quot; 68,
-   &quot;101100&quot; 20,
-   &quot;100010&quot; 330,
+   &quot;100100&quot; 73,
+   &quot;110010&quot; 78,
+   &quot;111101&quot; 3,
+   &quot;101111&quot; 9,
+   &quot;100101&quot; 76,
+   &quot;101100&quot; 17,
+   &quot;100010&quot; 331,
    &quot;111111&quot; 4,
-   &quot;011001&quot; 36,
+   &quot;011001&quot; 30,
    &quot;000100&quot; 134,
-   &quot;111001&quot; 16,
-   &quot;001000&quot; 102,
-   &quot;110000&quot; 139,
-   &quot;100111&quot; 51,
-   &quot;001010&quot; 82,
-   &quot;010000&quot; 270,
-   &quot;011100&quot; 6,
-   &quot;110100&quot; 13,
-   &quot;001101&quot; 25,
-   &quot;001001&quot; 101,
-   &quot;000000&quot; 1578,
-   &quot;001110&quot; 25,
-   &quot;110110&quot; 21,
-   &quot;010100&quot; 27,
-   &quot;000110&quot; 130,
-   &quot;101001&quot; 63,
-   &quot;100001&quot; 861,
-   &quot;000101&quot; 126,
-   &quot;110001&quot; 125,
-   &quot;000010&quot; 668,
-   &quot;100000&quot; 828,
-   &quot;110011&quot; 59,
-   &quot;000001&quot; 1699,
-   &quot;001111&quot; 20,
-   &quot;110101&quot; 20,
-   &quot;011011&quot; 25,
-   &quot;101110&quot; 13,
-   &quot;011101&quot; 5,
+   &quot;111001&quot; 6,
+   &quot;001000&quot; 86,
+   &quot;110000&quot; 137,
+   &quot;100111&quot; 71,
+   &quot;001010&quot; 83,
+   &quot;010000&quot; 238,
+   &quot;011100&quot; 7,
+   &quot;110100&quot; 14,
+   &quot;001101&quot; 28,
+   &quot;001001&quot; 93,
+   &quot;000000&quot; 1591,
+   &quot;001110&quot; 23,
+   &quot;110110&quot; 16,
+   &quot;010100&quot; 24,
+   &quot;000110&quot; 120,
+   &quot;101001&quot; 46,
+   &quot;100001&quot; 871,
+   &quot;000101&quot; 140,
+   &quot;110001&quot; 129,
+   &quot;000010&quot; 643,
+   &quot;100000&quot; 796,
+   &quot;110011&quot; 53,
+   &quot;000001&quot; 1709,
+   &quot;001111&quot; 19,
+   &quot;110101&quot; 19,
+   &quot;011011&quot; 15,
+   &quot;101110&quot; 12,
+   &quot;011101&quot; 8,
    &quot;011111&quot; 4,
-   &quot;100110&quot; 58,
-   &quot;111110&quot; 2,
-   &quot;101011&quot; 45,
-   &quot;011000&quot; 25,
-   &quot;101101&quot; 17,
-   &quot;011010&quot; 14,
+   &quot;100110&quot; 61,
+   &quot;111110&quot; 1,
+   &quot;101011&quot; 39,
+   &quot;011000&quot; 21,
+   &quot;101101&quot; 11,
+   &quot;011010&quot; 20,
    &quot;110111&quot; 14,
-   &quot;000011&quot; 698,
-   &quot;111011&quot; 11,
-   &quot;010001&quot; 232,
-   &quot;001011&quot; 70,
-   &quot;010111&quot; 27,
-   &quot;111010&quot; 12,
-   &quot;011110&quot; 4},
+   &quot;000011&quot; 749,
+   &quot;111011&quot; 12,
+   &quot;010001&quot; 240,
+   &quot;001011&quot; 62,
+   &quot;010111&quot; 28,
+   &quot;111010&quot; 13,
+   &quot;011110&quot; 8},
   :final-state
   {:state-vector
    [[0.2522692225728404 -0.30505982713054225]
@@ -840,14 +840,14 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
     [-0.005707736444507323 0.016155943563966574]
     [-0.015878997907407398 -0.006562230919544406]],
    :num-qubits 6},
-  :execution-time-ms 156,
-  :job-id &quot;sim_job_21_1754335294305&quot;},
- :successful-shots 5063,
+  :execution-time-ms 141,
+  :job-id &quot;sim_job_61_1754550535524&quot;},
+ :successful-shots 5131,
  :total-shots 10000,
  :precision-qubits 4,
  :ancilla-qubits 1,
  :success true,
- :result [1.9332787814417296 1.3891684318204753],
+ :result [1.9394617661920688 1.3790311243159075],
  :circuit
  {:operations
   [{:operation-type :ry,
@@ -889,7 +889,7 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
   :num-qubits 6,
   :name &quot;Working HHL Algorithm&quot;,
   :description &quot;Functional HHL for 2×2 matrix&quot;}}
-</code></pre></div></div><div style="margin:15px;"><div><p>The result shows that the HHL algorithm correctly solves the system of linear equations represented by the matrix A and the vector b.</p><p>The measurement outcome is the vector of unknowns x that satisfies the equations.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result hhl-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">[1.9332787814417296 1.3891684318204753]
+</code></pre></div></div><div style="margin:15px;"><div><p>The result shows that the HHL algorithm correctly solves the system of linear equations represented by the matrix A and the vector b.</p><p>The measurement outcome is the vector of unknowns x that satisfies the equations.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result hhl-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">[1.9394617661920688 1.3790311243159075]
 </code></pre></div></div><div style="margin:15px;"><div><p>Lets visualize the final quantum state after executing the HHL algorithm.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :final-state])))</code></pre></div></div><div style="margin:15px;"><div><svg height="400" style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;" width="600" xmlns="http://www.w3.org/2000/svg"><defs><style>text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }
                    rect:hover { opacity: 1; stroke-width: 2; }</style></defs><text fill="#111827" font-size="16" font-weight="bold" text-anchor="middle" x="300" y="25">Quantum State Probability Distribution (6 qubits)</text><text fill="#374151" font-size="12" text-anchor="middle" transform="rotate(-90 20 200)" x="20" y="200">Probability (%)</text><text fill="#374151" font-size="12" text-anchor="middle" x="300" y="390">Basis States</text><g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="80" y1="60" y2="280"></line><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="280.0" y2="280.0"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="283.0">0%</text></g><g><line stroke="#9ca3af" stroke-width="1" x1="75" x2="80" y1="152.14616218290274" y2="152.14616218290274"></line><text fill="#6b7280" font-size="10" text-anchor="end" x="70" y="155.14616218290274">10%</text></g></g><line stroke="#9ca3af" stroke-width="1" x1="80" x2="560" y1="280" y2="280"></line><g class="bar-group"><rect fill="#7c3aed" height="220.0" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="80" y="60.0"><title>|000001⟩: 17.2%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 95 300)" x="95" y="300">|000001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="95" y="55.0">17.2%</text></g><g class="bar-group"><rect fill="#3b82f6" height="200.34857326614136" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="110" y="79.65142673385864"><title>|000000⟩: 15.7%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 125 300)" x="125" y="300">|000000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="125" y="74.65142673385864">15.7%</text></g><g class="bar-group"><rect fill="#10b981" height="112.2448979591836" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="140" y="167.75510204081638"><title>|100001⟩: 8.8%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 155 300)" x="155" y="300">|100001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="155" y="162.75510204081638">8.8%</text></g><g class="bar-group"><rect fill="#f59e0b" height="102.21865982966388" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="170" y="177.78134017033614"><title>|100000⟩: 8.0%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 185 300)" x="185" y="300">|100000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="185" y="172.78134017033614">8.0%</text></g><g class="bar-group"><rect fill="#ef4444" height="90.3295038607366" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="200" y="189.6704961392634"><title>|000011⟩: 7.1%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 215 300)" x="215" y="300">|000011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="215" y="184.6704961392634">7.1%</text></g><g class="bar-group"><rect fill="#8b5cf6" height="81.52133811772941" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="230" y="198.4786618822706"><title>|000010⟩: 6.4%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 245 300)" x="245" y="300">|000010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="245" y="193.4786618822706">6.4%</text></g><g class="bar-group"><rect fill="#06b6d4" height="46.08648156160028" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="260" y="233.9135184383997"><title>|100011⟩: 3.6%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 275 300)" x="275" y="300">|100011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="275" y="228.9135184383997">3.6%</text></g><g class="bar-group"><rect fill="#84cc16" height="41.5925194478211" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="290" y="238.4074805521789"><title>|100010⟩: 3.3%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 305 300)" x="305" y="300">|100010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="305" y="233.4074805521789">3.3%</text></g><g class="bar-group"><rect fill="#7c3aed" height="32.860814799871534" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="320" y="247.13918520012845"><title>|010000⟩: 2.6%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 335 300)" x="335" y="300">|010000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="335" y="242.13918520012845">2.6%</text></g><g class="bar-group"><rect fill="#3b82f6" height="29.596956343708698" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="350" y="250.4030436562913"><title>|010001⟩: 2.3%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 365 300)" x="365" y="300">|010001⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="365" y="245.4030436562913">2.3%</text></g><g class="bar-group"><rect fill="#10b981" height="19.168952923051314" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="380" y="260.8310470769487"><title>|000101⟩: 1.5%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 395 300)" x="395" y="300">|000101⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="395" y="255.83104707694872">1.5%</text></g><g class="bar-group"><rect fill="#f59e0b" height="18.061868651759344" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="410" y="261.93813134824063"><title>|000100⟩: 1.4%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 425 300)" x="425" y="300">|000100⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="425" y="256.93813134824063">1.4%</text></g><g class="bar-group"><rect fill="#ef4444" height="17.613832036200684" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="440" y="262.3861679637993"><title>|010010⟩: 1.4%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 455 300)" x="455" y="300">|010010⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="455" y="257.3861679637993">1.4%</text></g><g class="bar-group"><rect fill="#8b5cf6" height="16.765721836669154" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="470" y="263.2342781633308"><title>|110000⟩: 1.3%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 485 300)" x="485" y="300">|110000⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="485" y="258.2342781633308">1.3%</text></g><g class="bar-group"><rect fill="#06b6d4" height="16.150904858803187" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="500" y="263.8490951411968"><title>|010011⟩: 1.3%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 515 300)" x="515" y="300">|010011⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="515" y="258.8490951411968">1.3%</text></g><g class="bar-group"><rect fill="#84cc16" height="15.76811729454231" opacity="0.8" stroke="#ffffff" stroke-width="1" width="28" x="530" y="264.2318827054577"><title>|000111⟩: 1.2%</title></rect><text fill="#374151" font-size="12" text-anchor="end" transform="rotate(-45 545 300)" x="545" y="300">|000111⟩</text><text fill="#6b7280" font-size="10" text-anchor="middle" x="545" y="259.2318827054577">1.2%</text></g></svg></div></div><div style="margin:15px;"><div><p>The final quantum state shows that the HHL algorithm correctly solves the system of linear equations Ax = b. The final quantum state is a superposition of the states that represent the solution to the system of equations.</p><h3 id="variational-quantum-eigensolver-(vqe)-algorithm">Variational Quantum Eigensolver (VQE) Algorithm</h3><p>The <a href="https://en.wikipedia.org/wiki/Variational_quantum_eigensolver">Variational Quantum Eigensolver (VQE)</a> is a hybrid quantum-classical algorithm used to find the ground state energy of a quantum system. It is particularly useful for simulating molecular systems and materials, where the Hamiltonian of the system can be represented as a sum of Pauli operators.</p><p>The VQE algorithm is also used in quantum machine learning and optimization problems, where it can be used to find the optimal parameters for a quantum circuit that represents a trial state.</p><p>The VQE algorithm uses a parameterized quantum circuit to prepare a trial state, and a classical optimization algorithm to minimize the expectation value of the Hamiltonian with respect to the trial state.</p><h4 id="problem-statement">Problem Statement</h4><p>Given a Hamiltonian H of a quantum system, the goal is to find the ground state energy E₀ of the system, which is the lowest eigenvalue of H, using as few evaluations of the Hamiltonian as possible.</p><h4 id="classical-approach">Classical Approach</h4><p>In a classical setting, finding the ground state energy of a quantum system requires solving the eigenvalue problem for the Hamiltonian H, which can be computationally expensive for large systems. Classical algorithms such as diagonalization or iterative methods can be used to find the ground state energy, but they are limited by the size of the system and the complexity of the Hamiltonian.</p><h4 id="quantum-approach">Quantum Approach</h4><p>The VQE algorithm allows us to find the ground state energy of a quantum system using a hybrid quantum-classical approach. It leverages the power of quantum computing to prepare trial states and measure the expectation value of the Hamiltonian, while using classical optimization algorithms to minimize the expectation value and find the optimal parameters for the trial state.</p><h4 id="quantum-circuit">Quantum Circuit</h4><p>The VQE algorithm can be implemented using a quantum circuit with the following steps:</p><ol><li>Prepare a parameterized quantum circuit that represents the trial state. The circuit can be represented as a series of quantum gates that depend on a set of parameters θ.</li><li>Initialize the parameters θ to some initial values.</li><li>Execute the quantum circuit to prepare the trial state |ψ(θ)⟩.</li><li>Measure the expectation value of the Hamiltonian H with respect to the trial state |ψ(θ)⟩. This involves applying the Hamiltonian as a quantum gate and measuring the qubits to obtain the expectation value ⟨H⟩.</li><li>Use a classical optimization algorithm to update the parameters θ based on the measured expectation value ⟨H⟩. The optimization algorithm can be gradient-based or gradient-free, depending on the problem.</li><li>Repeat steps 3-5 until convergence, i.e., until the expectation value ⟨H⟩ does not change significantly or a maximum number of iterations is reached.</li><li>The final expectation value ⟨H⟩ represents the ground state energy E₀ of the quantum system.</li></ol><p>To explore the VQE algorithm, we need to require the <code>variational-quantum-eigensolver</code> namespace from the <code>application.algorithm</code> package. To create a simple Hamiltonian, we also require the <code>domain.hamiltonian</code> namespace.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.domain.hamiltonian :as ham])</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(require &apos;[org.soulspace.qclojure.application.algorithm.vqe :as vqe])</code></pre></div></div><div style="margin:15px;"><div><p>Let's start with a simpler Hamiltonian for demonstration, which can be represented as a sum of Pauli operators.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def simple-hamiltonian [(ham/pauli-term -1.0 &quot;IIII&quot;)
                          (ham/pauli-term 0.1 &quot;ZIII&quot;)])</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">simple-hamiltonian</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">[{:coefficient -1.0, :pauli-string &quot;IIII&quot;}
@@ -921,72 +921,72 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  :optimization
  {:success true,
   :optimal-parameters
-  [-0.042235647888369365
-   -0.016366520697309043
-   0.041356022228341754
-   -0.030537566904516766
-   0.03985570962631899
-   0.041441962710113314
-   -0.019433187980224267
-   -0.00954845987783034
-   0.021186215512369756
-   0.021018912566334758
-   0.02992605932566769
-   0.0335596533909636],
-  :optimal-energy -0.9001025601469652,
+  [-0.01651493545166366
+   0.049270508711622946
+   0.032778686794879754
+   0.027551811038083886
+   -0.02775553337262805
+   0.021378088603947798
+   0.02822828091193408
+   0.03070483710239573
+   -0.008343311448147053
+   -0.0026797030783830555
+   0.03908545629845668
+   -0.03324031542582613],
+  :optimal-energy -0.9001349748943517,
   :iterations 0,
   :function-evaluations 0,
-  :convergence-history [-0.9001023554861928 -0.9001025601469652],
+  :convergence-history [-0.9001347055961681 -0.9001349748943517],
   :final-gradient
-  [0.004217531629474747
-   0.0016334906100715085
-   0.0
-   -2.7755575615628914E-16
-   -5.551115123125783E-17
-   0.0
-   0.0
-   0.0
-   -1.6653345369377348E-16
+  [0.001647772847881146
+   -0.004919474517570022
    -1.1102230246251565E-16
+   1.1102230246251565E-16
+   -2.220446049250313E-16
    0.0
-   0.0],
+   -1.1102230246251565E-16
+   3.3306690738754696E-16
+   1.1102230246251565E-16
+   0.0
+   0.0
+   -1.1102230246251565E-16],
   :reason &quot;converged&quot;},
  :success true,
  :analysis
- {:initial-energy -0.9001023554861928,
-  :energy-improvement 2.0466077244041259E-7,
+ {:initial-energy -0.9001347055961681,
+  :energy-improvement 2.692981835306085E-7,
   :convergence-achieved true},
- :result -0.9001025601469652,
+ :result -0.9001349748943517,
  :timing
- {:execution-time-ms 434,
-  :start-time 1754335294806,
-  :end-time 1754335295240},
+ {:execution-time-ms 454,
+  :start-time 1754550535997,
+  :end-time 1754550536451},
  :circuit
  {:operations
   [{:operation-type :rx,
-    :operation-params {:target 0, :angle -0.042235647888369365}}
+    :operation-params {:target 0, :angle -0.01651493545166366}}
    {:operation-type :ry,
-    :operation-params {:target 0, :angle -0.016366520697309043}}
+    :operation-params {:target 0, :angle 0.049270508711622946}}
    {:operation-type :rz,
-    :operation-params {:target 0, :angle 0.041356022228341754}}
+    :operation-params {:target 0, :angle 0.032778686794879754}}
    {:operation-type :rx,
-    :operation-params {:target 1, :angle -0.030537566904516766}}
+    :operation-params {:target 1, :angle 0.027551811038083886}}
    {:operation-type :ry,
-    :operation-params {:target 1, :angle 0.03985570962631899}}
+    :operation-params {:target 1, :angle -0.02775553337262805}}
    {:operation-type :rz,
-    :operation-params {:target 1, :angle 0.041441962710113314}}
+    :operation-params {:target 1, :angle 0.021378088603947798}}
    {:operation-type :rx,
-    :operation-params {:target 2, :angle -0.019433187980224267}}
+    :operation-params {:target 2, :angle 0.02822828091193408}}
    {:operation-type :ry,
-    :operation-params {:target 2, :angle -0.00954845987783034}}
+    :operation-params {:target 2, :angle 0.03070483710239573}}
    {:operation-type :rz,
-    :operation-params {:target 2, :angle 0.021186215512369756}}
+    :operation-params {:target 2, :angle -0.008343311448147053}}
    {:operation-type :rx,
-    :operation-params {:target 3, :angle 0.021018912566334758}}
+    :operation-params {:target 3, :angle -0.0026797030783830555}}
    {:operation-type :ry,
-    :operation-params {:target 3, :angle 0.02992605932566769}}
+    :operation-params {:target 3, :angle 0.03908545629845668}}
    {:operation-type :rz,
-    :operation-params {:target 3, :angle 0.0335596533909636}}
+    :operation-params {:target 3, :angle -0.03324031542582613}}
    {:operation-type :cnot, :operation-params {:control 0, :target 1}}
    {:operation-type :cnot, :operation-params {:control 1, :target 2}}
    {:operation-type :cnot, :operation-params {:control 2, :target 3}}],
@@ -995,20 +995,20 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  :parameter-count 12,
  :hamiltonian {:terms 2, :grouped-terms nil, :classical-bound nil},
  :results
- {:optimal-energy -0.9001025601469652,
+ {:optimal-energy -0.9001349748943517,
   :optimal-parameters
-  [-0.042235647888369365
-   -0.016366520697309043
-   0.041356022228341754
-   -0.030537566904516766
-   0.03985570962631899
-   0.041441962710113314
-   -0.019433187980224267
-   -0.00954845987783034
-   0.021186215512369756
-   0.021018912566334758
-   0.02992605932566769
-   0.0335596533909636],
+  [-0.01651493545166366
+   0.049270508711622946
+   0.032778686794879754
+   0.027551811038083886
+   -0.02775553337262805
+   0.021378088603947798
+   0.02822828091193408
+   0.03070483710239573
+   -0.008343311448147053
+   -0.0026797030783830555
+   0.03908545629845668
+   -0.03324031542582613],
   :success true,
   :iterations 0,
   :function-evaluations 0}}
@@ -1027,18 +1027,25 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
  {:coefficient -0.1809312, :pauli-string &quot;YYII&quot;}
  {:coefficient -0.1809312, :pauli-string &quot;IIXX&quot;}
  {:coefficient -0.1809312, :pauli-string &quot;IIYY&quot;}]
-</code></pre></div></div><div style="margin:15px;"><div><p>Let's run the VQE algorithm with the defined Hamiltonian. The result of the VQE algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.</p><p>There are different ansatz types available, such as <code>:hardware-efficient</code>, <code>:chemistry-inspired</code>, <code>:uccsd</code>, <code>:symmetry-preserving</code> and <code>:custom</code>. The <code>:hardware-efficient</code> ansatz type is not suitable for chemistry problems, as it does not preserve the symmetries of the Hamiltonian. The <code>:uccsd</code> ansatz type is suitable for chemistry problems, as it uses the unitary coupled cluster ansatz. The <code>:symmetry-preserving</code> ansatz type is suitable for chemistry problems, as it preserves the symmetries of the Hamiltonian. The <code>:custom</code> ansatz type allows you to define your own ansatz circuit.</p><p>We use the <code>:chemistry-inspired</code> ansatz type, which is suitable for chemistry problems.</p><p>We'll compare different optimization methods to show their performance. These gradient-based optimizers are supported: <code>:gradient-descent</code>, <code>:adam</code> and <code>:quantum-natural-gradient</code>.</p><p>For gradient-free optimizers, we can use the following methods: <code>:nelder-mead</code>, <code>:powell</code>, <code>:cmaes</code> and <code>:bobyqa</code>.</p><p>Here we use the adam optimizer, which is a gradient-based optimization method that uses the parameter shift rule to compute gradients.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def vqe-result-adam
+</code></pre></div></div><div style="margin:15px;"><div><p>Let's run the VQE algorithm with the defined Hamiltonian. The result of the VQE algorithm is a map that contains the result of the algorithm, the measurement outcome, and the circuit used to execute the algorithm.</p><p>There are different ansatz types available, such as <code>:hardware-efficient</code>, <code>:chemistry-inspired</code>, <code>:uccsd</code>, <code>:symmetry-preserving</code> and <code>:custom</code>. The <code>:hardware-efficient</code> ansatz type is not suitable for chemistry problems, as it does not preserve the symmetries of the Hamiltonian. The <code>:uccsd</code> ansatz type is suitable for chemistry problems, as it uses the unitary coupled cluster ansatz. The <code>:symmetry-preserving</code> ansatz type is suitable for chemistry problems, as it preserves the symmetries of the Hamiltonian. The <code>:custom</code> ansatz type allows you to define your own ansatz circuit.</p><p>We'll compare different optimization methods to show their performance. These gradient-based optimizers are supported: <code>:gradient-descent</code>, <code>:adam</code> and <code>:quantum-natural-gradient</code>.</p><p>For gradient-free optimizers, we can use the following methods: <code>:nelder-mead</code>, <code>:powell</code>, <code>:cmaes</code> and <code>:bobyqa</code>.</p><p>Here we use the adam optimizer, which is a gradient-based optimization method that uses the parameter shift rule to compute gradients.</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(def vqe-result
   (vqe/variational-quantum-eigensolver (sim/create-simulator)
                                        {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
-                                        :ansatz-type           :chemistry-inspired
+                                        :ansatz-type           :uccsd
                                         :num-qubits            4
-                                        :num-excitation-layers 1
+                                        :num-excitations       2
+                                        :num-layers            2
                                         :max-iterations        200
                                         :tolerance             1e-5
                                         :learning-rate         0.2
-                                        :optimization-method   :adam}))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">vqe-result-adam</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:algorithm &quot;Variational Quantum Eigensolver&quot;,
+                                        :optimization-method   :adam}))</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">vqe-result</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">{:algorithm &quot;Variational Quantum Eigensolver&quot;,
  :config
- {:hamiltonian
+ {:num-excitations 2,
+  :ansatz-type :uccsd,
+  :optimization-method :adam,
+  :tolerance 1.0E-5,
+  :max-iterations 200,
+  :num-qubits 4,
+  :hamiltonian
   [{:coefficient -1.1395602, :pauli-string &quot;IIII&quot;}
    {:coefficient 0.39793742, :pauli-string &quot;IIIZ&quot;}
    {:coefficient -0.39793742, :pauli-string &quot;IIZI&quot;}
@@ -1054,282 +1061,62 @@ State: 0.707+0.0i |0⟩ + 0.707+0.0i |1⟩</title></circle><text fill="#4c1d95" 
    {:coefficient -0.1809312, :pauli-string &quot;YYII&quot;}
    {:coefficient -0.1809312, :pauli-string &quot;IIXX&quot;}
    {:coefficient -0.1809312, :pauli-string &quot;IIYY&quot;}],
-  :ansatz-type :chemistry-inspired,
-  :num-qubits 4,
-  :num-excitation-layers 1,
-  :max-iterations 200,
-  :tolerance 1.0E-5,
   :learning-rate 0.2,
-  :optimization-method :adam},
- :ansatz-type :chemistry-inspired,
+  :num-layers 2},
+ :ansatz-type :uccsd,
  :optimization
- {:success false,
-  :optimal-parameters
-  [-0.22044555261097323
-   -0.31871201677429756
-   -0.12472615449223999
-   -0.3033156117360764
-   -0.2923794388317061
-   -0.29022561205647296
-   -0.09001346742953893],
-  :optimal-energy -1.3587136108415936,
-  :iterations 200,
-  :function-evaluations 2800,
-  :convergence-history
-  [-1.2065344141777845
-   -1.2066666142843603
-   -1.2067971101337949
-   -1.2069259279510214
-   -1.2070530873842793
-   -1.2071786391847863
-   -1.2073026775018931
-   -1.207425351017523
-   -1.2075468706894
-   -1.2076675083973794
-   -1.2077875813361945
-   -1.2079074231030544
-   -1.208027351218736
-   -1.208147644009802
-   -1.208268533502175
-   -1.2083902116824035
-   -1.2085128430490557
-   -1.208636577524982
-   -1.2087615608540458
-   -1.20888794190403
-   -1.2090158773432524
-   -1.2091455343995996
-   -1.2092770923169416
-   -1.2094107429520866
-   -1.2095466908039747
-   -1.209685152657574
-   -1.2098263569534795
-   -1.209970542950049
-   -1.2101179597189708
-   -1.210268865000793
-   -1.2104235239398056
-   -1.2105822077150437
-   -1.2107451920841485
-   -1.210912755858349
-   -1.211085179329024
-   -1.2112627426686189
-   -1.2114457243307726
-   -1.2116343994758978
-   -1.2118290384490684
-   -1.2120299053366985
-   -1.212237256626974
-   -1.212451339996658
-   -1.2126723932433636
-   -1.2129006433783462
-   -1.2131363058901432
-   -1.2133795841844073
-   -1.2136306692003367
-   -1.2138897391993126
-   -1.214156959717103
-   -1.2144324836672644
-   -1.2147164515805513
-   -1.2150089919629457
-   -1.2153102217537424
-   -1.2156202468645785
-   -1.2159391627805534
-   -1.2162670552053725
-   -1.2166040007337644
-   -1.2169500675360607
-   -1.2173053160416665
-   -1.2176697996101724
-   -1.2180435651807944
-   -1.218426653892835
-   -1.2188191016715901
-   -1.219220939775846
-   -1.2196321953045186
-   -1.2200528916612632
-   -1.2204830489769516
-   -1.2209226844907455
-   -1.2213718128911961
-   -1.2218304466193
-   -1.2222985961358144
-   -1.222776270155383
-   -1.223263475850144
-   -1.223760219025569
-   -1.2242665042712462
-   -1.2247823350892346
-   -1.2253077140025463
-   -1.2258426426461468
-   -1.2263871218426547
-   -1.226941151664864
-   -1.22750473148692
-   -1.2280778600258448
-   -1.2286605353749684
-   -1.229252755030583
-   -1.2298545159130383
-   -1.230465814383309
-   -1.2310866462559595
-   -1.2317170068092622
-   -1.2323568907931421
-   -1.2330062924355296
-   -1.2336652054475419
-   -1.2343336230279256
-   -1.2350115378670397
-   -1.2356989421506326
-   -1.2363958275636218
-   -1.2371021852940014
-   -1.2378180060369894
-   -1.2385432799994984
-   -1.2392779969049552
-   -1.2400221459985021
-   -1.2407757160525832
-   -1.2415386953729013
-   -1.2423110718047223
-   -1.243092832739504
-   -1.243883965121805
-   -1.2446844554564478
-   -1.2454942898158767
-   -1.2463134538477003
-   -1.247141932782338
-   -1.2479797114407738
-   -1.2488267742423593
-   -1.2496831052126394
-   -1.250548687991158
-   -1.2514235058392524
-   -1.2523075416477698
-   -1.2532007779447172
-   -1.2541031969028205
-   -1.2550147803469656
-   -1.2559355097615343
-   -1.2568653662976068
-   -1.2578043307800317
-   -1.2587523837143595
-   -1.2597095052936442
-   -1.2606756754050827
-   -1.2616508736365466
-   -1.262635079282938
-   -1.2636282713524356
-   -1.2646304285725922
-   -1.2656415293962993
-   -1.2666615520076236
-   -1.267690474327524
-   -1.268728274019435
-   -1.2697749284947326
-   -1.2708304149180958
-   -1.2718947102127394
-   -1.2729677910655404
-   -1.2740496339320693
-   -1.2751402150415043
-   -1.2762395104014435
-   -1.2773474958026294
-   -1.2784641468235627
-   -1.2795894388350284
-   -1.2807233470045238
-   -1.2818658463006014
-   -1.2830169114971106
-   -1.2841765171773627
-   -1.285344637738198
-   -1.2865212473939744
-   -1.287706320180464
-   -1.2888998299586734
-   -1.2901017504185754
-   -1.2913120550827661
-   -1.2925307173100353
-   -1.2937577102988633
-   -1.2949930070908389
-   -1.2962365805740066
-   -1.2974884034861265
-   -1.2987484484178777
-   -1.3000166878159831
-   -1.3012930939862597
-   -1.3025776390966106
-   -1.3038702951799415
-   -1.3051710341370204
-   -1.3064798277392686
-   -1.3077966476314875
-   -1.3091214653345362
-   -1.3104542522479372
-   -1.3117949796524402
-   -1.31314361871251
-   -1.3145001404787873
-   -1.3158645158904732
-   -1.317236715777676
-   -1.3186167108637137
-   -1.320004471767347
-   -1.3213999690049982
-   -1.322803172992894
-   -1.3242140540491874
-   -1.325632582396028
-   -1.3270587281615895
-   -1.3284924613820654
-   -1.3299337520036165
-   -1.3313825698842925
-   -1.332838884795903
-   -1.3343026664258701
-   -1.33577388437903
-   -1.33725250817941
-   -1.3387385072719757
-   -1.3402318510243372
-   -1.3417325087284317
-   -1.343240449602172
-   -1.3447556427910659
-   -1.346278057369807
-   -1.3478076623438418
-   -1.3493444266508967
-   -1.3508883191624919
-   -1.3524393086854205
-   -1.3539973639632013
-   -1.3555624536775108
-   -1.3571345464495832
-   -1.3587136108415936],
-  :reason &quot;max-iterations-reached&quot;},
- :success false,
+ {:success true,
+  :optimal-parameters [-0.023604226863730635 0.034915634982537996],
+  :optimal-energy -1.116995643598482,
+  :iterations 1,
+  :function-evaluations 4,
+  :convergence-history [-1.1169940767030615 -1.116995643598482],
+  :final-gradient [-0.0018308873511746482 5.481739148728293E-4],
+  :reason &quot;converged&quot;},
+ :success true,
  :analysis
- {:initial-energy -1.2065344141777845,
-  :energy-improvement 0.15217919666380908,
-  :convergence-achieved false},
- :result -1.3587136108415936,
+ {:initial-energy -1.1169940767030615,
+  :energy-improvement 1.566895420523906E-6,
+  :convergence-achieved true},
+ :result -1.116995643598482,
  :timing
- {:execution-time-ms 76990,
-  :start-time 1754335295505,
-  :end-time 1754335372495},
+ {:execution-time-ms 544,
+  :start-time 1754550536740,
+  :end-time 1754550537284},
  :circuit
  {:operations
-  [{:operation-type :ry,
-    :operation-params {:target 0, :angle -0.22044555261097323}}
+  [{:operation-type :x, :operation-params {:target 0}}
+   {:operation-type :x, :operation-params {:target 1}}
    {:operation-type :ry,
-    :operation-params {:target 1, :angle -0.31871201677429756}}
-   {:operation-type :ry,
-    :operation-params {:target 2, :angle -0.12472615449223999}}
-   {:operation-type :ry,
-    :operation-params {:target 3, :angle -0.3033156117360764}}
-   {:operation-type :cnot, :operation-params {:control 0, :target 1}}
-   {:operation-type :ry,
-    :operation-params {:target 1, :angle -0.2923794388317061}}
-   {:operation-type :cnot, :operation-params {:control 0, :target 1}}
-   {:operation-type :cnot, :operation-params {:control 2, :target 3}}
-   {:operation-type :ry,
-    :operation-params {:target 3, :angle -0.29022561205647296}}
-   {:operation-type :cnot, :operation-params {:control 2, :target 3}}
+    :operation-params {:target 0, :angle -0.011802113431865317}}
    {:operation-type :cnot, :operation-params {:control 0, :target 2}}
+   {:operation-type :ry,
+    :operation-params {:target 2, :angle -0.011802113431865317}}
+   {:operation-type :cnot, :operation-params {:control 0, :target 2}}
+   {:operation-type :ry,
+    :operation-params {:target 0, :angle 0.011802113431865317}}
+   {:operation-type :ry,
+    :operation-params {:target 1, :angle 0.017457817491268998}}
    {:operation-type :cnot, :operation-params {:control 1, :target 3}}
    {:operation-type :ry,
-    :operation-params {:target 2, :angle -0.09001346742953893}}
+    :operation-params {:target 3, :angle 0.017457817491268998}}
    {:operation-type :cnot, :operation-params {:control 1, :target 3}}
-   {:operation-type :cnot, :operation-params {:control 0, :target 2}}],
+   {:operation-type :ry,
+    :operation-params {:target 1, :angle -0.017457817491268998}}],
   :num-qubits 4,
-  :name &quot;Chemistry Inspired Ansatz&quot;},
- :parameter-count 7,
+  :name &quot;UCCSD Inspired Ansatz&quot;},
+ :parameter-count 2,
  :hamiltonian {:terms 15, :grouped-terms nil, :classical-bound nil},
  :results
- {:optimal-energy -1.3587136108415936,
-  :optimal-parameters
-  [-0.22044555261097323
-   -0.31871201677429756
-   -0.12472615449223999
-   -0.3033156117360764
-   -0.2923794388317061
-   -0.29022561205647296
-   -0.09001346742953893],
-  :success false,
-  :iterations 200,
-  :function-evaluations 2800}}
-</code></pre></div></div><div style="margin:15px;"><div><p>The calculated ground state energy is</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result vqe-result-adam)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">-1.3587136108415936
-</code></pre></div></div><div style="margin:15px;"><div><p>The final circuit with the optimal parameters is</p><p>(kind/html (viz/visualize-circuit :svg (:circuit vqe-result-adam)))</p></div></div><div style="margin:15px;"><div style="background-color:grey;height:2px;width:100%;"></div></div><div style="margin:15px;"><div><pre><small><small>source: <a href="https://github.com/lsolbach/qclojure/blob/main/notebook/tutorial.clj">notebook/tutorial.clj</a></small></small></pre></div></div></div></div></div></div></div><script type="text/javascript">/*!
+ {:optimal-energy -1.116995643598482,
+  :optimal-parameters [-0.023604226863730635 0.034915634982537996],
+  :success true,
+  :iterations 1,
+  :function-evaluations 4}}
+</code></pre></div></div><div style="margin:15px;"><div><p>The calculated ground state energy is</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(:result vqe-result)</code></pre></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure printed-clojure">-1.116995643598482
+</code></pre></div></div><div style="margin:15px;"><div><p>The final circuit with the optimal parameters is</p></div></div><div style="margin:15px;"><div><pre><code class="sourceCode language-clojure source-clojure bg-light">(kind/html (viz/visualize-circuit :svg (:circuit vqe-result)))</code></pre></div></div><div style="margin:15px;"><div><svg height="360" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;" width="860" xmlns="http://www.w3.org/2000/svg"><defs><style>.gate-group:hover rect { opacity: 1; stroke-width: 3; }
+                         .gate-group:hover circle { stroke-width: 3; }
+                         text { font-family: &apos;SF Pro Display&apos;, &apos;Segoe UI&apos;, system-ui, sans-serif; }</style></defs><text fill="#111827" font-size="18" font-weight="bold" text-anchor="middle" x="430" y="25">UCCSD Inspired Ansatz</text><g><text fill="#374151" font-size="14" x="20" y="45">q0 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="40" y2="40"></line></g><g><text fill="#374151" font-size="14" x="20" y="105">q1 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="100" y2="100"></line></g><g><text fill="#374151" font-size="14" x="20" y="165">q2 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="160" y2="160"></line></g><g><text fill="#374151" font-size="14" x="20" y="225">q3 |0⟩</text><line stroke="#9ca3af" stroke-width="2" x1="100" x2="820" y1="220" y2="220"></line></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="45">X</text><title>:x gate on qubit 0</title></g><g class="gate-group"><rect fill="#ef4444" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="145" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="160" y="105">X</text><title>:x gate on qubit 1</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="205" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="220" y="45">RY</text><title>:ry gate on qubit 0</title></g><g class="gate-group"><circle cx="280" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="280" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="272" x2="288" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="280" x2="280" y1="40" y2="160"></line><title>CNOT: control=0, target=2</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="325" y="148"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="340" y="165">RY</text><title>:ry gate on qubit 2</title></g><g class="gate-group"><circle cx="400" cy="40" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="400" cy="160" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="392" x2="408" y1="160" y2="160"></line><line stroke="#374151" stroke-width="2" x1="400" x2="400" y1="152" y2="168"></line><line stroke="#374151" stroke-width="2" x1="400" x2="400" y1="40" y2="160"></line><title>CNOT: control=0, target=2</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="445" y="28"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="460" y="45">RY</text><title>:ry gate on qubit 0</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="445" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="460" y="105">RY</text><title>:ry gate on qubit 1</title></g><g class="gate-group"><circle cx="520" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="520" cy="220" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="512" x2="528" y1="220" y2="220"></line><line stroke="#374151" stroke-width="2" x1="520" x2="520" y1="212" y2="228"></line><line stroke="#374151" stroke-width="2" x1="520" x2="520" y1="100" y2="220"></line><title>CNOT: control=1, target=3</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="565" y="208"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="580" y="225">RY</text><title>:ry gate on qubit 3</title></g><g class="gate-group"><circle cx="640" cy="100" fill="#374151" r="6" stroke="#ffffff" stroke-width="2"></circle><circle cx="640" cy="220" fill="none" r="12" stroke="#374151" stroke-width="2"></circle><line stroke="#374151" stroke-width="2" x1="632" x2="648" y1="220" y2="220"></line><line stroke="#374151" stroke-width="2" x1="640" x2="640" y1="212" y2="228"></line><line stroke="#374151" stroke-width="2" x1="640" x2="640" y1="100" y2="220"></line><title>CNOT: control=1, target=3</title></g><g class="gate-group"><rect fill="#10b981" height="24" rx="4" stroke="#ffffff" stroke-width="2" width="30" x="685" y="88"></rect><text fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" x="700" y="105">RY</text><title>:ry gate on qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="28"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="45">M</text><title>Measure qubit 0</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="88"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="105">M</text><title>Measure qubit 1</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="148"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="165">M</text><title>Measure qubit 2</title></g><g><rect fill="#fbbf24" height="24" rx="4" stroke="#f59e0b" stroke-width="2" width="30" x="825" y="208"></rect><text fill="#92400e" font-size="10" font-weight="bold" text-anchor="middle" x="840" y="225">M</text><title>Measure qubit 3</title></g><g><text fill="#6b7280" font-size="12" x="20" y="320">Qubits: 4 | Gates: 12 | Depth: 10</text></g></svg></div></div><div style="margin:15px;"><div style="background-color:grey;height:2px;width:100%;"></div></div><div style="margin:15px;"><div><pre><small><small>source: <a href="https://github.com/lsolbach/qclojure/blob/main/notebook/tutorial.clj">notebook/tutorial.clj</a></small></small></pre></div></div></div></div></div></div></div><script type="text/javascript">/*!
   Highlight.js v11.9.0 (git: b7ec4bfafc)
   (c) 2006-2023 undefined and other contributors
   License: BSD-3-Clause

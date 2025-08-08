@@ -2,7 +2,6 @@
 
 ## Version (NEXT)
 * improved layout of the svg circuit visualization
-* improved HHL algorithm
 * removed duplicated code
 * increased test coverage
 * updated tutorial

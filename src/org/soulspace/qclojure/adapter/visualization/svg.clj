@@ -336,7 +336,7 @@
 
 (let [n-qubits (:num-qubits circuit)
       circuit-depth (qc/circuit-depth circuit)
-      margin {:top 40 :right 40 :bottom 80 :left 100}
+      margin {:top 70 :right 50 :bottom 30 :left 70}
 
       ;; Calculate default dimensions based on circuit properties
       ;; Width: based on circuit depth (number of sequential layers)
@@ -392,7 +392,7 @@
                     (let [y (+ (:top margin) (* q qubit-spacing))]
                       [:g
                        ;; Qubit label
-                       [:text {:x 20 :y (+ y 5)
+                       [:text {:x 30 :y (+ y 5)
                                :font-size "14" :fill "#374151"}
                         (str "q" q " |0⟩")]
                        ;; Qubit line
@@ -741,16 +741,16 @@
                           [:title (str "Measure qubit " q)]])))
 
       ;; Title and circuit info
-      title [:text {:x (/ final-width 2) :y 25
+      title [:text {:x (/ final-width 2) :y 35
                     :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
              (or (:name circuit) "Quantum Circuit")]
 
       circuit-info [:g
-                    [:text {:x 20 :y (- final-height 40)
+                    [:text {:x 30 :y (- final-height 30)
                             :font-size "12" :fill "#6b7280"}
                      (str "Qubits: " n-qubits " | Gates: " (count gates) " | Depth: " circuit-depth)]
                     (when (:description circuit)
-                      [:text {:x 20 :y (- final-height 25)
+                      [:text {:x 30 :y (- final-height 15)
                               :font-size "12" :fill "#6b7280"}
                        (:description circuit)])]
 
@@ -975,8 +975,7 @@
   (qio/save-file bloch-y "bloch-y-gate.svg")
 
   ;; Create circuit diagram
-  (def sample-circuit (qc/bell-state-circuit))
-  (def circuit-svg (viz/visualize-circuit :svg sample-circuit))
+  (def circuit-svg (viz/visualize-circuit :svg (qc/bell-state-circuit)))
   (qio/save-file circuit-svg "bell-circuit.svg")
 
   ;; Create complex circuit with various gates

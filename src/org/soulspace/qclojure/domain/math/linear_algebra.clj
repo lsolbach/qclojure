@@ -57,17 +57,17 @@
         (if (>= row n)
           ;; Extract inverse from right half of augmented matrix
           (vec (for [i (range n)]
-                 (vec (for [j (range n n (* 2 n))]
+                 (vec (for [j (range n (* 2 n))]
                         (get-in mat [i j])))))
           (let [;; Find pivot
                 pivot-row (reduce (fn [best-row curr-row]
-                                    (if (> (abs (get-in mat [curr-row row]))
-                                           (abs (get-in mat [best-row row])))
+                                    (if (> (Math/abs (double (get-in mat [curr-row row])))
+                                           (Math/abs (double (get-in mat [best-row row]))))
                                       curr-row
                                       best-row))
                                   row (range row n))
                 pivot-val (get-in mat [pivot-row row])]
-            (if (< (abs pivot-val) 1e-12)
+            (if (< (Math/abs (double pivot-val)) 1e-12)
               nil ; Matrix is singular
               (let [;; Swap rows if needed
                     mat-swapped (if (= pivot-row row)
@@ -168,8 +168,8 @@
 
         ;; Find pivot
         (let [max-row (reduce (fn [max-i i]
-                                (if (> (Math/abs (get-in a-curr [i k]))
-                                       (Math/abs (get-in a-curr [max-i k])))
+                                (if (> (Math/abs (double (get-in a-curr [i k])))
+                                       (Math/abs (double (get-in a-curr [max-i k]))))
                                   i max-i))
                               k (range (inc k) n))
 
@@ -190,14 +190,14 @@
               a-eliminated
               (reduce (fn [a-acc i]
                         (if (> i k)
-                          (let [factor (/ (get-in a-acc [i k])
-                                          (get-in a-acc [k k]))]
+                          (let [factor (/ (double (get-in a-acc [i k]))
+                                          (double (get-in a-acc [k k])))]
                             (-> a-acc
                                 (assoc-in [i k] factor)
                                 (update i (fn [row]
                                             (mapv (fn [j val]
                                                     (if (> j k)
-                                                      (- val (* factor (get-in a-acc [k j])))
+                                                      (- (double val) (* factor (double (get-in a-acc [k j]))))
                                                       val))
                                                   (range n) row)))))
                           a-acc))

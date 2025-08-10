@@ -1,6 +1,6 @@
 ;; Rebalanced full content
-(ns org.soulspace.qclojure.domain.math.clojure-math
-  "Pure Clojure math backend implementing the domain math protocols using
+ (ns org.soulspace.qclojure.domain.math.clojure-math
+   "Pure Clojure math backend implementing the domain math protocols using
   persistent vectors and simple maps. Complex scalars, vectors and matrices
   use a Split-of-Arrays (SoA) representation with :real / :imag keys.
 
@@ -9,7 +9,7 @@
 
   Advanced decompositions are mostly placeholders; delegate heavy numerics to
   specialized backends (e.g. Neanderthal) for production performance."
-  (:require [org.soulspace.qclojure.domain.math.protocols :as proto]))
+   (:require [org.soulspace.qclojure.domain.math.protocols :as proto]))
 
 ;;
 ;; Configuration / defaults
@@ -86,6 +86,126 @@
            (vec (for [j (range n)]
                   (reduce + (map * (nth A i) (nth bt j)))))))))
 
+;; ---------------------------------------------------------------------------
+;; Forward / Back substitution (real) for unit-lower L and upper U
+;; Used by pivoted solve/inverse delegating to existing LU decomposition.
+;; ---------------------------------------------------------------------------
+
+(defn- real-forward-sub
+  "Solve L y = b for y where L is unit lower triangular (diagonal = 1).
+
+  Parameters:
+  - L: n x n unit lower triangular matrix (vector of row vectors)
+  - b: right hand side vector length n
+
+  Returns: vector y.
+  Complexity: O(n^2)."
+  [L b]
+  (let [n (count L)]
+    (loop [i 0 y (transient (vec (repeat n 0.0)))]
+      (if (= i n)
+        (persistent! y)
+        (let [sum (reduce + (map #(* (get-in L [i %]) (nth y %)) (range i)))
+              yi (- (double (nth b i)) sum)]
+          (recur (inc i) (assoc! y i yi)))))))
+
+(defn- real-back-sub
+  "Solve U x = y for x where U is upper triangular.
+
+  Parameters:
+  - U: n x n upper triangular matrix
+  - y: RHS vector length n
+
+  Returns: solution vector x.
+  Complexity: O(n^2)."
+  [U y]
+  (let [n (count U)]
+    (loop [i (dec n) x (transient (vec (repeat n 0.0)))]
+      (if (neg? i)
+        (persistent! x)
+        (let [row (nth U i)
+              diag (double (nth row i))
+              _ (when (zero? diag) (throw (ex-info "Singular matrix in back substitution" {:i i})))
+              sum (reduce + (map (fn [j] (* (double (nth row j)) (nth x j))) (range (inc i) n)))
+              xi (/ (- (double (nth y i)) sum) diag)]
+          (recur (dec i) (assoc! x i xi)))))))
+
+;; ---------------------------------------------------------------------------
+;; Householder QR (real matrices)
+;; Provides numerically stable orthogonal-triangular decomposition.
+;; ---------------------------------------------------------------------------
+
+(defn- householder-qr-real
+  "Compute QR decomposition of real matrix A via Householder reflectors.
+
+  Parameters:
+  - A: m x n real matrix (vector of row vectors)
+
+  Returns map {:Q Q :R R}
+  where Q is m x m orthogonal, R is m x n upper-triangular (below-diagonal
+  entries explicitly zeroed for clarity). This implementation favors
+  clarity; performance optimizations (blocking, packed storage) can be
+  layered later.
+
+  Algorithm outline per Golub & Van Loan:
+  For k = 0 .. min(m-1,n-1):
+    x = A[k:m, k]
+    v = x + sign(x0)*||x||*e1
+    v = v / ||v||
+    A[k:m, k:n] -= 2 v (v^T A[k:m, k:n])
+    Accumulate Q via right-multiplication by reflector (or build explicitly).
+
+  Complexity: O(m n^2) general case.
+  Stability: Backward stable; avoids loss of orthogonality inherent in
+  classical Gram–Schmidt used previously."
+  [A]
+  (let [[m n] (matrix-shape A)
+        rmin (min m n)
+        A0 (mapv vec A)
+        ;; Mutable (persistent) working copy of A accumulated into R
+        identity-m (identity-matrix m)]
+    (loop [k 0 A* A0 Q identity-m]
+      (if (= k rmin)
+        (let [R (->> A*
+                     (map-indexed (fn [i row]
+                                    (map-indexed (fn [j v] (if (< j i) 0.0 v)) row)))
+                     (mapv vec))]
+          {:Q Q :R R})
+        (let [;; Extract x = A[k:m, k]
+              x (mapv #(get-in A* [% k]) (range k m))
+              normx (Math/sqrt (reduce + (map #(* (double %) (double %)) x)))
+              sign (if (or (zero? normx) (neg? (double (first x)))) -1.0 1.0)
+              alpha (* sign normx)
+              u1 (+ (double (first x)) alpha)
+              v (if (zero? normx)
+                  (vec (cons 1.0 (repeat (dec (count x)) 0.0)))
+                  (let [vraw (cons u1 (rest x))
+                        vnorm (Math/sqrt (reduce + (map #(* % %) vraw)))
+                        vnorm (if (pos? vnorm) vnorm 1.0)]
+                    (mapv #(/ (double %) vnorm) vraw)))
+              beta 2.0
+              ;; Apply reflector H = I - beta v v^T to submatrix A[k:m, k:n]
+              A** (reduce (fn [A** j]
+                            (let [col (mapv #(get-in A** [% j]) (range k m))
+                                  dot (reduce + (map * v col))
+                                  ;; Householder: H = I - 2 v v^T (v normalized) => col' = col - 2 (v^T col) v
+                                  scaled (* beta dot) ; beta = 2
+                                  newcol (mapv (fn [vi ci] (- ci (* scaled vi))) v col)]
+                              (reduce (fn [A*** idx]
+                                        (assoc-in A*** [(+ k idx) j] (nth newcol idx)))
+                                      A** (range (count v)))))
+                          A* (range k n))
+              ;; Update Q ← Q H^T = Q (I - beta v v^T) since H symmetric
+              Q* (reduce (fn [Q* i]
+                           (let [row (get Q* i)
+                                 segment (subvec row k m)
+                                 dot (reduce + (map * segment v))
+                                 scaled (* beta dot)
+                                 newseg (mapv (fn [si vi] (- si (* scaled vi))) segment v)]
+                             (assoc Q* i (vec (concat (subvec row 0 k) newseg (subvec row m))))))
+                         Q (range m))]
+          (recur (inc k) A** Q*))))))
+
 (defn- real-transpose [A] (vec (apply mapv vector A)))
 
 (defn- real-frobenius-norm [A]
@@ -96,12 +216,10 @@
 
 ;; Jacobi eigen-decomposition (shared helper)
 ;;
-;; We previously had two near-identical Jacobi implementations (real branch
-;; and real-embedded complex branch). They are unified here. The routine is
-;; intentionally simple (no pivot strategies beyond largest off-diagonal,
-;; no blocking) and targets small/medium matrices typical for algorithmic
-;; construction and test cases. Heavy-duty performance should be delegated
-;; to a native/optimized backend.
+;; The routine is intentionally simple (no pivot strategies beyond largest
+;; off-diagonal, no blocking) and targets small/medium matrices typical for
+;; algorithmic construction and test cases. Heavy-duty performance should be
+;; delegated to a native/optimized backend.
 
 (defn- jacobi-symmetric
   "Compute eigen-decomposition of a real symmetric matrix via classical
@@ -175,7 +293,6 @@
                       V1 (reduce update-V V (range n))]
                   (recur (inc iter) M3 V1))))))))))
 
-;;
 ;; Complex eigenvector phase normalization
 ;;
 ;; Eigenvectors of Hermitian matrices are defined up to a global complex phase.
@@ -205,22 +322,22 @@
                      i))]
     (if (nil? idx)
       v
-  (let [a (double (nth xr idx))
-    b (double (nth xi idx))
-    ;; Compute phase of reference component a+ib = r e^{i phi}
-    phi (Math/atan2 b a)
-    c (Math/cos phi)
-    s (Math/sin phi)
-    ;; Multiply whole vector by e^{-i phi}. For each component ar+i ai:
-    ;; (ar + i ai)(cos phi - i sin phi) = (ar c + ai s) + i (ai c - ar s)
-    xr' (mapv (fn [ar ai] (+ (* ar c) (* ai s))) xr xi)
-    xi' (mapv (fn [ar ai] (- (* ai c) (* ar s))) xr xi)
-    ;; Ensure reference component real and non-negative (flip sign if needed)
-    ref (nth xr' idx)
-    sign (if (neg? ref) -1.0 1.0)
-    xr'' (if (= sign 1.0) xr' (mapv #(* sign %) xr'))
-    xi'' (if (= sign 1.0) xi' (mapv #(* sign %) xi'))]
-    {:real xr'' :imag xi''}))))
+      (let [a (double (nth xr idx))
+            b (double (nth xi idx))
+            ;; Compute phase of reference component a+ib = r e^{i phi}
+            phi (Math/atan2 b a)
+            c (Math/cos phi)
+            s (Math/sin phi)
+            ;; Multiply whole vector by e^{-i phi}. For each component ar+i ai:
+            ;; (ar + i ai)(cos phi - i sin phi) = (ar c + ai s) + i (ai c - ar s)
+            xr' (mapv (fn [ar ai] (+ (* ar c) (* ai s))) xr xi)
+            xi' (mapv (fn [ar ai] (- (* ai c) (* ar s))) xr xi)
+            ;; Ensure reference component real and non-negative (flip sign if needed)
+            ref (nth xr' idx)
+            sign (if (neg? ref) -1.0 1.0)
+            xr'' (if (= sign 1.0) xr' (mapv #(* sign %) xr'))
+            xi'' (if (= sign 1.0) xi' (mapv #(* sign %) xi'))]
+        {:real xr'' :imag xi''}))))
 
 ;; Nilpotent matrix helpers
 ;;
@@ -351,9 +468,8 @@
 ;;   (let [Ah (complex-conj-transpose A)]
 ;;     (complex-mul Ah A))) ; unused helper (left as reference)
 
-;; ---------------------------------------------------------------------------
-;; Complex Gaussian elimination helpers (Priority 5)
-;; ---------------------------------------------------------------------------
+;; Complex Gaussian elimination helpers
+;;
 ;; These implement partial pivot Gaussian elimination for a single RHS vector
 ;; and Gauss-Jordan inversion for complex matrices represented in SoA form.
 ;; They are intentionally straightforward (no blocking / BLAS) and target
@@ -361,8 +477,7 @@
 
 (defn- complex-forward-elim
   "Forward elimination (partial pivot) for complex A x = b.
-  Ar/Ai: matrix parts, br/bi: RHS parts. Returns [Ar Ai br bi] in row echelon form.
-  FIX: refactored to avoid inner loop tail-call resetting (endless loop)."
+  Ar/Ai: matrix parts, br/bi: RHS parts. Returns [Ar Ai br bi] in row echelon form."
   [Ar Ai br bi]
   (let [n (count Ar)]
     (loop [k 0 Ar Ar Ai Ai br br bi bi]
@@ -538,61 +653,109 @@
   (let [[_n _m] (matrix-shape A)] ; shape currently unused; retained for future optimizations
     (when (hermitian-real? A tol)
       ;; Eigenvalue based PSD check (Jacobi) – ensures correctness for any size.
-      (let [{:keys [eigenvalues]} (let [jacobi-wrapper
-                                        (fn jacobi-wrapper [M]
-                                          (let [[n _] (matrix-shape M)
-                                                tol* (* 10 tol)
-                                                max-it 200
-                                                ;; Copy matrix to mutable (vector of vectors)
-                                                A (mapv vec M)
-                                                V (identity-matrix n)]
-                                            (if (zero? n)
-                                              {:eigenvalues [] :eigenvectors []}
-                                              (loop [iter 0 A A V V]
-                                                (if (>= iter max-it)
-                                                  {:eigenvalues (mapv #(get-in A [% %]) (range n))
-                                                   :eigenvectors (vec (apply mapv vector V))}
-                                                  (let [;; find largest off-diagonal
-                                                        [p q val] (reduce (fn [[bp bq bv] [i j]]
-                                                                            (let [aij (Math/abs (double (get-in A [i j])))]
-                                                                              (if (> aij bv) [i j aij] [bp bq bv])))
-                                                                          [0 0 0.0]
-                                                                          (for [i (range n) j (range (inc i) n)] [i j]))]
-                                                    (if (< val tol*)
-                                                      {:eigenvalues (mapv #(get-in A [% %]) (range n))
-                                                       :eigenvectors (vec (apply mapv vector V))}
-                                                      (let [app (get-in A [p p]) aqq (get-in A [q q]) apq (get-in A [p q])
-                                                            tau (/ (- aqq app) (* 2.0 apq))
-                                                            t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (Math/abs tau) (Math/sqrt (+ 1.0 (* tau tau))))))
-                                                            c (/ 1.0 (Math/sqrt (+ 1.0 (* t t))))
-                                                            s (* t c)
-                                                            ;; rotate A in-place (functional updates)
-                                                            rotate-row (fn [A r]
-                                                                         (let [arp (get-in A [r p]) arq (get-in A [r q])]
-                                                                           (-> A
-                                                                               (assoc-in [r p] (- (* c arp) (* s arq)))
-                                                                               (assoc-in [r q] (+ (* s arp) (* c arq))))))
-                                                            A (reduce rotate-row A (range n))
-                                                            rotate-col (fn [A r]
-                                                                         (let [arp (get-in A [p r]) arq (get-in A [q r])] ; original before overwrite? Accept symmetric usage.
-                                                                           (-> A
-                                                                               (assoc-in [p r] (- (* c arp) (* s arq)))
-                                                                               (assoc-in [q r] (+ (* s arp) (* c arq))))))
-                                                            A (reduce rotate-col A (range n))
-                                                            app' (get-in A [p p]) aqq' (get-in A [q q])
-                                                            apq' (get-in A [p q])
-                                                            A (-> A (assoc-in [p p] (- app' (* t apq'))) ; Jacobi formulas
-                                                                  (assoc-in [q q] (+ aqq' (* t apq'))) (assoc-in [p q] 0.0) (assoc-in [q p] 0.0))
-                                                            ;; update V (eigenvectors)
-                                                            update-V (fn [V r]
-                                                                       (let [vrp (get-in V [r p]) vrq (get-in V [r q])]
-                                                                         (-> V (assoc-in [r p] (- (* c vrp) (* s vrq)))
-                                                                             (assoc-in [r q] (+ (* s vrp) (* c vrq))))))
-                                                            V (reduce update-V V (range n))]
-                                                        (recur (inc iter) A V)))))))) A)]
-                                    (jacobi-wrapper A))
+      (let [{:keys [eigenvalues]}
+            (let [jacobi-wrapper
+                  (fn jacobi-wrapper [M]
+                    (let [[n _] (matrix-shape M)
+                          tol* (* 10 tol)
+                          max-it 200
+                          ;; Copy matrix to mutable (vector of vectors)
+                          A (mapv vec M)
+                          V (identity-matrix n)]
+                      (if (zero? n)
+                        {:eigenvalues [] :eigenvectors []}
+                        (loop [iter 0 A A V V]
+                          (if (>= iter max-it)
+                            {:eigenvalues (mapv #(get-in A [% %]) (range n))
+                             :eigenvectors (vec (apply mapv vector V))}
+                            (let [;; find largest off-diagonal
+                                  [p q val] (reduce (fn [[bp bq bv] [i j]]
+                                                      (let [aij (Math/abs (double (get-in A [i j])))]
+                                                        (if (> aij bv) [i j aij] [bp bq bv])))
+                                                    [0 0 0.0]
+                                                    (for [i (range n) j (range (inc i) n)] [i j]))]
+                              (if (< val tol*)
+                                {:eigenvalues (mapv #(get-in A [% %]) (range n))
+                                 :eigenvectors (vec (apply mapv vector V))}
+                                (let [app (get-in A [p p]) aqq (get-in A [q q]) apq (get-in A [p q])
+                                      tau (/ (- aqq app) (* 2.0 apq))
+                                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (Math/abs tau) (Math/sqrt (+ 1.0 (* tau tau))))))
+                                      c (/ 1.0 (Math/sqrt (+ 1.0 (* t t))))
+                                      s (* t c)
+                                      ;; rotate A in-place (functional updates)
+                                      rotate-row (fn [A r]
+                                                   (let [arp (get-in A [r p]) arq (get-in A [r q])]
+                                                     (-> A
+                                                         (assoc-in [r p] (- (* c arp) (* s arq)))
+                                                         (assoc-in [r q] (+ (* s arp) (* c arq))))))
+                                      A (reduce rotate-row A (range n))
+                                      rotate-col (fn [A r]
+                                                   (let [arp (get-in A [p r]) arq (get-in A [q r])] ; original before overwrite? Accept symmetric usage.
+                                                     (-> A
+                                                         (assoc-in [p r] (- (* c arp) (* s arq)))
+                                                         (assoc-in [q r] (+ (* s arp) (* c arq))))))
+                                      A (reduce rotate-col A (range n))
+                                      app' (get-in A [p p]) aqq' (get-in A [q q])
+                                      apq' (get-in A [p q])
+                                      A (-> A (assoc-in [p p] (- app' (* t apq'))) ; Jacobi formulas
+                                            (assoc-in [q q] (+ aqq' (* t apq'))) (assoc-in [p q] 0.0) (assoc-in [q p] 0.0))
+                                      ;; update V (eigenvectors)
+                                      update-V (fn [V r]
+                                                 (let [vrp (get-in V [r p]) vrq (get-in V [r q])]
+                                                   (-> V (assoc-in [r p] (- (* c vrp) (* s vrq)))
+                                                       (assoc-in [r q] (+ (* s vrp) (* c vrq))))))
+                                      V (reduce update-V V (range n))]
+                                  (recur (inc iter) A V)))))))) A)]
+              (jacobi-wrapper A))
             min-eig (reduce min Double/POSITIVE_INFINITY eigenvalues)]
         (>= min-eig (- tol))))))
+
+;; Spectral norm helpers (public for reuse in higher-level analyses)
+(defn spectral-norm-real
+  "Compute spectral norm (largest singular value) of real matrix A via power iteration
+  on A^T A tracking Rayleigh quotient convergence.
+
+  Parameters:
+  - A: real m x n matrix
+
+  Returns largest singular value (double)." [A]
+  (let [AtA (real-mul (real-transpose A) A)
+        [n _] (matrix-shape AtA)
+        v0 (vec (repeat n (/ 1.0 (Math/sqrt (max 1 n)))))
+        tol (* 1e-12 (inc n))
+        max-it 200
+        zero-matrix? (every? (fn [row] (every? zero? row)) AtA)]
+    (if zero-matrix?
+      0.0
+      (loop [k 0 v v0 lambda-prev nil]
+        (let [Av (mapv (fn [row] (reduce + (map * row v))) AtA)
+              nrm (Math/sqrt (reduce + (map #(* (double %) (double %)) Av)))
+              v' (if (pos? nrm) (mapv #(/ % nrm) Av) v)
+              Av' (mapv (fn [row] (reduce + (map * row v'))) AtA)
+              lambda (real-inner v' Av')
+              conv? (and lambda-prev (< (Math/abs (- lambda lambda-prev)) (* tol (max 1.0 (Math/abs lambda)))))]
+          (if (or (>= k max-it) conv?)
+            (Math/sqrt (max 0.0 (double lambda)))
+            (recur (inc k) v' lambda)))))))
+
+(defn spectral-norm-complex
+  "Compute spectral norm of complex matrix A via power iteration on A^H A with Rayleigh quotient convergence." [A]
+  (let [n (count (:real A))
+        x0 {:real (vec (repeat n (/ 1.0 (Math/sqrt n)))) :imag (vec (repeat n 0.0))}
+        tol 1e-12
+        max-it 200
+        Ah (complex-conj-transpose A)]
+    (loop [k 0 x x0 lambda-prev nil]
+      (let [Ax (complex-matvec A x)
+            AhAx (complex-matvec Ah Ax)
+            lambda (let [num-r (reduce + (map (fn [a b c d] (+ (* a b) (* c d))) (:real x) (:real AhAx) (:imag x) (:imag AhAx)))]
+                     (double num-r))
+            nr (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
+            x' {:real (mapv #(/ % nr) (:real AhAx)) :imag (mapv #(/ % nr) (:imag AhAx))}
+            conv? (and lambda-prev (< (Math/abs (- lambda lambda-prev)) (* tol (max 1.0 (Math/abs lambda)))))]
+        (if (or (>= k max-it) conv?)
+          (Math/sqrt (max 0.0 lambda))
+          (recur (inc k) x' lambda))))))
 
 
 ;;;
@@ -699,7 +862,7 @@
           (complex-matrix? A) (complex-kronecker A (ensure-complex-matrix B))
           (complex-matrix? B) (complex-kronecker (ensure-complex-matrix A) B)
           :else (real-kronecker A B)))
-
+  
   (transpose [_ A]
     (if (complex-matrix? A) (complex-transpose A) (real-transpose A)))
 
@@ -735,57 +898,26 @@
         (complex-solve-vector A* b*))
       (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "A must be square" {:shape [n n2]})))
-        (let [A (mapv vec A)
-              b (vec (map double (if (vector? b) b (throw (ex-info "b must be vector" {:b b})))))]
-          (loop [k 0 A A b b]
-            (if (= k n)
-              (loop [i (dec n) x (vec (repeat n 0.0))]
-                (if (neg? i)
-                  x
-                  (let [sum (reduce + (map #(* %1 %2)
-                                           (subvec (A i) (inc i))
-                                           (subvec x (inc i))))
-                        xi (/ (- (b i) sum) (double (get-in A [i i])))]
-                    (recur (dec i) (assoc x i xi)))))
-              (let [pivot (double (get-in A [k k]))]
-                (when (zero? pivot) (throw (ex-info "Singular matrix (zero pivot)" {:k k})))
-                (let [A (assoc A k (mapv #(/ (double %) pivot) (A k)))
-                      b (assoc b k (/ (b k) pivot))
-                      elim (fn [[A b] i]
-                             (if (= i k)
-                               [A b]
-                               (let [factor (get-in A [i k])]
-                                 (if (zero? factor)
-                                   [A b]
-                                   (let [row (mapv - (A i) (mapv #(* factor %) (A k)))
-                                         bi (- (b i) (* factor (b k)))]
-                                     [(assoc A i row) (assoc b i bi)])))))
-                      [A b] (reduce elim [A b] (range n))]
-                  (recur (inc k) A b)))))))))
+        (let [{:keys [P L U]} (proto/lu-decomposition (->ClojureMathBackend default-tolerance nil) A)
+              b* (vec (map #(nth b %) P))
+              y (real-forward-sub L b*)
+              x (real-back-sub U y)]
+          x))))
 
   (inverse [_ A]
     (if (complex-matrix? A)
       (complex-inverse A)
       (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "A must be square" {:shape [n n2]})))
-        (let [A* (mapv vec A)
-              I (identity-matrix n)]
-          (loop [k 0 A A* I I]
-            (if (= k n)
-              I
-              (let [pivot (double (get-in A [k k]))]
-                (when (zero? pivot) (throw (ex-info "Singular matrix" {:k k})))
-                (let [A (assoc A k (mapv #(/ (double %) pivot) (A k)))
-                      I (assoc I k (mapv #(/ (double %) pivot) (I k)))
-                      elim (fn [[A I] i]
-                             (if (= i k) [A I]
-                                 (let [factor (get-in A [i k])]
-                                   (if (zero? factor) [A I]
-                                       (let [row (mapv - (A i) (mapv #(* factor %) (A k)))
-                                             irow (mapv - (I i) (mapv #(* factor %) (I k)))]
-                                         [(assoc A i row) (assoc I i irow)])))))
-                      [A I] (reduce elim [A I] (range n))]
-                  (recur (inc k) A I)))))))))
+        (let [{:keys [P L U]} (proto/lu-decomposition (->ClojureMathBackend default-tolerance nil) A)
+              inv-cols (for [col (range n)]
+                         (let [e (vec (for [i (range n)] (if (= i col) 1.0 0.0)))
+                               b (vec (map #(nth e %) P))
+                               y (real-forward-sub L b)
+                               x (real-back-sub U y)]
+                           x))
+              X (vec (apply mapv vector inv-cols))]
+          X))))
 
   (hermitian?
     ([b A] (proto/hermitian? b A (tolerance* b)))
@@ -845,53 +977,53 @@
     NOTE: This pure Clojure implementation targets correctness and modest
     matrix sizes. For performance-sensitive workloads prefer a native backend.
     "
- (if (complex-matrix? A)
-   (let [X (:real A) Y (:imag A)
-         [n m] (matrix-shape X)
-         _ (when (not= n m) (throw (ex-info "eigen-hermitian requires square matrix" {:shape [n m]})))
-         ;; Real embedding M = [[X -Y][Y X]]
-         top (vec (for [i (range n)] (vec (concat (nth X i) (map #(- %) (nth Y i))))))
-         bottom (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
-         M (vec (concat top bottom))
-         N (* 2 n)
-         tol (* 1e-12 (inc N))
-         max-it (* 10 N N)
-         {:keys [eigenvalues vectors]} (jacobi-symmetric M tol max-it)
-         ;; Sort embedding eigenpairs ascending
-         sorted (sort-by second (map-indexed vector eigenvalues))
-         collapse-tol (* 20.0 1e-12 (inc n))
-         build-complex (fn [col-idx]
-                         (let [w (nth vectors col-idx) ; length 2n
-                               x (subvec w 0 n)
-                               y (subvec w n N)
-                               nrm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
-                               nrm (if (pos? nrm) nrm 1.0)
-                               x' (mapv #(/ % nrm) x)
-                               y' (mapv #(/ % nrm) y)
-                               v {:real x' :imag y'}]
-                           (normalize-complex-phase v 1e-14)))
-         [evals evects] (loop [pairs sorted acc-e [] acc-v []]
-                          (if (empty? pairs)
-                            [acc-e acc-v]
-                            (let [[[idx λ] & more] pairs
-                                  add? (or (empty? acc-e) (> (Math/abs (- λ (last acc-e))) collapse-tol))]
-                              (if add?
-                                (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
-                                (recur more acc-e acc-v)))))]
-     {:eigenvalues (vec evals) :eigenvectors (vec evects)})
-   ;; Real symmetric path
-   (let [[n m] (matrix-shape A)]
-     (when (not= n m) (throw (ex-info "eigen-hermitian requires square matrix" {:shape [n m]})))
-     (if (zero? n)
-       {:eigenvalues [] :eigenvectors []}
-       (let [tol (* 1e-12 (inc n))
-             max-it (* 10 n n)
-             {:keys [eigenvalues vectors]} (jacobi-symmetric A tol max-it)
-             sorted (sort-by second (map-indexed vector eigenvalues))
-             perm (map first sorted)
-             evals (mapv second sorted)
-             evects (vec (map (fn [idx] (nth vectors idx)) perm))]
-         {:eigenvalues evals :eigenvectors evects})))))
+    (if (complex-matrix? A)
+      (let [X (:real A) Y (:imag A)
+            [n m] (matrix-shape X)
+            _ (when (not= n m) (throw (ex-info "eigen-hermitian requires square matrix" {:shape [n m]})))
+            ;; Real embedding M = [[X -Y][Y X]]
+            top (vec (for [i (range n)] (vec (concat (nth X i) (map #(- %) (nth Y i))))))
+            bottom (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
+            M (vec (concat top bottom))
+            N (* 2 n)
+            tol (* 1e-12 (inc N))
+            max-it (* 10 N N)
+            {:keys [eigenvalues vectors]} (jacobi-symmetric M tol max-it)
+            ;; Sort embedding eigenpairs ascending
+            sorted (sort-by second (map-indexed vector eigenvalues))
+            collapse-tol (* 20.0 1e-12 (inc n))
+            build-complex (fn [col-idx]
+                            (let [w (nth vectors col-idx) ; length 2n
+                                  x (subvec w 0 n)
+                                  y (subvec w n N)
+                                  nrm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
+                                  nrm (if (pos? nrm) nrm 1.0)
+                                  x' (mapv #(/ % nrm) x)
+                                  y' (mapv #(/ % nrm) y)
+                                  v {:real x' :imag y'}]
+                              (normalize-complex-phase v 1e-14)))
+            [evals evects] (loop [pairs sorted acc-e [] acc-v []]
+                             (if (empty? pairs)
+                               [acc-e acc-v]
+                               (let [[[idx λ] & more] pairs
+                                     add? (or (empty? acc-e) (> (Math/abs (- λ (last acc-e))) collapse-tol))]
+                                 (if add?
+                                   (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
+                                   (recur more acc-e acc-v)))))]
+        {:eigenvalues (vec evals) :eigenvectors (vec evects)})
+      ;; Real symmetric path
+      (let [[n m] (matrix-shape A)]
+        (when (not= n m) (throw (ex-info "eigen-hermitian requires square matrix" {:shape [n m]})))
+        (if (zero? n)
+          {:eigenvalues [] :eigenvectors []}
+          (let [tol (* 1e-12 (inc n))
+                max-it (* 10 n n)
+                {:keys [eigenvalues vectors]} (jacobi-symmetric A tol max-it)
+                sorted (sort-by second (map-indexed vector eigenvalues))
+                perm (map first sorted)
+                evals (mapv second sorted)
+                evects (vec (map (fn [idx] (nth vectors idx)) perm))]
+            {:eigenvalues evals :eigenvectors evects})))))
 
   (eigen-general [_ A]
     "General (potentially non-symmetric) real eigenvalue computation via naive QR
@@ -922,8 +1054,11 @@
           (if (or (>= k max-it) (< (offdiag-norm M) tol))
             {:eigenvalues (mapv #(get-in M [% %]) (range n)) :iterations k}
             (let [{:keys [Q R]} (proto/qr-decomposition (->ClojureMathBackend default-tolerance nil) M)
-                  ;; M_{k+1} = R Q
-                  M-next (real-mul R Q)]
+                  ;; Householder implementation returns Q m x m (here square n) and R with zeroed lower part.
+                  ;; Ensure we use square n x n blocks explicitly (defensive slice) in case future rectangular support added.
+                  Qn (vec (map #(subvec % 0 n) (subvec Q 0 n)))
+                  Rn (vec (map #(subvec % 0 n) (subvec R 0 n)))
+                  M-next (real-mul Rn Qn)]
               (recur (inc k) M-next)))))))
 
   (svd [_ A]
@@ -1055,23 +1190,7 @@
                   Rr (assoc-in Rr [j j] rjj)
                   Q (conj Q qj)]
               (recur (inc j) Q Rr Ri)))))
-      (let [[m n] (matrix-shape A) Acols (apply map vector A)]
-        (loop [j 0 Q [] R (vec (for [_ (range n)] (vec (repeat n 0.0))))]
-          (if (= j n)
-            {:Q (vec (apply mapv vector Q)) :R (vec (mapv vec R))}
-            (let [v0 (nth Acols j)
-                  [v R] (reduce (fn [[vv R] i]
-                                  (let [qi (nth Q i)
-                                        rij (reduce + (map * qi vv))
-                                        vv (mapv - vv (mapv #(* rij %) qi))
-                                        R (assoc-in R [i j] rij)]
-                                    [vv R]))
-                                [v0 R] (range j))
-                  rjj (Math/sqrt (reduce + (map #(* % %) v)))
-                  qj (if (pos? rjj) (mapv #(/ % rjj) v) (vec (repeat m 0.0)))
-                  R (assoc-in R [j j] rjj)
-                  Q (conj Q qj)]
-              (recur (inc j) Q R)))))))
+      (householder-qr-real A)))
 
   (cholesky-decomposition [_ A]
     (if (complex-matrix? A)
@@ -1225,26 +1344,15 @@
 ;;
 ;; MatrixAnalysis
 ;;
+;; MatrixAnalysis protocol currently uses spectral-norm via MatrixAlgebra implementation.
+;; Other analysis functions could be added here later.
 (extend-protocol proto/MatrixAnalysis
   ClojureMathBackend
+
   (spectral-norm [_ A]
     (if (complex-matrix? A)
-      ;; Power iteration on (A^H A) directly in complex arithmetic.
-      (let [n (count (:real A))
-            ;; start vector
-            x0 {:real (vec (repeat n (/ 1.0 (Math/sqrt n)))) :imag (vec (repeat n 0.0))}
-            tol 1e-12
-            max-it 120
-            Ah (complex-conj-transpose A)]
-        (loop [k 0 x x0]
-          (let [Ax (complex-matvec A x)
-                AhAx (complex-matvec Ah Ax)
-                nr (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
-                x' {:real (mapv #(/ % nr) (:real AhAx)) :imag (mapv #(/ % nr) (:imag AhAx))}]
-            (if (or (>= k max-it) (< (Math/abs (- nr (proto/norm2 (->ClojureMathBackend default-tolerance nil) x'))) tol))
-              (Math/sqrt nr) ; nr approximates largest eigenvalue of A^H A, sqrt gives spectral norm
-              (recur (inc k) x')))))
-      (Math/sqrt (Math/max 0.0 (power-iteration-largest-eigenvalue-real (real-mul (real-transpose A) A) 100 default-tolerance)))))
+      (spectral-norm-complex A)
+      (spectral-norm-real A)))
 
   (condition-number [_ A]
     (let [backend (->ClojureMathBackend default-tolerance nil)

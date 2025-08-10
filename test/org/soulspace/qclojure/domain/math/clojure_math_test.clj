@@ -133,8 +133,17 @@
   (let [A [[2.0 1.0]
            [0.0 3.0]]
         {:keys [eigenvalues]} (proto/eigen-general b A)
-        evs (set (map #(Math/round (* 1e6 %)) eigenvalues))]
-    (is (= (set (map #(Math/round (* 1e6 %)) [2.0 3.0])) evs))))
+  ;; Scale & round to avoid tiny numerical drift; eigenvalues of upper triangular are its diagonal.
+  evs (set (map #(Math/round (* 1e6 %)) eigenvalues))
+  expected (set [2000000 3000000])]
+    ;; Cardinality check
+    (is (= 2 (count eigenvalues)))
+    ;; Set equality check
+    (is (= expected evs))
+    ;; Individual approximate checks (unscaled) for clarity
+    (doseq [λ eigenvalues]
+      (is (or (< (Math/abs (- λ 2.0)) 1e-6)
+        (< (Math/abs (- λ 3.0)) 1e-6))))))
 
 (deftest test-matrix-exp-nilpotent
   (let [N [[0.0 1.0]
@@ -183,21 +192,6 @@
         (is (approx= 1.0 norm 1e-6))))))
 
 (deftest test-eigen-hermitian-complex-phase
-  "Deterministic phase normalization test for complex Hermitian eigenvectors.
-
-  The eigenvectors of a Hermitian matrix are only defined up to a global
-  complex phase. Our implementation canonicalizes this phase so that the
-  first component whose magnitude exceeds the tolerance has zero imaginary
-  part and non-negative real part. This test verifies that property for a
-  representative 3x3 Hermitian matrix with complex off-diagonal elements.
-
-  Parameters:
-  - Implicit: backend b
-
-  Assertions:
-  - eigenvectors length = matrix dimension
-  - each eigenvector L2 norm ≈ 1
-  - canonical component has ~0 imaginary part and real ≥ 0"
   (let [A {:real [[3.0  0.5  0.0]
                   [0.5  2.0 -1.0]
                   [0.0 -1.0  1.5]]

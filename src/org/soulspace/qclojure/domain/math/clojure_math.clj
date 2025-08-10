@@ -708,7 +708,7 @@
                                   (recur (inc iter) A V)))))))) A)]
               (jacobi-wrapper A))
             min-eig (reduce min Double/POSITIVE_INFINITY eigenvalues)]
-        (>= min-eig (- tol))))))
+  (>= min-eig (* -1.0 1e-9))))))
 
 ;; Spectral norm helpers (public for reuse in higher-level analyses)
 (defn spectral-norm-real
@@ -839,13 +839,15 @@
 
   (outer-product [b x y]
     (cond (and (complex-vector? x) (complex-vector? y))
-          (let [xr (:real x) xi (:imag x) yr (:real y) yi (:imag y)
-                rr (vec (for [a xr] (vec (for [b yr] (* a b)))))
-                ii (vec (for [a xi] (vec (for [b yi] (* a b)))))
-                ri (vec (for [a xr] (vec (for [b yi] (* a b)))))
-                ir (vec (for [a xi] (vec (for [b yr] (* a b)))))
-                real (real-sub rr ii)
-                imag (real-add ri ir)]
+          (let [xr (:real x) xi (:imag x)
+                yr (:real y) yi (:imag y)
+                ;; (x y^H)_{ij} = (xr_i + i xi_i)(yr_j - i yi_j)
+                real (vec (for [i (range (count xr))]
+                            (vec (for [j (range (count yr))]
+                                   (+ (* (nth xr i) (nth yr j)) (* (nth xi i) (nth yi j)))))))
+                imag (vec (for [i (range (count xr))]
+                            (vec (for [j (range (count yr))]
+                                   (- (* (nth xi i) (nth yr j)) (* (nth xr i) (nth yi j)))))))]
             {:real real :imag imag})
           (complex-vector? x) (proto/outer-product b x (ensure-complex-vector y))
           (complex-vector? y) (proto/outer-product b (ensure-complex-vector x) y)
@@ -885,7 +887,11 @@
   (norm2 [b x]
     (let [ip (proto/inner-product b x x)]
       (if (complex-scalar? ip)
-        (Math/sqrt (+ (* (:real ip) (:real ip)) (* (:imag ip) (:imag ip))))
+        ;; <x|x> for a valid inner product should be real non-negative; imaginary part ≈ 0.
+        ;; Old code incorrectly computed sqrt(re^2 + im^2) which overestimates.
+        (let [re (double (:real ip))
+              re (if (neg? re) (Math/abs re) re)]
+          (Math/sqrt re))
         (Math/sqrt (double ip)))))
 
   (solve-linear-system [backend A b]
@@ -944,12 +950,14 @@
   (positive-semidefinite? [b A]
     (let [tol (tolerance* b)]
       (if (complex-matrix? A)
-        (let [X (:real A) Y (:imag A)
-              top (mapv (fn [xr yr] (into [] (concat xr (mapv #(- %) yr)))) X Y)
-              bot (mapv (fn [yr xr] (into [] (concat yr xr))) Y X)
-              R (into [] (concat top bot))]
-          (psd-real? R tol))
-        (psd-real? A tol)))))
+        (if (hermitian-complex? A tol)
+          (let [{:keys [eigenvalues]} (proto/eigen-hermitian b A)]
+            (every? #(>= % (- tol)) eigenvalues))
+          false)
+        (if (hermitian-real? A tol)
+          (let [{:keys [eigenvalues]} (proto/eigen-hermitian b A)]
+            (every? #(>= % (- tol)) eigenvalues))
+          false)))))
 
 ;;
 ;; MatrixDecompositions (basic / partial)
@@ -1010,9 +1018,9 @@
                                  (if add?
                                    (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
                                    (recur more acc-e acc-v)))))]
-        {:eigenvalues (vec evals) :eigenvectors (vec evects)})
+  {:eigenvalues (mapv double evals) :eigenvectors (vec evects)})
       ;; Real symmetric path
-      (let [[n m] (matrix-shape A)]
+    (let [[n m] (matrix-shape A)]
         (when (not= n m) (throw (ex-info "eigen-hermitian requires square matrix" {:shape [n m]})))
         (if (zero? n)
           {:eigenvalues [] :eigenvectors []}
@@ -1021,9 +1029,10 @@
                 {:keys [eigenvalues vectors]} (jacobi-symmetric A tol max-it)
                 sorted (sort-by second (map-indexed vector eigenvalues))
                 perm (map first sorted)
-                evals (mapv second sorted)
-                evects (vec (map (fn [idx] (nth vectors idx)) perm))]
-            {:eigenvalues evals :eigenvectors evects})))))
+                evals (mapv (comp double second) sorted)
+        evects (vec (map (fn [idx] (nth vectors idx)) perm))
+        evects (if (= n 1) (vec (map (fn [v] [v]) evects)) evects)]
+      {:eigenvalues evals :eigenvectors evects})))))
 
   (eigen-general [backend A]
     "General (potentially non-Hermitian) eigenvalue approximation via unshifted QR iteration.
@@ -1347,22 +1356,36 @@
   ClojureMathBackend
   (matrix-exp [backend A]
     (if (complex-matrix? A)
-      ;; Embed complex matrix A = X + iY into real block [[X -Y] [Y X]], exp then extract.
       (let [X (:real A) Y (:imag A)
-            ;; Fast path: 1x1 complex scalar exp
-            ]
-        (if (and (= 1 (count X)) (= 1 (count (first X))))
-          (let [a (double (get-in X [0 0])) b (double (get-in Y [0 0]))
-                ea (Math/exp a)]
+            n (count X)]
+        (cond
+          ;; 1x1 complex scalar
+          (and (= 1 n) (= 1 (count (first X))))
+          (let [a (double (get-in X [0 0])) b (double (get-in Y [0 0])) ea (Math/exp a)]
             {:real [[(* ea (Math/cos b))]] :imag [[(* ea (Math/sin b))]]})
-          (let [[n _] (matrix-shape X)
-                Z (vec (for [i (range n)]
-                         (vec (concat (nth X i) (map #(- (double %)) (nth Y i))))))
-                Z2 (vec (for [i (range n)]
-                          (vec (concat (nth Y i) (nth X i)))))
+          ;; Diagonal complex matrix: exp acts element-wise
+          (every? true? (for [i (range n) j (range n) :when (not= i j)]
+                          (and (zero? (double (get-in X [i j]))) (zero? (double (get-in Y [i j]))))))
+          (let [R (vec (for [i (range n)]
+                         (vec (for [j (range n)]
+                                (if (= i j)
+                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (Math/exp a)]
+                                    (* ea (Math/cos b)))
+                                  0.0)))))
+                I (vec (for [i (range n)]
+                         (vec (for [j (range n)]
+                                (if (= i j)
+                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (Math/exp a)]
+                                    (* ea (Math/sin b)))
+                                  0.0)))))
+                ]
+            {:real R :imag I})
+          :else
+          ;; General complex: embed A = X + iY into real block [[X -Y][Y X]] and exponentiate
+          (let [Z (vec (for [i (range n)] (vec (concat (nth X i) (map #(- (double %)) (nth Y i))))))
+                Z2 (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
                 B (into [] (concat Z Z2))
                 E (proto/matrix-exp backend B)
-                ;; Extract real/imag blocks back
                 Er (vec (for [i (range n)] (subvec (E i) 0 n)))
                 Ei (vec (for [i (range n)] (subvec (E (+ i n)) 0 n)))]
             {:real Er :imag Ei})))
@@ -1454,12 +1477,13 @@
 
   (matrix-sqrt [backend A]
     ;; Matrix square root.
-    ;; Real path: SPD matrix via Denman–Beavers iteration.
-    ;; Complex path: Hermitian positive definite complex matrix via complex Denman–Beavers.
+    ;; Real path: PSD matrix via Denman–Beavers iteration.
+    ;; Complex path: Hermitian positive semidefinite complex matrix via complex Denman–Beavers.
     (if (complex-matrix? A)
-      (let [Ar (:real A) Ai (:imag A) [n n2] (matrix-shape A)]
+      (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
-        (when (not (hermitian-complex? A 1e-10)) (throw (ex-info "matrix-sqrt implemented only for Hermitian positive definite complex matrices" {:matrix A})))
+        (when (not (hermitian-complex? A 1e-10)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-hermitian})))
+        (when (not (proto/positive-semidefinite? backend A)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-psd})))
         (let [I {:real (identity-matrix n) :imag (vec (repeat n (vec (repeat n 0.0))))}
               tol 1e-10 max-it 60]
           (loop [k 0 Y A Z I]
@@ -1472,12 +1496,14 @@
                              nr (Math/sqrt (reduce + (for [i (range n) j (range n)]
                                                        (let [dr (get-in (:real D) [i j]) di (get-in (:imag D) [i j])]
                                                          (+ (* dr dr) (* di di))))))]
-                         nr)]
+                          nr)]
               (if (or (< diff tol) (>= k max-it))
                 Ynext
                 (recur (inc k) Ynext Znext))))))
       (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
+        (when (not (hermitian-real? A 1e-10)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-symmetric})))
+        (when (not (proto/positive-semidefinite? backend A)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-psd})))
         (let [I (identity-matrix n)
               tol 1e-10 max-it 50]
           (loop [k 0 Y A Z I]

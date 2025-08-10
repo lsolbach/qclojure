@@ -1,4 +1,5 @@
 (ns org.soulspace.qclojure.domain.qubit-optimization
+  "Functions for analyzing and optimizing qubit usage in quantum circuits."
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [clojure.set :as set]))

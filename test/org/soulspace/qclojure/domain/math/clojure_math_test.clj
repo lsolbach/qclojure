@@ -162,6 +162,68 @@
         E (proto/matrix-exp b A)]
     (is (approx= {:real [[-1.0]] :imag [[0.0]]} E 1e-6))))
 
+(deftest test-eigen-hermitian-complex
+  (let [A {:real [[2.0 0.0]
+                  [0.0 3.0]]
+           :imag [[0.0 1.0]
+                  [-1.0 0.0]]}
+        {:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian b A)
+        evs (vec (sort eigenvalues))
+        expected (let [a 2.0 d 3.0 b 1.0
+                       avg (/ (+ a d) 2.0)
+                       delta (Math/sqrt (+ (Math/pow (/ (- a d) 2.0) 2.0) (* b b)))]
+                   [(- avg delta) (+ avg delta)])]
+    (is (= 2 (count eigenvalues)))
+    (is (approx= expected evs 1e-6))
+    (doseq [v eigenvectors]
+      (is (map? v))
+      (is (every? number? (:real v)))
+      (is (every? number? (:imag v)))
+      (let [norm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real v) (:imag v))))]
+        (is (approx= 1.0 norm 1e-6))))))
+
+(deftest test-eigen-hermitian-complex-phase
+  "Deterministic phase normalization test for complex Hermitian eigenvectors.
+
+  The eigenvectors of a Hermitian matrix are only defined up to a global
+  complex phase. Our implementation canonicalizes this phase so that the
+  first component whose magnitude exceeds the tolerance has zero imaginary
+  part and non-negative real part. This test verifies that property for a
+  representative 3x3 Hermitian matrix with complex off-diagonal elements.
+
+  Parameters:
+  - Implicit: backend b
+
+  Assertions:
+  - eigenvectors length = matrix dimension
+  - each eigenvector L2 norm ≈ 1
+  - canonical component has ~0 imaginary part and real ≥ 0"
+  (let [A {:real [[3.0  0.5  0.0]
+                  [0.5  2.0 -1.0]
+                  [0.0 -1.0  1.5]]
+           :imag [[0.0  1.0  0.5]
+                  [-1.0 0.0  0.0]
+                  [-0.5 0.0  0.0]]}
+        {:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian b A)
+        n (count (:real A))
+        tol-phase 1.0e-9]
+    ;; Basic shape checks
+    (is (= n (count eigenvalues)))
+    (is (= n (count eigenvectors)))
+    (doseq [v eigenvectors]
+      (let [xr (:real v) xi (:imag v)
+            ;; Find first significant component index
+            idx (or (first (for [i (range n)
+                                  :let [a (double (nth xr i)) b (double (nth xi i))
+                                        mag2 (+ (* a a) (* b b))]
+                                  :when (> mag2 (* tol-phase tol-phase))]
+                              i)) -1)
+            norm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) xr xi)))]
+        (is (approx= 1.0 norm 1e-6))
+        (when (>= idx 0)
+          (is (approx= 0.0 (nth xi idx) 1e-8))
+          (is (>= (nth xr idx) -1e-12)))))))
+
 ;;;
 ;;; Rich comment for running tests
 ;;;

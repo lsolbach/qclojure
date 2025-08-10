@@ -145,6 +145,56 @@
       (is (or (< (Math/abs (- λ 2.0)) 1e-6)
         (< (Math/abs (- λ 3.0)) 1e-6))))))
 
+;; Complex general eigenvalue tests
+;;
+;; We verify the complex implementation on:
+;; 1. Upper triangular (Schur form) matrix: eigenvalues = diagonal entries.
+;; 2. Similarity transform A = V D V^{-1} where D diagonal with distinct
+;;    complex entries; eigenvalues should match D's diagonal (unordered).
+
+(deftest test-eigen-general-complex-upper-triangular
+  (let [A {:real [[2.0 0.0 0.0]
+          [0.0 3.0 1.0]
+          [0.0 0.0 4.0]]
+       :imag [[0.5 0.2 0.0]
+          [0.0 0.1 0.3]
+          [0.0 0.0 -0.2]]}
+    {:keys [eigenvalues]} (proto/eigen-general b A)
+    diag (map (fn [i] {:real (get-in (:real A) [i i]) :imag (get-in (:imag A) [i i])}) (range 3))
+    ev-set (set (map (fn [{:keys [real imag]}] [(Math/round (* 1e6 real)) (Math/round (* 1e6 imag))]) eigenvalues))
+    diag-set (set (map (fn [{:keys [real imag]}] [(Math/round (* 1e6 real)) (Math/round (* 1e6 imag))]) diag))]
+  (is (= 3 (count eigenvalues)))
+  (is (= diag-set ev-set))))
+
+(deftest test-eigen-general-complex-similarity
+  (let [D {:real [[1.0 0.0 0.0]
+          [0.0 2.0 0.0]
+          [0.0 0.0 3.0]]
+       :imag [[0.5 0.0 0.0]
+          [0.0 -0.3 0.0]
+          [0.0 0.0 0.7]]}
+    ;; Simple invertible V (non-unitary) real for ease
+    V [[1.0 0.5 0.2]
+       [0.0 1.0 0.3]
+       [0.0 0.0 1.0]]
+    Vinv (proto/inverse b V)
+   ;; Promote real V and Vinv to complex (zero imaginary) to leverage complex matmul paths
+   zeros [[0.0 0.0 0.0]
+     [0.0 0.0 0.0]
+     [0.0 0.0 0.0]]
+   Vc {:real V :imag zeros}
+   Vinvc {:real Vinv :imag zeros}
+    ;; A = V D V^{-1} (similarity) for complex D
+   A (let [VD (proto/matrix-multiply b Vc D)]
+       (proto/matrix-multiply b VD Vinvc))
+    {:keys [eigenvalues]} (proto/eigen-general b A)
+    expected (map (fn [i] {:real (get-in (:real D) [i i]) :imag (get-in (:imag D) [i i])}) (range 3))
+    scale-round (fn [{:keys [real imag]}] [(Math/round (* 1e6 real)) (Math/round (* 1e6 imag))])
+    ev-set (set (map scale-round eigenvalues))
+    exp-set (set (map scale-round expected))]
+  (is (= 3 (count eigenvalues)))
+  (is (= exp-set ev-set))))
+
 (deftest test-matrix-exp-nilpotent
   (let [N [[0.0 1.0]
            [0.0 0.0]]
@@ -159,6 +209,44 @@
         L (proto/matrix-log b I)]
     (is (approx= [[0.0 0.0]
                   [0.0 0.0]] L 1e-9))))
+
+;; Complex matrix log tests
+;;
+;; We construct small Hermitian positive definite complex matrices so that
+;; eigenvalues are positive and log(A) is well-defined. We validate by
+;; exponentiating the result and comparing back to the original matrix.
+(deftest test-complex-matrix-log-hermitian-pd
+  (let [A {:real [[2.0 0.5]
+                  [0.5 1.5]]
+           :imag [[0.0 0.2]
+                  [-0.2 0.0]]}
+        L (proto/matrix-log b A)
+        ;; Reconstruct via exp(log(A)) should approximate A
+        A* (proto/matrix-exp b L)]
+    (is (approx= A A* 1e-6))
+    ;; Log should be Hermitian (imag diagonal ~0)
+    (let [Lr (:real L) Li (:imag L) n (count Lr)]
+      (is (every? #(approx= 0.0 % 1e-8) (map #(get-in Li [% %]) (range n))))
+      (doseq [i (range n) j (range n)]
+        (is (approx= (get-in Lr [i j]) (get-in Lr [j i]) 1e-8))
+        (is (approx= (get-in Li [i j]) (- (get-in Li [j i])) 1e-8))))))
+
+;; Complex matrix sqrt tests
+;;
+;; Use Hermitian positive definite complex matrix; verify (sqrt A)^2 ≈ A
+;; and Hermitian structure of the square root.
+(deftest test-complex-matrix-sqrt-hermitian-pd
+  (let [A {:real [[3.0 0.4]
+                  [0.4 2.5]]
+           :imag [[0.0 -0.3]
+                  [0.3  0.0]]}
+        S (proto/matrix-sqrt b A)
+        S2 (proto/matrix-multiply b S S)]
+    (is (approx= A S2 1e-6))
+    (let [Sr (:real S) Si (:imag S) n (count Sr)]
+      (doseq [i (range n) j (range n)]
+        (is (approx= (get-in Sr [i j]) (get-in Sr [j i]) 1e-6))
+        (is (approx= (get-in Si [i j]) (- (get-in Si [j i])) 1e-6))))))
 
 (deftest test-spectral-norm-diagonal
   (let [A [[3.0 0.0]

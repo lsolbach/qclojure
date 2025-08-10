@@ -862,7 +862,7 @@
           (complex-matrix? A) (complex-kronecker A (ensure-complex-matrix B))
           (complex-matrix? B) (complex-kronecker (ensure-complex-matrix A) B)
           :else (real-kronecker A B)))
-  
+
   (transpose [_ A]
     (if (complex-matrix? A) (complex-transpose A) (real-transpose A)))
 
@@ -888,7 +888,7 @@
         (Math/sqrt (+ (* (:real ip) (:real ip)) (* (:imag ip) (:imag ip))))
         (Math/sqrt (double ip)))))
 
-  (solve-linear-system [_ A b]
+  (solve-linear-system [backend A b]
     ;; If either A or b is complex, promote to complex solve path.
     (if (or (complex-matrix? A) (complex-vector? b))
       (let [A* (if (complex-matrix? A) A (ensure-complex-matrix A))
@@ -898,18 +898,18 @@
         (complex-solve-vector A* b*))
       (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "A must be square" {:shape [n n2]})))
-        (let [{:keys [P L U]} (proto/lu-decomposition (->ClojureMathBackend default-tolerance nil) A)
+        (let [{:keys [P L U]} (proto/lu-decomposition backend A)
               b* (vec (map #(nth b %) P))
               y (real-forward-sub L b*)
               x (real-back-sub U y)]
           x))))
 
-  (inverse [_ A]
+  (inverse [backend A]
     (if (complex-matrix? A)
       (complex-inverse A)
       (let [[n n2] (matrix-shape A)]
         (when (not= n n2) (throw (ex-info "A must be square" {:shape [n n2]})))
-        (let [{:keys [P L U]} (proto/lu-decomposition (->ClojureMathBackend default-tolerance nil) A)
+        (let [{:keys [P L U]} (proto/lu-decomposition backend A)
               inv-cols (for [col (range n)]
                          (let [e (vec (for [i (range n)] (if (= i col) 1.0 0.0)))
                                b (vec (map #(nth e %) P))
@@ -1025,41 +1025,142 @@
                 evects (vec (map (fn [idx] (nth vectors idx)) perm))]
             {:eigenvalues evals :eigenvectors evects})))))
 
-  (eigen-general [_ A]
-    "General (potentially non-symmetric) real eigenvalue computation via naive QR
-    iteration without shifts.
+  (eigen-general [backend A]
+    "General (potentially non-Hermitian) eigenvalue approximation via unshifted QR iteration.
 
     Parameters:
-    - A: real square matrix
+    - A: square matrix (real or complex)
 
-    Returns:
-    Map {:eigenvalues [...]} (approximate, unordered) and :iterations used.
-    For complex matrices this backend still throws (extend later).
+    Returns map:
+    {:eigenvalues [λ0 ... λ_{n-1}] :iterations k}
+    Eigenvalues are approximated as the diagonal of the (quasi) upper-triangular
+    form after k QR steps (no ordering guaranteed).
 
-    NOTE: This is a simple pedagogical implementation – convergence can be
-    slow for difficult matrices (no shifts / balancing). For production use a
-    specialized backend (LAPACK / Neanderthal)."
-    (when (complex-matrix? A)
-      (throw (ex-info "Complex general eigen not implemented yet" {:matrix A})))
+    Implementation notes:
+    * Uses Householder QR (real or complex) each iteration.
+    * No shifts or deflation -> O(k n^3) and slow for difficult spectra.
+    * Stopping criterion: Frobenius norm of strict sub-diagonal < tol.
+    * Complex path operates directly in complex arithmetic (no real embedding).
+    * A lightweight balancing step (row/column 2-norm equilibration) is applied
+      once at the beginning to improve conditioning of iteration (pedagogical).
+
+    Limitations:
+    - May converge slowly for matrices with clustered eigenvalues.
+    - No Schur form extraction or eigenvector back-substitution (future work).
+    - For production workloads, prefer a LAPACK-backed backend.
+    "
     (let [[n m] (matrix-shape A)]
       (when (not= n m) (throw (ex-info "eigen-general requires square matrix" {:shape [n m]})))
       (let [tol (* 1e-12 (inc n))
-            max-it (* 100 n n)
-            ;; work on copy
-            A0 (mapv vec A)
-            offdiag-norm (fn [M]
-                           (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (not= i j)]
-                                                      (let [v (double (get-in M [i j]))] (* v v))))))]
-        (loop [k 0 M A0]
-          (if (or (>= k max-it) (< (offdiag-norm M) tol))
-            {:eigenvalues (mapv #(get-in M [% %]) (range n)) :iterations k}
-            (let [{:keys [Q R]} (proto/qr-decomposition (->ClojureMathBackend default-tolerance nil) M)
-                  ;; Householder implementation returns Q m x m (here square n) and R with zeroed lower part.
-                  ;; Ensure we use square n x n blocks explicitly (defensive slice) in case future rectangular support added.
-                  Qn (vec (map #(subvec % 0 n) (subvec Q 0 n)))
-                  Rn (vec (map #(subvec % 0 n) (subvec R 0 n)))
-                  M-next (real-mul Rn Qn)]
-              (recur (inc k) M-next)))))))
+            ;; Increase iteration cap; unshifted QR can be slow for clustered spectra
+            max-it (* 800 n n)
+            ;; Simple balancing (single pass): scale rows & cols by sqrt(row_norm/col_norm)
+            balance-real (fn [M]
+                           (let [row-norms (mapv (fn [row] (Math/sqrt (reduce + (map #(* (double %) (double %)) row)))) M)
+                                 cols (apply map vector M)
+                                 col-norms (mapv (fn [col] (Math/sqrt (reduce + (map #(* (double %) (double %)) col)))) cols)
+                                 eps 1e-14]
+                             (vec (for [i (range n)]
+                                    (vec (for [j (range n)]
+                                           (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))]
+                                             (/ (get-in M [i j]) (Math/sqrt (/ ri cj))))))))))
+            balance-complex (fn [M]
+                              (let [R (:real M) I (:imag M)
+                                    row-norms (mapv (fn [i]
+                                                      (Math/sqrt (reduce + (for [j (range n)]
+                                                                             (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
+                                    cols-r (apply map vector R)
+                                    cols-i (apply map vector I)
+                                    col-norms (mapv (fn [j]
+                                                      (Math/sqrt (reduce + (for [i (range n)]
+                                                                             (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
+                                    eps 1e-14]
+                                {:real (vec (for [i (range n)]
+                                              (vec (for [j (range n)]
+                                                     (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
+                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                       (* scale (get-in R [i j])))))))
+                                 :imag (vec (for [i (range n)]
+                                              (vec (for [j (range n)]
+                                                     (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
+                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                       (* scale (get-in I [i j])))))))}))
+            offdiag-norm-real (fn [M]
+                                (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
+                                                           (let [v (double (get-in M [i j]))] (* v v))))))
+            offdiag-norm-complex (fn [M]
+                                   (let [R (:real M) I (:imag M)]
+                                     (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
+                                                                (let [a (double (get-in R [i j])) b (double (get-in I [i j]))]
+                                                                  (+ (* a a) (* b b))))))))]
+        (if (complex-matrix? A)
+          ;; Complex QR iteration with simple Wilkinson shift on trailing 2x2 block
+          (let [A0 (balance-complex A)]
+            (loop [k 0 M A0]
+              (if (or (>= k max-it) (< (offdiag-norm-complex M) tol))
+                {:eigenvalues (mapv (fn [i] (let [ar (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])] {:real ar :imag ai})) (range n))
+                 :iterations k}
+                (let [;; trailing 2x2 for shift if n>=2
+                      shift (when (>= n 2)
+                              (let [i (- n 2) j (- n 1)
+                                    a (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])
+                                    b (get-in (:real M) [i j]) bi (get-in (:imag M) [i j])
+                                    c (get-in (:real M) [j i]) ci (get-in (:imag M) [j i])
+                                    d (get-in (:real M) [j j]) di (get-in (:imag M) [j j])
+                                    ;; eigenvalues of 2x2 complex are roots of λ^2 - (a+d)λ + (ad-bc)=0
+                                    tr-r (+ a d) tr-i (+ ai di)
+                                    ad-r (- (* a d) (* ai di) (* (- ai di) 0.0)) ; real(ad)
+                                    ad-i (+ (* a di) (* ai d)) ; imag(ad)
+                                    bc-r (- (* b c) (* bi ci))
+                                    bc-i (+ (* b ci) (* bi c))
+                                    det-r (- ad-r bc-r)
+                                    det-i (- ad-i bc-i)
+                                    ;; Compute discriminant Δ = (tr)^2 - 4 det (complex) -> approximate using real parts only for shift heuristic
+                                    tr2 (+ (* tr-r tr-r) (* tr-i tr-i))
+                                    det-mag (+ (* det-r det-r) (* det-i det-i))
+                                    disc (Math/sqrt (Math/max 0.0 (- tr2 (* 4.0 det-mag))))
+                                    μ (/ (- (+ tr-r) disc) 2.0)] ; choose smaller magnitude root approx (heuristic)
+                                μ))
+                      ;; Apply real shift μ (imag ignored for stability heuristic) by subtracting μ I, perform QR, add back
+                      μ (double (or shift 0.0))
+                      M-shift (if (zero? μ) M
+                                  {:real (vec (for [i (range n)]
+                                                (vec (for [j (range n)]
+                                                       (let [val (get-in (:real M) [i j])]
+                                                         (if (= i j) (- val μ) val))))))
+                                   :imag (:imag M)})
+                      {:keys [Q R]} (proto/qr-decomposition backend M-shift)
+                      M-next (let [RQ (complex-mul R Q)]
+                               (if (zero? μ) RQ
+                                   ;; add shift back: RQ + μ I
+                                   (let [Rr (:real RQ) Ri (:imag RQ)]
+                                     {:real (vec (for [i (range n)]
+                                                   (vec (for [j (range n)]
+                                                          (let [val (get-in Rr [i j])]
+                                                            (if (= i j) (+ val μ) val))))))
+                                      :imag Ri})))]
+                  (recur (inc k) M-next)))))
+          ;; Real QR iteration with simple Wilkinson shift
+          (let [A0 (balance-real (mapv vec A))]
+            (loop [k 0 M A0]
+              (if (or (>= k max-it) (< (offdiag-norm-real M) tol))
+                {:eigenvalues (mapv #(get-in M [% %]) (range n)) :iterations k}
+                (let [μ (if (>= n 2)
+                          (let [i (- n 2) j (- n 1)
+                                a (get-in M [i i]) b (get-in M [i j])
+                                c (get-in M [j i]) d (get-in M [j j])
+                                tr (+ a d)
+                                det (- (* a d) (* b c))
+                                disc (Math/sqrt (Math/max 0.0 (- (* tr tr) (* 4.0 det))))]
+                            (/ (- tr disc) 2.0))
+                          0.0)
+                      M-shift (if (zero? μ) M (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) (- (get-in M [i j]) μ) (get-in M [i j])))))))
+                      {:keys [Q R]} (proto/qr-decomposition backend M-shift)
+                      Qn (vec (map #(subvec % 0 n) (subvec Q 0 n)))
+                      Rn (vec (map #(subvec % 0 n) (subvec R 0 n)))
+                      RQ (real-mul Rn Qn)
+                      M-next (if (zero? μ) RQ (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) (+ (get-in RQ [i j]) μ) (get-in RQ [i j])))))))]
+                  (recur (inc k) M-next)))))))))
 
   (svd [_ A]
     (let [A (if (complex-matrix? A) (:real A) A)
@@ -1244,7 +1345,7 @@
 ;;
 (extend-protocol proto/MatrixFunctions
   ClojureMathBackend
-  (matrix-exp [_ A]
+  (matrix-exp [backend A]
     (if (complex-matrix? A)
       ;; Embed complex matrix A = X + iY into real block [[X -Y] [Y X]], exp then extract.
       (let [X (:real A) Y (:imag A)
@@ -1260,7 +1361,7 @@
                 Z2 (vec (for [i (range n)]
                           (vec (concat (nth Y i) (nth X i)))))
                 B (into [] (concat Z Z2))
-                E (proto/matrix-exp (->ClojureMathBackend default-tolerance nil) B)
+                E (proto/matrix-exp backend B)
                 ;; Extract real/imag blocks back
                 Er (vec (for [i (range n)] (subvec (E i) 0 n)))
                 Ei (vec (for [i (range n)] (subvec (E (+ i n)) 0 n)))]
@@ -1274,7 +1375,7 @@
           nilpotent (:exp nilpotent)
           (hermitian-real? A 1e-12)
           ;; Eigen decomposition based exp for symmetric matrices
-          (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian (->ClojureMathBackend default-tolerance nil) A)]
+          (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian backend A)]
             (reduce (fn [acc [lambda v]]
                       (let [e (Math/exp lambda)
                             outer (vec (for [a v] (vec (for [b v] (* e a b)))))]
@@ -1303,43 +1404,91 @@
                       (real-add (real-scale A6 c6)))
                 V+U (real-add V U)
                 V-U (real-sub V U)
-                Vinv (proto/inverse (->ClojureMathBackend default-tolerance nil) V-U)
+                Vinv (proto/inverse backend V-U)
                 R (real-mul Vinv V+U)
                 R (loop [i 0 M R] (if (= i s) M (recur (inc i) (real-mul M M))))]
             R)))))
 
-  (matrix-log [_ A]
-    (when (complex-matrix? A) (throw (ex-info "matrix-log complex not implemented" {:matrix A})))
-    (let [[n _] (matrix-shape A)]
-      (when (zero? n) [])
-      (when (not (hermitian-real? A 1e-10)) (throw (ex-info "matrix-log implemented only for real symmetric positive definite" {:matrix A})))
-      (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian (->ClojureMathBackend default-tolerance nil) A)]
-        (doseq [l eigenvalues]
-          (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
-        (reduce (fn [acc [lambda v]]
-                  (let [lv (Math/log lambda)
-                        outer (vec (for [a v] (vec (for [b v] (* lv a b)))))]
-                    (real-add acc outer)))
-                (vec (repeat n (vec (repeat n 0.0))))
-                (map vector eigenvalues eigenvectors)))))
+  (matrix-log [backend A]
+    ;; Matrix logarithm implementation.
+    ;; Real path: requires real symmetric positive definite (SPD) matrix.
+    ;; Complex path: supports Hermitian positive definite complex matrix.
+    (if (complex-matrix? A)
+      (let [Ar (:real A) Ai (:imag A) [n _] (matrix-shape A)]
+        (when (zero? n) {:real [] :imag []})
+        (when (not (hermitian-complex? A 1e-10)) (throw (ex-info "matrix-log implemented only for Hermitian positive definite complex matrices" {:matrix A})))
+        ;; Use eigen-decomposition A = V Λ V^H, then log(A) = V log(Λ) V^H
+        (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian backend A)]
+          (doseq [l eigenvalues]
+            (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
+          (let [log-L (map #(Math/log %) eigenvalues)
+                ;; Build log(A) = sum_i (log λ_i) v_i v_i^H
+                {:keys [real imag] :as acc}
+                (reduce (fn [{:keys [real imag]} [lv v]]
+                          (let [vr (:real v) vi (:imag v)
+                                ;; outer hermitian rank-1: v v^H
+                                add-r (vec (for [i (range n)]
+                                             (vec (for [j (range n)]
+                                                    (* lv (+ (* (vr i) (vr j)) (* (vi i) (vi j))))))))
+                                add-i (vec (for [i (range n)]
+                                             (vec (for [j (range n)]
+                                                    (* lv (- (* (vi i) (vr j)) (* (vr i) (vi j))))))))]
+                            {:real (real-add real add-r)
+                             :imag (real-add imag add-i)}))
+                        {:real (vec (repeat n (vec (repeat n 0.0))))
+                         :imag (vec (repeat n (vec (repeat n 0.0))))}
+                        (map vector log-L eigenvectors))]
+            {:real real :imag imag})))
+      (let [[n _] (matrix-shape A)]
+        (when (zero? n) [])
+        (when (not (hermitian-real? A 1e-10)) (throw (ex-info "matrix-log implemented only for real symmetric positive definite" {:matrix A})))
+        (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian backend A)]
+          (doseq [l eigenvalues]
+            (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
+          (reduce (fn [acc [lambda v]]
+                    (let [lv (Math/log lambda)
+                          outer (vec (for [a v] (vec (for [b v] (* lv a b)))))]
+                      (real-add acc outer)))
+                  (vec (repeat n (vec (repeat n 0.0))))
+                  (map vector eigenvalues eigenvectors))))))
 
-  (matrix-sqrt [_ A]
-    (when (complex-matrix? A) (throw (ex-info "matrix-sqrt complex not implemented" {:matrix A})))
-    (let [[n n2] (matrix-shape A)]
-      (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
-      ;; Use Denman–Beavers iteration (works for nonsingular matrices; we assume SPD for quantum states)
-      (let [I (identity-matrix n)
-            tol 1e-10
-            max-it 50]
-        (loop [k 0 Y A Z I]
-          (let [Zinv (proto/inverse (->ClojureMathBackend default-tolerance nil) Z)
-                Yinv (proto/inverse (->ClojureMathBackend default-tolerance nil) Y)
-                Ynext (real-scale (real-add Y Zinv) 0.5)
-                Znext (real-scale (real-add Z Yinv) 0.5)
-                diff (real-frobenius-norm (real-sub (real-mul Ynext Ynext) A))]
-            (if (or (< diff tol) (>= k max-it))
-              Ynext
-              (recur (inc k) Ynext Znext))))))))
+  (matrix-sqrt [backend A]
+    ;; Matrix square root.
+    ;; Real path: SPD matrix via Denman–Beavers iteration.
+    ;; Complex path: Hermitian positive definite complex matrix via complex Denman–Beavers.
+    (if (complex-matrix? A)
+      (let [Ar (:real A) Ai (:imag A) [n n2] (matrix-shape A)]
+        (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
+        (when (not (hermitian-complex? A 1e-10)) (throw (ex-info "matrix-sqrt implemented only for Hermitian positive definite complex matrices" {:matrix A})))
+        (let [I {:real (identity-matrix n) :imag (vec (repeat n (vec (repeat n 0.0))))}
+              tol 1e-10 max-it 60]
+          (loop [k 0 Y A Z I]
+            (let [Zinv (proto/inverse backend Z)
+                  Yinv (proto/inverse backend Y)
+                  Ynext (complex-scale (complex-add Y Zinv) 0.5)
+                  Znext (complex-scale (complex-add Z Yinv) 0.5)
+                  diff (let [YY (complex-mul Ynext Ynext)
+                             D (complex-sub YY A)
+                             nr (Math/sqrt (reduce + (for [i (range n) j (range n)]
+                                                       (let [dr (get-in (:real D) [i j]) di (get-in (:imag D) [i j])]
+                                                         (+ (* dr dr) (* di di))))))]
+                         nr)]
+              (if (or (< diff tol) (>= k max-it))
+                Ynext
+                (recur (inc k) Ynext Znext))))))
+      (let [[n n2] (matrix-shape A)]
+        (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
+        (let [I (identity-matrix n)
+              tol 1e-10 max-it 50]
+          (loop [k 0 Y A Z I]
+            (let [Zinv (proto/inverse backend Z)
+                  Yinv (proto/inverse backend Y)
+                  Ynext (real-scale (real-add Y Zinv) 0.5)
+                  Znext (real-scale (real-add Z Yinv) 0.5)
+                  diff (real-frobenius-norm (real-sub (real-mul Ynext Ynext) A))]
+              (if (or (< diff tol) (>= k max-it))
+                Ynext
+                (recur (inc k) Ynext Znext)))))))))
 
 ;;
 ;; MatrixAnalysis
@@ -1354,9 +1503,8 @@
       (spectral-norm-complex A)
       (spectral-norm-real A)))
 
-  (condition-number [_ A]
-    (let [backend (->ClojureMathBackend default-tolerance nil)
-          normA (proto/spectral-norm backend A)
+  (condition-number [backend A]
+    (let [normA (proto/spectral-norm backend A)
           invA (try (proto/inverse backend A) (catch Exception _ nil))]
       (if invA
         (let [normInv (proto/spectral-norm backend invA)]

@@ -462,7 +462,7 @@
                           (m/projector-from-state n1)
                           (m/projector-from-state n2) 1e-10))))))
 
-(defspec rotatio.0n-unitary-preserves-norm 60
+(defspec rotation-unitary-preserves-norm 60
   (prop/for-all [theta (gen/double* {:min (* -2 Math/PI) :max (* 2 Math/PI) :NaN? false :infinite? false})
                  a (gen/double* {:min -5 :max 5 :NaN? false :infinite? false})
                  b (gen/double* {:min -5 :max 5 :NaN? false :infinite? false})]

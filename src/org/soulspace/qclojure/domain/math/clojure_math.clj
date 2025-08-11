@@ -757,7 +757,6 @@
           (Math/sqrt (max 0.0 lambda))
           (recur (inc k) x' lambda))))))
 
-
 ;;;
 ;;; Backend record & protocol implementations
 ;;;

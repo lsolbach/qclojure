@@ -1,6 +1,9 @@
 # Changelog
 
 ## Version (NEXT)
+* added protocols for math backends
+* added clojure.math based backend
+* added public API in math.core
 * improved layout of the svg circuit visualization
 * removed duplicated code
 * increased test coverage

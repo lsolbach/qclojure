@@ -190,7 +190,7 @@
 
 (deftest eigen-hermitian-2x2-tests
   (testing "2x2 symmetric matrix eigendecomposition"
-    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[3 1] [1 3]])]
+    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[3.0 1.0] [1.0 3.0]])]
       ;; Eigenvalues should be [2, 4] (sorted ascending)
       (is (t/approx= 2.0 (first eigenvalues) 1e-10))
       (is (t/approx= 4.0 (second eigenvalues) 1e-10))
@@ -203,12 +203,12 @@
         (is (t/approx= 1.0 norm2 1e-10)))))
 
   (testing "2x2 diagonal matrix eigendecomposition"
-    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[5 0] [0 7]])]
+    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[5.0 0.0] [0.0 7.0]])]
       (is (t/approx= 5.0 (first eigenvalues) 1e-10))  ; Ascending order: 5 first
       (is (t/approx= 7.0 (second eigenvalues) 1e-10))))
 
   (testing "1x1 matrix eigendecomposition"
-    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[42]])]
+    (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[42.0]])]
       (is (= [42.0] eigenvalues))
       (is (= [[[1.0]]] eigenvectors)))))
 
@@ -419,14 +419,14 @@
                           P (m/projector-from-state psi)
                           psi' (m/complex-matrix-vector P psi)
                           H (m/conjugate-transpose P)
-                          trace-r (reduce + (map-indexed (fn [i row] (nth row i)) (:real P)))]
-                      (let [rel= (fn [x y]
-                                   (let [mx (max 1.0 (Math/abs (double x)) (Math/abs (double y)))]
-                                     (< (Math/abs (- (double x) (double y))) (* 1e-6 mx))))]
-                        (and (every? true? (map rel= (:real psi) (:real psi')))
-                             (every? true? (map rel= (:imag psi) (:imag psi')))
-                             (t/approx-complex-matrix= P H 1e-8)
-                             (t/approx= 1.0 trace-r 1e-8))))))))
+                          trace-r (reduce + (map-indexed (fn [i row] (nth row i)) (:real P)))
+                          rel= (fn [x y]
+                                 (let [mx (max 1.0 (Math/abs (double x)) (Math/abs (double y)))]
+                                   (< (Math/abs (- (double x) (double y))) (* 1e-6 mx))))]
+                      (and (every? true? (map rel= (:real psi) (:real psi')))
+                           (every? true? (map rel= (:imag psi) (:imag psi')))
+                           (t/approx-complex-matrix= P H 1e-8)
+                           (t/approx= 1.0 trace-r 1e-8)))))))
 
 (defspec normalization-idempotent-real 50
   (prop/for-all [a (gen/double* {:min -20 :max 20 :NaN? false :infinite? false})

@@ -12,7 +12,7 @@
     Use `set-backend!` to change the global backend, or `with-backend` to override in a dynamic scope."
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
-  [org.soulspace.qclojure.domain.math.clojure-math :as cmath]))
+   [org.soulspace.qclojure.domain.math.clojure-math :as cmath]))
 
 ;; Unified tolerance (can be overridden via backend config :tolerance). Defined after backend vars.
 (def ^:dynamic *tolerance* 1.0e-12)
@@ -20,10 +20,13 @@
 ;; Public accessor for current numeric tolerance (backend or dynamic override)
 (defn current-tolerance
   "Return the effective tolerance used for approximate numeric comparisons.
-    
-   This reads the dynamic var *tolerance*. Backend specific overrides (if any)
-   should bind *tolerance* when performing computations so tests and client
-   code can query a single source of truth."
+  
+  This reads the dynamic var *tolerance*. Backend specific overrides (if any)
+  should bind *tolerance* when performing computations so tests and client
+  code can query a single source of truth.
+  
+  Returns:
+  Current tolerance value as a double"
   [] *tolerance*)
 
 ;;;
@@ -40,7 +43,7 @@
   "Current math backend instance. Bind dynamically with `with-backend`.
     	Defaults to a ->ClojureMathBackend instance."
   (let [tol 1.0e-12]
-    (cmath/->ClojureMathBackend tol {:tolerance tol})) )
+    (cmath/->ClojureMathBackend tol {:tolerance tol})))
 
 (def ^:dynamic *backend-key*
   "Current math backend key for informational purposes."
@@ -49,22 +52,38 @@
 ;; Unified tolerance (can be overridden via backend config :tolerance)
 
 (defn available-backends
-  "Returns the set of available backend keys."
+  "Return the set of available backend keys.
+  
+  Returns:
+  Set of backend keywords that can be used with set-backend! or create-backend"
   []
   (set (keys backend-constructors)))
 
 (defn get-backend
-  "Returns the current backend key."
+  "Return the current backend key.
+  
+  Returns:
+  Keyword identifying the currently active backend"
   []
   *backend-key*)
 
 (defn get-backend-instance
-  "Returns the current backend instance implementing the real/complex protocols."
+  "Return the current backend instance implementing the real/complex protocols.
+  
+  Returns:
+  Backend instance that implements the mathematical operation protocols"
   []
   *backend*)
 
 (defn create-backend
-  "Create a backend instance for the given key and optional opts map."
+  "Create a backend instance for the given key and optional configuration.
+  
+  Parameters:
+  - backend-key: Keyword identifying the backend type (from available-backends)
+  - opts: Optional map of backend-specific configuration options
+  
+  Returns:
+  Backend instance implementing the mathematical operation protocols"
   ([backend-key]
    (create-backend backend-key {}))
   ([backend-key opts]
@@ -75,8 +94,16 @@
      (ctor opts))))
 
 (defn set-backend!
-  "Sets the global backend by key. Use keys from `(available-backends)`.
-    	Prefer `with-backend` for scoped overrides."
+  "Set the global backend by key.
+  
+  Parameters:
+  - backend-key: Keyword identifying the backend (use keys from available-backends)
+  
+  Returns:
+  The backend key that was set
+  
+  Note:
+  Prefer with-backend for scoped overrides instead of global mutation"
   [backend-key]
   (when-not (contains? backend-constructors backend-key)
     (throw (ex-info (str "Unknown backend: " backend-key) {:available (available-backends)})))
@@ -86,8 +113,14 @@
     backend-key))
 
 (defmacro with-backend
-  "Evaluates body with the backend temporarily bound to `backend`.
-    	`backend` can be a backend key or a backend instance."
+  "Evaluate body with the backend temporarily bound to the specified backend.
+  
+  Parameters:
+  - backend: Either a backend keyword or a backend instance
+  - body: Forms to evaluate with the temporary backend binding
+  
+  Returns:
+  Result of evaluating body with the temporary backend"
   [backend & body]
   `(let [bk# ~backend
          [inst# key#]
@@ -102,9 +135,9 @@
 ;;; Public API
 ;;;
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Helper / constructors for complex data (Split-of-Arrays representation)
-;; ---------------------------------------------------------------------------
+;;
 
 (defn complex-vector
   "Create a complex vector from parallel real and imaginary part collections.
@@ -137,199 +170,492 @@
   {:real (mapv (fn [row] (mapv double row)) real-m)
    :imag (mapv (fn [row] (mapv double row)) imag-m)})
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Basic structural & arithmetic operations
-;; ---------------------------------------------------------------------------
-
+;;
 (defn shape
-  "Return matrix shape [rows cols]." [A]
+  "Return the shape of a matrix.
+  
+  Parameters:
+  - A: Matrix (vector of row vectors) or complex matrix map
+  
+  Returns:
+  Vector [rows cols] indicating the matrix dimensions"
+  [A]
   (proto/shape *backend* A))
 
 (defn add
-  "Matrix addition A + B." [A B]
+  "Perform matrix addition A + B.
+  
+  Parameters:
+  - A: First matrix (real or complex)
+  - B: Second matrix (real or complex) with same dimensions as A
+  
+  Returns:
+  Matrix representing A + B"
+  [A B]
   (proto/add *backend* A B))
 
 (defn subtract
-  "Matrix subtraction A - B." [A B]
+  "Perform matrix subtraction A - B.
+  
+  Parameters:
+  - A: First matrix (real or complex)
+  - B: Second matrix (real or complex) with same dimensions as A
+  
+  Returns:
+  Matrix representing A - B"
+  [A B]
   (proto/subtract *backend* A B))
 
 (defn scale
-  "Scalar multiplication α · A." [A alpha]
+  "Perform scalar multiplication α · A.
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  - alpha: Scalar value (real or complex number)
+  
+  Returns:
+  Matrix representing α · A"
+  [A alpha]
   (proto/scale *backend* A alpha))
 
 (defn negate
-  "Additive inverse -A." [A]
+  "Compute the additive inverse -A.
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  
+  Returns:
+  Matrix representing -A"
+  [A]
   (proto/negate *backend* A))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Products
-;; ---------------------------------------------------------------------------
-
+;;
 (defn matrix-multiply
-  "Matrix product A × B." [A B]
+  "Perform matrix multiplication A × B.
+  
+  Parameters:
+  - A: Left matrix (real or complex)
+  - B: Right matrix (real or complex) with compatible dimensions
+  
+  Returns:
+  Matrix representing the product A × B"
+  [A B]
   (proto/matrix-multiply *backend* A B))
 
 (defn complex-matrix-multiply
-  "Explicit complex matrix multiply (alias of matrix-multiply)." [A B]
+  "Perform explicit complex matrix multiplication.
+  
+  Parameters:
+  - A: Left complex matrix
+  - B: Right complex matrix with compatible dimensions
+  
+  Returns:
+  Complex matrix representing the product A × B
+  
+  Note:
+  This is an alias of matrix-multiply for clarity in complex contexts"
+  [A B]
   (proto/matrix-multiply *backend* A B))
 
 (defn matrix-vector
-  "Matrix–vector product A × x." [A x]
+  "Perform matrix–vector multiplication A × x.
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  - x: Vector (real or complex) with compatible dimensions
+  
+  Returns:
+  Vector representing the product A × x"
+  [A x]
   (proto/matrix-vector-product *backend* A x))
 
 (defn complex-matrix-vector
-  "Complex matrix–vector product (promotes real args automatically)." [A x]
+  "Perform complex matrix–vector multiplication.
+  
+  Parameters:
+  - A: Complex matrix
+  - x: Complex vector with compatible dimensions
+  
+  Returns:
+  Complex vector representing the product A × x
+  
+  Note:
+  Automatically promotes real arguments to complex representation"
+  [A x]
   (proto/matrix-vector-product *backend* A x))
 
 (defn outer-product
-  "Outer product x ⊗ y† (no conjugation of x)." [x y]
+  "Compute the outer product x ⊗ y†.
+  
+  Parameters:
+  - x: First vector (real or complex)
+  - y: Second vector (real or complex)
+  
+  Returns:
+  Matrix representing the outer product x ⊗ y† (no conjugation of x)
+  
+  Note:
+  For quantum states, this creates projector-like matrices"
+  [x y]
   (proto/outer-product *backend* x y))
 
 (defn hadamard
-  "Element-wise (Hadamard) product A ⊙ B." [A B]
+  "Compute the element-wise (Hadamard) product A ⊙ B.
+  
+  Parameters:
+  - A: First matrix (real or complex)
+  - B: Second matrix (real or complex) with same dimensions as A
+  
+  Returns:
+  Matrix with element-wise multiplication of A and B"
+  [A B]
   (proto/hadamard *backend* A B))
 
 (defn kronecker
-  "Kronecker (tensor) product A ⊗ B." [A B]
+  "Compute the Kronecker (tensor) product A ⊗ B.
+  
+  Parameters:
+  - A: First matrix (real or complex)
+  - B: Second matrix (real or complex)
+  
+  Returns:
+  Matrix representing the Kronecker product A ⊗ B
+  
+  Note:
+  Essential for quantum computing multi-qubit operations"
+  [A B]
   (proto/kronecker *backend* A B))
 
 (defn complex-kronecker
-  "Complex Kronecker product (alias of kronecker)." [A B]
+  "Compute the complex Kronecker product.
+  
+  Parameters:
+  - A: First complex matrix
+  - B: Second complex matrix
+  
+  Returns:
+  Complex matrix representing the Kronecker product A ⊗ B
+  
+  Note:
+  This is an alias of kronecker for clarity in complex contexts"
+  [A B]
   (proto/kronecker *backend* A B))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Transforms
-;; ---------------------------------------------------------------------------
-
+;;
 (defn matrix-transpose
-  "Transpose Aᵀ." [A]
+  "Compute the transpose Aᵀ.
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  
+  Returns:
+  Matrix representing the transpose of A"
+  [A]
   (proto/transpose *backend* A))
 
 (defn conjugate-transpose
-  "Conjugate transpose Aᴴ (Hermitian adjoint)." [A]
+  "Compute the conjugate transpose Aᴴ (Hermitian adjoint).
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  
+  Returns:
+  Matrix representing the conjugate transpose of A
+  
+  Note:
+  For real matrices, this is equivalent to transpose"
+  [A]
   (proto/conjugate-transpose *backend* A))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Reductions / scalar results
-;; ---------------------------------------------------------------------------
-
+;;
 (defn trace
-  "Trace Tr(A) = Σ aᵢᵢ." [A]
+  "Compute the trace Tr(A) = Σ aᵢᵢ.
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Scalar representing the sum of diagonal elements"
+  [A]
   (proto/trace *backend* A))
 
 (defn inner-product
-  "Vector inner product ⟨x|y⟩ (conjugates first arg if complex)." [x y]
+  "Compute the vector inner product ⟨x|y⟩.
+  
+  Parameters:
+  - x: First vector (real or complex)
+  - y: Second vector (real or complex) with same length as x
+  
+  Returns:
+  Scalar representing the inner product
+  
+  Note:
+  Conjugates the first argument if complex"
+  [x y]
   (proto/inner-product *backend* x y))
 
 (defn norm2
-  "Euclidean norm ||x||₂." [x]
+  "Compute the Euclidean norm ||x||₂.
+  
+  Parameters:
+  - x: Vector (real or complex)
+  
+  Returns:
+  Non-negative real number representing the Euclidean norm"
+  [x]
   (proto/norm2 *backend* x))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Linear solves / inverse
-;; ---------------------------------------------------------------------------
-
+;;
 (defn linear-solve
-  "Solve linear system A x = b. Returns x or nil/throws if singular." [A b]
+  "Solve the linear system A x = b.
+  
+  Parameters:
+  - A: Square matrix (real or complex), must be non-singular
+  - b: Right-hand side vector (real or complex)
+  
+  Returns:
+  Solution vector x, or nil/throws if A is singular"
+  [A b]
   (proto/solve-linear-system *backend* A b))
 
 (defn matrix-inverse
-  "Matrix inverse A⁻¹ or nil if singular." [A]
+  "Compute the matrix inverse A⁻¹.
+  
+  Parameters:
+  - A: Square non-singular matrix (real or complex)
+  
+  Returns:
+  Inverse matrix A⁻¹, or nil if A is singular"
+  [A]
   (proto/inverse *backend* A))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Predicates
-;; ---------------------------------------------------------------------------
-
+;;
 (defn hermitian?
-  "Predicate: A ≈ Aᴴ (Hermitian / real symmetric). Optional tolerance." 
+  "Test if a matrix is Hermitian (A ≈ Aᴴ).
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  - eps: Optional tolerance for approximate equality (uses current tolerance if not provided)
+  
+  Returns:
+  Boolean indicating whether A is Hermitian or real symmetric"
   ([A] (proto/hermitian? *backend* A))
   ([A eps] (proto/hermitian? *backend* A eps)))
 
 (defn unitary?
-  "Predicate: Uᴴ U ≈ I." 
+  "Test if a matrix is unitary (Uᴴ U ≈ I).
+  
+  Parameters:
+  - U: Square matrix (real or complex)
+  - eps: Optional tolerance for approximate equality (uses current tolerance if not provided)
+  
+  Returns:
+  Boolean indicating whether U is unitary (or orthogonal for real matrices)"
   ([U] (proto/unitary? *backend* U))
   ([U eps] (proto/unitary? *backend* U eps)))
 
 (defn positive-semidefinite?
-  "Predicate: A Hermitian with eigenvalues ≥ -eps." [A]
+  "Test if a matrix is positive semidefinite.
+  
+  Parameters:
+  - A: Square Hermitian matrix (real or complex)
+  
+  Returns:
+  Boolean indicating whether all eigenvalues of A are ≥ -eps
+  
+  Note:
+  Matrix must be Hermitian for meaningful results"
+  [A]
   (proto/positive-semidefinite? *backend* A))
 
 (defn trace-one?
-  "Predicate: Tr(ρ) ≈ 1 for density matrices." 
+  "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1).
+  
+  Parameters:
+  - rho: Square matrix (typically a density matrix)
+  - eps: Optional tolerance for approximate equality (uses current tolerance if not provided)
+  
+  Returns:
+  Boolean indicating whether the trace is approximately 1
+  
+  Note:
+  Useful for validating quantum density matrices"
   ([rho] (proto/trace-one? *backend* rho))
   ([rho eps] (proto/trace-one? *backend* rho eps)))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Decompositions
-;; ---------------------------------------------------------------------------
-
+;;
 (defn eigen-hermitian
-  "Hermitian (real symmetric / complex Hermitian) eigendecomposition.
-  Returns {:eigenvalues [...ascending...] :eigenvectors [v0 v1 ...]}" [A]
+  "Compute the eigendecomposition of a Hermitian matrix.
+  
+  Parameters:
+  - A: Square Hermitian matrix (real symmetric or complex Hermitian)
+  
+  Returns:
+  Map containing:
+  - :eigenvalues - Vector of eigenvalues in ascending order
+  - :eigenvectors - Vector of corresponding eigenvector columns [v0 v1 ...]"
+  [A]
   (proto/eigen-hermitian *backend* A))
 
 (defn eigen-general
-  "General (possibly non-Hermitian) eigenvalue approximation.
-  Returns {:eigenvalues [...], :iterations k}." [A]
+  "Compute eigenvalues for a general (possibly non-Hermitian) matrix.
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Map containing:
+  - :eigenvalues - Vector of eigenvalue approximations
+  - :iterations - Number of iterations used in computation"
+  [A]
   (proto/eigen-general *backend* A))
 
 (defn svd
-  "Singular Value Decomposition wrapper.
-  Returns {:U U :singular-values [σ0≥…] :Vt Vᴴ}. Renames backend keys (:S :V†)." [A]
+  "Compute the Singular Value Decomposition of a matrix.
+  
+  Parameters:
+  - A: Matrix (real or complex, may be rectangular)
+  
+  Returns:
+  Map containing:
+  - :U - Left singular vectors matrix
+  - :singular-values - Vector of singular values [σ0≥σ1≥...] in descending order
+  - :Vt - Right singular vectors transpose matrix
+  
+  Note:
+  Renames backend keys (:S :V†) for consistency"
+  [A]
   (let [{:keys [U S V†] :as raw} (proto/svd *backend* A)]
     (cond-> {:U U :singular-values S}
       V† (assoc :Vt V†)
-  (nil? U) (into raw))))
+      (nil? U) (into raw))))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Matrix functions
-;; ---------------------------------------------------------------------------
-
+;;
 (defn matrix-exp
-  "Matrix exponential exp(A)." [A]
+  "Compute the matrix exponential exp(A).
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Matrix representing exp(A)
+  
+  Note:
+  Important for quantum time evolution operators"
+  [A]
   (proto/matrix-exp *backend* A))
 
 (defn matrix-log
-  "Principal matrix logarithm log(A)." [A]
+  "Compute the principal matrix logarithm log(A).
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Matrix representing the principal branch of log(A)"
+  [A]
   (proto/matrix-log *backend* A))
 
 (defn matrix-sqrt
-  "Principal matrix square root √A." [A]
+  "Compute the principal matrix square root √A.
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Matrix representing the principal square root of A"
+  [A]
   (proto/matrix-sqrt *backend* A))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Analysis
-;; ---------------------------------------------------------------------------
-
+;;
 (defn spectral-norm
-  "Spectral norm ||A||₂ (largest singular value)." [A]
+  "Compute the spectral norm ||A||₂ (largest singular value).
+  
+  Parameters:
+  - A: Matrix (real or complex)
+  
+  Returns:
+  Non-negative real number representing the largest singular value"
+  [A]
   (proto/spectral-norm *backend* A))
 
 (defn condition-number
-  "2-norm condition number κ₂(A) = σ_max / σ_min." [A]
+  "Compute the 2-norm condition number κ₂(A) = σ_max / σ_min.
+  
+  Parameters:
+  - A: Square matrix (real or complex)
+  
+  Returns:
+  Positive real number representing the condition number
+  
+  Note:
+  Higher values indicate numerical instability in linear solves"
+  [A]
   (proto/condition-number *backend* A))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Quantum state helpers
-;; ---------------------------------------------------------------------------
-
+;;
 (defn state-normalize
-  "Return normalized state vector ψ/||ψ||₂ (real or complex)." [state]
+  "Normalize a quantum state vector to unit norm.
+  
+  Parameters:
+  - state: State vector (real or complex)
+  
+  Returns:
+  Normalized state vector ψ/||ψ||₂ with unit norm"
+  [state]
   (proto/state-normalize *backend* state))
 
 (defn projector-from-state
-  "Projector |ψ⟩⟨ψ| for (optionally un-normalized) state ψ." [psi]
+  "Create a projector matrix from a quantum state.
+  
+  Parameters:
+  - psi: State vector (real or complex, may be unnormalized)
+  
+  Returns:
+  Projector matrix |ψ⟩⟨ψ| corresponding to the state
+  
+  Note:
+  Automatically normalizes the state before creating the projector"
+  [psi]
   (proto/projector-from-state *backend* psi))
 
 (defn density-matrix
-  "Density matrix ρ for pure state ψ (alias of projector)." [psi]
+  "Create a density matrix from a pure quantum state.
+  
+  Parameters:
+  - psi: Pure state vector (real or complex)
+  
+  Returns:
+  Density matrix ρ representing the pure state
+  
+  Note:
+  This is an alias of projector-from-state for quantum contexts"
+  [psi]
   (proto/density-matrix *backend* psi))
 
-;; ---------------------------------------------------------------------------
+;;
 ;; Convenience reconstruction helpers
-;; ---------------------------------------------------------------------------
-
+;;
 (defn matrix-from-eigen
   "Reconstruct (approximate) Hermitian matrix from eigenvalues & eigenvectors.
 
@@ -337,7 +663,8 @@
   - eigenvalues   vector [λ₀ … λₙ₋₁]
   - eigenvectors  vector of eigenvector column vectors [v₀ …]
 
-  Returns matrix Σ λᵢ vᵢ vᵢᵀ (real case only for now).
+  Returns:
+  Matrix Σ λᵢ vᵢ vᵢᵀ (real case only for now).
   NOTE: Complex support can be added when complex eigenvectors are exposed."
   [eigenvalues eigenvectors]
   {:pre [(= (count eigenvalues) (count eigenvectors))]}
@@ -345,9 +672,8 @@
         zero (vec (repeat n (vec (repeat n 0.0))))]
     (reduce (fn [acc [λ v]]
               (let [outer (mapv (fn [i]
-                                   (mapv (fn [j] (* λ (double (nth v i)) (double (nth v j)))) (range n)))
-                                 (range n))]
+                                  (mapv (fn [j] (* λ (double (nth v i)) (double (nth v j)))) (range n)))
+                                (range n))]
                 (proto/add *backend* acc outer)))
             zero
             (map vector eigenvalues eigenvectors))))
-

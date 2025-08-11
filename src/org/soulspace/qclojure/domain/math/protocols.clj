@@ -16,40 +16,95 @@
 ;; The protocol is designed to be flexible, allowing for different representations (e.g., maps, records, or custom types).
 ;; Implementations should ensure that the real and imaginary parts are accessible in a consistent manner.
 (defprotocol Complex
-  "Protocol for complex elements."
+  "Protocol for complex number operations.
+  
+  Provides access to real and imaginary parts of complex numbers, vectors, and matrices.
+  Backends can implement this protocol to support different complex number representations."
+
   (real [x]
-    "Return the real part of x.")
+    "Extract the real part of a complex number.
+    
+    Parameters:
+    - x: Complex number, vector, or matrix
+    
+    Returns:
+    Real part of x (scalar, vector, or matrix of real values)")
 
   (imag [x]
-    "Return the imaginary part of x.")
+    "Extract the imaginary part of a complex number.
+    
+    Parameters:
+    - x: Complex number, vector, or matrix
+    
+    Returns:
+    Imaginary part of x (scalar, vector, or matrix of real values)")
 
   (conjugate [x]
-    "Return the complex conjugate of x.")
+    "Compute the complex conjugate of a number.
+    
+    Parameters:
+    - x: Complex number, vector, or matrix
+    
+    Returns:
+    Complex conjugate of x (same structure with imaginary parts negated)")
 
   (complex? [x]
-    "Check if x is a complex element.")
-  ;
-  )
+    "Test if a value represents a complex number.
+    
+    Parameters:
+    - x: Value to test
+    
+    Returns:
+    Boolean indicating whether x is a complex element"))
 
 ;;;
 ;;; Backend adapter
 ;;;
 (defprotocol BackendAdapter
-  "Protocol for converting between QClojure vectors/matrices and backend-specific representations."
+  "Protocol for converting between QClojure and backend-specific representations.
+  
+  Enables seamless interoperability between different mathematical backends
+  while maintaining a consistent API at the QClojure level."
+
   (vector->backend [backend v]
-    "Convert a vector to the backend's representation. Returns a new vector in the backend's format.")
+    "Convert a QClojure vector to backend-specific representation.
+    
+    Parameters:
+    - backend: Backend instance
+    - v: QClojure vector (sequence of numbers or complex map)
+    
+    Returns:
+    Vector in the backend's native format")
 
   (backend->vector [backend v]
-    "Convert a backend vector to a Clojure vector. Returns a new Clojure vector.")
+    "Convert a backend vector to QClojure representation.
+    
+    Parameters:
+    - backend: Backend instance  
+    - v: Vector in backend's native format
+    
+    Returns:
+    QClojure vector (sequence of numbers or complex map)")
 
   (matrix->backend [backend m]
-    "Convert a matrix to the backend's representation. Returns a new matrix in the backend's format.")
+    "Convert a QClojure matrix to backend-specific representation.
+    
+    Parameters:
+    - backend: Backend instance
+    - m: QClojure matrix (vector of row vectors or complex map)
+    
+    Returns:
+    Matrix in the backend's native format")
 
   (backend->matrix [backend m]
-    "Convert a backend matrix to a Clojure matrix. Returns a new Clojure matrix.")
-
-  ;
-  )
+    "Convert a backend matrix to QClojure representation.
+    
+    Parameters:
+    - backend: Backend instance
+    - m: Matrix in backend's native format
+    
+    Returns:
+    QClojure matrix (vector of row vectors or complex map)"))
 
 ;;;
 ;;; Matrix algebra protocol
@@ -80,71 +135,239 @@
 
   ;; Structural & basic arithmetic 
   (shape [backend A]
-    "Return the shape of matrix A as [rows cols]. May be O(1).")
+    "Return the dimensions of a matrix.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    Vector [rows cols] indicating matrix dimensions")
 
   (add [backend A B]
-    "Matrix addition: A + B. Shapes must match. Returns a new matrix.")
+    "Perform matrix addition A + B.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: First matrix (real or complex)
+    - B: Second matrix (real or complex) with same dimensions as A
+    
+    Returns:
+    New matrix representing A + B")
 
   (subtract [backend A B]
-    "Matrix subtraction: A - B. Shapes must match. Returns a new matrix.")
+    "Perform matrix subtraction A - B.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: First matrix (real or complex)
+    - B: Second matrix (real or complex) with same dimensions as A
+    
+    Returns:
+    New matrix representing A - B")
 
   (scale [backend A alpha]
-    "Scalar multiplication: alpha · A. Returns a new matrix.")
+    "Perform scalar multiplication alpha · A.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    - alpha: Scalar value (real or complex number)
+    
+    Returns:
+    New matrix representing alpha · A")
 
   (negate [backend A]
-    "Additive inverse: -A. Equivalent to (scale backend A -1). Implement for speed.")
+    "Compute the additive inverse -A.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    New matrix representing -A
+    
+    Note:
+    Equivalent to (scale backend A -1) but may be optimized")
 
   ;; --- Multiplicative operations -----------------------------------------------------
   (matrix-multiply [backend A B]
-    "Matrix product: A × B. If A is (m×k) and B is (k×n) returns (m×n).")
+    "Perform matrix multiplication A × B.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Left matrix (m×k, real or complex)
+    - B: Right matrix (k×n, real or complex) with compatible dimensions
+    
+    Returns:
+    New matrix (m×n) representing the product A × B")
 
   (matrix-vector-product [backend A x]
-    "Matrix–vector product: A × x. If A is (m×n) and x length n returns vector length m.")
+    "Perform matrix–vector multiplication A × x.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (m×n, real or complex)
+    - x: Vector (length n, real or complex) with compatible dimensions
+    
+    Returns:
+    New vector (length m) representing the product A × x")
 
   (outer-product [backend x y]
-    "Outer product: x ⊗ y† producing (m×n) matrix (without conjugation of x; y† applies conjugate if complex). For real vectors reduces to x yᵀ.")
+    "Compute the outer product x ⊗ y†.
+    
+    Parameters:
+    - backend: Backend instance
+    - x: First vector (length m, real or complex)
+    - y: Second vector (length n, real or complex)
+    
+    Returns:
+    New matrix (m×n) representing x ⊗ y†
+    
+    Note:
+    For complex vectors, conjugates y but not x (follows Dirac notation)")
 
   (hadamard [backend A B]
-    "Element-wise (Hadamard) product: A ⊙ B. Shapes must match.")
+    "Compute the element-wise (Hadamard) product A ⊙ B.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: First matrix (real or complex)
+    - B: Second matrix (real or complex) with same dimensions as A
+    
+    Returns:
+    New matrix with element-wise multiplication of A and B")
 
   (kronecker [backend A B]
-    "Kronecker (tensor) product: A ⊗ B. If A (m×n), B (p×q) => (mp×nq).")
+    "Compute the Kronecker (tensor) product A ⊗ B.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: First matrix (m×n, real or complex)
+    - B: Second matrix (p×q, real or complex)
+    
+    Returns:
+    New matrix (mp×nq) representing the Kronecker product A ⊗ B
+    
+    Note:
+    Essential for quantum computing multi-qubit operations")
 
   ;; --- Structural transforms
   (transpose [backend A]
-    "Transpose: Aᵀ. Swaps rows/cols without conjugation.")
+    "Compute the transpose Aᵀ.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    New matrix representing the transpose of A (swaps rows/cols without conjugation)")
 
   (conjugate-transpose [backend A]
-    "Conjugate transpose: Aᴴ. For real A this MUST return (transpose* backend A).")
+    "Compute the conjugate transpose Aᴴ (Hermitian adjoint).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    New matrix representing the conjugate transpose of A
+    
+    Note:
+    For real matrices, this is equivalent to transpose")
 
   ;; Reductions / scalar results
   (trace [backend A]
-    "Trace: Tr(A) = Σᵢ aᵢᵢ. Requires square matrix. Returns scalar (ℝ or ℂ).")
+    "Compute the trace Tr(A) = Σᵢ aᵢᵢ.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Scalar (real or complex) representing the sum of diagonal elements")
 
   (inner-product [backend x y]
-    "Vector inner product ⟨x|y⟩. Conjugates first argument if complex (Dirac bra-ket).
-    Returns scalar over the field.")
+    "Compute the vector inner product ⟨x|y⟩.
+    
+    Parameters:
+    - backend: Backend instance
+    - x: First vector (real or complex)
+    - y: Second vector (real or complex) with same length as x
+    
+    Returns:
+    Scalar representing the inner product
+    
+    Note:
+    Conjugates the first argument if complex (follows Dirac bra-ket notation)")
 
   (norm2 [backend x]
-    "Euclidean (L2) norm of vector: ||x||₂ = sqrt(⟨x|x⟩). Returns non-negative real.")
+    "Compute the Euclidean (L2) norm ||x||₂.
+    
+    Parameters:
+    - backend: Backend instance
+    - x: Vector (real or complex)
+    
+    Returns:
+    Non-negative real number representing ||x||₂ = sqrt(⟨x|x⟩)")
 
   ;; Linear solves / inverses
   (solve-linear-system [backend A b]
-    "Solve linear system A x = b. A square (n×n), b length n (matrix or vector form).
-    Returns solution vector x or may throw/return nil for singular/ill-conditioned A.")
+    "Solve the linear system A x = b.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (n×n, real or complex), must be non-singular
+    - b: Right-hand side vector (length n) or matrix
+    
+    Returns:
+    Solution vector x or matrix, or nil/throws if A is singular or ill-conditioned")
 
   (inverse [backend A]
-    "Matrix inverse A⁻¹. A square, non-singular. Returns matrix or nil if singular.")
+    "Compute the matrix inverse A⁻¹.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square non-singular matrix (real or complex)
+    
+    Returns:
+    Inverse matrix A⁻¹, or nil if A is singular")
 
   ;; Predicates (tolerance-based)
   (hermitian? [backend A] [backend A eps]
-    "True if A ≈ Aᴴ within tolerance eps (default backend tolerance). Real symmetric => true.")
+    "Test if a matrix is Hermitian (A ≈ Aᴴ).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    - eps: Optional tolerance for approximate equality (uses backend default if not provided)
+    
+    Returns:
+    Boolean indicating whether A is Hermitian (or real symmetric)")
 
   (unitary? [backend U] [backend U eps]
-    "True if Uᴴ U ≈ I within tolerance eps  (default backend tolerance). Square matrix.")
+    "Test if a matrix is unitary (Uᴴ U ≈ I).
+    
+    Parameters:
+    - backend: Backend instance
+    - U: Square matrix (real or complex)
+    - eps: Optional tolerance for approximate equality (uses backend default if not provided)
+    
+    Returns:
+    Boolean indicating whether U is unitary (or orthogonal for real matrices)")
 
   (positive-semidefinite? [backend A]
-    "True if A is Hermitian and all eigenvalues ≥ -eps (backend tolerance).")
+    "Test if a matrix is positive semidefinite.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex), should be Hermitian
+    
+    Returns:
+    Boolean indicating whether all eigenvalues of A are ≥ -tolerance
+    
+    Note:
+    Matrix should be Hermitian for meaningful results")
 
   ;
   )
@@ -152,78 +375,227 @@
 ;; Decomposition protocol
 ;; Decompositions orthogonal to core algebra
 (defprotocol MatrixDecompositions
-  "Matrix decomposition operations.
-  Returned data structures should be documented by each backend; suggested shapes:
-  - eigen-hermitian*: {:eigenvalues (vector λ₀≤…≤λₙ₋₁) :eigenvectors [v₀ …]}
-  - svd*: {:U U :S (vector singular-values descending) :V† V-hermitian}"
+  "Protocol for matrix decomposition operations.
+  
+  Provides standard numerical linear algebra decompositions that are fundamental
+  for many computational applications, especially in quantum computing."
 
   (eigen-hermitian [backend A]
-    "Eigendecomposition of Hermitian matrix A. Ascending eigenvalues preferred.")
+    "Compute the eigendecomposition of a Hermitian matrix.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square Hermitian matrix (real symmetric or complex Hermitian)
+    
+    Returns:
+    Map containing:
+    - :eigenvalues - Vector of eigenvalues in ascending order [λ₀≤...≤λₙ₋₁]
+    - :eigenvectors - Vector of corresponding eigenvector columns [v₀ ...]")
 
   (eigen-general [backend A]
-    "General (possibly complex) eigen decomposition. May throw if unsupported.")
+    "Compute eigenvalues for a general (possibly non-Hermitian) matrix.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Map containing eigenvalue information (backend-specific format)
+    
+    Note:
+    May throw if the backend doesn't support general eigenvalue computation")
 
   (svd [backend A]
-    "Singular Value Decomposition A = U Σ Vᴴ. Σ returned as descending singular values.")
+    "Compute the Singular Value Decomposition A = U Σ Vᴴ.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex, may be rectangular)
+    
+    Returns:
+    Map containing:
+    - :U - Left singular vectors matrix
+    - :S - Vector of singular values in descending order
+    - :V† - Right singular vectors conjugate transpose matrix")
 
   (lu-decomposition [backend A]
-    "LU decomposition A = P L U with row permutation P, lower triangular L, upper triangular U.")
+    "Compute the LU decomposition A = P L U.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Map containing:
+    - :P - Row permutation matrix
+    - :L - Lower triangular matrix
+    - :U - Upper triangular matrix")
 
   (qr-decomposition [backend A]
-    "QR decomposition A = Q R with orthogonal Q, upper triangular R. May return
-    (Q R) or (Q R Qᴴ) depending on backend conventions. Q is orthogonal/unitary, R upper triangular.")
+    "Compute the QR decomposition A = Q R.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    Map containing:
+    - :Q - Orthogonal/unitary matrix
+    - :R - Upper triangular matrix
+    
+    Note:
+    Backend may return additional components depending on implementation")
 
   (cholesky-decomposition [backend A]
-    "Cholesky decomposition A = L Lᴴ for positive semidefinite A.
-    Returns lower triangular L (Lᴴ = Lᵀ for real A). If A is not positive semidefinite,
-    may throw or return nil depending on backend semantics.")
-  ;
-  )
+    "Compute the Cholesky decomposition A = L Lᴴ.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Positive semidefinite matrix (real or complex)
+    
+    Returns:
+    Map containing:
+    - :L - Lower triangular matrix such that A = L Lᴴ
+    
+    Note:
+    May throw or return nil if A is not positive semidefinite"))
 
 ;; Matrix function protocol
 (defprotocol MatrixFunctions
-  "Analytic functions of matrices (functional calculus). Implementations may
-  approximate using Pade, scaling & squaring, Schur decomposition, etc."
+  "Protocol for analytic functions of matrices.
+  
+  Provides matrix-valued functions using functional calculus. Implementations may
+  use various approximation methods such as Padé approximants, scaling & squaring,
+  or Schur decomposition."
 
   (matrix-exp [backend A]
-    "Matrix exponential exp(A).")
+    "Compute the matrix exponential exp(A).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Matrix representing exp(A)
+    
+    Note:
+    Important for quantum time evolution operators and solving differential equations")
 
   (matrix-log [backend A]
-    "Principal matrix logarithm log(A). Domain: matrices without negative/zero eigenvalues (unless handled).")
+    "Compute the principal matrix logarithm log(A).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Matrix representing the principal branch of log(A)
+    
+    Note:
+    Domain restrictions apply for matrices with negative or zero eigenvalues")
 
   (matrix-sqrt [backend A]
-    "Principal matrix square root √A for positive semidefinite / suitable matrices."))
+    "Compute the principal matrix square root √A.
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Matrix representing the principal square root of A
+    
+    Note:
+    Best defined for positive semidefinite matrices"))
 
 ;; Analysis protocol
 ;; Additional analyses beyond predicates embedded in MatrixAlgebra
 (defprotocol MatrixAnalysis
-  "Higher-level scalar analyses / norms / conditioning metrics."
+  "Protocol for matrix analysis and conditioning metrics.
+  
+  Provides scalar-valued analyses that measure various properties of matrices,
+  particularly useful for numerical stability assessments."
 
   (spectral-norm [backend A]
-    "Spectral norm ||A||₂ = largest singular value σ₀.")
+    "Compute the spectral norm ||A||₂ (largest singular value).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Matrix (real or complex)
+    
+    Returns:
+    Non-negative real number representing the largest singular value σ₀")
 
   (condition-number [backend A]
-    "Condition number κ₂(A) = σ_max / σ_min (finite, σ_min>0).")
-
-  ;
-  )
+    "Compute the 2-norm condition number κ₂(A).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    
+    Returns:
+    Positive real number representing κ₂(A) = σ_max / σ_min
+    
+    Note:
+    Higher values indicate numerical instability in linear system solutions"))
 
 ;;;
 ;;; Quantum state operations protocol
 ;;;
 (defprotocol QuantumStateOps
-  "Quantum state / density matrix operations."
-  ;; Quantum related helpers (optional fast-path overrides)
+  "Protocol for quantum state and density matrix operations.
+  
+  Provides specialized operations for quantum computing applications,
+  including state normalization and density matrix construction."
+
   (state-normalize [backend state]
-    "Return normalized state vector (||ψ||₂ = 1). Zero vector returned unchanged.")
+    "Normalize a quantum state vector to unit norm.
+    
+    Parameters:
+    - backend: Backend instance
+    - state: State vector (real or complex)
+    
+    Returns:
+    Normalized state vector with ||ψ||₂ = 1
+    
+    Note:
+    Zero vectors are returned unchanged")
 
   (projector-from-state [backend psi]
-    "Projector |ψ⟩⟨ψ| as matrix over field. Uses outer-product semantics.")
+    "Create a projector matrix |ψ⟩⟨ψ| from a quantum state.
+    
+    Parameters:
+    - backend: Backend instance
+    - psi: State vector (real or complex, may be unnormalized)
+    
+    Returns:
+    Projector matrix representing |ψ⟩⟨ψ|
+    
+    Note:
+    Uses outer-product semantics with automatic normalization")
 
   (density-matrix [backend psi]
-    "Density matrix ρ for pure state ψ (alias of projector). Returned matrix trace = 1.")
+    "Create a density matrix ρ for a pure quantum state.
+    
+    Parameters:
+    - backend: Backend instance
+    - psi: Pure state vector (real or complex)
+    
+    Returns:
+    Density matrix ρ with Tr(ρ) = 1
+    
+    Note:
+    This is an alias of projector-from-state for quantum contexts")
 
   (trace-one? [backend rho] [backend rho eps]
-    "Predicate: Tr(ρ) ≈ 1 (within tolerance).")
-    ;
-  )
+    "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1).
+    
+    Parameters:
+    - backend: Backend instance
+    - rho: Square matrix (typically a density matrix)
+    - eps: Optional tolerance for approximate equality (uses backend default if not provided)
+    
+    Returns:
+    Boolean indicating whether the trace is approximately 1
+    
+    Note:
+    Useful for validating quantum density matrices"))

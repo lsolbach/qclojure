@@ -277,8 +277,8 @@
 
   (testing "Matrix exponential of Hermitian is unitary"
     (let [H [[1 0] [0 -1]] ; Hermitian matrix
-          U (m/matrix-exp {:real [[0 0] [0 0]]
-                           :imag [[(* -1 1) 0] [0 (* -1 -1)]]})] ; exp(i*H)
+          U (m/matrix-exp {:real [[0.0 0.0] [0.0 0.0]]
+                           :imag [[(* -1.0 1.0) 0.0] [0.0 (* -1.0 -1.0)]]})] ; exp(i*H)
       (is (m/unitary? U)))))
 
 ;; Tests for newly implemented functionality
@@ -286,7 +286,7 @@
 (deftest spectral-norm-test
   (testing "Spectral norm computation"
     ;; Identity matrix should have spectral norm 1
-    (is (t/approx= 1.0 (m/spectral-norm [[1 0] [0 1]]) 1e-12))
+    (is (t/approx= 1.0 (m/spectral-norm [[1.0 0.0] [0.0 1.0]]) 1e-12))
     
     ;; Test with known matrix
     (let [A [[3 4] [0 5]]
@@ -295,12 +295,12 @@
       (is (t/approx= 6.708203932499369 norm 1e-10)))
     
     ;; Zero matrix should have spectral norm 0
-    (is (t/approx= 0.0 (m/spectral-norm [[0 0] [0 0]]) 1e-12))))
+    (is (t/approx= 0.0 (m/spectral-norm [[0.0 0.0] [0.0 0.0]]) 1e-12))))
 
 (deftest condition-number-test
   (testing "Condition number computation"
     ;; Identity matrix should have condition number 1
-    (is (t/approx= 1.0 (m/condition-number [[1 0] [0 1]]) 1e-12))
+    (is (t/approx= 1.0 (m/condition-number [[1.0 0.0] [0.0 1.0]]) 1e-12))
     
     ;; Well-conditioned matrix
     (let [A [[4 1] [1 3]]
@@ -316,12 +316,12 @@
 (deftest svd-test
   (testing "Singular Value Decomposition"
     ;; Test 2x2 identity matrix
-    (let [{:keys [U singular-values Vt]} (m/svd [[1 0] [0 1]])]
+    (let [{:keys [U singular-values Vt]} (m/svd [[1.0 0.0] [0.0 1.0]])]
       (is (= 2 (count singular-values)))
       (is (every? #(t/approx= 1.0 % 1e-10) singular-values)))
     
     ;; Test 2x2 diagonal matrix
-    (let [{:keys [U singular-values Vt]} (m/svd [[3 0] [0 4]])]
+    (let [{:keys [U singular-values Vt]} (m/svd [[3.0 0.0] [0.0 4.0]])]
       (is (= 2 (count singular-values)))
       ;; Singular values should be sorted in descending order
       (is (>= (first singular-values) (second singular-values)))
@@ -329,7 +329,7 @@
       (is (some #(t/approx= 3.0 % 1e-10) singular-values)))
     
     ;; Test 3x3 matrix using power iteration
-    (let [{:keys [U singular-values Vt]} (m/svd [[2 0 0] [0 3 0] [0 0 1]])]
+    (let [{:keys [U singular-values Vt]} (m/svd [[2.0 0.0 0.0] [0.0 3.0 0.0] [0.0 0.0 1.0]])]
       (is (= 3 (count singular-values)))
       (is (>= (first singular-values) (second singular-values)))
       (is (>= (second singular-values) (nth singular-values 2))))))
@@ -337,7 +337,7 @@
 (deftest eigen-hermitian-extended-test
   (testing "Extended eigendecomposition for larger matrices"
     ;; Test 3x3 symmetric matrix
-    (let [A [[2 1 0] [1 2 1] [0 1 2]]
+    (let [A [[2.0 1.0 0.0] [1.0 2.0 1.0] [0.0 1.0 2.0]]
           {:keys [eigenvalues eigenvectors]} (m/eigen-hermitian A)]
       (is (= 3 (count eigenvalues)))
       (is (= 3 (count eigenvectors)))
@@ -345,7 +345,7 @@
       (is (every? number? eigenvalues)))
     
     ;; Test 4x4 identity matrix
-    (let [I [[1 0 0 0] [0 1 0 0] [0 0 1 0] [0 0 0 1]]
+    (let [I [[1.0 0.0 0.0 0.0] [0.0 1.0 0.0 0.0] [0.0 0.0 1.0 0.0] [0.0 0.0 0.0 1.0]]
           {:keys [eigenvalues eigenvectors]} (m/eigen-hermitian I)]
       (is (= 4 (count eigenvalues)))
       ;; All eigenvalues of identity should be 1
@@ -354,12 +354,12 @@
 (deftest matrix-logarithm-test
   (testing "Matrix logarithm for Hermitian matrices"
     ;; Test identity matrix: log(I) should be zero matrix
-    (let [I [[1 0] [0 1]]
+    (let [I [[1.0 0.0] [0.0 1.0]]
           log-I (m/matrix-log I)]
       (is (every? #(every? (fn [x] (t/approx= 0.0 x 1e-12)) %) log-I)))
     
     ;; Test with simple diagonal matrix
-    (let [A [[2 0] [0 3]]
+    (let [A [[2.0 0.0] [0.0 3.0]]
           log-A (m/matrix-log A)]
       ;; log(2) ≈ 0.693, log(3) ≈ 1.099
       (is (t/approx= (Math/log 2) (get-in log-A [0 0]) 1e-10))
@@ -368,12 +368,12 @@
       (is (t/approx= 0.0 (get-in log-A [1 0]) 1e-12)))
     
     ;; Test error for negative eigenvalues
-    (is (thrown? Exception (m/matrix-log [[1 2] [2 -1]])))))
+    (is (thrown? Exception (m/matrix-log [[1.0 2.0] [2.0 -1.0]])))))
 
 (deftest matrix-reconstruction-test
   (testing "Matrix reconstruction from eigendecomposition"
     ;; Test that reconstruction approximately recovers original matrix
-    (let [A [[3 1] [1 2]]
+    (let [A [[3.0 1.0] [1.0 2.0]]
           {:keys [eigenvalues eigenvectors]} (m/eigen-hermitian A)
           reconstructed (m/matrix-from-eigen eigenvalues eigenvectors)]
       ;; For small matrices, this might just return diagonal approximation
@@ -390,7 +390,7 @@
 (deftest integration-test
   (testing "Integration of multiple operations"
     ;; Test workflow: create matrix -> eigendecomposition -> reconstruct
-    (let [A [[2 1] [1 2]]
+    (let [A [[2.0 1.0] [1.0 2.0]]
           {:keys [eigenvalues]} (m/eigen-hermitian A)
           spec-norm (m/spectral-norm A)
           cond-num (m/condition-number A)]

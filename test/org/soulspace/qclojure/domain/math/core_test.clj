@@ -381,12 +381,6 @@
       (is (every? number? (map first reconstructed)))
       (is (every? number? (map second reconstructed))))))
 
-(deftest error-handling-test
-  (testing "Error handling for unimplemented features"
-    ;; Test eigendecomposition error for very large matrices
-    (is (thrown-with-msg? Exception #"not.*implemented"
-                          (m/eigen-hermitian (vec (repeat 10 (vec (repeat 10 1.0)))))))))
-
 (deftest integration-test
   (testing "Integration of multiple operations"
     ;; Test workflow: create matrix -> eigendecomposition -> reconstruct

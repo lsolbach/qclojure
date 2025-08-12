@@ -16,7 +16,9 @@
                  [hiccup/hiccup "2.0.0"]]
 
   ; TODO: Provide native library path per platform
-  :jvm-opts ["-Djava.library.path=/usr/lib/x86_64-linux-gnu"]
+  :jvm-opts ^:replace ["-Djava.library.path=/usr/lib/x86_64-linux-gnu"
+                       "-Dclojure.compiler.direct-linking=true"
+                       "--enable-native-access=ALL-UNNAMED"]
   :profiles {:clay {:dependencies [[org.scicloj/clay "2-beta45"]]
                     :source-paths ["src" "notebook"]}}
 

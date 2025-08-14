@@ -13,7 +13,8 @@
   (:require [clojure.spec.alpha :as s]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.gate :as gate]
-            [org.soulspace.qclojure.domain.state :as state]))
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.math.core :as math]))
 
 ;;
 ;; Specs for Observables
@@ -62,46 +63,10 @@
 ;;
 ;; Helper Functions for Matrix Operations
 ;;
-(defn matrix-add
-  "Add two matrices of complex numbers element-wise"
-  [m1 m2]
-  (mapv (fn [row1 row2]
-          (mapv fc/add row1 row2))
-        m1 m2))
-
-(defn matrix-scalar-mult
-  "Multiply matrix of complex numbers by scalar"
-  [scalar matrix]
-  (mapv (fn [row]
-          (mapv (fn [elem] (fc/mult (fc/complex scalar 0) elem)) row))
-        matrix))
-
 (defn zero-matrix
   "Create a zero matrix of complex numbers of given dimensions"
   [rows cols]
   (vec (repeat rows (vec (repeat cols fc/ZERO)))))
-
-(defn matrix-mult
-  "Multiply two matrices of complex numbers"
-  [m1 m2]
-  (let [rows1 (count m1)
-        cols1 (count (first m1))
-        cols2 (count (first m2))]
-    (vec (for [i (range rows1)]
-           (vec (for [j (range cols2)]
-                  (reduce fc/add fc/ZERO
-                          (for [k (range cols1)]
-                            (fc/mult (get-in m1 [i k])
-                                   (get-in m2 [k j]))))))))))
-
-(defn hermitian-conjugate
-  "Compute Hermitian conjugate (complex conjugate transpose) of matrix of complex numbers"
-  [matrix]
-  (let [rows (count matrix)
-        cols (count (first matrix))]
-    (vec (for [j (range cols)]
-           (vec (for [i (range rows)]
-                  (fc/conjugate (get-in matrix [i j]))))))))
 
 (defn matrix-equal?
   "Check if two matrices of complex numbers are equal within tolerance"
@@ -136,7 +101,7 @@
   {:pre [(s/valid? (s/coll-of (s/tuple number? ::observable)) coeffs-observables)]}
   (reduce 
     (fn [result [coeff obs]]
-      (matrix-add result (matrix-scalar-mult coeff obs)))
+      (math/add result (math/scale obs coeff)))
     (zero-matrix (count (first (second (first coeffs-observables))))
                  (count (second (first coeffs-observables))))
     coeffs-observables))
@@ -154,7 +119,7 @@
      (tensor-product [pauli-x pauli-z])"
   [observables]
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
-  (reduce gate/tensor-product-matrix observables))
+  (reduce math/kronecker observables))
 
 ;;
 ;; Pauli String Functions
@@ -202,9 +167,8 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        obs-psi (gate/matrix-vector-mult observable state-vec)
-        conj-psi (map fc/conjugate state-vec)]
-    (fc/re (reduce fc/add (map fc/mult conj-psi obs-psi)))))
+        obs-psi (math/matrix-vector observable state-vec)]
+    (fc/re (math/inner-product state-vec obs-psi))))
 
 (defn variance
   "Calculate variance of observable: ⟨O²⟩ - ⟨O⟩²
@@ -219,7 +183,7 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [exp-val (expectation-value observable quantum-state)
-        obs-squared (matrix-mult observable observable)
+        obs-squared (math/matrix-multiply observable observable)
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
@@ -233,8 +197,7 @@
      Boolean indicating if matrix is Hermitian"
   [matrix]
   {:pre [(s/valid? ::matrix matrix)]}
-  (let [hermitian-conj (hermitian-conjugate matrix)]
-    (matrix-equal? matrix hermitian-conj)))
+  (math/hermitian? matrix))
 
 ;;
 ;; Measurement Simulation

@@ -57,7 +57,7 @@
                         I)]
       (is (= [[1.0 0.0]
               [0.0 1.0]] rounded)))
-    (let [x (m/linear-solve A [11.0 10.0])
+    (let [x (m/solve-linear-system A [11.0 10.0])
           Ax (m/matrix-vector A x)
           rounded (mapv (fn [v] (/ (Math/round (* 10.0 v)) 10.0)) Ax)]
       (is (= [11.0 10.0] rounded))))

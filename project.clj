@@ -6,21 +6,41 @@
                  [org.clojure/data.json "2.5.1"]
                  [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
-                 ;[uncomplicate/neanderthal "0.55.0"] ; AOT compiled one stop with fast startup
-                 [org.uncomplicate/neanderthal-base "0.55.1"] ; Base library for Neanderthal, non AOT compiled
-                 [org.uncomplicate/neanderthal-opencl "0.55.0"] ; OpenCL backend for Neanderthal, non AOT compiled
-                 [org.uncomplicate/neanderthal-mkl "0.55.0"] ; MKL backend for Neanderthal, non AOT compiled
-                 ;[org.uncomplicate/neanderthal-cuda "0.55.0"] ; CUDA backend for Neanderthal, non AOT compiled
-                 ;[org.uncomplicate/neanderthal-accelerate "0.55.0"] ; Apple Accelerate backend for Neanderthal, non AOT compiled
+                 
+                 [org.uncomplicate/neanderthal-base "0.55.0"]
+                 ;; Optional, for CPU computing with OpenBLAS
+                 [org.uncomplicate/neanderthal-openblas "0.55.0"]
+                 ;; Optional, for GPU computing with OpenCL
+                 [org.uncomplicate/neanderthal-opencl "0.55.0"] 
+                 
+                 ; [org.bytedeco/mkl-platform "2024.0-1.5.10"]
+                 ; [uncomplicate/clojurecl "0.16.1"]
                  [generateme/fastmath "3.0.0-alpha3"]
                  [hiccup/hiccup "2.0.0"]]
 
-  ; TODO: Provide native library path per platform
-  :jvm-opts ^:replace ["-Djava.library.path=/usr/lib/x86_64-linux-gnu"
-                       "-Dclojure.compiler.direct-linking=true"
+  ;; We need this for the CUDA binaries, which are not available in the Maven Central due to its huge size (3GB, vs 1GB limit)!
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+
+  ;; We need direct linking for properly resolving types in heavy macros and avoiding reflection warnings!
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]
+
   :profiles {:clay {:dependencies [[org.scicloj/clay "2-beta45"]]
-                    :source-paths ["src" "notebook"]}}
+                    :source-paths ["src" "notebook"]}
+             :default [:default/all ~(leiningen.core.utils/get-os)]
+             :default/all {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12"]]}
+             :linux {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "linux-x86_64"]
+                                    [org.uncomplicate/neanderthal-mkl "0.55.0"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+                                    [org.uncomplicate/neanderthal-cuda "0.55.0"]
+                                    [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier windows-x86_64]
+                                      [org.uncomplicate/neanderthal-mkl "0.55.0"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
+                                      [org.uncomplicate/neanderthal-cuda "0.55.0"]
+                                      [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3" :classifier "windows-x86_64-redist"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.55.0"]
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :scm {:name "git" :url "https://github.com/lsolbach/qclojure"}
   :deploy-repositories [["clojars" {:sign-releases false :url "https://clojars.org/repo"}]]

@@ -382,6 +382,7 @@ qg/t-dag-gate
 
 (def bell-state
   (qc/execute-circuit bell-circuit (qs/zero-state 2)))
+
 ;; We can visualize the probability distribution of the Bell state.
 
 (kind/html (viz/visualize-quantum-state :svg bell-state))
@@ -1069,18 +1070,18 @@ qft-state
 
 ;; We can use Shor's algorithm to factor a composite integer.
 
-; (def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
+;(def shor-result (shor/shor-algorithm (sim/create-simulator) 15 {:shots 10}))
 
 ;; The result of Shor's algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
-; shor-result
+;shor-result
 
 ;; The result shows that Shor's algorithm correctly factors the composite integer 15
 ;; into its prime factors 3 and 5.
 ;; The measurement outcome is the prime factors of 15, which are 3 and 5.
 
-; (:result shor-result)
+;(:result shor-result)
 
 ;; ### HHL Algorithm
 ;; The [HHL algorithm](https://en.wikipedia.org/wiki/HHL_algorithm) is a

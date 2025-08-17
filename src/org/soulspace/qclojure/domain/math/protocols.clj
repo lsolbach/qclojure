@@ -104,7 +104,27 @@
     - m: Matrix in backend's native format
     
     Returns:
-    QClojure matrix (vector of row vectors or complex map)"))
+    QClojure matrix (vector of row vectors or complex map)")
+
+  (scalar->backend [backend s]
+    "Convert a QClojure scalar to backend-specific representation.
+    
+    Parameters:
+    - backend: Backend instance
+    - s: QClojure scalar (number or Vec2 complex)
+    
+    Returns:
+    Scalar in the backend's native format")
+
+  (backend->scalar [backend s]
+    "Convert a backend scalar to QClojure representation.
+    
+    Parameters:
+    - backend: Backend instance
+    - s: Scalar in backend's native format
+    
+    Returns:
+    QClojure scalar (number or Vec2 complex)"))
 
 ;;;
 ;;; Matrix algebra protocol

@@ -6,6 +6,7 @@
     - Provide a single, meaningful API for matrix and vector operations.
     - Allow swapping implementations (pure Clojure Math, Fastmath, Neanderthal) without changing call sites.
     - Keep data shapes simple: matrices as vectors of row vectors; vectors as vectors of numbers.
+    - Handle conversions between FastMath Vec2 format and backend-specific representations.
     
     Default backend: :pure, implemented via org.soulspace.qclojure.domain.math.linear-algebra.
     
@@ -132,6 +133,40 @@
        ~@body)))
 
 ;;;
+;;; Conversion helpers for FastMath Vec2 format integration
+;;;
+
+(defn- to-backend-vector
+  "Convert input vector from FastMath Vec2 format to backend representation."
+  [v]
+  (proto/vector->backend *backend* v))
+
+(defn- from-backend-vector
+  "Convert result vector from backend representation to FastMath Vec2 format."
+  [v]
+  (proto/backend->vector *backend* v))
+
+(defn- to-backend-matrix
+  "Convert input matrix from FastMath Vec2 format to backend representation."
+  [m]
+  (proto/matrix->backend *backend* m))
+
+(defn- from-backend-matrix
+  "Convert result matrix from backend representation to FastMath Vec2 format."
+  [m]
+  (proto/backend->matrix *backend* m))
+
+(defn- to-backend-scalar
+  "Convert input scalar from FastMath Vec2 format to backend representation."
+  [s]
+  (proto/scalar->backend *backend* s))
+
+(defn- from-backend-scalar
+  "Convert result scalar from backend representation to FastMath Vec2 format."
+  [s]
+  (proto/backend->scalar *backend* s))
+
+;;;
 ;;; Public API
 ;;;
 
@@ -182,54 +217,64 @@
   Returns:
   Vector [rows cols] indicating the matrix dimensions"
   [A]
-  (proto/shape *backend* A))
+  (proto/shape *backend* (to-backend-matrix A)))
 
 (defn add
   "Perform matrix addition A + B.
   
   Parameters:
-  - A: First matrix (real or complex)
-  - B: Second matrix (real or complex) with same dimensions as A
+  - A: First matrix (real or complex, Vec2 or SoA format)
+  - B: Second matrix (real or complex, Vec2 or SoA format) with same dimensions as A
   
   Returns:
-  Matrix representing A + B"
+  Matrix representing A + B in Vec2 format"
   [A B]
-  (proto/add *backend* A B))
+  (let [backend-A (to-backend-matrix A)
+        backend-B (to-backend-matrix B)
+        result (proto/add *backend* backend-A backend-B)]
+    (from-backend-matrix result)))
 
 (defn subtract
   "Perform matrix subtraction A - B.
   
   Parameters:
-  - A: First matrix (real or complex)
-  - B: Second matrix (real or complex) with same dimensions as A
+  - A: First matrix (real or complex, Vec2 or SoA format)
+  - B: Second matrix (real or complex, Vec2 or SoA format) with same dimensions as A
   
   Returns:
-  Matrix representing A - B"
+  Matrix representing A - B in Vec2 format"
   [A B]
-  (proto/subtract *backend* A B))
+  (let [backend-A (to-backend-matrix A)
+        backend-B (to-backend-matrix B)
+        result (proto/subtract *backend* backend-A backend-B)]
+    (from-backend-matrix result)))
 
 (defn scale
   "Perform scalar multiplication α · A.
   
   Parameters:
-  - A: Matrix (real or complex)
-  - alpha: Scalar value (real or complex number)
+  - A: Matrix (real or complex, Vec2 or SoA format)
+  - alpha: Scalar value (real or complex number, Vec2 or SoA format)
   
   Returns:
-  Matrix representing α · A"
+  Matrix representing α · A in Vec2 format"
   [A alpha]
-  (proto/scale *backend* A alpha))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/scale *backend* backend-A alpha)]
+    (from-backend-matrix result)))
 
 (defn negate
   "Compute the additive inverse -A.
   
   Parameters:
-  - A: Matrix (real or complex)
+  - A: Matrix (real or complex, Vec2 or SoA format)
   
   Returns:
-  Matrix representing -A"
+  Matrix representing -A in Vec2 format"
   [A]
-  (proto/negate *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/negate *backend* backend-A)]
+    (from-backend-matrix result)))
 
 ;;
 ;; Products
@@ -238,112 +283,127 @@
   "Perform matrix multiplication A × B.
   
   Parameters:
-  - A: Left matrix (real or complex)
-  - B: Right matrix (real or complex) with compatible dimensions
+  - A: Left matrix (real or complex, Vec2 or SoA format)
+  - B: Right matrix (real or complex, Vec2 or SoA format) with compatible dimensions
   
   Returns:
-  Matrix representing the product A × B"
+  Matrix representing the product A × B in Vec2 format"
   [A B]
-  (proto/matrix-multiply *backend* A B))
+  (let [backend-A (to-backend-matrix A)
+        backend-B (to-backend-matrix B)
+        result (proto/matrix-multiply *backend* backend-A backend-B)]
+    (from-backend-matrix result)))
 
 (defn complex-matrix-multiply
   "Perform explicit complex matrix multiplication.
   
   Parameters:
-  - A: Left complex matrix
-  - B: Right complex matrix with compatible dimensions
+  - A: Left complex matrix (Vec2 or SoA format)
+  - B: Right complex matrix (Vec2 or SoA format) with compatible dimensions
   
   Returns:
-  Complex matrix representing the product A × B
+  Complex matrix representing the product A × B in Vec2 format
   
   Note:
   This is an alias of matrix-multiply for clarity in complex contexts"
   [A B]
-  (proto/matrix-multiply *backend* A B))
+  (matrix-multiply A B))
 
 (defn matrix-vector
   "Perform matrix–vector multiplication A × x.
   
   Parameters:
-  - A: Matrix (real or complex)
-  - x: Vector (real or complex) with compatible dimensions
+  - A: Matrix (real or complex, Vec2 or SoA format)
+  - x: Vector (real or complex, Vec2 or SoA format) with compatible dimensions
   
   Returns:
-  Vector representing the product A × x"
+  Vector representing the product A × x in Vec2 format"
   [A x]
-  (proto/matrix-vector-product *backend* A x))
+  (let [backend-A (to-backend-matrix A)
+        backend-x (to-backend-vector x)
+        result (proto/matrix-vector-product *backend* backend-A backend-x)]
+    (from-backend-vector result)))
 
 (defn complex-matrix-vector
   "Perform complex matrix–vector multiplication.
   
   Parameters:
-  - A: Complex matrix
-  - x: Complex vector with compatible dimensions
+  - A: Complex matrix (Vec2 or SoA format)
+  - x: Complex vector (Vec2 or SoA format) with compatible dimensions
   
   Returns:
-  Complex vector representing the product A × x
+  Complex vector representing the product A × x in Vec2 format
   
   Note:
   Automatically promotes real arguments to complex representation"
   [A x]
-  (proto/matrix-vector-product *backend* A x))
+  (matrix-vector A x))
 
 (defn outer-product
   "Compute the outer product x ⊗ y†.
   
   Parameters:
-  - x: First vector (real or complex)
-  - y: Second vector (real or complex)
+  - x: First vector (real or complex, Vec2 or SoA format)
+  - y: Second vector (real or complex, Vec2 or SoA format)
   
   Returns:
-  Matrix representing the outer product x ⊗ y† (no conjugation of x)
+  Matrix representing the outer product x ⊗ y† in Vec2 format (no conjugation of x)
   
   Note:
   For quantum states, this creates projector-like matrices"
   [x y]
-  (proto/outer-product *backend* x y))
+  (let [backend-x (to-backend-vector x)
+        backend-y (to-backend-vector y)
+        result (proto/outer-product *backend* backend-x backend-y)]
+    (from-backend-matrix result)))
 
 (defn hadamard
   "Compute the element-wise (Hadamard) product A ⊙ B.
   
   Parameters:
-  - A: First matrix (real or complex)
-  - B: Second matrix (real or complex) with same dimensions as A
+  - A: First matrix (real or complex, Vec2 or SoA format)
+  - B: Second matrix (real or complex, Vec2 or SoA format) with same dimensions as A
   
   Returns:
-  Matrix with element-wise multiplication of A and B"
+  Matrix with element-wise multiplication of A and B in Vec2 format"
   [A B]
-  (proto/hadamard *backend* A B))
+  (let [backend-A (to-backend-matrix A)
+        backend-B (to-backend-matrix B)
+        result (proto/hadamard *backend* backend-A backend-B)]
+    (from-backend-matrix result)))
 
 (defn kronecker
   "Compute the Kronecker (tensor) product A ⊗ B.
   
   Parameters:
-  - A: First matrix (real or complex)
-  - B: Second matrix (real or complex)
+  - A: First matrix (real or complex, Vec2 or SoA format)
+  - B: Second matrix (real or complex, Vec2 or SoA format)
   
   Returns:
-  Matrix representing the Kronecker product A ⊗ B
+  Matrix representing the Kronecker product A ⊗ B in Vec2 format
   
   Note:
   Essential for quantum computing multi-qubit operations"
   [A B]
-  (proto/kronecker *backend* A B))
+  (let [backend-A (to-backend-matrix A)
+        backend-B (to-backend-matrix B)
+        result (proto/kronecker *backend* backend-A backend-B)]
+    (from-backend-matrix result)))
 
 (defn complex-kronecker
   "Compute the complex Kronecker product.
   
   Parameters:
-  - A: First complex matrix
-  - B: Second complex matrix
+  - A: First complex matrix (Vec2 or SoA format)
+  - B: Second complex matrix (Vec2 or SoA format)
   
   Returns:
-  Complex matrix representing the Kronecker product A ⊗ B
+  Complex matrix representing the Kronecker product A ⊗ B in Vec2 format
   
   Note:
   This is an alias of kronecker for clarity in complex contexts"
   [A B]
-  (proto/kronecker *backend* A B))
+  (kronecker A B))
 
 ;;
 ;; Transforms
@@ -352,26 +412,30 @@
   "Compute the transpose Aᵀ.
   
   Parameters:
-  - A: Matrix (real or complex)
+  - A: Matrix (real or complex, Vec2 or SoA format)
   
   Returns:
-  Matrix representing the transpose of A"
+  Matrix representing the transpose of A in Vec2 format"
   [A]
-  (proto/transpose *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/transpose *backend* backend-A)]
+    (from-backend-matrix result)))
 
 (defn conjugate-transpose
   "Compute the conjugate transpose Aᴴ (Hermitian adjoint).
   
   Parameters:
-  - A: Matrix (real or complex)
+  - A: Matrix (real or complex, Vec2 or SoA format)
   
   Returns:
-  Matrix representing the conjugate transpose of A
+  Matrix representing the conjugate transpose of A in Vec2 format
   
   Note:
   For real matrices, this is equivalent to transpose"
   [A]
-  (proto/conjugate-transpose *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/conjugate-transpose *backend* backend-A)]
+    (from-backend-matrix result)))
 
 ;;
 ;; Reductions / scalar results
@@ -380,64 +444,83 @@
   "Compute the trace Tr(A) = Σ aᵢᵢ.
   
   Parameters:
-  - A: Square matrix (real or complex)
+  - A: Square matrix (real or complex, Vec2 or SoA format)
   
   Returns:
   Scalar representing the sum of diagonal elements"
   [A]
-  (proto/trace *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        backend-result (proto/trace *backend* backend-A)]
+    (from-backend-scalar backend-result)))
 
 (defn inner-product
   "Compute the vector inner product ⟨x|y⟩.
   
   Parameters:
-  - x: First vector (real or complex)
-  - y: Second vector (real or complex) with same length as x
+  - x: First vector (real or complex, Vec2 or SoA format)
+  - y: Second vector (real or complex, Vec2 or SoA format) with same length as x
   
   Returns:
   Scalar representing the inner product
   
   Note:
-  Conjugates the first argument if complex"
+  For complex vectors, computes ⟨x|y⟩ = Σ xᵢ* yᵢ (conjugate x)"
   [x y]
-  (proto/inner-product *backend* x y))
+  (let [backend-x (to-backend-vector x)
+        backend-y (to-backend-vector y)
+        backend-result (proto/inner-product *backend* backend-x backend-y)]
+    (from-backend-scalar backend-result)))
 
 (defn norm2
   "Compute the Euclidean norm ||x||₂.
   
   Parameters:
-  - x: Vector (real or complex)
+  - x: Vector (real or complex, Vec2 or SoA format)
   
   Returns:
   Non-negative real number representing the Euclidean norm"
   [x]
-  (proto/norm2 *backend* x))
+  (let [backend-x (to-backend-vector x)
+        backend-result (proto/norm2 *backend* backend-x)]
+    (from-backend-scalar backend-result)))
 
 ;;
 ;; Linear solves / inverse
 ;;
 (defn linear-solve
-  "Solve the linear system A x = b.
+  "Solve the linear system Ax = b.
   
   Parameters:
-  - A: Square matrix (real or complex), must be non-singular
-  - b: Right-hand side vector (real or complex)
+  - A: Matrix (square, Vec2 or SoA format)
+  - b: Vector or matrix (Vec2 or SoA format)
   
   Returns:
-  Solution vector x, or nil/throws if A is singular"
+  Solution vector(s) x such that Ax = b (in original format)"
   [A b]
-  (proto/solve-linear-system *backend* A b))
+  (let [backend-A (to-backend-matrix A)
+        backend-b (if (vector? (first b))
+                    (to-backend-matrix b)  ; matrix
+                    (to-backend-vector b)) ; vector
+        result (proto/solve-linear-system *backend* backend-A backend-b)]
+    (if (vector? (first b))
+      (from-backend-matrix result)  ; return matrix
+      (from-backend-vector result)))) ; return vector
 
 (defn matrix-inverse
   "Compute the matrix inverse A⁻¹.
   
   Parameters:
-  - A: Square non-singular matrix (real or complex)
+  - A: Square matrix (Vec2 or SoA format)
   
   Returns:
-  Inverse matrix A⁻¹, or nil if A is singular"
+  Inverse matrix A⁻¹ (in original format)
+  
+  Throws:
+  Exception if matrix is singular"
   [A]
-  (proto/inverse *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/inverse *backend* backend-A)]
+    (from-backend-matrix result)))
 
 ;;
 ;; Predicates
@@ -446,31 +529,35 @@
   "Test if a matrix is Hermitian (A ≈ Aᴴ).
   
   Parameters:
-  - A: Square matrix (real or complex)
+  - A: Square matrix (real or complex, Vec2 or SoA format)
   - eps: Optional tolerance for approximate equality (uses current tolerance if not provided)
   
   Returns:
   Boolean indicating whether A is Hermitian or real symmetric"
-  ([A] (proto/hermitian? *backend* A))
-  ([A eps] (proto/hermitian? *backend* A eps)))
+  ([A] (let [backend-A (to-backend-matrix A)]
+         (proto/hermitian? *backend* backend-A)))
+  ([A eps] (let [backend-A (to-backend-matrix A)]
+             (proto/hermitian? *backend* backend-A eps))))
 
 (defn unitary?
   "Test if a matrix is unitary (Uᴴ U ≈ I).
   
   Parameters:
-  - U: Square matrix (real or complex)
+  - U: Square matrix (real or complex, Vec2 or SoA format)
   - eps: Optional tolerance for approximate equality (uses current tolerance if not provided)
   
   Returns:
   Boolean indicating whether U is unitary (or orthogonal for real matrices)"
-  ([U] (proto/unitary? *backend* U))
-  ([U eps] (proto/unitary? *backend* U eps)))
+  ([U] (let [backend-U (to-backend-matrix U)]
+         (proto/unitary? *backend* backend-U)))
+  ([U eps] (let [backend-U (to-backend-matrix U)]
+             (proto/unitary? *backend* backend-U eps))))
 
 (defn positive-semidefinite?
   "Test if a matrix is positive semidefinite.
   
   Parameters:
-  - A: Square Hermitian matrix (real or complex)
+  - A: Square Hermitian matrix (real or complex, Vec2 or SoA format)
   
   Returns:
   Boolean indicating whether all eigenvalues of A are ≥ -eps
@@ -478,7 +565,8 @@
   Note:
   Matrix must be Hermitian for meaningful results"
   [A]
-  (proto/positive-semidefinite? *backend* A))
+  (let [backend-A (to-backend-matrix A)]
+    (proto/positive-semidefinite? *backend* backend-A)))
 
 (defn trace-one?
   "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1).
@@ -492,8 +580,10 @@
   
   Note:
   Useful for validating quantum density matrices"
-  ([rho] (proto/trace-one? *backend* rho))
-  ([rho eps] (proto/trace-one? *backend* rho eps)))
+  ([rho] (let [backend-rho (to-backend-matrix rho)]
+           (proto/trace-one? *backend* backend-rho)))
+  ([rho eps] (let [backend-rho (to-backend-matrix rho)]
+               (proto/trace-one? *backend* backend-rho eps))))
 
 ;;
 ;; Decompositions
@@ -502,47 +592,109 @@
   "Compute the eigendecomposition of a Hermitian matrix.
   
   Parameters:
-  - A: Square Hermitian matrix (real symmetric or complex Hermitian)
+  - A: Square Hermitian matrix (Vec2 or SoA format)
   
   Returns:
   Map containing:
   - :eigenvalues - Vector of eigenvalues in ascending order
-  - :eigenvectors - Vector of corresponding eigenvector columns [v0 v1 ...]"
+  - :eigenvectors - Vector of corresponding eigenvector columns [v0 v1 ...]
+  (Both eigenvalues and eigenvectors returned in original format)"
   [A]
-  (proto/eigen-hermitian *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/eigen-hermitian *backend* backend-A)]
+    (-> result
+        (update :eigenvalues from-backend-vector)
+        (update :eigenvectors #(mapv from-backend-vector %)))))
 
 (defn eigen-general
   "Compute eigenvalues for a general (possibly non-Hermitian) matrix.
   
   Parameters:
-  - A: Square matrix (real or complex)
+  - A: Square matrix (Vec2 or SoA format)
   
   Returns:
   Map containing:
-  - :eigenvalues - Vector of eigenvalue approximations
+  - :eigenvalues - Vector of eigenvalue approximations (in original format)
   - :iterations - Number of iterations used in computation"
   [A]
-  (proto/eigen-general *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        result (proto/eigen-general *backend* backend-A)]
+    (update result :eigenvalues from-backend-vector)))
 
 (defn svd
   "Compute the Singular Value Decomposition of a matrix.
   
   Parameters:
-  - A: Matrix (real or complex, may be rectangular)
+  - A: Matrix (Vec2 or SoA format, may be rectangular)
   
   Returns:
   Map containing:
-  - :U - Left singular vectors matrix
-  - :singular-values - Vector of singular values [σ0≥σ1≥...] in descending order
-  - :Vt - Right singular vectors transpose matrix
+  - :U - Left singular vectors matrix (in original format)
+  - :singular-values - Vector of singular values [σ0≥σ1≥...] in descending order (in original format)
+  - :Vt - Right singular vectors transpose matrix (in original format)
   
   Note:
   Renames backend keys (:S :V†) for consistency"
   [A]
-  (let [{:keys [U S V†] :as raw} (proto/svd *backend* A)]
-    (cond-> {:U U :singular-values S}
-      V† (assoc :Vt V†)
+  (let [backend-A (to-backend-matrix A)
+        {:keys [U S V†] :as raw} (proto/svd *backend* backend-A)]
+    (cond-> {:U (from-backend-matrix U) 
+             :singular-values (from-backend-vector S)}
+      V† (assoc :Vt (from-backend-matrix V†))
       (nil? U) (into raw))))
+
+(defn lu-decomposition
+  "Compute the LU decomposition A = P L U.
+  
+  Parameters:
+  - A: Square matrix (Vec2 or SoA format)
+  
+  Returns:
+  Map containing:
+  - :P - Row permutation matrix (in original format)
+  - :L - Lower triangular matrix (in original format)
+  - :U - Upper triangular matrix (in original format)"
+  [A]
+  (let [backend-A (to-backend-matrix A)
+        result (proto/lu-decomposition *backend* backend-A)]
+    (-> result
+        (update :P from-backend-matrix)
+        (update :L from-backend-matrix)
+        (update :U from-backend-matrix))))
+
+(defn qr-decomposition
+  "Compute the QR decomposition A = Q R.
+  
+  Parameters:
+  - A: Matrix (Vec2 or SoA format)
+  
+  Returns:
+  Map containing:
+  - :Q - Orthogonal/unitary matrix (in original format)
+  - :R - Upper triangular matrix (in original format)"
+  [A]
+  (let [backend-A (to-backend-matrix A)
+        result (proto/qr-decomposition *backend* backend-A)]
+    (-> result
+        (update :Q from-backend-matrix)
+        (update :R from-backend-matrix))))
+
+(defn cholesky-decomposition
+  "Compute the Cholesky decomposition A = L L†.
+  
+  Parameters:
+  - A: Positive semidefinite matrix (Vec2 or SoA format)
+  
+  Returns:
+  Map containing:
+  - :L - Lower triangular matrix such that A = L L† (in original format)
+  
+  Note:
+  May throw or return nil if A is not positive semidefinite"
+  [A]
+  (let [backend-A (to-backend-matrix A)
+        result (proto/cholesky-decomposition *backend* backend-A)]
+    (update result :L from-backend-matrix)))
 
 ;;
 ;; Matrix functions
@@ -559,7 +711,8 @@
   Note:
   Important for quantum time evolution operators"
   [A]
-  (proto/matrix-exp *backend* A))
+  (let [backend-A (to-backend-matrix A)]
+    (from-backend-matrix (proto/matrix-exp *backend* backend-A))))
 
 (defn matrix-log
   "Compute the principal matrix logarithm log(A).
@@ -570,7 +723,8 @@
   Returns:
   Matrix representing the principal branch of log(A)"
   [A]
-  (proto/matrix-log *backend* A))
+  (let [backend-A (to-backend-matrix A)]
+    (from-backend-matrix (proto/matrix-log *backend* backend-A))))
 
 (defn matrix-sqrt
   "Compute the principal matrix square root √A.
@@ -581,7 +735,8 @@
   Returns:
   Matrix representing the principal square root of A"
   [A]
-  (proto/matrix-sqrt *backend* A))
+  (let [backend-A (to-backend-matrix A)]
+    (from-backend-matrix (proto/matrix-sqrt *backend* backend-A))))
 
 ;;
 ;; Analysis
@@ -595,7 +750,9 @@
   Returns:
   Non-negative real number representing the largest singular value"
   [A]
-  (proto/spectral-norm *backend* A))
+  (let [backend-A (to-backend-matrix A)
+        backend-result (proto/spectral-norm *backend* backend-A)]
+    (from-backend-scalar backend-result)))
 
 (defn condition-number
   "Compute the 2-norm condition number κ₂(A) = σ_max / σ_min.
@@ -609,7 +766,8 @@
   Note:
   Higher values indicate numerical instability in linear solves"
   [A]
-  (proto/condition-number *backend* A))
+  (let [backend-A (to-backend-matrix A)]
+    (proto/condition-number *backend* backend-A)))
 
 ;;
 ;; Quantum state helpers
@@ -623,7 +781,8 @@
   Returns:
   Normalized state vector ψ/||ψ||₂ with unit norm"
   [state]
-  (proto/state-normalize *backend* state))
+  (let [backend-state (to-backend-vector state)]
+    (from-backend-vector (proto/state-normalize *backend* backend-state))))
 
 (defn projector-from-state
   "Create a projector matrix from a quantum state.
@@ -637,7 +796,8 @@
   Note:
   Automatically normalizes the state before creating the projector"
   [psi]
-  (proto/projector-from-state *backend* psi))
+  (let [backend-psi (to-backend-vector psi)]
+    (from-backend-matrix (proto/projector-from-state *backend* backend-psi))))
 
 (defn density-matrix
   "Create a density matrix from a pure quantum state.
@@ -651,7 +811,8 @@
   Note:
   This is an alias of projector-from-state for quantum contexts"
   [psi]
-  (proto/density-matrix *backend* psi))
+  (let [backend-psi (to-backend-vector psi)]
+    (from-backend-matrix (proto/density-matrix *backend* backend-psi))))
 
 ;;
 ;; Convenience reconstruction helpers
@@ -661,19 +822,21 @@
 
   Parameters:
   - eigenvalues   vector [λ₀ … λₙ₋₁]
-  - eigenvectors  vector of eigenvector column vectors [v₀ …]
+  - eigenvectors  vector of eigenvector column vectors [v₀ …] (Vec2 or SoA format)
 
   Returns:
-  Matrix Σ λᵢ vᵢ vᵢᵀ (real case only for now).
+  Matrix Σ λᵢ vᵢ vᵢᵀ (real case only for now) in Vec2 format.
   NOTE: Complex support can be added when complex eigenvectors are exposed."
   [eigenvalues eigenvectors]
   {:pre [(= (count eigenvalues) (count eigenvectors))]}
   (let [n (count (first eigenvectors))
-        zero (vec (repeat n (vec (repeat n 0.0))))]
-    (reduce (fn [acc [λ v]]
-              (let [outer (mapv (fn [i]
-                                  (mapv (fn [j] (* λ (double (nth v i)) (double (nth v j)))) (range n)))
-                                (range n))]
-                (proto/add *backend* acc outer)))
-            zero
-            (map vector eigenvalues eigenvectors))))
+        zero (vec (repeat n (vec (repeat n 0.0))))
+        backend-zero (to-backend-matrix zero)]
+    (from-backend-matrix
+     (reduce (fn [acc [λ v]]
+               (let [backend-v (to-backend-vector v)
+                     outer (proto/outer-product *backend* backend-v backend-v)
+                     scaled-outer (proto/scale *backend* outer λ)]
+                 (proto/add *backend* acc scaled-outer)))
+             backend-zero
+             (map vector eigenvalues eigenvectors)))))

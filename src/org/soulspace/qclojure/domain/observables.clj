@@ -14,7 +14,7 @@
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.gate :as gate]
             [org.soulspace.qclojure.domain.state :as state]
-            [org.soulspace.qclojure.domain.math.core :as math]))
+            [org.soulspace.qclojure.domain.math.core :as mcore]))
 
 ;;
 ;; Specs for Observables
@@ -101,7 +101,7 @@
   {:pre [(s/valid? (s/coll-of (s/tuple number? ::observable)) coeffs-observables)]}
   (reduce 
     (fn [result [coeff obs]]
-      (math/add result (math/scale obs coeff)))
+      (mcore/add result (mcore/scale obs coeff)))
     (zero-matrix (count (first (second (first coeffs-observables))))
                  (count (second (first coeffs-observables))))
     coeffs-observables))
@@ -119,7 +119,7 @@
      (tensor-product [pauli-x pauli-z])"
   [observables]
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
-  (reduce math/kronecker observables))
+  (reduce mcore/kronecker observables))
 
 ;;
 ;; Pauli String Functions
@@ -167,8 +167,8 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        obs-psi (math/matrix-vector observable state-vec)]
-    (fc/re (math/inner-product state-vec obs-psi))))
+        obs-psi (mcore/matrix-vector observable state-vec)]
+    (fc/re (mcore/inner-product state-vec obs-psi))))
 
 (defn variance
   "Calculate variance of observable: ⟨O²⟩ - ⟨O⟩²
@@ -183,7 +183,7 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [exp-val (expectation-value observable quantum-state)
-        obs-squared (math/matrix-multiply observable observable)
+        obs-squared (mcore/matrix-multiply observable observable)
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
@@ -197,7 +197,7 @@
      Boolean indicating if matrix is Hermitian"
   [matrix]
   {:pre [(s/valid? ::matrix matrix)]}
-  (math/hermitian? matrix))
+  (mcore/hermitian? matrix))
 
 ;;
 ;; Measurement Simulation

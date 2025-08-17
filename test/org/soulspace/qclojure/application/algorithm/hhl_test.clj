@@ -5,6 +5,7 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.string :as str]
+            [org.soulspace.qclojure.domain.math.core :as mcore]
             [org.soulspace.qclojure.application.algorithm.hhl :as hhl]
             [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
@@ -62,13 +63,6 @@
 ;;
 ;; Helper Functions for Classical Verification
 ;;
-(defn matrix-vector-multiply
-  "Multiply matrix A with vector x to get Ax"
-  [matrix vector]
-  (mapv (fn [row]
-          (reduce + (map * row vector)))
-        matrix))
-
 (defn solve-2x2-system
   "Solve 2x2 linear system Ax = b analytically"
   [[[a b] [c d]] [e f]]
@@ -270,7 +264,7 @@
       ;; Test that the solution satisfies A*x ≈ b with proper scaling
       (when (:success result)
         (let [solution (:solution-vector result)
-              computed-b (matrix-vector-multiply matrix solution)]
+              computed-b (mcore/matrix-vector matrix solution)]
           ;; With corrected amplitude extraction and scaling,
           ;; expect better accuracy than before (was ~30%, now target ~20%)
           (is (vectors-close? computed-b vector 0.2)
@@ -497,7 +491,7 @@
       (is (not (nil? solution)) "Solve should return a solution for positive definite matrix")
       
       ;; Verify the solution satisfies A*x ≈ b within reasonable tolerance
-      (let [computed-b (matrix-vector-multiply matrix solution)
+      (let [computed-b (mcore/matrix-vector matrix solution)
             error-vector (mapv - computed-b vector)
             max-error (apply max (map #(Math/abs %) error-vector))]
         (is (< max-error 0.3) ; 30% tolerance for complex matrices
@@ -547,7 +541,7 @@
           (str "Solution " solution " should be close to input " vector))
       
       ;; Most importantly: verify the solution satisfies A*x = b
-      (let [computed-b (matrix-vector-multiply matrix solution)]
+      (let [computed-b (mcore/matrix-vector matrix solution)]
         (is (vectors-close? computed-b vector 0.1)
             "A*x should equal b within tolerance"))))
 
@@ -654,9 +648,9 @@
         solution (:solution-vector result)]
     (when (:success result)
       {:solution solution
-       :computed-b (matrix-vector-multiply matrix solution)
+       :computed-b (mcore/matrix-vector matrix solution)
        :original-b vector
-       :error (mapv - (matrix-vector-multiply matrix solution) vector)}))
+       :error (mapv - (mcore/matrix-vector matrix solution) vector)}))
 
   ;; Run property-based tests
   (tc/quick-check 30 hhl-algorithm-properties)

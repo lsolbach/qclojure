@@ -8,7 +8,7 @@
     - Keep data shapes simple: matrices as vectors of row vectors; vectors as vectors of numbers.
     - Handle conversions between FastMath Vec2 format and backend-specific representations.
     
-    Default backend: :pure, implemented via org.soulspace.qclojure.domain.math.linear-algebra.
+    Default backend: :pure, implemented via org.soulspace.qclojure.domain.math.clojure-math.
     
     Use `set-backend!` to change the global backend, or `with-backend` to override in a dynamic scope."
   (:require
@@ -487,25 +487,6 @@
 ;;
 ;; Linear solves / inverse
 ;;
-(defn linear-solve
-  "Solve the linear system Ax = b.
-  
-  Parameters:
-  - A: Matrix (square, Vec2 or SoA format)
-  - b: Vector or matrix (Vec2 or SoA format)
-  
-  Returns:
-  Solution vector(s) x such that Ax = b (in original format)"
-  [A b]
-  (let [backend-A (to-backend-matrix A)
-        backend-b (if (vector? (first b))
-                    (to-backend-matrix b)  ; matrix
-                    (to-backend-vector b)) ; vector
-        result (proto/solve-linear-system *backend* backend-A backend-b)]
-    (if (vector? (first b))
-      (from-backend-matrix result)  ; return matrix
-      (from-backend-vector result)))) ; return vector
-
 (defn matrix-inverse
   "Compute the matrix inverse A⁻¹.
   
@@ -521,6 +502,25 @@
   (let [backend-A (to-backend-matrix A)
         result (proto/inverse *backend* backend-A)]
     (from-backend-matrix result)))
+
+(defn solve-linear-system
+  "Solve the linear system Ax = b.
+  
+  Parameters:
+  - A: Matrix (square, Vec2 or SoA format)
+  - b: Vector or matrix (Vec2 or SoA format)
+  
+  Returns:
+  Solution vector(s) x such that Ax = b (in original format)"
+ [A b]
+ (let [backend-A (to-backend-matrix A)
+       backend-b (if (vector? (first b))
+                   (to-backend-matrix b)  ; matrix
+                   (to-backend-vector b)) ; vector
+       result (proto/solve-linear-system *backend* backend-A backend-b)]
+   (if (vector? (first b))
+     (from-backend-matrix result)  ; return matrix
+     (from-backend-vector result)))) ; return vector
 
 ;;
 ;; Predicates

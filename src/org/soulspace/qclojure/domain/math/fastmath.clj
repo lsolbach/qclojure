@@ -500,7 +500,7 @@
 (extend-protocol proto/MatrixFunctions
   FastMathBackend
   
-  (matrix-exp [_ A]
+  (matrix-exp [backend A]
     "Compute the matrix exponential exp(A)."
     (if (is-real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath exp
@@ -511,8 +511,50 @@
             diag-exp (fmat/diagonal exp-eigenvals)
             result (fmat/mulm eigenvecs (fmat/mulm diag-exp (fmat/transpose eigenvecs)))]
         (real-matrix->qmatrix result))
-      ;; Complex matrix case - implement via eigendecomposition
-      (throw (ex-info "Complex matrix exponential not yet implemented" {}))))
+      ;; Complex matrix case - use eigendecomposition approach
+      (let [[n m] (complex-matrix-shape A)]
+        (when (not= n m) 
+          (throw (ex-info "Matrix exponential requires square matrix" {:shape [n m]})))
+        (if (= n 1)
+          ;; 1x1 complex scalar case
+          (let [z (get-in A [0 0])
+                re (fc/re z) 
+                im (fc/im z)
+                exp-re (Math/exp re)
+                result-re (* exp-re (Math/cos im))
+                result-im (* exp-re (Math/sin im))]
+            [[(fc/complex result-re result-im)]])
+          ;; General complex matrix - use eigendecomposition if Hermitian
+          (try
+            (let [eigen-result (proto/eigen-hermitian backend A)
+                  eigenvalues (:eigenvalues eigen-result)
+                  eigenvectors (:eigenvectors eigen-result)]
+              ;; Compute exp(lambda_i) for each eigenvalue  
+              (let [exp-eigenvals (mapv (fn [{:keys [real imag]}]
+                                          (let [exp-re (Math/exp real)
+                                                result-re (* exp-re (Math/cos imag))
+                                                result-im (* exp-re (Math/sin imag))]
+                                            (fc/complex result-re result-im)))
+                                        eigenvalues)
+                    ;; Reconstruct exp(A) = sum_i exp(lambda_i) |v_i><v_i|
+                    zero-matrix (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n))]
+                (reduce (fn [acc [exp-lambda eigenvec]]
+                          (let [;; Create rank-1 matrix |v><v|
+                                rank1 (mapv (fn [i]
+                                              (mapv (fn [j]
+                                                      (fc/mult exp-lambda
+                                                               (fc/mult (get eigenvec i)
+                                                                        (fc/conjugate (get eigenvec j)))))
+                                                    (range n)))
+                                            (range n))]
+                            (proto/add backend acc rank1)))
+                        zero-matrix
+                        (map vector exp-eigenvals eigenvectors))))
+            (catch Exception e
+              ;; If eigendecomposition fails, fall back to series approximation
+              (throw (ex-info "Complex matrix exponential failed - matrix may not be Hermitian" 
+                              {:original-error (.getMessage e)
+                               :suggestion "For non-Hermitian matrices, consider implementing Padé approximation"}))))))))
   
   (matrix-log [_ A]
     "Compute the principal matrix logarithm log(A)."

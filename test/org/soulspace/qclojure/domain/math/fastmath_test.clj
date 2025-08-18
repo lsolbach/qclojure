@@ -20,7 +20,7 @@
             [org.soulspace.qclojure.domain.math.protocols :as proto]
             [fastmath.complex :as fc]))
 
-(def backend (fm-backend/->FastMathBackend 1e-12))
+(def backend (fm-backend/->FastMathBackend 1e-12 {}))
 
 (defn approx= 
   "Approximate equality for FastMath Vec2 complex numbers, vectors, and matrices."

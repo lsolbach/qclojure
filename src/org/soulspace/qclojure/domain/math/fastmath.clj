@@ -34,7 +34,7 @@
   "Test if x represents a complex scalar (Vec2 or complex map)."
   [x]
   (or (complex? x)
-      (and (map? x) (contains? x :real) (contains? x :imag) 
+      (and (map? x) (contains? x :real) (contains? x :imag)
            (number? (:real x)) (number? (:imag x)))))
 
 (defn complex-vector?
@@ -101,15 +101,15 @@
   (imag [x] (fc/im x))
   (conjugate [x] (fc/conjugate x))
   (complex? [_] true)
-  
+
   java.lang.Number
   (real [x] (double x))
   (imag [_] 0.0)
   (conjugate [x] x)
   (complex? [_] false)
-  
+
   clojure.lang.IPersistentMap
-  (real [x] 
+  (real [x]
     (if (and (contains? x :real) (contains? x :imag))
       (:real x)
       (throw (ex-info "Not a complex map" {:value x}))))
@@ -121,10 +121,10 @@
     (if (and (contains? x :real) (contains? x :imag))
       {:real (:real x) :imag (- (:imag x))}
       (throw (ex-info "Not a complex map" {:value x}))))
-  (complex? [x] 
-    (and (contains? x :real) (contains? x :imag) 
+  (complex? [x]
+    (and (contains? x :real) (contains? x :imag)
          (number? (:real x)) (number? (:imag x))))
-  
+
   clojure.lang.IPersistentVector
   (real [v] (mapv proto/real v))
   (imag [v] (mapv proto/imag v))
@@ -142,63 +142,63 @@
     (cond
       ;; Already a vector of Vec2 complex numbers - pass through
       (and (vector? v) (every? complex? v)) v
-      
+
       ;; Vector of complex maps - convert to Vec2
       (complex-vector? v) (mapv complex-map->vec2 v)
-      
+
       ;; Vector of real numbers - convert to Vec2 with zero imaginary
       (and (vector? v) (every? number? v)) (mapv #(fc/complex % 0.0) v)
-      
+
       ;; Single complex number - return as single-element vector
       (complex-scalar? v) [(ensure-complex v)]
-      
+
       ;; Single real number - return as single-element vector
       (number? v) [(fc/complex v 0.0)]
-      
+
       :else (throw (ex-info "Cannot convert to backend vector" {:value v}))))
-  
+
   (backend->vector [_ v]
     "Convert FastMath vector to QClojure representation."
     (cond
       ;; Vector of Vec2 - convert to complex maps
       (and (vector? v) (every? complex? v)) (mapv vec2->complex-map v)
-      
+
       ;; Already in QClojure format - pass through
       (vector? v) v
-      
+
       :else (throw (ex-info "Cannot convert from backend vector" {:value v}))))
-  
+
   (matrix->backend [_ m]
     "Convert QClojure matrix to FastMath representation."
     (cond
       ;; Matrix of Vec2 complex numbers - pass through
       (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m)) m
-      
+
       ;; Complex matrix - convert to Vec2
       (complex-matrix? m) (mapv #(mapv complex-map->vec2 %) m)
-      
+
       ;; Real matrix - convert to Vec2 with zero imaginary
       (and (vector? m) (every? #(and (vector? %) (every? number? %)) m))
       (mapv #(mapv (fn [x] (fc/complex x 0.0)) %) m)
-      
+
       :else (throw (ex-info "Cannot convert to backend matrix" {:value m}))))
-  
+
   (backend->matrix [_ m]
     "Convert FastMath matrix to QClojure representation."
     (cond
       ;; Matrix of Vec2 - convert to complex maps
       (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m))
       (mapv #(mapv vec2->complex-map %) m)
-      
+
       ;; Already in QClojure format - pass through
       (vector? m) m
-      
+
       :else (throw (ex-info "Cannot convert from backend matrix" {:value m}))))
-  
+
   (scalar->backend [_ s]
     "Convert QClojure scalar to FastMath representation."
     (ensure-complex s))
-  
+
   (backend->scalar [_ s]
     "Convert FastMath scalar to QClojure representation."
     (cond
@@ -225,7 +225,7 @@
   [z]
   (let [vec2-z (ensure-complex z)]
     (when-not (< (Math/abs (fc/im vec2-z)) 1e-12)
-      (throw (ex-info "Complex number has non-zero imaginary part" 
+      (throw (ex-info "Complex number has non-zero imaginary part"
                       {:value z :imaginary (fc/im vec2-z)})))
     (fc/re vec2-z)))
 
@@ -268,7 +268,7 @@
       (throw (ex-info "Matrix must be square for solving" {:shape [n m]})))
     (when (not= n (count b))
       (throw (ex-info "Incompatible dimensions" {:matrix-rows n :vector-length (count b)})))
-    
+
     ;; Create augmented matrix [A|b]
     (let [augmented (mapv (fn [i]
                             (conj (vec (get A i)) (get b i)))
@@ -283,7 +283,7 @@
                    k (dec n)]
               (if (< k 0)
                 sol
-                (let [sum (reduce fc/add 
+                (let [sum (reduce fc/add
                                   (fc/complex 0.0 0.0)
                                   (map (fn [j]
                                          (fc/mult (get-in aug [k j]) (get sol j)))
@@ -291,7 +291,7 @@
                       rhs (fc/sub (get-in aug [k n]) sum)
                       pivot (get-in aug [k k])]
                   (when (< (fc/abs pivot) 1e-14)
-                    (throw (ex-info "Matrix is singular or nearly singular" 
+                    (throw (ex-info "Matrix is singular or nearly singular"
                                     {:pivot-magnitude (fc/abs pivot)})))
                   (recur (assoc sol k (fc/div rhs pivot))
                          (dec k))))))
@@ -306,11 +306,11 @@
                 pivot-val (get-in aug [pivot-row i])]
             (when (< (fc/abs pivot-val) 1e-14)
               (throw (ex-info "Matrix is singular" {:row i :pivot-magnitude (fc/abs pivot-val)})))
-            
+
             ;; Swap rows if needed
             (let [swapped-aug (if (= pivot-row i)
                                 aug
-                                (assoc aug 
+                                (assoc aug
                                        i (get aug pivot-row)
                                        pivot-row (get aug i)))]
               ;; Eliminate below pivot
@@ -334,7 +334,7 @@
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
       (throw (ex-info "Matrix must be square for inverse" {:shape [n m]})))
-    
+
     ;; Create augmented matrix [A|I] 
     (let [identity (mapv (fn [i]
                            (mapv (fn [j]
@@ -346,7 +346,7 @@
           augmented (mapv (fn [i]
                             (vec (concat (get A i) (get identity i))))
                           (range n))]
-      
+
       ;; Forward elimination with partial pivoting  
       (loop [aug augmented
              i 0]
@@ -368,15 +368,15 @@
                 pivot-val (get-in aug [pivot-row i])]
             (when (< (fc/abs pivot-val) 1e-14)
               (throw (ex-info "Matrix is singular" {:row i :pivot-magnitude (fc/abs pivot-val)})))
-            
+
             ;; Swap rows if needed
             (let [swapped-aug (if (= pivot-row i)
                                 aug
-                                (assoc aug 
+                                (assoc aug
                                        i (get aug pivot-row)
                                        pivot-row (get aug i)))
                   pivot (get-in swapped-aug [i i])]
-              
+
               ;; Scale pivot row
               (let [scaled-aug (assoc swapped-aug i
                                       (mapv #(fc/div % pivot)
@@ -401,30 +401,30 @@
 
 (extend-protocol proto/MatrixAlgebra
   FastMathBackend
-  
+
   (shape [_ A]
     "Return the dimensions of a matrix."
     (complex-matrix-shape A))
-  
+
   (add [_ A B]
     "Perform matrix addition A + B."
     (mapv (fn [row-a row-b]
             (mapv fc/add row-a row-b))
           A B))
-  
+
   (subtract [_ A B]
-    "Perform matrix subtraction A - B."  
+    "Perform matrix subtraction A - B."
     (mapv (fn [row-a row-b]
             (mapv fc/sub row-a row-b))
           A B))
-  
+
   (scale [_ A alpha]
     "Perform scalar multiplication alpha · A."
     (let [alpha-vec2 (ensure-complex alpha)]
       (mapv (fn [row]
               (mapv #(complex-scale % alpha-vec2) row))
             A)))
-  
+
   (negate [backend A]
     "Compute the additive inverse -A."
     (proto/scale backend A -1.0))
@@ -435,7 +435,7 @@
     (let [[rows-a cols-a] (complex-matrix-shape A)
           [rows-b cols-b] (complex-matrix-shape B)]
       (when (not= cols-a rows-b)
-        (throw (ex-info "Matrix dimensions incompatible" 
+        (throw (ex-info "Matrix dimensions incompatible"
                         {:A-shape [rows-a cols-a] :B-shape [rows-b cols-b]})))
       (mapv (fn [i]
               (mapv (fn [j]
@@ -443,11 +443,11 @@
                               (fc/complex 0.0 0.0)
                               (map (fn [k]
                                      (fc/mult (get-in A [i k])
-                                                    (get-in B [k j])))
+                                              (get-in B [k j])))
                                    (range cols-a))))
                     (range cols-b)))
             (range rows-a))))
-  
+
   (matrix-vector-product [_ A x]
     "Perform matrix–vector multiplication A × x."
     (let [[rows cols] (complex-matrix-shape A)]
@@ -459,10 +459,10 @@
                       (fc/complex 0.0 0.0)
                       (map (fn [j]
                              (fc/mult (get-in A [i j])
-                                            (get x j)))
+                                      (get x j)))
                            (range cols))))
             (range rows))))
-  
+
   (outer-product [_ x y]
     "Compute the outer product x ⊗ y†."
     (mapv (fn [xi]
@@ -470,13 +470,13 @@
                     (fc/mult xi (fc/conjugate yj)))
                   y))
           x))
-  
+
   (hadamard [_ A B]
     "Compute the element-wise (Hadamard) product A ⊙ B."
     (mapv (fn [row-a row-b]
             (mapv fc/mult row-a row-b))
           A B))
-  
+
   (kronecker [_ A B]
     "Compute the Kronecker (tensor) product A ⊗ B."
     (let [[rows-a cols-a] (complex-matrix-shape A)
@@ -488,10 +488,10 @@
                             bi (mod i rows-b)
                             bj (mod j cols-b)]
                         (fc/mult (get-in A [ai aj])
-                                       (get-in B [bi bj]))))
+                                 (get-in B [bi bj]))))
                     (range (* cols-a cols-b))))
             (range (* rows-a rows-b)))))
-  
+
   ;; Structural transforms
   (transpose [_ A]
     "Compute the transpose Aᵀ."
@@ -501,7 +501,7 @@
                       (get-in A [i j]))
                     (range rows)))
             (range cols))))
-  
+
   (conjugate-transpose [_ A]
     "Compute the conjugate transpose Aᴴ (Hermitian adjoint)."
     (let [[rows cols] (complex-matrix-shape A)]
@@ -510,7 +510,7 @@
                       (fc/conjugate (get-in A [i j])))
                     (range rows)))
             (range cols))))
-  
+
   ;; Reductions / scalar results
   (trace [_ A]
     "Compute the trace Tr(A) = Σᵢ aᵢᵢ."
@@ -520,18 +520,18 @@
       (reduce fc/add
               (fc/complex 0.0 0.0)
               (map #(get-in A [% %]) (range rows)))))
-  
+
   (inner-product [_ x y]
     "Compute the vector inner product ⟨x|y⟩."
     (when (not= (count x) (count y))
-      (throw (ex-info "Vectors must have same length" 
+      (throw (ex-info "Vectors must have same length"
                       {:x-length (count x) :y-length (count y)})))
     (reduce fc/add
             (fc/complex 0.0 0.0)
             (map (fn [xi yi]
                    (fc/mult (fc/conjugate xi) yi))
                  x y)))
-  
+
   (norm2 [_ x]
     "Compute the Euclidean (L2) norm ||x||₂."
     (let [norm-squared (reduce fc/add
@@ -540,7 +540,7 @@
                                       (fc/mult (fc/conjugate xi) xi))
                                     x))]
       (Math/sqrt (fc/re norm-squared))))
-  
+
   ;; Linear solves / inverses
   (solve-linear-system [_ A b]
     "Solve the linear system A x = b."
@@ -554,7 +554,7 @@
         (mapv #(fc/complex % 0.0) (vec solution-array)))
       ;; Complex matrix case - implement Gaussian elimination
       (gaussian-elimination-solve A b)))
-  
+
   (inverse [_ A]
     "Compute the matrix inverse A⁻¹."
     (if (is-real-matrix? A)
@@ -564,9 +564,9 @@
         (real-matrix->qmatrix inv-matrix))
       ;; Complex matrix case - implement using Gaussian elimination
       (gaussian-elimination-inverse A)))
-  
+
   ;; Predicates
-  (hermitian? 
+  (hermitian?
     ([backend A] (proto/hermitian? backend A (tolerance* backend)))
     ([backend A eps]
      "Test if a matrix is Hermitian (A ≈ Aᴴ)."
@@ -578,8 +578,8 @@
                            (< (fc/abs element) eps))
                          row))
                diff))))
-  
-  (unitary? 
+
+  (unitary?
     ([backend U] (proto/unitary? backend U (tolerance* backend)))
     ([backend U eps]
      "Test if a matrix is unitary (Uᴴ U ≈ I)."
@@ -600,7 +600,7 @@
                            (< (fc/abs element) eps))
                          row))
                diff))))
-  
+
   (positive-semidefinite? [backend A]
     "Test if a matrix is positive semidefinite."
     (try
@@ -609,8 +609,25 @@
         (let [real-A (qmatrix->real-matrix A)
               eigenvals (fmat/eigenvalues real-A)]
           (every? #(>= (fc/re %) (- (tolerance* backend))) eigenvals))
-        ;; Complex matrix case - not implemented yet
-        (throw (ex-info "Complex matrix positive-semidefinite check not yet implemented" {})))
+        ;; Complex matrix case - use eigenvalue check
+        (let [[n m] (complex-matrix-shape A)]
+          (when (not= n m)
+            (throw (ex-info "Matrix must be square for positive-semidefinite check" {:shape [n m]})))
+
+          ;; For complex matrices, check if Hermitian first
+          (when-not (proto/hermitian? backend A (tolerance* backend))
+            (throw (ex-info "Matrix must be Hermitian for positive-semidefinite check" {})))
+
+          ;; Get eigenvalues of Hermitian matrix
+          (let [eigen-result (proto/eigen-hermitian backend A)
+                eigenvals (:eigenvalues eigen-result)]
+            ;; All eigenvalues should be non-negative
+            (every? (fn [eigenval]
+                      (let [real-part (if (map? eigenval)
+                                        (:real eigenval)
+                                        (fc/re eigenval))]
+                        (>= real-part (- (tolerance* backend)))))
+                    eigenvals))))
       (catch Exception e
         (throw (ex-info "Error checking positive semidefinite property" {:original-error (.getMessage e)}))))))
 
@@ -620,13 +637,13 @@
 
 (extend-protocol proto/MatrixFunctions
   FastMathBackend
-  
+
   (matrix-exp [backend A]
     "Compute the matrix exponential exp(A)."
     (if (is-real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath exp
       (let [real-A (qmatrix->real-matrix A)
-            eigenvals (fmat/eigenvalues real-A)  
+            eigenvals (fmat/eigenvalues real-A)
             eigenvecs (fmat/eigenvectors real-A)
             exp-eigenvals (mapv #(Math/exp (fc/re %)) eigenvals)
             diag-exp (fmat/diagonal exp-eigenvals)
@@ -634,12 +651,12 @@
         (real-matrix->qmatrix result))
       ;; Complex matrix case - use eigendecomposition approach
       (let [[n m] (complex-matrix-shape A)]
-        (when (not= n m) 
+        (when (not= n m)
           (throw (ex-info "Matrix exponential requires square matrix" {:shape [n m]})))
         (if (= n 1)
           ;; 1x1 complex scalar case
           (let [z (get-in A [0 0])
-                re (fc/re z) 
+                re (fc/re z)
                 im (fc/im z)
                 exp-re (Math/exp re)
                 result-re (* exp-re (Math/cos im))
@@ -652,7 +669,7 @@
                                  (proto/eigen-general backend A))
                   eigenvalues (:eigenvalues eigen-result)
                   eigenvectors (:eigenvectors eigen-result)]
-              
+
               ;; Compute exp(lambda_i) for each eigenvalue  
               (let [exp-eigenvals (mapv (fn [eigenval]
                                           (let [re (if (map? eigenval)
@@ -666,7 +683,7 @@
                                                 result-im (* exp-re (Math/sin im))]
                                             (fc/complex result-re result-im)))
                                         eigenvalues)
-                    
+
                     ;; Create diagonal matrix from exp(eigenvalues)
                     exp-diag (mapv (fn [i]
                                      (mapv (fn [j]
@@ -675,12 +692,12 @@
                                                (fc/complex 0.0 0.0)))
                                            (range n)))
                                    (range n))
-                    
+
                     ;; Compute V * exp(Λ) * V^-1
                     V eigenvectors
                     V-inv (proto/inverse backend V)
                     temp (proto/matrix-multiply backend exp-diag V-inv)]
-                
+
                 (proto/matrix-multiply backend V temp)))
             (catch Exception e
               ;; If eigendecomposition fails, fall back to series approximation for small matrices
@@ -710,12 +727,12 @@
                             new-result (proto/add backend result scaled-term)
                             new-term (proto/matrix-multiply backend A term)]
                         (recur new-result new-term (* factorial (inc k)) (inc k))))))
-                (throw (ex-info "Complex matrix exponential failed - matrix too large for series approximation" 
+                (throw (ex-info "Complex matrix exponential failed - matrix too large for series approximation"
                                 {:original-error (.getMessage e)
                                  :matrix-size n
                                  :suggestion "Use smaller matrices or ensure matrix is diagonalizable"})))))))))
-  
-  (matrix-log [_ A]
+
+  (matrix-log [backend A]
     "Compute the principal matrix logarithm log(A)."
     (if (is-real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath log
@@ -727,9 +744,48 @@
             result (fmat/mulm eigenvecs (fmat/mulm diag-log (fmat/transpose eigenvecs)))]
         (real-matrix->qmatrix result))
       ;; Complex matrix case - implement via eigendecomposition  
-      (throw (ex-info "Complex matrix logarithm not yet implemented" {}))))
-  
-  (matrix-sqrt [_ A]
+      (let [[n m] (complex-matrix-shape A)]
+        (when (not= n m)
+          (throw (ex-info "Matrix logarithm requires square matrix" {:shape [n m]})))
+
+        ;; Use eigendecomposition: log(A) = V * log(Λ) * V^(-1)
+        (try
+          (let [eigen-result (proto/eigen-general backend A)
+                eigenvals (:eigenvalues eigen-result)
+                eigenvecs (:eigenvectors eigen-result)
+
+                ;; Compute log of eigenvalues - handle domain restrictions
+                log-eigenvals (mapv (fn [lambda]
+                                      (let [r (fc/abs lambda)
+                                            theta (fc/arg lambda)]
+                                        (when (< r 1e-14)
+                                          (throw (ex-info "Cannot compute log of zero eigenvalue"
+                                                          {:eigenvalue lambda})))
+                                        ;; Principal branch: log(r*e^(iθ)) = log(r) + iθ
+                                        (fc/complex (Math/log r) theta)))
+                                    eigenvals)
+
+                ;; Create diagonal matrix of log eigenvalues
+                log-diag (mapv (fn [i]
+                                 (mapv (fn [j]
+                                         (if (= i j)
+                                           (get log-eigenvals i)
+                                           (fc/complex 0.0 0.0)))
+                                       (range n)))
+                               (range n))
+
+                ;; Compute V^(-1)
+                V-inv (proto/inverse backend eigenvecs)
+
+                ;; Result: V * log(Λ) * V^(-1)
+                temp (proto/matrix-multiply backend eigenvecs log-diag)]
+            (proto/matrix-multiply backend temp V-inv))
+          (catch Exception e
+            (throw (ex-info "Complex matrix logarithm failed"
+                            {:original-error (.getMessage e)
+                             :matrix-size n})))))))
+
+  (matrix-sqrt [backend A]
     "Compute the principal matrix square root √A."
     (if (is-real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath sqrt
@@ -741,7 +797,49 @@
             result (fmat/mulm eigenvecs (fmat/mulm diag-sqrt (fmat/transpose eigenvecs)))]
         (real-matrix->qmatrix result))
       ;; Complex matrix case - implement via eigendecomposition
-      (throw (ex-info "Complex matrix square root not yet implemented" {})))))
+      (let [[n m] (complex-matrix-shape A)]
+        (when (not= n m)
+          (throw (ex-info "Matrix square root requires square matrix" {:shape [n m]})))
+
+        ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
+        (try
+          (let [eigen-result (proto/eigen-general backend A)
+                eigenvals (:eigenvalues eigen-result)
+                eigenvecs (:eigenvectors eigen-result)
+
+                ;; Compute square root of eigenvalues using principal branch
+                sqrt-eigenvals (mapv (fn [lambda]
+                                       (let [r (fc/abs lambda)
+                                             theta (fc/arg lambda)]
+                                         (when (< r 1e-14)
+                                           (throw (ex-info "Cannot compute sqrt of zero eigenvalue"
+                                                           {:eigenvalue lambda})))
+                                         ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
+                                         (let [sqrt-r (Math/sqrt r)
+                                               half-theta (/ theta 2.0)]
+                                           (fc/complex (* sqrt-r (Math/cos half-theta))
+                                                       (* sqrt-r (Math/sin half-theta))))))
+                                     eigenvals)
+
+                ;; Create diagonal matrix of sqrt eigenvalues
+                sqrt-diag (mapv (fn [i]
+                                  (mapv (fn [j]
+                                          (if (= i j)
+                                            (get sqrt-eigenvals i)
+                                            (fc/complex 0.0 0.0)))
+                                        (range n)))
+                                (range n))
+
+                ;; Compute V^(-1)
+                V-inv (proto/inverse backend eigenvecs)
+
+                ;; Result: V * √Λ * V^(-1)
+                temp (proto/matrix-multiply backend eigenvecs sqrt-diag)]
+            (proto/matrix-multiply backend temp V-inv))
+          (catch Exception e
+            (throw (ex-info "Complex matrix square root failed"
+                            {:original-error (.getMessage e)
+                             :matrix-size n}))))))))
 
 ;;;
 ;;; MatrixAnalysis protocol implementation
@@ -749,7 +847,7 @@
 
 (extend-protocol proto/MatrixAnalysis
   FastMathBackend
-  
+
   (spectral-norm [backend A]
     "Compute the spectral norm ||A||₂ (largest singular value)."
     (if (is-real-matrix? A)
@@ -773,16 +871,39 @@
                                       (:eigenvalues eigen-result))))]
         ;; Spectral norm is sqrt of largest eigenvalue of A†A
         (Math/sqrt (apply max (map fc/re eigenvals-result))))))
-  
-  (condition-number [_ A]
+
+  (condition-number [backend A]
     "Compute the 2-norm condition number κ₂(A)."
     (if (is-real-matrix? A)
       ;; Real matrix case - use FastMath SVD
       (let [real-A (qmatrix->real-matrix A)
             singular-vals (fmat/singular-values real-A)]
         (/ (first singular-vals) (last singular-vals)))  ; σ_max / σ_min
-      ;; Complex matrix case - implement via SVD of complex matrix
-      (throw (ex-info "Complex matrix condition number not yet implemented" {})))))
+      ;; Complex matrix case - implement via eigendecomposition of A†A
+      (let [A-conj-transpose (proto/conjugate-transpose backend A)
+            ATA (proto/matrix-multiply backend A-conj-transpose A)
+
+            ;; Get eigenvalues to compute singular values
+            ata-eigenvals (if (proto/hermitian? backend ATA 1e-10)
+                            (:eigenvalues (proto/eigen-hermitian backend ATA))
+                            (:eigenvalues (proto/eigen-general backend ATA)))
+
+            ;; Convert eigenvalues to singular values (sqrt of real parts)
+            singular-values (mapv (fn [eigenval]
+                                    (let [real-part (if (map? eigenval)
+                                                      (:real eigenval)
+                                                      (fc/re eigenval))]
+                                      (Math/sqrt (Math/max 0.0 real-part))))
+                                  ata-eigenvals)
+
+            ;; Sort singular values in descending order
+            sorted-svs (sort > singular-values)
+            sigma-max (first sorted-svs)
+            sigma-min (last sorted-svs)]
+
+        (if (< sigma-min 1e-14)
+          Double/POSITIVE_INFINITY  ; Matrix is singular
+          (/ sigma-max sigma-min))))))
 
 ;;;
 ;;; QuantumStateOps protocol implementation  
@@ -790,7 +911,7 @@
 
 (extend-protocol proto/QuantumStateOps
   FastMathBackend
-  
+
   (state-normalize [_ state]
     "Normalize a quantum state vector to unit norm."
     (let [norm-squared (reduce fc/add
@@ -802,7 +923,7 @@
       (if (< norm 1e-12)
         state  ; Return unchanged if zero vector
         (mapv #(fc/mult % (fc/complex (/ 1.0 norm) 0.0)) state))))
-  
+
   (projector-from-state [_ psi]
     "Create a projector matrix |ψ⟩⟨ψ| from a quantum state."
     (let [normalized-psi (proto/state-normalize _ psi)]
@@ -811,12 +932,12 @@
                       (fc/mult psi-i (fc/conjugate psi-j)))
                     normalized-psi))
             normalized-psi)))
-  
+
   (density-matrix [backend psi]
     "Create a density matrix ρ for a pure quantum state."
     (proto/projector-from-state backend psi))
-  
-  (trace-one? 
+
+  (trace-one?
     ([_ rho] (proto/trace-one? _ rho default-tolerance))
     ([_ rho eps]
      "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1)."
@@ -830,7 +951,7 @@
 
 (extend-protocol proto/MatrixDecompositions
   FastMathBackend
-  
+
   (eigen-hermitian [_ A]
     "Compute eigenvalues and eigenvectors of a Hermitian matrix."
     (if (is-real-matrix? A)
@@ -844,7 +965,7 @@
       (let [[n m] (complex-matrix-shape A)]
         (when (not= n m)
           (throw (ex-info "Matrix must be square for eigendecomposition" {:shape [n m]})))
-        
+
         ;; Extract real and imaginary parts
         (let [real-part (mapv (fn [i]
                                 (mapv (fn [j]
@@ -856,7 +977,7 @@
                                         (fc/im (get-in A [i j])))
                                       (range n)))
                               (range n))
-              
+
               ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
               embedded-matrix (concat
                                (mapv (fn [i]
@@ -867,22 +988,22 @@
                                        (concat (get imag-part i)
                                                (get real-part i)))
                                      (range n)))
-              
+
               ;; Convert to Apache Commons Math format
               embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
                                      (fmat/mat data))
-              
+
               ;; Compute eigendecomposition
               real-eigenvals (fmat/eigenvalues embedded-real-matrix)
               real-eigenvecs (fmat/eigenvectors embedded-real-matrix)
-              
+
               ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
               ;; Take only the first n eigenvalues (the rest are duplicates)
               complex-eigenvals (mapv (fn [i]
                                         {:real (fc/re (get real-eigenvals i))
                                          :imag 0.0})  ; Hermitian matrices have real eigenvalues
                                       (range n))
-              
+
               ;; Extract complex eigenvectors
               eigenvec-data (fmat/mat->array2d real-eigenvecs)
               complex-eigenvecs (mapv (fn [i]
@@ -892,15 +1013,15 @@
                                                   (fc/complex real-part imag-part)))
                                               (range n)))
                                       (range n))
-              
+
               ;; Transpose to get column vectors
               eigenvec-matrix (mapv (fn [i]
                                       (mapv #(get % i) complex-eigenvecs))
                                     (range n))]
-          
+
           {:eigenvalues complex-eigenvals
            :eigenvectors eigenvec-matrix}))))
-  
+
   (eigen-general [_ A]
     "Compute eigenvalues and eigenvectors of a general matrix."
     (if (is-real-matrix? A)
@@ -919,7 +1040,7 @@
       (let [[n m] (complex-matrix-shape A)]
         (when (not= n m)
           (throw (ex-info "Matrix must be square for eigendecomposition" {:shape [n m]})))
-        
+
         ;; For general complex matrices, we'll use the real embedding approach
         ;; This embeds the complex matrix A into a 2n×2n real matrix
         (let [real-part (mapv (fn [i]
@@ -932,7 +1053,7 @@
                                         (fc/im (get-in A [i j])))
                                       (range n)))
                               (range n))
-              
+
               ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
               embedded-matrix (concat
                                (mapv (fn [i]
@@ -943,7 +1064,7 @@
                                        (concat (get imag-part i)
                                                (get real-part i)))
                                      (range n)))
-              
+
               ;; Convert to Apache Commons Math format and compute eigendecomposition
               embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
                                      (fmat/mat data))
@@ -951,14 +1072,14 @@
               real-eigenvals (vec (.getRealEigenvalues eigen-decomp))
               imag-eigenvals (vec (.getImagEigenvalues eigen-decomp))
               eigenvecs-matrix (.getV eigen-decomp)
-              
+
               ;; Extract the complex eigenvalues - they come in conjugate pairs
               ;; Take the first n eigenvalues and combine real/imaginary parts
               complex-eigenvals (mapv (fn [i]
-                                        (fc/complex (get real-eigenvals i) 
-                                                   (get imag-eigenvals i)))
+                                        (fc/complex (get real-eigenvals i)
+                                                    (get imag-eigenvals i)))
                                       (range n))
-              
+
               ;; Extract complex eigenvectors 
               eigenvec-data (fmat/mat->array2d eigenvecs-matrix)
               complex-eigenvecs (mapv (fn [i]
@@ -968,15 +1089,15 @@
                                                   (fc/complex real-part imag-part)))
                                               (range n)))
                                       (range n))
-              
+
               ;; Transpose to get column vectors
               eigenvec-matrix (mapv (fn [i]
                                       (mapv #(get % i) complex-eigenvecs))
                                     (range n))]
-          
+
           {:eigenvalues complex-eigenvals
            :eigenvectors eigenvec-matrix}))))
-  
+
   (svd [backend A]
     "Compute Singular Value Decomposition A = U * S * V†."
     (if (is-real-matrix? A)
@@ -996,14 +1117,14 @@
       (let [[m n] (complex-matrix-shape A)
             A-conj-transpose (proto/conjugate-transpose backend A)
             ATA (proto/matrix-multiply backend A-conj-transpose A)
-            
+
             ;; Get eigendecomposition of A†A for V and singular values
             ata-eigen (if (proto/hermitian? backend ATA 1e-10)
                         (proto/eigen-hermitian backend ATA)
                         (throw (ex-info "A†A should be Hermitian for SVD" {})))
             eigenvalues (:eigenvalues ata-eigen)
             V-matrix (:eigenvectors ata-eigen)
-            
+
             ;; Singular values are sqrt of eigenvalues of A†A
             singular-values (mapv (fn [eigenval]
                                     (let [real-part (if (map? eigenval)
@@ -1012,13 +1133,13 @@
                                           sqrt-val (Math/sqrt (Math/max 0.0 real-part))]
                                       sqrt-val))
                                   eigenvalues)
-            
+
             ;; Sort singular values in descending order with corresponding eigenvectors
             indexed-pairs (map vector (range) singular-values)
             sorted-pairs (sort-by second > indexed-pairs)
             sorted-indices (mapv first sorted-pairs)
             sorted-singular-values (mapv second sorted-pairs)
-            
+
             ;; Reorder eigenvectors accordingly
             V-cols (mapv (fn [j]
                            (mapv #(get-in V-matrix [% j]) (range n)))
@@ -1027,7 +1148,7 @@
             V-sorted (mapv (fn [i]
                              (mapv #(get % i) sorted-V-cols))
                            (range n))
-            
+
             ;; Compute U = A * V * Σ^-1
             tolerance 1e-12
             U-cols (mapv (fn [j]
@@ -1039,12 +1160,12 @@
                                ;; Zero singular value - use zero vector
                                (mapv (fn [_] (fc/complex 0.0 0.0)) (range m)))))
                          (range (min m n)))
-            
+
             ;; If m > n, we need additional orthonormal columns for U
             U-complete (if (> m n)
                          ;; TODO: Use Gram-Schmidt to complete the basis
                          (let [extra-cols (mapv (fn [i]
-                                                  (let [ei (mapv (fn [j] 
+                                                  (let [ei (mapv (fn [j]
                                                                    (if (= j (+ n i))
                                                                      (fc/complex 1.0 0.0)
                                                                      (fc/complex 0.0 0.0)))
@@ -1053,15 +1174,15 @@
                                                 (range (- m n)))]
                            (concat U-cols extra-cols))
                          U-cols)
-            
+
             U-matrix (mapv (fn [i]
                              (mapv #(get % i) U-complete))
                            (range m))]
-        
+
         {:U U-matrix
          :S (mapv #(fc/complex % 0.0) sorted-singular-values)
          :V† (proto/conjugate-transpose backend V-sorted)})))
-  
+
   (lu-decomposition [_ A]
     "Compute LU decomposition A = P * L * U."
     (if (is-real-matrix? A)
@@ -1077,10 +1198,76 @@
              :P (real-matrix->qmatrix P-matrix)})
           (catch Exception e
             (throw (ex-info "LU decomposition failed" {:original-error (.getMessage e)})))))
-      ;; Complex matrix case
-      (throw (ex-info "Complex LU decomposition not yet implemented" {}))))
-  
-  (qr-decomposition [_ A]  
+      ;; Complex matrix case - use real embedding approach
+      (let [[n m] (complex-matrix-shape A)]
+        (when (not= n m)
+          (throw (ex-info "LU decomposition requires square matrix" {:shape [n m]})))
+
+        ;; Extract real and imaginary parts
+        (let [real-part (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (fc/re (get-in A [i j])))
+                                      (range n)))
+                              (range n))
+              imag-part (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (fc/im (get-in A [i j])))
+                                      (range n)))
+                              (range n))
+
+              ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
+              embedded-matrix (vec (concat
+                                    (mapv (fn [i]
+                                            (vec (concat (get real-part i)
+                                                         (mapv - (get imag-part i)))))
+                                          (range n))
+                                    (mapv (fn [i]
+                                            (vec (concat (get imag-part i)
+                                                         (get real-part i))))
+                                          (range n))))
+
+              ;; Convert to Apache Commons Math format and compute LU
+              embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
+                                     (fmat/mat data))
+              lu-decomp (org.apache.commons.math3.linear.LUDecomposition. embedded-real-matrix)
+              L-embedded (.getL lu-decomp)
+              U-embedded (.getU lu-decomp)
+              P-embedded (.getP lu-decomp)
+
+              ;; Extract complex matrices from 2n×2n real results
+              L-data (fmat/mat->array2d L-embedded)
+              U-data (fmat/mat->array2d U-embedded)
+              P-data (fmat/mat->array2d P-embedded)
+
+              ;; Reconstruct complex L matrix
+              L-complex (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (fc/complex (get-in L-data [i j])
+                                                    (get-in L-data [(+ n i) j])))
+                                      (range n)))
+                              (range n))
+
+              ;; Reconstruct complex U matrix  
+              U-complex (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (fc/complex (get-in U-data [i j])
+                                                    (get-in U-data [(+ n i) j])))
+                                      (range n)))
+                              (range n))
+
+              ;; Reconstruct complex P matrix
+              P-complex (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (fc/complex (get-in P-data [i j])
+                                                    (get-in P-data [(+ n i) j])))
+                                      (range n)))
+                              (range n))]
+
+          {:L L-complex
+           :U U-complex
+           :P P-complex}))))
+
+  (qr-decomposition [backend A]
     "Compute QR decomposition A = Q * R."
     (if (is-real-matrix? A)
       ;; Real matrix case - use Apache Commons Math
@@ -1093,16 +1280,125 @@
              :R (real-matrix->qmatrix R)})
           (catch Exception e
             (throw (ex-info "QR decomposition failed" {:original-error (.getMessage e)})))))
-      ;; Complex matrix case
-      (throw (ex-info "Complex QR decomposition not yet implemented" {}))))
-  
-  (cholesky-decomposition [_ A]
-    "Compute Cholesky decomposition A = L * L† for positive definite A."
-    (if (is-real-matrix? A)
-      ;; Real matrix case - use FastMath
-      (let [real-A (qmatrix->real-matrix A)
-            chol-L (fmat/cholesky real-A)]
-        {:L (real-matrix->qmatrix chol-L)})
-      ;; Complex matrix case
-      (throw (ex-info "Complex Cholesky decomposition not yet implemented" {})))))
+      ;; Complex matrix case - use Modified Gram-Schmidt
+      (let [[m n] (complex-matrix-shape A)]
+        ;; Extract columns of A
+        (let [A-cols (mapv (fn [j]
+                             (mapv #(get-in A [% j]) (range m)))
+                           (range n))
+
+              ;; Modified Gram-Schmidt process
+              [Q-cols R-matrix]
+              (loop [remaining-cols A-cols
+                     orthogonal-cols []
+                     R-entries []]
+                (if (empty? remaining-cols)
+                  [orthogonal-cols (mapv vec R-entries)]
+                  (let [current-col (first remaining-cols)
+                        col-index (count orthogonal-cols)
+
+                        ;; Orthogonalize against previous columns
+                        [orthogonal-part R-row]
+                        (loop [v current-col
+                               previous-qs orthogonal-cols
+                               r-row (vec (repeat col-index (fc/complex 0.0 0.0)))
+                               q-idx 0]
+                          (if (empty? previous-qs)
+                            [v r-row]
+                            (let [q-j (first previous-qs)
+                                  ;; R[j,k] = ⟨q_j, v⟩
+                                  r-jk (proto/inner-product backend q-j v)
+                                  ;; v = v - R[j,k] * q_j
+                                  scaled-qj (mapv #(fc/mult % r-jk) q-j)
+                                  new-v (mapv fc/sub v scaled-qj)]
+                              (recur new-v
+                                     (rest previous-qs)
+                                     (assoc r-row q-idx r-jk)
+                                     (inc q-idx)))))
+
+                        ;; Normalize: R[k,k] = ||v||, q_k = v / R[k,k]
+                        norm-v (proto/norm2 backend orthogonal-part)
+                        R-kk (fc/complex norm-v 0.0)
+                        q-k (if (< norm-v 1e-12)
+                              ;; Handle zero vector - use standard basis vector
+                              (let [std-basis (mapv (fn [i]
+                                                      (if (= i col-index)
+                                                        (fc/complex 1.0 0.0)
+                                                        (fc/complex 0.0 0.0)))
+                                                    (range m))]
+                                std-basis)
+                              (mapv #(fc/div % R-kk) orthogonal-part))
+
+                        ;; Complete R row
+                        complete-R-row (conj R-row R-kk)]
+
+                    (recur (rest remaining-cols)
+                           (conj orthogonal-cols q-k)
+                           (conj R-entries complete-R-row)))))
+
+              ;; Pad R matrix to be upper triangular
+              R-padded (mapv (fn [i]
+                               (let [row (get R-matrix i)]
+                                 (vec (concat row
+                                              (repeat (- n (count row))
+                                                      (fc/complex 0.0 0.0))))))
+                             (range n))
+
+              ;; Convert Q columns to Q matrix
+              Q-matrix (mapv (fn [i]
+                               (mapv #(get % i) Q-cols))
+                             (range m))]
+
+          {:Q Q-matrix
+           :R R-padded}))))
+
+  (cholesky-decomposition [backend A]
+    "Compute Cholesky decomposition A = L * L† for positive definite A using direct algorithm."
+    (let [[n m] (complex-matrix-shape A)]
+      (when (not= n m)
+        (throw (ex-info "Cholesky decomposition requires square matrix" {:shape [n m]})))
+
+      ;; Check if matrix is Hermitian
+      (when-not (proto/hermitian? backend A (tolerance* backend))
+        (throw (ex-info "Cholesky decomposition requires Hermitian matrix" {})))
+
+      ;; Direct Cholesky algorithm adapted from clojure-math
+      (loop [i 0
+             L (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n))]
+        (if (= i n)
+          {:L L}
+          (let [L (loop [j 0 L L]
+                    (if (> j i)
+                      L
+                      (let [;; Compute sum: Σ(k=0 to j-1) L[i,k] * conj(L[j,k])
+                            sum-of-products (reduce fc/add
+                                                    (fc/complex 0.0 0.0)
+                                                    (for [k (range j)]
+                                                      (fc/mult (get-in L [i k])
+                                                               (fc/conjugate (get-in L [j k])))))
+                            ;; A[i,j] - sum
+                            aij (get-in A [i j])
+                            diff (fc/sub aij sum-of-products)]
+
+                        (if (= i j)
+                          ;; Diagonal case: L[i,i] = sqrt(A[i,i] - sum)
+                          (let [real-part (fc/re diff)
+                                imag-part (fc/im diff)]
+                            ;; Check that diagonal is real and positive
+                            (when (> (Math/abs imag-part) (tolerance* backend))
+                              (throw (ex-info "Hermitian matrix diagonal must be real"
+                                              {:i i :imaginary-part imag-part})))
+                            (when (< real-part (tolerance* backend))
+                              (throw (ex-info "Matrix is not positive definite"
+                                              {:i i :diagonal-value real-part})))
+                            (let [sqrt-val (Math/sqrt real-part)
+                                  new-L (assoc-in L [i i] (fc/complex sqrt-val 0.0))]
+                              (recur (inc j) new-L)))
+
+                          ;; Off-diagonal case: L[i,j] = (A[i,j] - sum) / L[j,j]
+                          (let [ljj (get-in L [j j])
+                                lij (fc/div diff ljj)
+                                new-L (assoc-in L [i j] lij)]
+                            (recur (inc j) new-L))))))]
+            (recur (inc i) L)))))))
 

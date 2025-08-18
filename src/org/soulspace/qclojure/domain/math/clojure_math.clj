@@ -419,8 +419,9 @@
           im (mapv (fn [xr xi]
                      (mapv (fn [x y] (+ (* ar y) (* ai x))) xr xi)) Ar Ai)]
       {:real re :imag im})
-    {:real (real-scale (:real A) a)
-     :imag (real-scale (:imag A) a)}))
+    (let [a-real (if (complex-scalar? a) (:real a) (double a))]
+      {:real (real-scale (:real A) a-real)
+       :imag (real-scale (:imag A) a-real)})))
 
 (defn- complex-mul [A B]
   (let [Ar (:real A) Ai (:imag A) Br (:real B) Bi (:imag B)

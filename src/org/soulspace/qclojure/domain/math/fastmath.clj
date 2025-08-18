@@ -1280,106 +1280,95 @@
              :R (real-matrix->qmatrix R)})
           (catch Exception e
             (throw (ex-info "QR decomposition failed" {:original-error (.getMessage e)})))))
-      ;; Complex matrix case - use Modified Gram-Schmidt
+      ;; Complex matrix case - use Modified Gram-Schmidt (stateless functional approach)
       (let [[m n] (complex-matrix-shape A)]
-        ;; Extract columns of A
-        (let [A-cols (mapv (fn [j]
-                             (mapv #(get-in A [% j]) (range m)))
-                           (range n))
-              
-              ;; Initialize Q and R
-              Q-cols (atom [])
-              R-matrix (atom (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n)))
-              
-              ;; Modified Gram-Schmidt process
-              _ (doseq [j (range n)]
-                  (let [;; Start with original column
-                        v_j (atom (nth A-cols j))
-                        
-                        ;; Orthogonalize against all previous columns
-                        _ (doseq [i (range j)]
-                            (let [q_i (nth @Q-cols i)
-                                  ;; R[i,j] = <q_i, v_j>
-                                  r_ij (proto/inner-product backend q_i @v_j)
-                                  ;; v_j = v_j - R[i,j] * q_i
-                                  scaled-qi (mapv #(fc/mult % r_ij) q_i)
-                                  new-v (mapv fc/sub @v_j scaled-qi)]
-                              ;; Update R matrix
-                              (swap! R-matrix assoc-in [i j] r_ij)
-                              ;; Update v_j
-                              (reset! v_j new-v)))
-                        
-                        ;; Normalize: R[j,j] = ||v_j||
-                        norm-v (proto/norm2 backend @v_j)
-                        r_jj (fc/complex norm-v 0.0)
-                        
-                        ;; Handle near-zero vectors
-                        q_j (if (< norm-v 1e-12)
-                              ;; Create standard basis vector
-                              (mapv (fn [i] (if (= i j) (fc/complex 1.0 0.0) (fc/complex 0.0 0.0))) (range m))
-                              ;; q_j = v_j / R[j,j]
-                              (mapv #(fc/div % r_jj) @v_j))]
-                    
-                    ;; Update R matrix diagonal
-                    (swap! R-matrix assoc-in [j j] r_jj)
-                    ;; Add normalized column to Q
-                    (swap! Q-cols conj q_j)))
-              
-              ;; Convert Q columns to Q matrix
-              Q-matrix (mapv (fn [i]
-                               (mapv #(nth % i) @Q-cols))
-                             (range m))]
+        ;; Extract columns of A as complex vectors
+        (let [get-col (fn [j] (mapv #(get-in A [% j]) (range m)))]
           
-          {:Q Q-matrix
-           :R @R-matrix}))))
+          ;; Use loop/recur to build Q and R functionally
+          (loop [j 0 
+                 Q [] 
+                 R (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n))]
+            (if (= j n)
+              {:Q (mapv (fn [i] (mapv #(nth % i) Q)) (range m))
+               :R R}
+              
+              (let [v0 (get-col j)
+                    ;; Orthogonalize against all previous columns using reduce
+                    [v R] (reduce (fn [[vv R] i]
+                                    (let [qi (nth Q i)
+                                          ;; R[i,j] = <qi, v> (complex inner product) 
+                                          r_ij (proto/inner-product backend qi vv)
+                                          ;; v = v - R[i,j] * qi
+                                          scaled-qi (mapv #(fc/mult % r_ij) qi)
+                                          new-v (mapv fc/sub vv scaled-qi)]
+                                      [new-v (assoc-in R [i j] r_ij)]))
+                                  [v0 R] 
+                                  (range j))
+                    
+                    ;; Normalize: R[j,j] = ||v||, q_j = v / R[j,j]
+                    norm-v (proto/norm2 backend v)
+                    r_jj (fc/complex norm-v 0.0)
+                    
+                    ;; Handle near-zero vectors gracefully
+                    q_j (if (< norm-v 1e-12)
+                          ;; Create standard basis vector
+                          (mapv (fn [i] (if (= i j) (fc/complex 1.0 0.0) (fc/complex 0.0 0.0))) (range m))
+                          ;; Normalize: q_j = v / ||v||
+                          (mapv #(fc/div % r_jj) v))
+                    
+                    R (assoc-in R [j j] r_jj)
+                    Q (conj Q q_j)]
+                
+                (recur (inc j) Q R))))))))
 
-  (cholesky-decomposition [backend A]
-    "Compute Cholesky decomposition A = L * L† for positive definite A using direct algorithm."
-    (let [[n m] (complex-matrix-shape A)]
-      (when (not= n m)
-        (throw (ex-info "Cholesky decomposition requires square matrix" {:shape [n m]})))
+(cholesky-decomposition [backend A]
+                        "Compute Cholesky decomposition A = L * L† for positive definite A using direct algorithm."
+                        (let [[n m] (complex-matrix-shape A)]
+                          (when (not= n m)
+                            (throw (ex-info "Cholesky decomposition requires square matrix" {:shape [n m]})))
 
-      ;; Check if matrix is Hermitian
-      (when-not (proto/hermitian? backend A (tolerance* backend))
-        (throw (ex-info "Cholesky decomposition requires Hermitian matrix" {})))
+                          ;; Check if matrix is Hermitian
+                          (when-not (proto/hermitian? backend A (tolerance* backend))
+                            (throw (ex-info "Cholesky decomposition requires Hermitian matrix" {})))
 
-      ;; Direct Cholesky algorithm adapted from clojure-math
-      (loop [i 0
-             L (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n))]
-        (if (= i n)
-          {:L L}
-          (let [L (loop [j 0 L L]
-                    (if (> j i)
-                      L
-                      (let [;; Compute sum: Σ(k=0 to j-1) L[i,k] * conj(L[j,k])
-                            sum-of-products (reduce fc/add
-                                                    (fc/complex 0.0 0.0)
-                                                    (for [k (range j)]
-                                                      (fc/mult (get-in L [i k])
-                                                               (fc/conjugate (get-in L [j k])))))
-                            ;; A[i,j] - sum
-                            aij (get-in A [i j])
-                            diff (fc/sub aij sum-of-products)]
+                          ;; Direct Cholesky algorithm adapted from clojure-math
+                          (loop [i 0
+                                 L (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n))]
+                            (if (= i n)
+                              {:L L}
+                              (let [L (loop [j 0 L L]
+                                        (if (> j i)
+                                          L
+                                          (let [;; Compute sum: Σ(k=0 to j-1) L[i,k] * conj(L[j,k])
+                                                sum-of-products (reduce fc/add
+                                                                        (fc/complex 0.0 0.0)
+                                                                        (for [k (range j)]
+                                                                          (fc/mult (get-in L [i k])
+                                                                                   (fc/conjugate (get-in L [j k])))))
+                                                ;; A[i,j] - sum
+                                                aij (get-in A [i j])
+                                                diff (fc/sub aij sum-of-products)]
 
-                        (if (= i j)
-                          ;; Diagonal case: L[i,i] = sqrt(A[i,i] - sum)
-                          (let [real-part (fc/re diff)
-                                imag-part (fc/im diff)]
-                            ;; Check that diagonal is real and positive
-                            (when (> (Math/abs imag-part) (tolerance* backend))
-                              (throw (ex-info "Hermitian matrix diagonal must be real"
-                                              {:i i :imaginary-part imag-part})))
-                            (when (< real-part (tolerance* backend))
-                              (throw (ex-info "Matrix is not positive definite"
-                                              {:i i :diagonal-value real-part})))
-                            (let [sqrt-val (Math/sqrt real-part)
-                                  new-L (assoc-in L [i i] (fc/complex sqrt-val 0.0))]
-                              (recur (inc j) new-L)))
+                                            (if (= i j)
+                                              ;; Diagonal case: L[i,i] = sqrt(A[i,i] - sum)
+                                              (let [real-part (fc/re diff)
+                                                    imag-part (fc/im diff)]
+                                                ;; Check that diagonal is real and positive
+                                                (when (> (Math/abs imag-part) (tolerance* backend))
+                                                  (throw (ex-info "Hermitian matrix diagonal must be real"
+                                                                  {:i i :imaginary-part imag-part})))
+                                                (when (< real-part (tolerance* backend))
+                                                  (throw (ex-info "Matrix is not positive definite"
+                                                                  {:i i :diagonal-value real-part})))
+                                                (let [sqrt-val (Math/sqrt real-part)
+                                                      new-L (assoc-in L [i i] (fc/complex sqrt-val 0.0))]
+                                                  (recur (inc j) new-L)))
 
-                          ;; Off-diagonal case: L[i,j] = (A[i,j] - sum) / L[j,j]
-                          (let [ljj (get-in L [j j])
-                                lij (fc/div diff ljj)
-                                new-L (assoc-in L [i j] lij)]
-                            (recur (inc j) new-L))))))]
-            (recur (inc i) L)))))))
+                                              ;; Off-diagonal case: L[i,j] = (A[i,j] - sum) / L[j,j]
+                                              (let [ljj (get-in L [j j])
+                                                    lij (fc/div diff ljj)
+                                                    new-L (assoc-in L [i j] lij)]
+                                                (recur (inc j) new-L))))))]
+                                (recur (inc i) L)))))))
 

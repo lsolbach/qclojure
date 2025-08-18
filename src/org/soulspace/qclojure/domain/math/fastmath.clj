@@ -89,7 +89,7 @@
 ;;; Backend record
 ;;;
 
-(defrecord FastMathBackend [tolerance])
+(defrecord FastMathBackend [tolerance config])
 
 ;;;
 ;;; Complex protocol implementation
@@ -210,7 +210,7 @@
 ;;; Matrix algebra helper functions
 ;;;
 
-(defn- is-real-matrix?
+(defn- real-matrix?
   "Check if a matrix contains only real numbers (zero imaginary parts)."
   [matrix]
   (every? (fn [row]
@@ -544,7 +544,7 @@
   ;; Linear solves / inverses
   (solve-linear-system [_ A b]
     "Solve the linear system A x = b."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use FastMath/Apache Commons
       (let [real-A (qmatrix->real-matrix A)
             real-b (if (vector? b)
@@ -557,7 +557,7 @@
 
   (inverse [_ A]
     "Compute the matrix inverse A⁻¹."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use FastMath/Apache Commons
       (let [real-A (qmatrix->real-matrix A)
             inv-matrix (fmat/inverse real-A)]
@@ -604,7 +604,7 @@
   (positive-semidefinite? [backend A]
     "Test if a matrix is positive semidefinite."
     (try
-      (if (is-real-matrix? A)
+      (if (real-matrix? A)
         ;; Real matrix case - use eigenvalues
         (let [real-A (qmatrix->real-matrix A)
               eigenvals (fmat/eigenvalues real-A)]
@@ -640,7 +640,7 @@
 
   (matrix-exp [backend A]
     "Compute the matrix exponential exp(A)."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath exp
       (let [real-A (qmatrix->real-matrix A)
             eigenvals (fmat/eigenvalues real-A)
@@ -734,7 +734,7 @@
 
   (matrix-log [backend A]
     "Compute the principal matrix logarithm log(A)."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath log
       (let [real-A (qmatrix->real-matrix A)
             eigenvals (fmat/eigenvalues real-A)
@@ -787,7 +787,7 @@
 
   (matrix-sqrt [backend A]
     "Compute the principal matrix square root √A."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use eigendecomposition and FastMath sqrt
       (let [real-A (qmatrix->real-matrix A)
             eigenvals (fmat/eigenvalues real-A)
@@ -850,7 +850,7 @@
 
   (spectral-norm [backend A]
     "Compute the spectral norm ||A||₂ (largest singular value)."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use FastMath SVD 
       (let [real-A (qmatrix->real-matrix A)
             singular-vals (fmat/singular-values real-A)]
@@ -859,7 +859,7 @@
       (let [A-conj-transpose (proto/conjugate-transpose backend A)
             ATA (proto/matrix-multiply backend A-conj-transpose A)
             ;; Get eigenvalues of A†A
-            eigenvals-result (if (is-real-matrix? ATA)
+            eigenvals-result (if (real-matrix? ATA)
                                (let [real-ATA (qmatrix->real-matrix ATA)]
                                  (map #(fc/complex % 0.0) (fmat/eigenvalues real-ATA)))
                                ;; Complex ATA case - use our eigendecomposition
@@ -874,7 +874,7 @@
 
   (condition-number [backend A]
     "Compute the 2-norm condition number κ₂(A)."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use FastMath SVD
       (let [real-A (qmatrix->real-matrix A)
             singular-vals (fmat/singular-values real-A)]
@@ -954,7 +954,7 @@
 
   (eigen-hermitian [_ A]
     "Compute eigenvalues and eigenvectors of a Hermitian matrix."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real symmetric case - use FastMath
       (let [real-A (qmatrix->real-matrix A)
             eigenvals (fmat/eigenvalues real-A)
@@ -1024,7 +1024,7 @@
 
   (eigen-general [_ A]
     "Compute eigenvalues and eigenvectors of a general matrix."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use Apache Commons Math
       (let [real-A (qmatrix->real-matrix A)]
         (try
@@ -1100,7 +1100,7 @@
 
   (svd [backend A]
     "Compute Singular Value Decomposition A = U * S * V†."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use Apache Commons Math
       (let [real-A (qmatrix->real-matrix A)]
         (try
@@ -1185,7 +1185,7 @@
 
   (lu-decomposition [_ A]
     "Compute LU decomposition A = P * L * U."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use Apache Commons Math
       (let [real-A (qmatrix->real-matrix A)]
         (try
@@ -1269,7 +1269,7 @@
 
   (qr-decomposition [backend A]
     "Compute QR decomposition A = Q * R."
-    (if (is-real-matrix? A)
+    (if (real-matrix? A)
       ;; Real matrix case - use Apache Commons Math
       (let [real-A (qmatrix->real-matrix A)]
         (try
@@ -1371,4 +1371,16 @@
                                                     new-L (assoc-in L [i j] lij)]
                                                 (recur (inc j) new-L))))))]
                                 (recur (inc i) L)))))))
+
+;;
+;; Factory
+;;
+(defn make-backend
+  "Create a new Fastmath backend. Options:
+   :tolerance  numeric tolerance used by predicates (default 1e-12)
+   :config     arbitrary config map."
+  ([] (->FastMathBackend default-tolerance {:tolerance default-tolerance}))
+  ([{:keys [tolerance] :as opts}]
+   (->FastMathBackend (or tolerance default-tolerance)
+                         (merge {:tolerance (or tolerance default-tolerance)} (dissoc opts :tolerance)))))
 

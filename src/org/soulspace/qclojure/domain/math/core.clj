@@ -516,15 +516,15 @@
   
   Returns:
   Solution vector(s) x such that Ax = b (in original format)"
- [A b]
- (let [backend-A (to-backend-matrix A)
-       backend-b (if (vector? (first b))
-                   (to-backend-matrix b)  ; matrix
-                   (to-backend-vector b)) ; vector
-       result (proto/solve-linear-system *backend* backend-A backend-b)]
-   (if (vector? (first b))
-     (from-backend-matrix result)  ; return matrix
-     (from-backend-vector result)))) ; return vector
+  [A b]
+  (let [backend-A (to-backend-matrix A)
+        backend-b (if (vector? (first b))
+                    (to-backend-matrix b)  ; matrix
+                    (to-backend-vector b)) ; vector
+        result (proto/solve-linear-system *backend* backend-A backend-b)]
+    (if (vector? (first b))
+      (from-backend-matrix result)  ; return matrix
+      (from-backend-vector result)))) ; return vector
 
 ;;
 ;; Predicates
@@ -642,7 +642,7 @@
   [A]
   (let [backend-A (to-backend-matrix A)
         {:keys [U S V†] :as raw} (proto/svd *backend* backend-A)]
-    (cond-> {:U (from-backend-matrix U) 
+    (cond-> {:U (from-backend-matrix U)
              :singular-values (from-backend-vector S)}
       V† (assoc :Vt (from-backend-matrix V†))
       (nil? U) (into raw))))
@@ -834,13 +834,11 @@
   [eigenvalues eigenvectors]
   {:pre [(= (count eigenvalues) (count eigenvectors))]}
   (let [n (count (first eigenvectors))
-        zero (vec (repeat n (vec (repeat n 0.0))))
-        backend-zero (to-backend-matrix zero)]
-    (from-backend-matrix
-     (reduce (fn [acc [λ v]]
-               (let [backend-v (to-backend-vector v)
-                     outer (proto/outer-product *backend* backend-v backend-v)
-                     scaled-outer (proto/scale *backend* outer λ)]
-                 (proto/add *backend* acc scaled-outer)))
-             backend-zero
-             (map vector eigenvalues eigenvectors)))))
+        zero (vec (repeat n (vec (repeat n 0.0))))]
+    (reduce (fn [acc [λ v]]
+              (let [outer (outer-product v v)
+                    ;; Convert Vec2 eigenvalue to backend scalar representation
+                    scaled-outer (scale outer λ)]
+                (add acc scaled-outer)))
+            zero
+            (map vector eigenvalues eigenvectors))))

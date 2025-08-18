@@ -1286,71 +1286,52 @@
         (let [A-cols (mapv (fn [j]
                              (mapv #(get-in A [% j]) (range m)))
                            (range n))
-
+              
+              ;; Initialize Q and R
+              Q-cols (atom [])
+              R-matrix (atom (mapv (fn [_] (mapv (fn [_] (fc/complex 0.0 0.0)) (range n))) (range n)))
+              
               ;; Modified Gram-Schmidt process
-              [Q-cols R-matrix]
-              (loop [remaining-cols A-cols
-                     orthogonal-cols []
-                     R-entries []]
-                (if (empty? remaining-cols)
-                  [orthogonal-cols (mapv vec R-entries)]
-                  (let [current-col (first remaining-cols)
-                        col-index (count orthogonal-cols)
-
-                        ;; Orthogonalize against previous columns
-                        [orthogonal-part R-row]
-                        (loop [v current-col
-                               previous-qs orthogonal-cols
-                               r-row (vec (repeat col-index (fc/complex 0.0 0.0)))
-                               q-idx 0]
-                          (if (empty? previous-qs)
-                            [v r-row]
-                            (let [q-j (first previous-qs)
-                                  ;; R[j,k] = ⟨q_j, v⟩
-                                  r-jk (proto/inner-product backend q-j v)
-                                  ;; v = v - R[j,k] * q_j
-                                  scaled-qj (mapv #(fc/mult % r-jk) q-j)
-                                  new-v (mapv fc/sub v scaled-qj)]
-                              (recur new-v
-                                     (rest previous-qs)
-                                     (assoc r-row q-idx r-jk)
-                                     (inc q-idx)))))
-
-                        ;; Normalize: R[k,k] = ||v||, q_k = v / R[k,k]
-                        norm-v (proto/norm2 backend orthogonal-part)
-                        R-kk (fc/complex norm-v 0.0)
-                        q-k (if (< norm-v 1e-12)
-                              ;; Handle zero vector - use standard basis vector
-                              (let [std-basis (mapv (fn [i]
-                                                      (if (= i col-index)
-                                                        (fc/complex 1.0 0.0)
-                                                        (fc/complex 0.0 0.0)))
-                                                    (range m))]
-                                std-basis)
-                              (mapv #(fc/div % R-kk) orthogonal-part))
-
-                        ;; Complete R row
-                        complete-R-row (conj R-row R-kk)]
-
-                    (recur (rest remaining-cols)
-                           (conj orthogonal-cols q-k)
-                           (conj R-entries complete-R-row)))))
-
-              ;; Pad R matrix to be upper triangular
-              R-padded (mapv (fn [i]
-                               (let [row (get R-matrix i)]
-                                 (vec (concat row
-                                              (repeat (- n (count row))
-                                                      (fc/complex 0.0 0.0))))))
-                             (range n))
-
+              _ (doseq [j (range n)]
+                  (let [;; Start with original column
+                        v_j (atom (nth A-cols j))
+                        
+                        ;; Orthogonalize against all previous columns
+                        _ (doseq [i (range j)]
+                            (let [q_i (nth @Q-cols i)
+                                  ;; R[i,j] = <q_i, v_j>
+                                  r_ij (proto/inner-product backend q_i @v_j)
+                                  ;; v_j = v_j - R[i,j] * q_i
+                                  scaled-qi (mapv #(fc/mult % r_ij) q_i)
+                                  new-v (mapv fc/sub @v_j scaled-qi)]
+                              ;; Update R matrix
+                              (swap! R-matrix assoc-in [i j] r_ij)
+                              ;; Update v_j
+                              (reset! v_j new-v)))
+                        
+                        ;; Normalize: R[j,j] = ||v_j||
+                        norm-v (proto/norm2 backend @v_j)
+                        r_jj (fc/complex norm-v 0.0)
+                        
+                        ;; Handle near-zero vectors
+                        q_j (if (< norm-v 1e-12)
+                              ;; Create standard basis vector
+                              (mapv (fn [i] (if (= i j) (fc/complex 1.0 0.0) (fc/complex 0.0 0.0))) (range m))
+                              ;; q_j = v_j / R[j,j]
+                              (mapv #(fc/div % r_jj) @v_j))]
+                    
+                    ;; Update R matrix diagonal
+                    (swap! R-matrix assoc-in [j j] r_jj)
+                    ;; Add normalized column to Q
+                    (swap! Q-cols conj q_j)))
+              
               ;; Convert Q columns to Q matrix
               Q-matrix (mapv (fn [i]
-                               (mapv #(get % i) Q-cols))
+                               (mapv #(nth % i) @Q-cols))
                              (range m))]
-
+          
           {:Q Q-matrix
-           :R R-padded}))))
+           :R @R-matrix}))))
 
   (cholesky-decomposition [backend A]
     "Compute Cholesky decomposition A = L * L† for positive definite A using direct algorithm."

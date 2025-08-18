@@ -10,8 +10,6 @@
   * Decomposition tests (LU, QR, Cholesky, SVD)
   * Predicates (hermitian?, unitary?, positive-semidefinite?)
   * Matrix functions (exp, log, sqrt)
-
-  NOTE: Tests serve as regression guards and contract validation for FastMath backend.
   
   Known limitations:
   * SVD returns nil for V-dagger (partial implementation)"

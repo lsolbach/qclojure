@@ -955,12 +955,24 @@
   (eigen-hermitian [_ A]
     "Compute eigenvalues and eigenvectors of a Hermitian matrix."
     (if (real-matrix? A)
-      ;; Real symmetric case - use FastMath
-      (let [real-A (qmatrix->real-matrix A)
-            eigenvals (fmat/eigenvalues real-A)
-            eigenvecs (fmat/eigenvectors real-A)]
-        {:eigenvalues (mapv vec2->complex-map eigenvals)
-         :eigenvectors (real-matrix->qmatrix eigenvecs)})
+;; Commented out due to FastMath bug with real symmetric matrices
+;;      ;; Real symmetric case - use FastMath
+;;      (let [real-A (qmatrix->real-matrix A)
+;;            eigenvals (fmat/eigenvalues real-A)
+;;            eigenvecs (fmat/eigenvectors real-A)]
+;;        {:eigenvalues (mapv vec2->complex-map eigenvals)
+;;         :eigenvectors (real-matrix->qmatrix eigenvecs)})
+      ;; Real symmetric case - use Apache Commons Math directly due to fastmath bug
+      (let [real-A (qmatrix->real-matrix A)]
+        (try
+          (let [eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. real-A)
+                real-eigenvals (vec (.getRealEigenvalues eigen-decomp))
+                imag-eigenvals (vec (.getImagEigenvalues eigen-decomp))
+                eigenvecs-matrix (.getV eigen-decomp)]
+            {:eigenvalues (mapv (fn [re im] (fc/complex re im)) real-eigenvals imag-eigenvals)
+             :eigenvectors (real-matrix->qmatrix eigenvecs-matrix)})
+          (catch Exception e
+            (throw (ex-info "Hermitian eigendecomposition failed" {:original-error (.getMessage e)})))))
       ;; Complex Hermitian case - use real embedding technique
       (let [[n m] (complex-matrix-shape A)]
         (when (not= n m)
@@ -993,19 +1005,20 @@
               embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
                                      (fmat/mat data))
 
-              ;; Compute eigendecomposition
-              real-eigenvals (fmat/eigenvalues embedded-real-matrix)
-              real-eigenvecs (fmat/eigenvectors embedded-real-matrix)
+              ;; Compute eigendecomposition using Apache Commons Math directly
+              eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. embedded-real-matrix)
+              real-eigenvals-array (.getRealEigenvalues eigen-decomp)
+              real-eigenvecs-matrix (.getV eigen-decomp)
 
               ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
               ;; Take only the first n eigenvalues (the rest are duplicates)
               complex-eigenvals (mapv (fn [i]
-                                        {:real (fc/re (get real-eigenvals i))
+                                        {:real (get real-eigenvals-array (* 2 i))
                                          :imag 0.0})  ; Hermitian matrices have real eigenvalues
                                       (range n))
 
               ;; Extract complex eigenvectors
-              eigenvec-data (fmat/mat->array2d real-eigenvecs)
+              eigenvec-data (fmat/mat->array2d real-eigenvecs-matrix)
               complex-eigenvecs (mapv (fn [i]
                                         (mapv (fn [j]
                                                 (let [real-part (get-in eigenvec-data [j i])

@@ -7,7 +7,7 @@
                  [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
                  
-                 [org.uncomplicate/neanderthal-base "0.55.0"]
+                 [org.uncomplicate/neanderthal-base "0.55.2"]
                  ;; Optional, for CPU computing with OpenBLAS
                  [org.uncomplicate/neanderthal-openblas "0.55.0"]
                  ;; Optional, for GPU computing with OpenCL
@@ -22,10 +22,13 @@
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
   ;; We need direct linking for properly resolving types in heavy macros and avoiding reflection warnings!
+;  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+;                       "--enable-native-access=ALL-UNNAMED"]
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]
 
-  :profiles {:clay {:dependencies [[org.scicloj/clay "2-beta45"]]
+  :profiles {:dev [:user {}]
+             :clay {:dependencies [[org.scicloj/clay "2-beta52"]]
                     :source-paths ["src" "notebook"]}
              :default [:default/all ~(leiningen.core.utils/get-os)]
              :default/all {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12"]]}

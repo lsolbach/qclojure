@@ -52,7 +52,7 @@
 
 (def ^:dynamic *backend-key*
   "Current math backend key for informational purposes."
-  :pure)
+  :fastmath)
 
 ;; Unified tolerance (can be overridden via backend config :tolerance)
 

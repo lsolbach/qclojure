@@ -20,9 +20,9 @@
 (defn tolerance* [backend]
   (double (or (:tolerance backend) (:tolerance (:config backend)) default-tolerance)))
 
-;;
-;; Predicates & helpers for complex canonical forms
-;;
+;;;
+;;; Complex number utilities and predicates
+;;;
 (defn complex-scalar? [x]
   (and (map? x) (contains? x :real) (contains? x :imag) (number? (:real x)) (number? (:imag x))))
 
@@ -65,7 +65,6 @@
   (if (complex-matrix? A)
     [(count (:real A)) (count (first (:real A)))]
     [(count A) (count (first A))]))
-
 ;; (Potential helpers zeros/zero-matrix/same-shape? removed to avoid warnings; reintroduce when needed.)
 
 ;;
@@ -543,8 +542,7 @@
     (complex-back-sub Ar Ai br bi)))
 
 (defn- complex-inverse
-  "Inverse of complex matrix via Gauss-Jordan. Returns SoA map.
-  FIX: refactored elimination loop to avoid endless inner loop pattern."
+  "Inverse of complex matrix via Gauss-Jordan."
   [A]
   (let [Ar (mapv vec (:real A)) Ai (mapv vec (:imag A))
         n (count Ar) Ir (identity-matrix n) Ii (vec (repeat n (vec (repeat n 0.0))))]
@@ -1793,7 +1791,7 @@
               (recur (inc i) L))))))))
 
 ;;
-;; MatrixFunctions placeholders
+;; MatrixFunctions
 ;;
 (extend-protocol proto/MatrixFunctions
   ClojureMathBackend

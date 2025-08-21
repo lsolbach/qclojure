@@ -469,7 +469,6 @@
 ;;;
 ;;; MatrixDecompositions protocol implementation  
 ;;;
-
 (extend-protocol proto/MatrixDecompositions
   FastMathComplexBackend
 

@@ -209,7 +209,6 @@
 ;;;
 ;;; Matrix algebra helper functions
 ;;;
-
 (defn- real-matrix?
   "Check if a matrix contains only real numbers (zero imaginary parts)."
   [matrix]

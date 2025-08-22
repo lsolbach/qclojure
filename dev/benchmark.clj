@@ -2,8 +2,8 @@
   "Benchmark for QClojure math operations."
   (:require [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.math.core :as mcore]
-            [org.soulspace.qclojure.domain.math.clojure-math :as cmath]
-            [org.soulspace.qclojure.domain.math.fastmath :as fmath]
+            [org.soulspace.qclojure.domain.math.clojure.clojure-math :as cmath]
+            [org.soulspace.qclojure.domain.math.fastmath.fastmath :as fmath]
             [criterium.core :as crit]
             [fastmath.vector :as v]))
 

@@ -1,8 +1,9 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.fastmath-complex 
   (:require
+    [fastmath.math :as fm]
     [fastmath.complex :as fc]
-    [org.soulspace.qclojure.domain.math.protocols :as proto]
-    [fastmath.matrix :as fmat]))
+    [fastmath.matrix :as fmat]
+    [org.soulspace.qclojure.domain.math.protocols :as proto]))
 
 ;;;
 ;;; Configuration and utilities
@@ -74,7 +75,7 @@
   (every? (fn [row]
             (every? (fn [element]
                       (let [vec2-elem (ensure-complex element)]
-                        (< (Math/abs (fc/im vec2-elem)) 1e-12)))
+                        (< (fm/abs (fc/im vec2-elem)) 1e-12)))
                     row))
           matrix))
 
@@ -82,7 +83,7 @@
   "Extract real part of a complex number, checking it's actually real."
   [z]
   (let [vec2-z (ensure-complex z)]
-    (when-not (< (Math/abs (fc/im vec2-z)) 1e-12)
+    (when-not (< (fm/abs (fc/im vec2-z)) 1e-12)
       (throw (ex-info "Complex number has non-zero imaginary part"
                       {:value z :imaginary (fc/im vec2-z)})))
     (fc/re vec2-z)))
@@ -481,7 +482,7 @@
                                (map (fn [xi]
                                       (fc/mult (fc/conjugate xi) xi))
                                     x))]
-      (Math/sqrt (fc/re norm-squared))))
+      (fm/sqrt (fc/re norm-squared))))
 
   ;; Linear solves / inverses
   (solve-linear-system [_ A b]
@@ -709,7 +710,7 @@
                                   (let [real-part (if (map? eigenval)
                                                     (:real eigenval)
                                                     (fc/re eigenval))
-                                        sqrt-val (Math/sqrt (Math/max 0.0 real-part))]
+                                        sqrt-val (fm/sqrt (fm/max 0.0 real-part))]
                                     sqrt-val))
                                 eigenvalues)
 
@@ -911,13 +912,13 @@
                           (let [real-part (fc/re diff)
                                 imag-part (fc/im diff)]
                             ;; Check that diagonal is real and positive
-                            (when (> (Math/abs imag-part) (tolerance* backend))
+                            (when (> (fm/abs imag-part) (tolerance* backend))
                               (throw (ex-info "Hermitian matrix diagonal must be real"
                                               {:i i :imaginary-part imag-part})))
                             (when (< real-part (tolerance* backend))
                               (throw (ex-info "Matrix is not positive definite"
                                               {:i i :diagonal-value real-part})))
-                            (let [sqrt-val (Math/sqrt real-part)
+                            (let [sqrt-val (fm/sqrt real-part)
                                   new-L (assoc-in L [i i] (fc/complex sqrt-val 0.0))]
                               (recur (inc j) new-L)))
 
@@ -945,9 +946,9 @@
         (let [z (get-in A [0 0])
               re (fc/re z)
               im (fc/im z)
-              exp-re (Math/exp re)
-              result-re (* exp-re (Math/cos im))
-              result-im (* exp-re (Math/sin im))]
+              exp-re (fm/exp re)
+              result-re (* exp-re (fm/cos im))
+              result-im (* exp-re (fm/sin im))]
           [[(fc/complex result-re result-im)]])
 
         ;; General complex matrix - use eigendecomposition
@@ -966,9 +967,9 @@
                                             im (if (map? eigenval)
                                                  (:imag eigenval)
                                                  (fc/im eigenval))
-                                            exp-re (Math/exp re)
-                                            result-re (* exp-re (Math/cos im))
-                                            result-im (* exp-re (Math/sin im))]
+                                            exp-re (fm/exp re)
+                                            result-re (* exp-re (fm/cos im))
+                                            result-im (* exp-re (fm/sin im))]
                                         (fc/complex result-re result-im)))
                                     eigenvalues)
 
@@ -1042,7 +1043,7 @@
                                         (throw (ex-info "Cannot compute log of zero eigenvalue"
                                                         {:eigenvalue lambda})))
                                       ;; Principal branch: log(r*e^(iθ)) = log(r) + iθ
-                                      (fc/complex (Math/log r) theta)))
+                                      (fc/complex (fm/log r) theta)))
                                   eigenvals)
 
               ;; Create diagonal matrix of log eigenvalues
@@ -1086,10 +1087,10 @@
                                          (throw (ex-info "Cannot compute sqrt of zero eigenvalue"
                                                          {:eigenvalue lambda})))
                                        ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
-                                       (let [sqrt-r (Math/sqrt r)
+                                       (let [sqrt-r (fm/sqrt r)
                                              half-theta (/ theta 2.0)]
-                                         (fc/complex (* sqrt-r (Math/cos half-theta))
-                                                     (* sqrt-r (Math/sin half-theta))))))
+                                         (fc/complex (* sqrt-r (fm/cos half-theta))
+                                                     (* sqrt-r (fm/sin half-theta))))))
                                    eigenvals)
 
               ;; Create diagonal matrix of sqrt eigenvalues
@@ -1135,7 +1136,7 @@
                                         ev))
                                     (:eigenvalues eigen-result))))]
       ;; Spectral norm is sqrt of largest eigenvalue of A†A
-      (Math/sqrt (apply max (map fc/re eigenvals-result)))))
+      (fm/sqrt (apply max (map fc/re eigenvals-result)))))
 
   (condition-number [backend A]
     "Compute the 2-norm condition number κ₂(A)."
@@ -1153,7 +1154,7 @@
                                   (let [real-part (if (map? eigenval)
                                                     (:real eigenval)
                                                     (fc/re eigenval))]
-                                    (Math/sqrt (Math/max 0.0 real-part))))
+                                    (fm/sqrt (fm/max 0.0 real-part))))
                                 ata-eigenvals)
 
           ;; Sort singular values in descending order
@@ -1178,7 +1179,7 @@
                                (map (fn [si]
                                       (fc/mult (fc/conjugate si) si))
                                     state))
-          norm (Math/sqrt (fc/re norm-squared))]
+          norm (fm/sqrt (fc/re norm-squared))]
       (if (< norm 1e-12)
         state  ; Return unchanged if zero vector
         (mapv #(fc/mult % (fc/complex (/ 1.0 norm) 0.0)) state))))
@@ -1202,5 +1203,4 @@
      "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1)."
      (let [tr (proto/trace _ rho)
            trace-value (fc/re tr)]  ; Extract real part
-       (< (Math/abs (- trace-value 1.0)) eps)))))
-
+       (< (fm/abs (- trace-value 1.0)) eps)))))

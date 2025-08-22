@@ -235,59 +235,57 @@
       {exp-val 1.0})))
 
 (comment
-  ;; Test basic observables
-  (require '[org.soulspace.qclojure.domain.observables :as obs] :reload)
-  
+
   ;; Basic Pauli observables
-  obs/pauli-x  ; σₓ (bit-flip)
-  obs/pauli-y  ; σᵧ (bit and phase flip)
-  obs/pauli-z  ; σᵤ (phase flip)
-  obs/identity-op  ; I (identity)
-  
+  pauli-x  ; σₓ (bit-flip)
+  pauli-y  ; σᵧ (bit and phase flip)
+  pauli-z  ; σᵤ (phase flip)
+  identity-op  ; I (identity)
+
   ;; Single-qubit expectation values
-  (obs/expectation-value obs/pauli-z state/|0⟩)  ; => 1.0
-  (obs/expectation-value obs/pauli-z state/|1⟩)  ; => -1.0
-  (obs/expectation-value obs/pauli-z state/|+⟩)  ; => 0.0
-  (obs/expectation-value obs/pauli-x state/|+⟩)  ; => 1.0
-  
+  (expectation-value pauli-z state/|0⟩)  ; => 1.0
+  (expectation-value pauli-z state/|1⟩)  ; => -1.0
+  (expectation-value pauli-z state/|+⟩)  ; => 0.0
+  (expectation-value pauli-x state/|+⟩)  ; => 1.0
+
   ;; Multi-qubit Pauli string observables
-  (def xz-observable (obs/pauli-string->observable "XZ"))  ; X ⊗ Z
-  (def zzx-observable (obs/pauli-string->observable "ZZX")) ; Z ⊗ Z ⊗ X
-  
+  (def xz-observable (pauli-string->observable "XZ"))  ; X ⊗ Z
+  (def zzx-observable (pauli-string->observable "ZZX")) ; Z ⊗ Z ⊗ X
+
   ;; Linear combinations (custom Hamiltonians)
-  (def custom-hamiltonian 
-    (obs/linear-combination [[1.5 obs/pauli-x] 
-                             [2.0 obs/pauli-z] 
-                             [0.5 obs/identity-op]]))
-  
+  (def custom-hamiltonian
+    (linear-combination [[1.5 pauli-x]
+                         [2.0 pauli-z]
+                         [0.5 identity-op]]))
+
   ;; Bell measurement observable: (Z⊗I + I⊗Z)/2
   (def bell-measurement
-    (obs/linear-combination 
-      [[0.5 (obs/tensor-product [obs/pauli-z obs/identity-op])]
-       [0.5 (obs/tensor-product [obs/identity-op obs/pauli-z])]]))
-  
+    (linear-combination
+     [[0.5 (tensor-product [pauli-z identity-op])]
+      [0.5 (tensor-product [identity-op pauli-z])]]))
+
   ;; Expectation values and variances
-  (obs/expectation-value custom-hamiltonian state/|+⟩)
-  (obs/variance obs/pauli-z state/|+⟩)  ; => 1.0 (maximum uncertainty)
-  (obs/variance obs/pauli-z state/|0⟩)  ; => 0.0 (no uncertainty)
-  
+  (expectation-value custom-hamiltonian state/|+⟩)
+  (variance pauli-z state/|+⟩)  ; => 1.0 (maximum uncertainty)
+  (variance pauli-z state/|0⟩)  ; => 0.0 (no uncertainty)
+
   ;; Measurement probabilities
-  (obs/measurement-probabilities obs/pauli-z state/|+⟩)  ; => {1.0 0.5, -1.0 0.5}
-  (obs/measurement-probabilities obs/pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
-  
+  (measurement-probabilities pauli-z state/|+⟩)  ; => {1.0 0.5, -1.0 0.5}
+  (measurement-probabilities pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
+
   ;; Verify observables are Hermitian
-  (obs/is-hermitian? obs/pauli-x)        ; => true
-  (obs/is-hermitian? custom-hamiltonian) ; => true
-  
+  (is-hermitian? pauli-x)        ; => true
+  (is-hermitian? custom-hamiltonian) ; => true
+
   ;; Test with Bell states
-  (def bell-state (state/normalize-state 
-                    (state/multi-qubit-state 
-                      [(fc/complex 1.0) (fc/complex 0.0) 
-                       (fc/complex 0.0) (fc/complex 1.0)])))
-  
-  (obs/expectation-value (obs/pauli-string->observable "ZZ") bell-state)  ; => 1.0
-  
+  (def bell-state (state/normalize-state
+                   (state/multi-qubit-state
+                    [(fc/complex 1.0) (fc/complex 0.0)
+                     (fc/complex 0.0) (fc/complex 1.0)])))
+
+  (expectation-value (pauli-string->observable "ZZ") bell-state)  ; => 1.0
+
   ;; Performance testing
-  (time (obs/pauli-string->observable "XYZIXYZIXYZ"))  ; Large multi-qubit observable
-  
+  (time (pauli-string->observable "XYZIXYZIXYZ"))  ; Large multi-qubit observable
+
   )

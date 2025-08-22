@@ -13,8 +13,8 @@
     Use `set-backend!` to change the global backend, or `with-backend` to override in a dynamic scope."
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
-   [org.soulspace.qclojure.domain.math.clojure-math :as cmath]
-   [org.soulspace.qclojure.domain.math.fastmath :as fmath]))
+   [org.soulspace.qclojure.domain.math.clojure.clojure-math :as cmath]
+   [org.soulspace.qclojure.domain.math.fastmath.fastmath :as fmath]))
 
 ;; Unified tolerance (can be overridden via backend config :tolerance). Defined after backend vars.
 (def ^:dynamic *tolerance* 1.0e-12)

@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.fastmath
+(ns org.soulspace.qclojure.domain.math.fastmath.fastmath
   "FastMath 3 backend implementation for QClojure math protocols.
   
   Uses a hybrid approach:
@@ -15,7 +15,6 @@
 ;;;
 ;;; Configuration and utilities
 ;;;
-
 (def ^:const ^double default-tolerance 1.0e-12)
 
 (defn tolerance* [backend]
@@ -24,7 +23,6 @@
 ;;;
 ;;; Complex number utilities and predicates
 ;;;
-
 (defn complex?
   "Test if x is a FastMath Vec2 complex number."
   [x]
@@ -50,7 +48,6 @@
 ;;;
 ;;; Conversion utilities between representations
 ;;;
-
 (defn vec2->complex-map
   "Convert FastMath Vec2 to complex map representation."
   [v]
@@ -88,53 +85,11 @@
 ;;;
 ;;; Backend record
 ;;;
-
 (defrecord FastMathBackend [tolerance config])
-
-;;;
-;;; Complex protocol implementation
-;;;
-
-(extend-protocol proto/Complex
-  fastmath.vector.Vec2
-  (real [x] (fc/re x))
-  (imag [x] (fc/im x))
-  (conjugate [x] (fc/conjugate x))
-  (complex? [_] true)
-
-  java.lang.Number
-  (real [x] (double x))
-  (imag [_] 0.0)
-  (conjugate [x] x)
-  (complex? [_] false)
-
-  clojure.lang.IPersistentMap
-  (real [x]
-    (if (and (contains? x :real) (contains? x :imag))
-      (:real x)
-      (throw (ex-info "Not a complex map" {:value x}))))
-  (imag [x]
-    (if (and (contains? x :real) (contains? x :imag))
-      (:imag x)
-      (throw (ex-info "Not a complex map" {:value x}))))
-  (conjugate [x]
-    (if (and (contains? x :real) (contains? x :imag))
-      {:real (:real x) :imag (- (:imag x))}
-      (throw (ex-info "Not a complex map" {:value x}))))
-  (complex? [x]
-    (and (contains? x :real) (contains? x :imag)
-         (number? (:real x)) (number? (:imag x))))
-
-  clojure.lang.IPersistentVector
-  (real [v] (mapv proto/real v))
-  (imag [v] (mapv proto/imag v))
-  (conjugate [v] (mapv proto/conjugate v))
-  (complex? [v] (every? proto/complex? v)))
 
 ;;;
 ;;; BackendAdapter protocol implementation
 ;;;
-
 (extend-protocol proto/BackendAdapter
   FastMathBackend
   (vector->backend [_ v]
@@ -397,7 +352,6 @@
 ;;;
 ;;; MatrixAlgebra protocol implementation
 ;;;
-
 (extend-protocol proto/MatrixAlgebra
   FastMathBackend
 
@@ -633,7 +587,6 @@
 ;;;
 ;;; MatrixFunctions protocol implementation
 ;;;
-
 (extend-protocol proto/MatrixFunctions
   FastMathBackend
 
@@ -843,7 +796,6 @@
 ;;;
 ;;; MatrixAnalysis protocol implementation
 ;;;
-
 (extend-protocol proto/MatrixAnalysis
   FastMathBackend
 
@@ -907,7 +859,6 @@
 ;;;
 ;;; QuantumStateOps protocol implementation  
 ;;;
-
 (extend-protocol proto/QuantumStateOps
   FastMathBackend
 
@@ -947,7 +898,6 @@
 ;;;
 ;;; MatrixDecompositions protocol implementation  
 ;;;
-
 (extend-protocol proto/MatrixDecompositions
   FastMathBackend
 

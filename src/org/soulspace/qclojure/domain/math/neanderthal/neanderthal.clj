@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.neanderthal
+(ns org.soulspace.qclojure.domain.math.neanderthal.neanderthal
   "High-performance math backend powered by Neanderthal (CPU-first, GPU-ready).
 
   This backend implements the math protocols using Neanderthal's BLAS/LAPACK
@@ -21,7 +21,7 @@
   - Complex scalars: {:real double :imag double}"
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
-   [org.soulspace.qclojure.domain.math.clojure-math :as cm]
+   [org.soulspace.qclojure.domain.math.clojure.clojure-math :as cm]
    [uncomplicate.neanderthal.core :as nc]
    [uncomplicate.neanderthal.native :as nn]
    [uncomplicate.neanderthal.linalg :as la]

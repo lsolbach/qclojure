@@ -1,5 +1,7 @@
-(ns org.soulspace.qclojure.domain.math.clojure-math-complex
+(ns org.soulspace.qclojure.domain.math.clojure.clojure-math-complex
   (:require
+   [clojure.math :as math]
+   [fastmath.complex :as fc]
    [org.soulspace.qclojure.domain.math.protocols :as proto]))
 
 ;;;
@@ -81,10 +83,10 @@
 (defn- real-transpose [A] (vec (apply mapv vector A)))
 
 (defn- real-frobenius-norm [A]
-  (Math/sqrt (reduce + (for [row A v row] (let [d (double v)] (* d d))))))
+  (math/sqrt (reduce + (for [row A v row] (let [d (double v)] (* d d))))))
 
 (defn- real-one-norm [A]
-  (apply max (map (fn [col] (reduce + (map #(Math/abs (double %)) col))) (apply map vector A))))
+  (apply max (map (fn [col] (reduce + (map #(abs (double %)) col))) (apply map vector A))))
 
 (defn- real-hadamard [A B]
   (mapv (fn [ra rb] (mapv #(* (double %1) (double %2)) ra rb)) A B))
@@ -177,14 +179,14 @@
                  (for [i (range n) j (range i n)]
                    (let [aij-r (get-in Ar [i j]) aij-i (get-in Ai [i j])
                          aji-r (get-in Ar [j i]) aji-i (get-in Ai [j i])]
-                     (and (< (Math/abs (double (- aij-r aji-r))) tol)
-                          (< (Math/abs (double (+ aij-i aji-i))) tol))))))))
+                     (and (< (abs (double (- aij-r aji-r))) tol)
+                          (< (abs (double (+ aij-i aji-i))) tol))))))))
 
 (defn- close-matrices? [A B tol]
   (let [[r c] (matrix-shape A)]
     (every? true?
             (for [i (range r) j (range c)]
-              (< (Math/abs (double (- (if (complex-matrix? A)
+              (< (abs (double (- (if (complex-matrix? A)
                                         (get-in (:real A) [i j])
                                         (get-in A [i j]))
                                       (if (complex-matrix? B)
@@ -206,7 +208,7 @@
     (loop [k 0 Ar Ar Ai Ai br br bi bi]
       (if (= k n)
         [Ar Ai br bi]
-        (let [pivot (apply max-key #(Math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
+        (let [pivot (apply max-key #(math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
               swap-row (fn [M] (if (not= pivot k) (-> M (assoc k (M pivot)) (assoc pivot (M k))) M))
               Ar (swap-row Ar) Ai (swap-row Ai)
               br (if (not= pivot k) (-> br (assoc k (br pivot)) (assoc pivot (br k))) br)
@@ -271,7 +273,7 @@
     (loop [k 0 Ar Ar Ai Ai Ir Ir Ii Ii]
       (if (= k n)
         {:real Ir :imag Ii}
-        (let [pivot (apply max-key #(Math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
+        (let [pivot (apply max-key #(math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
               swap-row (fn [M] (if (not= pivot k) (-> M (assoc k (M pivot)) (assoc pivot (M k))) M))
               Ar (swap-row Ar) Ai (swap-row Ai) Ir (swap-row Ir) Ii (swap-row Ii)
               akk-r (get-in Ar [k k]) akk-i (get-in Ai [k k])
@@ -312,7 +314,7 @@
 (defn spectral-norm-complex
   "Compute spectral norm of complex matrix A via power iteration on A^H A with Rayleigh quotient convergence." [A]
   (let [n (count (:real A))
-        x0 {:real (vec (repeat n (/ 1.0 (Math/sqrt n)))) :imag (vec (repeat n 0.0))}
+        x0 {:real (vec (repeat n (/ 1.0 (math/sqrt n)))) :imag (vec (repeat n 0.0))}
         tol 1e-12
         max-it 200
         Ah (complex-conj-transpose A)]
@@ -321,11 +323,11 @@
             AhAx (complex-matvec Ah Ax)
             lambda (let [num-r (reduce + (map (fn [a b c d] (+ (* a b) (* c d))) (:real x) (:real AhAx) (:imag x) (:imag AhAx)))]
                      (double num-r))
-            nr (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
+            nr (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
             x' {:real (mapv #(/ % nr) (:real AhAx)) :imag (mapv #(/ % nr) (:imag AhAx))}
-            conv? (and lambda-prev (< (Math/abs (- lambda lambda-prev)) (* tol (max 1.0 (Math/abs lambda)))))]
+            conv? (and lambda-prev (< (abs (- lambda lambda-prev)) (* tol (max 1.0 (abs lambda)))))]
         (if (or (>= k max-it) conv?)
-          (Math/sqrt (max 0.0 lambda))
+          (math/sqrt (max 0.0 lambda))
           (recur (inc k) x' lambda))))))
 
 ;; Jacobi eigen-decomposition (shared helper)
@@ -368,7 +370,7 @@
              :vectors (vec (apply mapv vector V))
              :iterations iter}
             (let [[p q val] (reduce (fn [[bp bq bv] [i j]]
-                                      (let [aij (Math/abs (double (get-in M [i j])))]
+                                      (let [aij (abs (double (get-in M [i j])))]
                                         (if (> aij bv) [i j aij] [bp bq bv])))
                                     [0 0 0.0]
                                     (for [i (range n) j (range (inc i) n)] [i j]))]
@@ -378,8 +380,8 @@
                  :iterations iter}
                 (let [app (get-in M [p p]) aqq (get-in M [q q]) apq (get-in M [p q])
                       tau (/ (- aqq app) (* 2.0 apq))
-                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (Math/abs tau) (Math/sqrt (+ 1.0 (* tau tau))))))
-                      c (/ 1.0 (Math/sqrt (+ 1.0 (* t t))))
+                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (abs tau) (math/sqrt (+ 1.0 (* tau tau))))))
+                      c (/ 1.0 (math/sqrt (+ 1.0 (* t t))))
                       s (* t c)
                       rotate-row (fn [M r]
                                    (let [rp (get-in M [r p]) rq (get-in M [r q])]
@@ -439,9 +441,9 @@
       (let [a (double (nth xr idx))
             b (double (nth xi idx))
             ;; Compute phase of reference component a+ib = r e^{i phi}
-            phi (Math/atan2 b a)
-            c (Math/cos phi)
-            s (Math/sin phi)
+            phi (math/atan2 b a)
+            c (math/cos phi)
+            s (math/sin phi)
             ;; Multiply whole vector by e^{-i phi}. For each component ar+i ai:
             ;; (ar + i ai)(cos phi - i sin phi) = (ar c + ai s) + i (ai c - ar s)
             xr' (mapv (fn [ar ai] (+ (* ar c) (* ai s))) xr xi)
@@ -452,8 +454,6 @@
             xr'' (if (= sign 1.0) xr' (mapv #(* sign %) xr'))
             xi'' (if (= sign 1.0) xi' (mapv #(* sign %) xi'))]
         {:real xr'' :imag xi''}))))
-
-
 
 ;;;
 ;;; Clojure Math Complex Backend
@@ -471,6 +471,242 @@
   ([{:keys [tolerance] :as opts}]
    (->ClojureMathComplexBackend (or tolerance default-tolerance)
                                 (merge {:tolerance (or tolerance default-tolerance)} (dissoc opts :tolerance)))))
+
+;;;
+;;; BackendAdapter protocol implementation
+;;;
+(extend-protocol proto/BackendAdapter
+  ClojureMathComplexBackend
+
+  (vector->backend [_ v]
+    (cond
+      ;; Already in SoA format - validate structure
+      (complex-vector? v) v
+
+      ;; Regular Clojure vector of numbers  
+      (and (vector? v) (every? number? v))
+      {:real (mapv double v) :imag (mapv (constantly 0.0) v)}
+
+      ;; Vector of FastMath Vec2 complex numbers
+      (and (vector? v) (every? #(instance? fastmath.vector.Vec2 %) v))
+      (try
+        {:real (mapv #(double (fc/re %)) v)
+         :imag (mapv #(double (fc/im %)) v)}
+        (catch Exception e
+          (throw (ex-info "Failed to convert Vec2 vector to SoA format"
+                          {:input-vector v :error (.getMessage e)}))))
+
+      ;; Empty vector
+      (and (vector? v) (empty? v))
+      {:real [] :imag []}
+
+      ;; Nil input
+      (nil? v)
+      (throw (ex-info "Cannot convert nil to backend vector format" {:input v}))
+
+      ;; Pass through other formats unchanged
+      :else v))
+
+  (backend->vector [_ v]
+    (cond
+      ;; SoA format - convert to Vec2 complex numbers
+      (complex-vector? v)
+      (let [real-part (:real v)
+            imag-part (:imag v)]
+        (when (not= (count real-part) (count imag-part))
+          (throw (ex-info "SoA vector real and imaginary parts have different lengths"
+                          {:real-length (count real-part)
+                           :imag-length (count imag-part)
+                           :input v})))
+        (try
+          (mapv #(fc/complex %1 %2) real-part imag-part)
+          (catch Exception e
+            (throw (ex-info "Failed to convert SoA to Vec2 vector"
+                            {:input-vector v :error (.getMessage e)})))))
+
+      ;; Real vector - convert to Vec2 with zero imaginary parts
+      (and (vector? v) (every? number? v))
+      (try
+        (mapv #(fc/complex (double %) 0.0) v)
+        (catch Exception e
+          (throw (ex-info "Failed to convert real vector to Vec2 format"
+                          {:input-vector v :error (.getMessage e)}))))
+
+      ;; Empty vector
+      (and (vector? v) (empty? v))
+      []
+
+      ;; Nil input
+      (nil? v)
+      (throw (ex-info "Cannot convert nil from backend vector format" {:input v}))
+
+      ;; Pass through other formats unchanged
+      :else v))
+
+  (matrix->backend [_ m]
+    (cond
+      ;; Already in SoA format - validate structure
+      (complex-matrix? m)
+      (let [real-matrix (:real m)
+            imag-matrix (:imag m)]
+        (when (not= (count real-matrix) (count imag-matrix))
+          (throw (ex-info "SoA matrix real and imaginary parts have different row counts"
+                          {:real-rows (count real-matrix)
+                           :imag-rows (count imag-matrix)
+                           :input m})))
+        (when (and (not-empty real-matrix) (not-empty imag-matrix))
+          (let [real-cols (map count real-matrix)
+                imag-cols (map count imag-matrix)]
+            (when (not= real-cols imag-cols)
+              (throw (ex-info "SoA matrix real and imaginary parts have different column structure"
+                              {:real-cols real-cols
+                               :imag-cols imag-cols
+                               :input m})))))
+        m)
+
+      ;; Matrix of FastMath Vec2 complex numbers
+      (and (vector? m) (every? vector? m)
+           (every? #(every? (fn [x] (instance? fastmath.vector.Vec2 x)) %) m))
+      (try
+        ;; Validate rectangular matrix structure
+        (when (not-empty m)
+          (let [row-lengths (map count m)]
+            (when (not (apply = row-lengths))
+              (throw (ex-info "Matrix rows have different lengths"
+                              {:row-lengths row-lengths :input m})))))
+        {:real (mapv (fn [row] (mapv #(double (fc/re %)) row)) m)
+         :imag (mapv (fn [row] (mapv #(double (fc/im %)) row)) m)}
+        (catch Exception e
+          (throw (ex-info "Failed to convert Vec2 matrix to SoA format"
+                          {:input-matrix m :error (.getMessage e)}))))
+
+      ;; Matrix of real numbers
+      (and (vector? m) (every? vector? m) (every? #(every? number? %) m))
+      (try
+        ;; Validate rectangular matrix structure
+        (when (not-empty m)
+          (let [row-lengths (map count m)]
+            (when (not (apply = row-lengths))
+              (throw (ex-info "Matrix rows have different lengths"
+                              {:row-lengths row-lengths :input m})))))
+        {:real (mapv (fn [row] (mapv double row)) m)
+         :imag (mapv (fn [row] (mapv (constantly 0.0) row)) m)}
+        (catch Exception e
+          (throw (ex-info "Failed to convert real matrix to SoA format"
+                          {:input-matrix m :error (.getMessage e)}))))
+
+      ;; Empty matrix
+      (and (vector? m) (empty? m))
+      {:real [] :imag []}
+
+      ;; Nil input
+      (nil? m)
+      (throw (ex-info "Cannot convert nil to backend matrix format" {:input m}))
+
+      ;; Pass through other formats unchanged
+      :else m))
+
+  (backend->matrix [_ m]
+    (cond
+      ;; SoA format - convert to Vec2 complex numbers
+      (complex-matrix? m)
+      (let [real-matrix (:real m)
+            imag-matrix (:imag m)]
+        (when (not= (count real-matrix) (count imag-matrix))
+          (throw (ex-info "SoA matrix real and imaginary parts have different row counts"
+                          {:real-rows (count real-matrix)
+                           :imag-rows (count imag-matrix)
+                           :input m})))
+        (when (and (not-empty real-matrix) (not-empty imag-matrix))
+          (let [real-cols (map count real-matrix)
+                imag-cols (map count imag-matrix)]
+            (when (not= real-cols imag-cols)
+              (throw (ex-info "SoA matrix real and imaginary parts have different column structure"
+                              {:real-cols real-cols
+                               :imag-cols imag-cols
+                               :input m})))))
+        (try
+          (mapv (fn [real-row imag-row]
+                  (mapv #(fc/complex %1 %2) real-row imag-row))
+                real-matrix imag-matrix)
+          (catch Exception e
+            (throw (ex-info "Failed to convert SoA to Vec2 matrix"
+                            {:input-matrix m :error (.getMessage e)})))))
+
+      ;; Real matrix - convert to Vec2 with zero imaginary parts
+      (and (vector? m) (every? vector? m) (every? #(every? number? %) m))
+      (try
+        ;; Validate rectangular matrix structure
+        (when (not-empty m)
+          (let [row-lengths (map count m)]
+            (when (not (apply = row-lengths))
+              (throw (ex-info "Matrix rows have different lengths"
+                              {:row-lengths row-lengths :input m})))))
+        (mapv (fn [row] (mapv #(fc/complex (double %) 0.0) row)) m)
+        (catch Exception e
+          (throw (ex-info "Failed to convert real matrix to Vec2 format"
+                          {:input-matrix m :error (.getMessage e)}))))
+
+      ;; Empty matrix
+      (and (vector? m) (empty? m))
+      []
+
+      ;; Nil input
+      (nil? m)
+      (throw (ex-info "Cannot convert nil from backend matrix format" {:input m}))
+
+      ;; Pass through other formats unchanged
+      :else m))
+
+  (scalar->backend [_ s]
+    (cond
+      ;; Vec2 complex scalar
+      (instance? fastmath.vector.Vec2 s)
+      {:real (fc/re s) :imag (fc/im s)}
+
+      ;; Real scalar
+      (number? s)
+      {:real (double s) :imag 0.0}
+
+      ;; Already in SoA format
+      (complex-scalar? s)
+      s
+
+      ;; Nil input
+      (nil? s)
+      (throw (ex-info "Cannot convert nil to backend scalar format" {:input s}))
+
+      ;; Invalid input
+      :else
+      (throw (ex-info "Cannot convert to backend scalar format"
+                      {:input s :type (type s)}))))
+
+  (backend->scalar [_ s]
+    (cond
+      ;; SoA scalar format
+      (complex-scalar? s)
+      (try
+        (fc/complex (:real s) (:imag s))
+        (catch Exception e
+          (throw (ex-info "Failed to convert SoA scalar to Vec2 format"
+                          {:input-scalar s :error (.getMessage e)}))))
+
+      ;; Real scalar
+      (number? s)
+      (fc/complex (double s) 0.0)
+
+      ;; Already Vec2 format
+      (instance? fastmath.vector.Vec2 s)
+      s
+
+      ;; Nil input
+      (nil? s)
+      (throw (ex-info "Cannot convert nil from backend scalar format" {:input s}))
+
+      ;; Invalid input
+      :else
+      (throw (ex-info "Cannot convert from backend scalar format"
+                      {:input s :type (type s)})))))
 
 ;;;
 ;;; MatrixAlgebra protocol implementation
@@ -550,9 +786,9 @@
       (if (complex-scalar? ip)
         ;; <x|x> for a valid inner product should be real non-negative; imaginary part ≈ 0.
         (let [re (double (:real ip))
-              re (if (neg? re) (Math/abs re) re)]
-          (Math/sqrt re))
-        (Math/sqrt (double ip)))))
+              re (if (neg? re) (abs re) re)]
+          (math/sqrt re))
+        (math/sqrt (double ip)))))
 
   (solve-linear-system
     [backend A b]
@@ -618,7 +854,7 @@
                           (let [w (nth vectors col-idx) ; length 2n
                                 x (subvec w 0 n)
                                 y (subvec w n N)
-                                nrm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
+                                nrm (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
                                 nrm (if (pos? nrm) nrm 1.0)
                                 x' (mapv #(/ % nrm) x)
                                 y' (mapv #(/ % nrm) y)
@@ -628,7 +864,7 @@
                            (if (empty? pairs)
                              [acc-e acc-v]
                              (let [[[idx λ] & more] pairs
-                                   add? (or (empty? acc-e) (> (Math/abs (- λ (last acc-e))) collapse-tol))]
+                                   add? (or (empty? acc-e) (> (abs (- λ (last acc-e))) collapse-tol))]
                                (if add?
                                  (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
                                  (recur more acc-e acc-v)))))]
@@ -642,41 +878,32 @@
             ;; Increase iteration cap; unshifted QR can be slow for clustered spectra
             max-it (* 800 n n)
             ;; Simple balancing (single pass): scale rows & cols by sqrt(row_norm/col_norm)
-            balance-real (fn [M]
-                           (let [row-norms (mapv (fn [row] (Math/sqrt (reduce + (map #(* (double %) (double %)) row)))) M)
-                                 cols (apply map vector M)
-                                 col-norms (mapv (fn [col] (Math/sqrt (reduce + (map #(* (double %) (double %)) col)))) cols)
-                                 eps 1e-14]
-                             (vec (for [i (range n)]
-                                    (vec (for [j (range n)]
-                                           (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))]
-                                             (/ (get-in M [i j]) (Math/sqrt (/ ri cj))))))))))
             balance-complex (fn [M]
                               (let [R (:real M) I (:imag M)
                                     row-norms (mapv (fn [i]
-                                                      (Math/sqrt (reduce + (for [j (range n)]
+                                                      (math/sqrt (reduce + (for [j (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
                                     cols-r (apply map vector R)
                                     cols-i (apply map vector I)
                                     col-norms (mapv (fn [j]
-                                                      (Math/sqrt (reduce + (for [i (range n)]
+                                                      (math/sqrt (reduce + (for [i (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
                                     eps 1e-14]
                                 {:real (vec (for [i (range n)]
                                               (vec (for [j (range n)]
                                                      (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                           scale (/ 1.0 (math/sqrt (/ ri cj)))]
                                                        (* scale (get-in R [i j])))))))
                                  :imag (vec (for [i (range n)]
                                               (vec (for [j (range n)]
                                                      (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                           scale (/ 1.0 (math/sqrt (/ ri cj)))]
                                                        (* scale (get-in I [i j])))))))}))]
 
         (let [A0 (balance-complex A)
               offdiag-norm-complex (fn [M]
                                      (let [R (:real M) I (:imag M)]
-                                       (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
+                                       (math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
                                                                   (let [a (double (get-in R [i j])) b (double (get-in I [i j]))]
                                                                     (+ (* a a) (* b b))))))))]
           ;; Immediate fast-path: already (quasi) upper triangular? -> diagonal eigenvalues
@@ -705,7 +932,7 @@
                                     ;; Compute discriminant Δ = (tr)^2 - 4 det (complex) -> approximate using real parts only for shift heuristic
                                     tr2 (+ (* tr-r tr-r) (* tr-i tr-i))
                                     det-mag (+ (* det-r det-r) (* det-i det-i))
-                                    disc (Math/sqrt (Math/max 0.0 (- tr2 (* 4.0 det-mag))))
+                                    disc (math/sqrt (max 0.0 (- tr2 (* 4.0 det-mag))))
                                     μ (/ (- (+ tr-r) disc) 2.0)] ; choose smaller magnitude root approx (heuristic)
                                 μ))
                       ;; Apply real shift μ (imag ignored for stability heuristic) by subtracting μ I, perform QR, add back
@@ -730,91 +957,90 @@
 
   (svd
     [_ A]
-    (let [complex? (complex-matrix? A)
-          tol (double default-tolerance)]
-      (let [Ar (:real A) Ai (:imag A)
-            m (count Ar) n (count (first Ar))
-            ;; Build AᴴA = (conj-transpose A) * A
-            Ah {:real (real-transpose Ar) :imag (real-scale (real-transpose Ai) -1.0)}
-            AhA (complex-mul Ah {:real Ar :imag Ai})
-            {:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian _ AhA)
-            ;; eigenvalues ascending per contract; reverse for descending singular values
-            pairs (reverse (map vector eigenvalues eigenvectors))
-            ;; Process singular triplets
-            sv-pairs (map (fn [[λ v]] [(Math/sqrt (Math/max 0.0 (double λ))) v]) pairs)
-            ;; Filter numerical noise ordering & produce descending order by σ
-            sv-pairs (sort-by (fn [[s _]] (- s)) sv-pairs)
-            k (min m n)
-            sv-pairs (take k sv-pairs)
-            singular-values (mapv first sv-pairs)
-            V-cols (map second sv-pairs)
-            ;; Helper: complex matvec already available (complex-matvec)
-            compute-u (fn [sigma v]
-                        (if (> sigma tol)
-                          (let [u (complex-matvec {:real Ar :imag Ai} v)
-                                norm-sigma sigma
-                                ur (:real u) ui (:imag u)
-                                u-norm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) ur ui)))
-                                ;; divide by sigma (not u-norm) per definition: u = Av / σ
-                                scale (/ 1.0 norm-sigma)]
-                            {:real (mapv #(* scale %) ur)
-                             :imag (mapv #(* scale %) ui)})
-                          ;; placeholder zero vector; will be replaced in orthonormal completion
-                          {:real (vec (repeat m 0.0)) :imag (vec (repeat m 0.0))}))
-            U-cols (map (fn [[s v]] (compute-u s v)) sv-pairs)
-            ;; Gram–Schmidt for complex vectors
-            inner-c (fn [x y] (complex-inner x y))
-            sub-c (fn [x y]
-                    {:real (mapv - (:real x) (:real y))
-                     :imag (mapv - (:imag x) (:imag y))})
-            scale-c (fn [x alpha]
-                      {:real (mapv #(* alpha %) (:real x))
-                       :imag (mapv #(* alpha %) (:imag x))})
-            mult-cv (fn [c v]
-                      (let [ar (:real c) ai (:imag c) vr (:real v) vi (:imag v)]
-                        {:real (mapv (fn [r i] (- (* ar r) (* ai i))) vr vi)
-                         :imag (mapv (fn [r i] (+ (* ar i) (* ai r))) vr vi)}))
-            norm-c (fn [x]
-                     (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real x) (:imag x)))))
-            normalize-c (fn [x]
-                          (let [nrm (norm-c x)]
-                            (if (pos? nrm)
-                              (scale-c x (/ 1.0 nrm))
-                              x)))
-            orthonormalize (fn [cols]
-                             (reduce (fn [acc v]
-                                       (let [v1 (reduce (fn [vv u]
-                                                          (let [ip (inner-c u vv)]
-                                                            (sub-c vv (mult-cv ip u))))
-                                                        v acc)
-                                             v-n (normalize-c v1)]
-                                         (conj acc v-n))) [] cols))
-            U-cols (orthonormalize U-cols) ; re-orthonormalize in case of numerical issues
-            ;; Orthonormal completion for rank deficiency
-            rank (count (filter #(> % tol) singular-values))
-            complete-basis (fn [existing dim]
-                             (loop [basis existing i 0]
-                               (if (= (count basis) dim)
+    (let [tol (double default-tolerance)
+          Ar (:real A) Ai (:imag A)
+          m (count Ar) n (count (first Ar))
+          ;; Build AᴴA = (conj-transpose A) * A
+          Ah {:real (real-transpose Ar) :imag (real-scale (real-transpose Ai) -1.0)}
+          AhA (complex-mul Ah {:real Ar :imag Ai})
+          {:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian _ AhA)
+          ;; eigenvalues ascending per contract; reverse for descending singular values
+          pairs (reverse (map vector eigenvalues eigenvectors))
+          ;; Process singular triplets
+          sv-pairs (map (fn [[λ v]] [(Math/sqrt (Math/max 0.0 (double λ))) v]) pairs)
+          ;; Filter numerical noise ordering & produce descending order by σ
+          sv-pairs (sort-by (fn [[s _]] (- s)) sv-pairs)
+          k (min m n)
+          sv-pairs (take k sv-pairs)
+          singular-values (mapv first sv-pairs)
+          V-cols (map second sv-pairs)
+          ;; Helper: complex matvec already available (complex-matvec)
+          compute-u (fn [sigma v]
+                      (if (> sigma tol)
+                        (let [u (complex-matvec {:real Ar :imag Ai} v)
+                              norm-sigma sigma
+                              ur (:real u) ui (:imag u)
+                              u-norm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) ur ui)))
+                              ;; divide by sigma (not u-norm) per definition: u = Av / σ
+                              scale (/ 1.0 norm-sigma)]
+                          {:real (mapv #(* scale %) ur)
+                           :imag (mapv #(* scale %) ui)})
+                        ;; placeholder zero vector; will be replaced in orthonormal completion
+                        {:real (vec (repeat m 0.0)) :imag (vec (repeat m 0.0))}))
+          U-cols (map (fn [[s v]] (compute-u s v)) sv-pairs)
+          ;; Gram–Schmidt for complex vectors
+          inner-c (fn [x y] (complex-inner x y))
+          sub-c (fn [x y]
+                  {:real (mapv - (:real x) (:real y))
+                   :imag (mapv - (:imag x) (:imag y))})
+          scale-c (fn [x alpha]
+                    {:real (mapv #(* alpha %) (:real x))
+                     :imag (mapv #(* alpha %) (:imag x))})
+          mult-cv (fn [c v]
+                    (let [ar (:real c) ai (:imag c) vr (:real v) vi (:imag v)]
+                      {:real (mapv (fn [r i] (- (* ar r) (* ai i))) vr vi)
+                       :imag (mapv (fn [r i] (+ (* ar i) (* ai r))) vr vi)}))
+          norm-c (fn [x]
+                   (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real x) (:imag x)))))
+          normalize-c (fn [x]
+                        (let [nrm (norm-c x)]
+                          (if (pos? nrm)
+                            (scale-c x (/ 1.0 nrm))
+                            x)))
+          orthonormalize (fn [cols]
+                           (reduce (fn [acc v]
+                                     (let [v1 (reduce (fn [vv u]
+                                                        (let [ip (inner-c u vv)]
+                                                          (sub-c vv (mult-cv ip u))))
+                                                      v acc)
+                                           v-n (normalize-c v1)]
+                                       (conj acc v-n))) [] cols))
+          U-cols (orthonormalize U-cols) ; re-orthonormalize in case of numerical issues
+          ;; Orthonormal completion for rank deficiency
+          rank (count (filter #(> % tol) singular-values))
+          complete-basis (fn [existing dim]
+                           (loop [basis existing i 0]
+                             (if (= (count basis) dim)
+                               basis
+                               (if (>= i dim)
                                  basis
-                                 (if (>= i dim)
-                                   basis
-                                   (let [e {:real (vec (for [k (range dim)] (if (= k i) 1.0 0.0)))
-                                            :imag (vec (repeat dim 0.0))}
-                                         v1 (reduce (fn [vv u]
-                                                      (let [ip (inner-c u vv)]
-                                                        (sub-c vv (mult-cv ip u)))) e basis)
-                                         nrm (norm-c v1)]
-                                     (if (> nrm (* 10 tol))
-                                       (recur (conj basis (scale-c v1 (/ 1.0 nrm))) (inc i))
-                                       (recur basis (inc i))))))))
-            U-full (complete-basis U-cols m)
-            V-full (complete-basis V-cols n)
-            Vh {:real (real-transpose (mapv :real V-full))
-                :imag (real-scale (real-transpose (mapv :imag V-full)) -1.0)}
-            U-mat {:real (vec (apply map vector (map :real U-full)))
-                   :imag (vec (apply map vector (map :imag U-full)))}]
-        {:U U-mat :S singular-values :Vt Vh :V† Vh})))
-
+                                 (let [e {:real (vec (for [k (range dim)] (if (= k i) 1.0 0.0)))
+                                          :imag (vec (repeat dim 0.0))}
+                                       v1 (reduce (fn [vv u]
+                                                    (let [ip (inner-c u vv)]
+                                                      (sub-c vv (mult-cv ip u)))) e basis)
+                                       nrm (norm-c v1)]
+                                   (if (> nrm (* 10 tol))
+                                     (recur (conj basis (scale-c v1 (/ 1.0 nrm))) (inc i))
+                                     (recur basis (inc i))))))))
+          U-full (complete-basis U-cols m)
+          V-full (complete-basis V-cols n)
+          Vh {:real (real-transpose (mapv :real V-full))
+              :imag (real-scale (real-transpose (mapv :imag V-full)) -1.0)}
+          U-mat {:real (vec (apply map vector (map :real U-full)))
+                 :imag (vec (apply map vector (map :imag U-full)))}]
+      {:U U-mat :S singular-values :Vt Vh :V† Vh}))
+  
   (lu-decomposition
     [_ A]
     ;; Complex LU with partial pivoting

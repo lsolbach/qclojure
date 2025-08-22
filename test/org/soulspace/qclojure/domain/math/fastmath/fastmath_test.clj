@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.fastmath-test
+(ns org.soulspace.qclojure.domain.math.fastmath.fastmath-test
   "Tests for the FastMath backend implementation.
 
   Mirrors the clojure-math-test functionality but uses FastMath Vec2 complex representations.
@@ -14,7 +14,7 @@
   Known limitations:
   * SVD returns nil for V-dagger (partial implementation)"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.domain.math.fastmath :as fm-backend]
+            [org.soulspace.qclojure.domain.math.fastmath.fastmath :as fm-backend]
             [org.soulspace.qclojure.domain.math.protocols :as proto]
             [fastmath.complex :as fc]))
 

@@ -1,5 +1,5 @@
 ;; Rebalanced full content
- (ns org.soulspace.qclojure.domain.math.clojure-math
+ (ns org.soulspace.qclojure.domain.math.clojure.clojure-math
    "Pure Clojure math backend implementing the domain math protocols using
   persistent vectors and simple maps. Complex scalars, vectors and matrices
   use a Split-of-Arrays (SoA) representation with :real / :imag keys.
@@ -9,8 +9,9 @@
 
   Advanced decompositions are mostly placeholders; delegate heavy numerics to
   specialized backends (e.g. Neanderthal) for production performance."
-   (:require [org.soulspace.qclojure.domain.math.protocols :as proto]
-             [fastmath.complex :as fc]))
+   (:require [clojure.math :as math]
+             [fastmath.complex :as fc]
+             [org.soulspace.qclojure.domain.math.protocols :as proto]))
 
 ;;
 ;; Configuration / defaults
@@ -173,14 +174,14 @@
           {:Q Q :R R})
         (let [;; Extract x = A[k:m, k]
               x (mapv #(get-in A* [% k]) (range k m))
-              normx (Math/sqrt (reduce + (map #(* (double %) (double %)) x)))
+              normx (math/sqrt (reduce + (map #(* (double %) (double %)) x)))
               sign (if (or (zero? normx) (neg? (double (first x)))) -1.0 1.0)
               alpha (* sign normx)
               u1 (+ (double (first x)) alpha)
               v (if (zero? normx)
                   (vec (cons 1.0 (repeat (dec (count x)) 0.0)))
                   (let [vraw (cons u1 (rest x))
-                        vnorm (Math/sqrt (reduce + (map #(* % %) vraw)))
+                        vnorm (math/sqrt (reduce + (map #(* % %) vraw)))
                         vnorm (if (pos? vnorm) vnorm 1.0)]
                     (mapv #(/ (double %) vnorm) vraw)))
               beta 2.0
@@ -209,10 +210,10 @@
 (defn- real-transpose [A] (vec (apply mapv vector A)))
 
 (defn- real-frobenius-norm [A]
-  (Math/sqrt (reduce + (for [row A v row] (let [d (double v)] (* d d))))))
+  (math/sqrt (reduce + (for [row A v row] (let [d (double v)] (* d d))))))
 
 (defn- real-one-norm [A]
-  (apply max (map (fn [col] (reduce + (map #(Math/abs (double %)) col))) (apply map vector A))))
+  (apply max (map (fn [col] (reduce + (map #(abs (double %)) col))) (apply map vector A))))
 
 ;; Jacobi eigen-decomposition (shared helper)
 ;;
@@ -254,7 +255,7 @@
              :vectors (vec (apply mapv vector V))
              :iterations iter}
             (let [[p q val] (reduce (fn [[bp bq bv] [i j]]
-                                      (let [aij (Math/abs (double (get-in M [i j])))]
+                                      (let [aij (abs (double (get-in M [i j])))]
                                         (if (> aij bv) [i j aij] [bp bq bv])))
                                     [0 0 0.0]
                                     (for [i (range n) j (range (inc i) n)] [i j]))]
@@ -264,8 +265,8 @@
                  :iterations iter}
                 (let [app (get-in M [p p]) aqq (get-in M [q q]) apq (get-in M [p q])
                       tau (/ (- aqq app) (* 2.0 apq))
-                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (Math/abs tau) (Math/sqrt (+ 1.0 (* tau tau))))))
-                      c (/ 1.0 (Math/sqrt (+ 1.0 (* t t))))
+                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (abs tau) (math/sqrt (+ 1.0 (* tau tau))))))
+                      c (/ 1.0 (math/sqrt (+ 1.0 (* t t))))
                       s (* t c)
                       rotate-row (fn [M r]
                                    (let [rp (get-in M [r p]) rq (get-in M [r q])]
@@ -325,9 +326,9 @@
       (let [a (double (nth xr idx))
             b (double (nth xi idx))
             ;; Compute phase of reference component a+ib = r e^{i phi}
-            phi (Math/atan2 b a)
-            c (Math/cos phi)
-            s (Math/sin phi)
+            phi (math/atan2 b a)
+            c (math/cos phi)
+            s (math/sin phi)
             ;; Multiply whole vector by e^{-i phi}. For each component ar+i ai:
             ;; (ar + i ai)(cos phi - i sin phi) = (ar c + ai s) + i (ai c - ar s)
             xr' (mapv (fn [ar ai] (+ (* ar c) (* ai s))) xr xi)
@@ -484,7 +485,7 @@
     (loop [k 0 Ar Ar Ai Ai br br bi bi]
       (if (= k n)
         [Ar Ai br bi]
-        (let [pivot (apply max-key #(Math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
+        (let [pivot (apply max-key #(math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
               swap-row (fn [M] (if (not= pivot k) (-> M (assoc k (M pivot)) (assoc pivot (M k))) M))
               Ar (swap-row Ar) Ai (swap-row Ai)
               br (if (not= pivot k) (-> br (assoc k (br pivot)) (assoc pivot (br k))) br)
@@ -549,7 +550,7 @@
     (loop [k 0 Ar Ar Ai Ai Ir Ir Ii Ii]
       (if (= k n)
         {:real Ir :imag Ii}
-        (let [pivot (apply max-key #(Math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
+        (let [pivot (apply max-key #(math/hypot (get-in Ar [% k]) (get-in Ai [% k])) (range k n))
               swap-row (fn [M] (if (not= pivot k) (-> M (assoc k (M pivot)) (assoc pivot (M k))) M))
               Ar (swap-row Ar) Ai (swap-row Ai) Ir (swap-row Ir) Ii (swap-row Ii)
               akk-r (get-in Ar [k k]) akk-i (get-in Ai [k k])
@@ -606,7 +607,7 @@
   (let [[r c] (matrix-shape A)]
     (every? true?
             (for [i (range r) j (range c)]
-              (< (Math/abs (double (- (if (complex-matrix? A)
+              (< (abs (double (- (if (complex-matrix? A)
                                         (get-in (:real A) [i j])
                                         (get-in A [i j]))
                                       (if (complex-matrix? B)
@@ -618,7 +619,7 @@
     (and (= r c)
          (every? true?
                  (for [i (range r) j (range i r)]
-                   (< (Math/abs (double (- (get-in A [i j]) (get-in A [j i])))) tol))))))
+                   (< (abs (double (- (get-in A [i j]) (get-in A [j i])))) tol))))))
 
 (defn- hermitian-complex? [A tol]
   (let [Ar (:real A) Ai (:imag A) n (count Ar)]
@@ -627,22 +628,22 @@
                  (for [i (range n) j (range i n)]
                    (let [aij-r (get-in Ar [i j]) aij-i (get-in Ai [i j])
                          aji-r (get-in Ar [j i]) aji-i (get-in Ai [j i])]
-                     (and (< (Math/abs (double (- aij-r aji-r))) tol)
-                          (< (Math/abs (double (+ aij-i aji-i))) tol))))))))
+                     (and (< (abs (double (- aij-r aji-r))) tol)
+                          (< (abs (double (+ aij-i aji-i))) tol))))))))
 
 (defn- power-iteration-largest-eigenvalue-real [A iterations tol]
   (let [shape (matrix-shape A)
         n (first shape)
-        v0 (vec (repeat n (/ 1.0 (Math/sqrt n))))]
+        v0 (vec (repeat n (/ 1.0 (math/sqrt n))))]
     (loop [v v0 i 0]
       (if (>= i iterations)
         (let [Av (mapv (fn [row] (reduce + (map * row v))) A)
               lambda (/ (real-inner Av v) (real-inner v v))]
           lambda)
         (let [Av (mapv (fn [row] (reduce + (map * row v))) A)
-              nrm (Math/sqrt (real-inner Av Av))
+              nrm (math/sqrt (real-inner Av Av))
               v-next (if (pos? nrm) (mapv #(/ % nrm) Av) v)]
-          (if (and (> i 2) (< (Math/abs (- (real-inner v v-next) 1.0)) tol))
+          (if (and (> i 2) (< (abs (- (real-inner v v-next) 1.0)) tol))
             (recur v-next iterations)
             (recur v-next (inc i))))))))
 
@@ -670,7 +671,7 @@
                              :eigenvectors (vec (apply mapv vector V))}
                             (let [;; find largest off-diagonal
                                   [p q val] (reduce (fn [[bp bq bv] [i j]]
-                                                      (let [aij (Math/abs (double (get-in A [i j])))]
+                                                      (let [aij (abs (double (get-in A [i j])))]
                                                         (if (> aij bv) [i j aij] [bp bq bv])))
                                                     [0 0 0.0]
                                                     (for [i (range n) j (range (inc i) n)] [i j]))]
@@ -679,8 +680,8 @@
                                  :eigenvectors (vec (apply mapv vector V))}
                                 (let [app (get-in A [p p]) aqq (get-in A [q q]) apq (get-in A [p q])
                                       tau (/ (- aqq app) (* 2.0 apq))
-                                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (Math/abs tau) (Math/sqrt (+ 1.0 (* tau tau))))))
-                                      c (/ 1.0 (Math/sqrt (+ 1.0 (* t t))))
+                                      t (let [s (if (neg? tau) -1.0 1.0)] (/ s (+ (abs tau) (math/sqrt (+ 1.0 (* tau tau))))))
+                                      c (/ 1.0 (math/sqrt (+ 1.0 (* t t))))
                                       s (* t c)
                                       ;; rotate A in-place (functional updates)
                                       rotate-row (fn [A r]
@@ -721,7 +722,7 @@
   Returns largest singular value (double)." [A]
   (let [AtA (real-mul (real-transpose A) A)
         [n _] (matrix-shape AtA)
-        v0 (vec (repeat n (/ 1.0 (Math/sqrt (max 1 n)))))
+        v0 (vec (repeat n (/ 1.0 (math/sqrt (max 1 n)))))
         tol (* 1e-12 (inc n))
         max-it 200
         zero-matrix? (every? (fn [row] (every? zero? row)) AtA)]
@@ -729,19 +730,19 @@
       0.0
       (loop [k 0 v v0 lambda-prev nil]
         (let [Av (mapv (fn [row] (reduce + (map * row v))) AtA)
-              nrm (Math/sqrt (reduce + (map #(* (double %) (double %)) Av)))
+              nrm (math/sqrt (reduce + (map #(* (double %) (double %)) Av)))
               v' (if (pos? nrm) (mapv #(/ % nrm) Av) v)
               Av' (mapv (fn [row] (reduce + (map * row v'))) AtA)
               lambda (real-inner v' Av')
-              conv? (and lambda-prev (< (Math/abs (- lambda lambda-prev)) (* tol (max 1.0 (Math/abs lambda)))))]
+              conv? (and lambda-prev (< (abs (- lambda lambda-prev)) (* tol (max 1.0 (abs lambda)))))]
           (if (or (>= k max-it) conv?)
-            (Math/sqrt (max 0.0 (double lambda)))
+            (math/sqrt (max 0.0 (double lambda)))
             (recur (inc k) v' lambda)))))))
 
 (defn spectral-norm-complex
   "Compute spectral norm of complex matrix A via power iteration on A^H A with Rayleigh quotient convergence." [A]
   (let [n (count (:real A))
-        x0 {:real (vec (repeat n (/ 1.0 (Math/sqrt n)))) :imag (vec (repeat n 0.0))}
+        x0 {:real (vec (repeat n (/ 1.0 (math/sqrt n)))) :imag (vec (repeat n 0.0))}
         tol 1e-12
         max-it 200
         Ah (complex-conj-transpose A)]
@@ -750,39 +751,17 @@
             AhAx (complex-matvec Ah Ax)
             lambda (let [num-r (reduce + (map (fn [a b c d] (+ (* a b) (* c d))) (:real x) (:real AhAx) (:imag x) (:imag AhAx)))]
                      (double num-r))
-            nr (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
+            nr (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real AhAx) (:imag AhAx))))
             x' {:real (mapv #(/ % nr) (:real AhAx)) :imag (mapv #(/ % nr) (:imag AhAx))}
-            conv? (and lambda-prev (< (Math/abs (- lambda lambda-prev)) (* tol (max 1.0 (Math/abs lambda)))))]
+            conv? (and lambda-prev (< (abs (- lambda lambda-prev)) (* tol (max 1.0 (abs lambda)))))]
         (if (or (>= k max-it) conv?)
-          (Math/sqrt (max 0.0 lambda))
+          (math/sqrt (max 0.0 lambda))
           (recur (inc k) x' lambda))))))
 
 ;;;
 ;;; Backend record & protocol implementations
 ;;;
 (defrecord ClojureMathBackend [tolerance config])
-
-;;
-;; Complex scalar protocol
-;;
-(extend-protocol proto/Complex
-  Number
-  (real [x] (double x))
-
-  (imag [_] 0.0)
-
-  (conjugate [x] x)
-
-  (complex? [_] false)
-
-  clojure.lang.IPersistentMap
-  (real [m] (if (contains? m :real) (double (:real m)) (throw (ex-info "Not a complex map" {:value m}))))
-
-  (imag [m] (if (contains? m :imag) (double (:imag m)) 0.0))
-
-  (conjugate [m] (if (and (contains? m :real) (contains? m :imag)) (update m :imag #(- (double %))) m))
-
-  (complex? [m] (and (contains? m :real) (contains? m :imag))))
 
 ;;
 ;; BackendAdapter - conversion between FastMath Vec2 and SoA representations
@@ -1192,9 +1171,9 @@
         ;; <x|x> for a valid inner product should be real non-negative; imaginary part ≈ 0.
         ;; Old code incorrectly computed sqrt(re^2 + im^2) which overestimates.
         (let [re (double (:real ip))
-              re (if (neg? re) (Math/abs re) re)]
-          (Math/sqrt re))
-        (Math/sqrt (double ip)))))
+              re (if (neg? re) (abs re) re)]
+          (math/sqrt re))
+        (math/sqrt (double ip)))))
 
   (solve-linear-system [backend A b]
     ;; If either A or b is complex, promote to complex solve path.
@@ -1306,7 +1285,7 @@
                             (let [w (nth vectors col-idx) ; length 2n
                                   x (subvec w 0 n)
                                   y (subvec w n N)
-                                  nrm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
+                                  nrm (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
                                   nrm (if (pos? nrm) nrm 1.0)
                                   x' (mapv #(/ % nrm) x)
                                   y' (mapv #(/ % nrm) y)
@@ -1316,7 +1295,7 @@
                              (if (empty? pairs)
                                [acc-e acc-v]
                                (let [[[idx λ] & more] pairs
-                                     add? (or (empty? acc-e) (> (Math/abs (- λ (last acc-e))) collapse-tol))]
+                                     add? (or (empty? acc-e) (> (abs (- λ (last acc-e))) collapse-tol))]
                                  (if add?
                                    (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
                                    (recur more acc-e acc-v)))))]
@@ -1369,41 +1348,41 @@
             max-it (* 800 n n)
             ;; Simple balancing (single pass): scale rows & cols by sqrt(row_norm/col_norm)
             balance-real (fn [M]
-                           (let [row-norms (mapv (fn [row] (Math/sqrt (reduce + (map #(* (double %) (double %)) row)))) M)
+                           (let [row-norms (mapv (fn [row] (math/sqrt (reduce + (map #(* (double %) (double %)) row)))) M)
                                  cols (apply map vector M)
-                                 col-norms (mapv (fn [col] (Math/sqrt (reduce + (map #(* (double %) (double %)) col)))) cols)
+                                 col-norms (mapv (fn [col] (math/sqrt (reduce + (map #(* (double %) (double %)) col)))) cols)
                                  eps 1e-14]
                              (vec (for [i (range n)]
                                     (vec (for [j (range n)]
                                            (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))]
-                                             (/ (get-in M [i j]) (Math/sqrt (/ ri cj))))))))))
+                                             (/ (get-in M [i j]) (math/sqrt (/ ri cj))))))))))
             balance-complex (fn [M]
                               (let [R (:real M) I (:imag M)
                                     row-norms (mapv (fn [i]
-                                                      (Math/sqrt (reduce + (for [j (range n)]
+                                                      (math/sqrt (reduce + (for [j (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
                                     cols-r (apply map vector R)
                                     cols-i (apply map vector I)
                                     col-norms (mapv (fn [j]
-                                                      (Math/sqrt (reduce + (for [i (range n)]
+                                                      (math/sqrt (reduce + (for [i (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
                                     eps 1e-14]
                                 {:real (vec (for [i (range n)]
                                               (vec (for [j (range n)]
                                                      (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                           scale (/ 1.0 (math/sqrt (/ ri cj)))]
                                                        (* scale (get-in R [i j])))))))
                                  :imag (vec (for [i (range n)]
                                               (vec (for [j (range n)]
                                                      (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                           scale (/ 1.0 (Math/sqrt (/ ri cj)))]
+                                                           scale (/ 1.0 (math/sqrt (/ ri cj)))]
                                                        (* scale (get-in I [i j])))))))}))]
         (if complex?
           ;; Complex QR iteration with fast triangular detection
           (let [A0 (balance-complex A)
                 offdiag-norm-complex (fn [M]
                                        (let [R (:real M) I (:imag M)]
-                                         (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
+                                         (math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
                                                                     (let [a (double (get-in R [i j])) b (double (get-in I [i j]))]
                                                                       (+ (* a a) (* b b))))))))]
             ;; Immediate fast-path: already (quasi) upper triangular? -> diagonal eigenvalues
@@ -1432,7 +1411,7 @@
                                       ;; Compute discriminant Δ = (tr)^2 - 4 det (complex) -> approximate using real parts only for shift heuristic
                                       tr2 (+ (* tr-r tr-r) (* tr-i tr-i))
                                       det-mag (+ (* det-r det-r) (* det-i det-i))
-                                      disc (Math/sqrt (Math/max 0.0 (- tr2 (* 4.0 det-mag))))
+                                      disc (math/sqrt (max 0.0 (- tr2 (* 4.0 det-mag))))
                                       μ (/ (- (+ tr-r) disc) 2.0)] ; choose smaller magnitude root approx (heuristic)
                                   μ))
                         ;; Apply real shift μ (imag ignored for stability heuristic) by subtracting μ I, perform QR, add back
@@ -1457,7 +1436,7 @@
           ;; Real QR iteration with simple Wilkinson shift
           (let [Araw (mapv vec A)
                 offdiag-norm-real (fn [M]
-                                    (Math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
+                                    (math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
                                                                (let [v (double (get-in M [i j]))] (* v v))))))]
             (if (< (offdiag-norm-real Araw) tol)
               {:eigenvalues (mapv #(get-in Araw [% %]) (range n)) :iterations 0}
@@ -1471,7 +1450,7 @@
                                     c (get-in M [j i]) d (get-in M [j j])
                                     tr (+ a d)
                                     det (- (* a d) (* b c))
-                                    disc (Math/sqrt (Math/max 0.0 (- (* tr tr) (* 4.0 det))))]
+                                    disc (math/sqrt (max 0.0 (- (* tr tr) (* 4.0 det))))]
                                 (/ (- tr disc) 2.0))
                               0.0)
                           M-shift (if (zero? μ) M (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) (- (get-in M [i j]) μ) (get-in M [i j])))))))
@@ -1523,7 +1502,7 @@
               ;; eigenvalues ascending per contract; reverse for descending singular values
               pairs (reverse (map vector eigenvalues eigenvectors))
               ;; Process singular triplets
-              sv-pairs (map (fn [[λ v]] [(Math/sqrt (Math/max 0.0 (double λ))) v]) pairs)
+              sv-pairs (map (fn [[λ v]] [(math/sqrt (max 0.0 (double λ))) v]) pairs)
               ;; Filter numerical noise ordering & produce descending order by σ
               sv-pairs (sort-by (fn [[s _]] (- s)) sv-pairs)
               k (min m n)
@@ -1536,7 +1515,7 @@
                             (let [u (complex-matvec {:real Ar :imag Ai} v)
                                   norm-sigma sigma
                                   ur (:real u) ui (:imag u)
-                                  u-norm (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) ur ui)))
+                                  u-norm (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) ur ui)))
                                   ;; divide by sigma (not u-norm) per definition: u = Av / σ
                                   scale (/ 1.0 norm-sigma)]
                               {:real (mapv #(* scale %) ur)
@@ -1557,7 +1536,7 @@
                           {:real (mapv (fn [r i] (- (* ar r) (* ai i))) vr vi)
                            :imag (mapv (fn [r i] (+ (* ar i) (* ai r))) vr vi)}))
               norm-c (fn [x]
-                       (Math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real x) (:imag x)))))
+                       (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) (:real x) (:imag x)))))
               normalize-c (fn [x]
                             (let [nrm (norm-c x)]
                               (if (pos? nrm)
@@ -1603,7 +1582,7 @@
               AtA (real-mul At A)
               {:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian _ AtA)
               pairs (reverse (map vector eigenvalues eigenvectors))
-              sv-pairs (map (fn [[λ v]] [(Math/sqrt (Math/max 0.0 (double λ))) v]) pairs)
+              sv-pairs (map (fn [[λ v]] [(math/sqrt (max 0.0 (double λ))) v]) pairs)
               sv-pairs (sort-by (fn [[s _]] (- s)) sv-pairs)
               k (min m n)
               sv-pairs (take k sv-pairs)
@@ -1619,7 +1598,7 @@
               U-cols (map (fn [[s v]] (compute-u s v)) sv-pairs)
               ;; Gram–Schmidt real
               inner-r (fn [x y] (reduce + (map * x y)))
-              norm-r (fn [x] (Math/sqrt (reduce + (map #(* % %) x))))
+              norm-r (fn [x] (math/sqrt (reduce + (map #(* % %) x))))
               gs (fn [cols]
                    (reduce (fn [acc v]
                              (let [v1 (reduce (fn [vv u]
@@ -1699,7 +1678,7 @@
           (loop [k 0 A A0 L L0 P P0]
             (if (= k n)
               {:P P :L (vec (map-indexed (fn [i row] (assoc row i 1.0)) L)) :U A}
-              (let [pivot-row (->> (range k n) (apply max-key (fn [r] (Math/abs (double (get-in A [r k]))))))
+              (let [pivot-row (->> (range k n) (apply max-key (fn [r] (abs (double (get-in A [r k]))))))
                     A (if (not= pivot-row k) (-> A (assoc k (A pivot-row)) (assoc pivot-row (A k))) A)
                     P (if (not= pivot-row k) (-> P (assoc k (P pivot-row)) (assoc pivot-row (P k))) P)
                     akk (double (get-in A [k k]))]
@@ -1735,7 +1714,7 @@
                                             Rr (assoc-in Rr [i j] pr) Ri (assoc-in Ri [i j] pi)]
                                         [{:real vr' :imag vi'} Rr Ri]))
                                     [v0 Rr Ri] (range j))
-                  rjj (Math/sqrt (reduce + (map #(+ (* % %) 0.0) (:real v))))
+                  rjj (math/sqrt (reduce + (map #(+ (* % %) 0.0) (:real v))))
                   qj (if (pos? rjj) {:real (mapv #(/ % rjj) (:real v)) :imag (mapv #(/ % rjj) (:imag v))}
                          {:real (vec (repeat m 0.0)) :imag (vec (repeat m 0.0))})
                   Rr (assoc-in Rr [j j] rjj)
@@ -1762,9 +1741,9 @@
                               diff-r (- arij sum-r) diff-i (- aiij sum-i)]
                           (if (= i j)
                             (do
-                              (when (> (Math/abs diff-i) 1e-12) (throw (ex-info "Hermitian diag not real" {:i i :imag diff-i})))
+                              (when (> (abs diff-i) 1e-12) (throw (ex-info "Hermitian diag not real" {:i i :imag diff-i})))
                               (when (neg? diff-r) (throw (ex-info "Matrix not HPD" {:i i :value diff-r})))
-                              (let [val (Math/sqrt diff-r)]
+                              (let [val (math/sqrt diff-r)]
                                 (recur (inc j) (assoc-in Lr [i i] val) Li)))
                             (let [lrjj (get-in Lr [j j])
                                   fr (/ diff-r lrjj) fi (/ diff-i lrjj)
@@ -1784,7 +1763,7 @@
                                 lij (if (= i j)
                                       (let [d (- val sum)]
                                         (when (neg? d) (throw (ex-info "Matrix not SPD" {:i i :j j :value d})))
-                                        (Math/sqrt d))
+                                        (math/sqrt d))
                                       (/ (- val sum) (double (get-in L [j j]))))
                                 row (assoc (get L i) j lij)]
                             (recur (inc j) (assoc L i row)))))]
@@ -1802,22 +1781,22 @@
         (cond
           ;; 1x1 complex scalar
           (and (= 1 n) (= 1 (count (first X))))
-          (let [a (double (get-in X [0 0])) b (double (get-in Y [0 0])) ea (Math/exp a)]
-            {:real [[(* ea (Math/cos b))]] :imag [[(* ea (Math/sin b))]]})
+          (let [a (double (get-in X [0 0])) b (double (get-in Y [0 0])) ea (math/exp a)]
+            {:real [[(* ea (math/cos b))]] :imag [[(* ea (math/sin b))]]})
           ;; Diagonal complex matrix: exp acts element-wise
           (every? true? (for [i (range n) j (range n) :when (not= i j)]
                           (and (zero? (double (get-in X [i j]))) (zero? (double (get-in Y [i j]))))))
           (let [R (vec (for [i (range n)]
                          (vec (for [j (range n)]
                                 (if (= i j)
-                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (Math/exp a)]
-                                    (* ea (Math/cos b)))
+                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (math/exp a)]
+                                    (* ea (math/cos b)))
                                   0.0)))))
                 I (vec (for [i (range n)]
                          (vec (for [j (range n)]
                                 (if (= i j)
-                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (Math/exp a)]
-                                    (* ea (Math/sin b)))
+                                  (let [a (double (get-in X [i i])) b (double (get-in Y [i i])) ea (math/exp a)]
+                                    (* ea (math/sin b)))
                                   0.0)))))]
             {:real R :imag I})
           :else
@@ -1840,7 +1819,7 @@
           ;; Eigen decomposition based exp for symmetric matrices
           (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian backend A)]
             (reduce (fn [acc [lambda v]]
-                      (let [e (Math/exp lambda)
+                      (let [e (math/exp lambda)
                             outer (vec (for [a v] (vec (for [b v] (* e a b)))))]
                         (real-add acc outer)))
                     (vec (repeat n (vec (repeat n 0.0))))
@@ -1851,9 +1830,9 @@
                 theta 3.0
                 ;; compute s such that norm/2^s <= theta
                 s (let [ratio (/ norm theta)]
-                    (if (<= ratio 1.0) 0 (int (Math/ceil (/ (Math/log ratio) (Math/log 2.0))))))
+                    (if (<= ratio 1.0) 0 (int (math/ceil (/ (math/log ratio) (math/log 2.0))))))
                 s (if (neg? s) 0 s)
-                A1 (if (pos? s) (real-scale A (/ 1.0 (Math/pow 2.0 s))) A)
+                A1 (if (pos? s) (real-scale A (/ 1.0 (math/pow 2.0 s))) A)
                 A2 (real-mul A1 A1)
                 A4 (real-mul A2 A2)
                 A6 (real-mul A4 A2)
@@ -1884,7 +1863,7 @@
         (let [{:keys [eigenvalues eigenvectors]} (proto/eigen-hermitian backend A)]
           (doseq [l eigenvalues]
             (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
-          (let [log-L (map #(Math/log %) eigenvalues)
+          (let [log-L (map #(math/log %) eigenvalues)
                 ;; Build log(A) = sum_i (log λ_i) v_i v_i^H
                 {:keys [real imag] :as acc}
                 (reduce (fn [{:keys [real imag]} [lv v]]
@@ -1909,7 +1888,7 @@
           (doseq [l eigenvalues]
             (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
           (reduce (fn [acc [lambda v]]
-                    (let [lv (Math/log lambda)
+                    (let [lv (math/log lambda)
                           outer (vec (for [a v] (vec (for [b v] (* lv a b)))))]
                       (real-add acc outer)))
                   (vec (repeat n (vec (repeat n 0.0))))
@@ -1933,7 +1912,7 @@
                   Znext (complex-scale (complex-add Z Yinv) 0.5)
                   diff (let [YY (complex-mul Ynext Ynext)
                              D (complex-sub YY A)
-                             nr (Math/sqrt (reduce + (for [i (range n) j (range n)]
+                             nr (math/sqrt (reduce + (for [i (range n) j (range n)]
                                                        (let [dr (get-in (:real D) [i j]) di (get-in (:imag D) [i j])]
                                                          (+ (* dr dr) (* di di))))))]
                          nr)]
@@ -1988,7 +1967,7 @@
             s (if (pos? nrm) (/ 1.0 nrm) 1.0)]
         {:real (mapv #(* s %) (:real state))
          :imag (mapv #(* s %) (:imag state))})
-      (let [nrm (Math/sqrt (reduce + (map #(* (double %) (double %)) state)))
+      (let [nrm (math/sqrt (reduce + (map #(* (double %) (double %)) state)))
             s (if (pos? nrm) (/ 1.0 nrm) 1.0)]
         (mapv #(* s (double %)) state))))
 
@@ -2005,9 +1984,9 @@
      (let [tr (proto/trace b rho)
            eps (double (or eps default-tolerance))]
        (if (complex-scalar? tr)
-         (and (< (Math/abs (- (:real tr) 1.0)) eps)
-              (< (Math/abs (:imag tr)) eps))
-         (< (Math/abs (- (double tr) 1.0)) eps))))))
+         (and (< (abs (- (:real tr) 1.0)) eps)
+              (< (abs (:imag tr)) eps))
+         (< (abs (- (double tr) 1.0)) eps))))))
 
 ;;
 ;; Factory

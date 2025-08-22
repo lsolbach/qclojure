@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.clojure-math-test
+(ns org.soulspace.qclojure.domain.math.clojure.clojure-math-test
   "Tests for the pure Clojure math backend implementation.
 
   Focus areas:
@@ -14,7 +14,7 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             ;[org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.math.protocols :as proto]
-            [org.soulspace.qclojure.domain.math.clojure-math :as backend]))
+            [org.soulspace.qclojure.domain.math.clojure.clojure-math :as backend]))
 
 (def b (backend/make-backend))
 

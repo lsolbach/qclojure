@@ -10,9 +10,6 @@
 ;;;
 (def ^:const ^double default-tolerance 1.0e-12)
 
-(defn tolerance* [backend]
-  (double (or (:tolerance backend) (:tolerance (:config backend)) default-tolerance)))
-
 ;;;
 ;;; Complex number utilities and predicates
 ;;;
@@ -41,22 +38,6 @@
 ;;;
 ;;; Conversion utilities between representations
 ;;;
-(defn vec2->complex-map
-  "Convert FastMath Vec2 to complex map representation."
-  [v]
-  (if (complex? v)
-    {:real (fc/re v) :imag (fc/im v)}
-    v))
-
-(defn complex-map->vec2
-  "Convert complex map to FastMath Vec2 representation."
-  [c]
-  (cond
-    (complex? c) c
-    (complex-scalar? c) (fc/complex (:real c) (:imag c))
-    (number? c) (fc/complex c 0.0)
-    :else (throw (ex-info "Cannot convert to Vec2" {:value c}))))
-
 (defn ensure-complex
   "Ensure input is a complex number."
   [x]
@@ -774,7 +755,7 @@
 
 (defn cholesky-decomposition
   "Compute Cholesky decomposition A = L * L† for positive definite complex matrices."
-  ([A] (cholesky-decomposition A 1.0e-12))
+  ([A] (cholesky-decomposition A  default-tolerance))
   ([A eps]
    (let [[n m] (complex-matrix-shape A)]
      (when (not= n m)
@@ -1006,160 +987,6 @@
                          :matrix-size n}))))))
 
 
-;;;
-;;; FastMath Complex Backend
-;;;
-(defrecord FastMathComplexBackend [tolerance config])
-
-;;
-;; Factory
-;;
-(defn make-backend
-  "Create a new Fastmath backend. Options:
-   :tolerance  numeric tolerance used by predicates (default 1e-12)
-   :config     arbitrary config map."
-  ([] (->FastMathComplexBackend default-tolerance {:tolerance default-tolerance}))
-  ([{:keys [tolerance] :as opts}]
-   (->FastMathComplexBackend (or tolerance default-tolerance)
-                             (merge {:tolerance (or tolerance default-tolerance)} (dissoc opts :tolerance)))))
-
-;;;
-;;; BackendAdapter protocol implementation
-;;;
-(extend-protocol proto/BackendAdapter
-  FastMathComplexBackend
-  (vector->backend [_ v]
-    "Convert QClojure vector to FastMath representation."
-    (cond
-      ;; Already a vector of Vec2 complex numbers - pass through
-      (and (vector? v) (every? complex? v)) v
-
-      ;; Vector of complex maps - convert to Vec2
-      (complex-vector? v) (mapv complex-map->vec2 v)
-
-      ;; Vector of real numbers - convert to Vec2 with zero imaginary
-      (and (vector? v) (every? number? v)) (mapv #(fc/complex % 0.0) v)
-
-      ;; Single complex number - return as single-element vector
-      (complex-scalar? v) [(ensure-complex v)]
-
-      ;; Single real number - return as single-element vector
-      (number? v) [(fc/complex v 0.0)]
-
-      :else (throw (ex-info "Cannot convert to backend vector" {:value v}))))
-
-  (backend->vector [_ v]
-    "Convert FastMath vector to QClojure representation."
-    (cond
-      ;; Vector of Vec2 - convert to complex maps
-      (and (vector? v) (every? complex? v)) (mapv vec2->complex-map v)
-
-      ;; Already in QClojure format - pass through
-      (vector? v) v
-
-      :else (throw (ex-info "Cannot convert from backend vector" {:value v}))))
-
-  (matrix->backend [_ m]
-    "Convert QClojure matrix to FastMath representation."
-    (cond
-      ;; Matrix of Vec2 complex numbers - pass through
-      (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m)) m
-
-      ;; Complex matrix - convert to Vec2
-      (complex-matrix? m) (mapv #(mapv complex-map->vec2 %) m)
-
-      ;; Real matrix - convert to Vec2 with zero imaginary
-      (and (vector? m) (every? #(and (vector? %) (every? number? %)) m))
-      (mapv #(mapv (fn [x] (fc/complex x 0.0)) %) m)
-
-      :else (throw (ex-info "Cannot convert to backend matrix" {:value m}))))
-
-  (backend->matrix [_ m]
-    "Convert FastMath matrix to QClojure representation."
-    (cond
-      ;; Matrix of Vec2 - convert to complex maps
-      (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m))
-      (mapv #(mapv vec2->complex-map %) m)
-
-      ;; Already in QClojure format - pass through
-      (vector? m) m
-
-      :else (throw (ex-info "Cannot convert from backend matrix" {:value m}))))
-
-  (scalar->backend [_ s]
-    "Convert QClojure scalar to FastMath representation."
-    (ensure-complex s))
-
-  (backend->scalar [_ s]
-    "Convert FastMath scalar to QClojure representation."
-    (cond
-      (complex? s) (vec2->complex-map s)
-      (number? s) s
-      :else (throw (ex-info "Cannot convert from backend scalar" {:value s})))))
-
-;;;
-;;; MatrixAlgebra protocol implementation
-;;;
-(extend-protocol proto/MatrixAlgebra
-  FastMathComplexBackend
-
-  (shape [_ A] (complex-matrix-shape A))
-  (add [_ A B] (matrix-add A B))
-  (subtract [_ A B] (matrix-subtract A B))
-  (scale [_ A alpha] (matrix-scale A alpha))
-  (negate [_ A] (matrix-negate A))
-  (matrix-multiply [_ A B] (matrix-multiply A B))
-  (matrix-vector-product [_ A x] (matrix-vector-product A x))
-  (outer-product [_ x y] (outer-product x y))
-  (hadamard [_ A B] (hadamard-product A B))
-  (kronecker [_ A B] (kronecker-product A B))
-  (transpose [_ A] (transpose A))
-  (conjugate-transpose [_ A] (conjugate-transpose A))
-  (trace [_ A] (trace A))
-  (inner-product [_ x y] (inner-product x y))
-  (norm2 [_ x] (norm2 x))
-  (solve-linear-system [_ A b] (gaussian-elimination-solve A b))
-  (inverse [_ A] (gaussian-elimination-inverse A))
-  (hermitian?
-    ([backend A] (hermitian? A (tolerance* backend)))
-    ([_ A eps] (hermitian? A eps)))
-  (unitary?
-    ([backend U] (unitary? U (tolerance* backend)))
-    ([_ U eps] (unitary? U eps)))
-  (positive-semidefinite?
-    ([backend A] (positive-semidefinite? A (tolerance* backend)))
-    ([_ A eps] (positive-semidefinite? A eps)))
-  ;
-  )
-
-;;;
-;;; MatrixDecompositions protocol implementation  
-;;;
-(extend-protocol proto/MatrixDecompositions
-  FastMathComplexBackend
-  (eigen-hermitian [_ A] (eigen-hermitian A))
-  (eigen-general [_ A] (eigen-general A))
-  (svd [_ A] (svd A))
-  (lu-decomposition [_ A] (lu-decomposition A))
-  (qr-decomposition [_ A] (qr-decomposition A))
-  (cholesky-decomposition
-    ([backend A] (cholesky-decomposition A (tolerance* backend)))
-    ([_ A eps] (cholesky-decomposition A eps)))
-  ;
-  )
-
-;;;
-;;; MatrixFunctions protocol implementation
-;;;
-(extend-protocol proto/MatrixFunctions
-  FastMathComplexBackend
-
-  (matrix-exp [_ A] (matrix-exp A))
-  (matrix-log [_ A] (matrix-log A))
-  (matrix-sqrt [_ A] (matrix-sqrt A))
-   ;
-  )
-
 (defn spectral-norm
   "Compute the spectral norm ||A||₂ (largest singular value) of a complex matrix A."
   [A]
@@ -1210,51 +1037,37 @@
       (/ sigma-max sigma-min))))
 
 ;;;
-;;; MatrixAnalysis protocol implementation
+;;; Quantum State Operation Functions (TODO: Move to separate namespace)
 ;;;
-(extend-protocol proto/MatrixAnalysis
-  FastMathComplexBackend
+(defn state-normalize
+  "Normalize a quantum state vector to unit norm."
+  [state]
+  (let [norm-squared (reduce fc/add
+                             (fc/complex 0.0 0.0)
+                             (map (fn [si]
+                                    (fc/mult (fc/conjugate si) si))
+                                  state))
+        norm (fm/sqrt (fc/re norm-squared))]
+    (if (< norm 1e-12)
+      state  ; Return unchanged if zero vector
+      (mapv #(fc/mult % (fc/complex (/ 1.0 norm) 0.0)) state))))
 
-  (spectral-norm [_ A] (spectral-norm A))
-  (condition-number [_ A] (condition-number A))
-  ;
-  )
+(defn projector-from-state
+  "Create a projector matrix |ψ⟩⟨ψ| from a quantum state vector ψ."
+  [psi]
+  (let [normalized-psi (state-normalize psi)]
+    (mapv (fn [psi-i]
+            (mapv (fn [psi-j]
+                    (fc/mult psi-i (fc/conjugate psi-j)))
+                  normalized-psi))
+          normalized-psi)))
 
-;;;
-;;; QuantumStateOps protocol implementation  
-;;;
-(extend-protocol proto/QuantumStateOps
-  FastMathComplexBackend
+(defn trace-one?
+  "Check if a density matrix has trace equal to one (Tr(ρ) ≈ 1)."
+  ([rho] (trace-one? rho default-tolerance))
+  ([rho eps]
+   (let [tr (trace rho)
+         trace-value (fc/re tr)]  ; Extract real part
+     (< (fm/abs (- trace-value 1.0)) eps))))
 
-  (state-normalize [_ state]
-    "Normalize a quantum state vector to unit norm."
-    (let [norm-squared (reduce fc/add
-                               (fc/complex 0.0 0.0)
-                               (map (fn [si]
-                                      (fc/mult (fc/conjugate si) si))
-                                    state))
-          norm (fm/sqrt (fc/re norm-squared))]
-      (if (< norm 1e-12)
-        state  ; Return unchanged if zero vector
-        (mapv #(fc/mult % (fc/complex (/ 1.0 norm) 0.0)) state))))
 
-  (projector-from-state [_ psi]
-    "Create a projector matrix |ψ⟩⟨ψ| from a quantum state."
-    (let [normalized-psi (proto/state-normalize _ psi)]
-      (mapv (fn [psi-i]
-              (mapv (fn [psi-j]
-                      (fc/mult psi-i (fc/conjugate psi-j)))
-                    normalized-psi))
-            normalized-psi)))
-
-  (density-matrix [backend psi]
-    "Create a density matrix ρ for a pure quantum state."
-    (proto/projector-from-state backend psi))
-
-  (trace-one?
-    ([_ rho] (proto/trace-one? _ rho default-tolerance))
-    ([_ rho eps]
-     "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1)."
-     (let [tr (proto/trace _ rho)
-           trace-value (fc/re tr)]  ; Extract real part
-       (< (fm/abs (- trace-value 1.0)) eps)))))

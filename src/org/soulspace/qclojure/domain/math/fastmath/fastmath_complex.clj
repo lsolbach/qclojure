@@ -907,11 +907,29 @@
     (when (not= n m)
       (throw (ex-info "Matrix logarithm requires square matrix" {:shape [n m]})))
 
-    ;; Use eigendecomposition: log(A) = V * log(Λ) * V^(-1)
-    (try
-      (let [eigen-result (eigen-general A)
-            eigenvals (:eigenvalues eigen-result)
-            eigenvecs (:eigenvectors eigen-result)
+    ;; Special case for diagonal matrices - compute directly
+    (if (diagonal? A 1e-10)
+      ;; For diagonal matrices, log(A) has log(A[i,i]) on the diagonal
+      (mapv (fn [i]
+              (mapv (fn [j]
+                      (if (= i j)
+                        (let [diag-elem (get-in A [i j])
+                              r (fc/abs diag-elem)]
+                          (when (< r 1e-14)
+                            (throw (ex-info "Cannot compute log of zero diagonal element"
+                                            {:element diag-elem :position [i j]})))
+                          (fc/log diag-elem))
+                        (fc/complex 0.0 0.0)))
+                    (range n)))
+            (range n))
+
+      ;; General case: Use eigendecomposition: log(A) = V * log(Λ) * V^(-1)
+      (try
+        (let [eigen-result (if (hermitian? A 1e-10)
+                             (eigen-hermitian A)
+                             (eigen-general A))
+              eigenvals (:eigenvalues eigen-result)
+              eigenvecs (:eigenvectors eigen-result)
 
             ;; Compute log of eigenvalues - handle domain restrictions
             log-eigenvals (mapv (fn [lambda]
@@ -939,10 +957,10 @@
             ;; Result: V * log(Λ) * V^(-1)
             temp (matrix-multiply eigenvecs log-diag)]
         (matrix-multiply temp V-inv))
-      (catch Exception e
-        (throw (ex-info "Complex matrix logarithm failed"
-                        {:original-error (.getMessage e)
-                         :matrix-size n}))))))
+        (catch Exception e
+          (throw (ex-info "Complex matrix logarithm failed"
+                          {:original-error (.getMessage e)
+                           :matrix-size n})))))))
 
 (defn matrix-sqrt
   "Compute the principal matrix square root √A using eigendecomposition."
@@ -954,24 +972,31 @@
 
     ;; Check if matrix is diagonal - use direct approach
     (if (diagonal? A 1e-10)
-      ;; For diagonal matrices, just take sqrt of diagonal elements
-      (mapv (fn [i]
-              (mapv (fn [j]
-                      (if (= i j)
-                        (let [diag-elem (get-in A [i j])
-                              r (fc/abs diag-elem)
-                              theta (fc/arg diag-elem)]
-                          (when (< r 1e-14)
-                            (throw (ex-info "Cannot compute sqrt of zero diagonal element"
-                                            {:element diag-elem :position [i j]})))
-                          ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
-                          (let [sqrt-r (fm/sqrt r)
-                                half-theta (/ theta 2.0)]
-                            (fc/complex (* sqrt-r (fm/cos half-theta))
-                                        (* sqrt-r (fm/sin half-theta)))))
-                        (fc/complex 0.0 0.0)))
-                    (range n)))
-            (range n))
+      ;; For diagonal matrices, check positive semidefinite first
+      (let [diagonal-elements (mapv #(get-in A [% %]) (range n))]
+        ;; Check if all diagonal elements have non-negative real parts  
+        (when (some (fn [elem] (< (fc/re elem) 0.0)) diagonal-elements)
+          (throw (ex-info "Matrix square root requires positive semidefinite matrix"
+                          {:diagonal-elements diagonal-elements})))
+        
+        ;; All diagonal elements are non-negative, compute sqrt
+        (mapv (fn [i]
+                (mapv (fn [j]
+                        (if (= i j)
+                          (let [diag-elem (get-in A [i j])
+                                r (fc/abs diag-elem)
+                                theta (fc/arg diag-elem)]
+                            (when (< r 1e-14)
+                              (throw (ex-info "Cannot compute sqrt of zero diagonal element"
+                                              {:element diag-elem :position [i j]})))
+                            ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
+                            (let [sqrt-r (fm/sqrt r)
+                                  half-theta (/ theta 2.0)]
+                              (fc/complex (* sqrt-r (fm/cos half-theta))
+                                          (* sqrt-r (fm/sin half-theta)))))
+                          (fc/complex 0.0 0.0)))
+                      (range n)))
+              (range n)))
       
       ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
       (try

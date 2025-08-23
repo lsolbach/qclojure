@@ -40,28 +40,6 @@
       (is (= 4 (count two-qubit-xy))) ; 2^2 = 4 dimensions
       (is (= 4 (count (first two-qubit-xy)))))))
 
-;;
-;; Matrix Operation Tests
-;;
-(deftest test-matrix-operations
-  (testing "Matrix addition"
-    (let [result (obs/matrix-add obs/pauli-x obs/pauli-z)]
-      (is (= 2 (count result)))
-      (is (= 2 (count (first result))))))
-  
-  (testing "Matrix scalar multiplication"
-    (let [result (obs/matrix-scalar-mult 2.0 obs/pauli-x)]
-      (is (approx= 2.0 (c/re (first (second result)))))
-      (is (approx= 2.0 (c/re (second (first result)))))))
-  
-  (testing "Matrix multiplication"
-    (let [result (obs/matrix-mult obs/pauli-x obs/pauli-x)]
-      (is (obs/matrix-equal? result obs/identity-op))))
-  
-  (testing "Hermitian conjugate"
-    (let [herm-x (obs/hermitian-conjugate obs/pauli-x)]
-      (is (obs/matrix-equal? obs/pauli-x herm-x))))) ; Pauli-X is Hermitian
-
 (deftest test-linear-combination
   (testing "Linear combination of observables"
     (let [combo (obs/linear-combination [[0.5 obs/pauli-x] [0.5 obs/pauli-z]])]

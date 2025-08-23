@@ -5,6 +5,8 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.string :as str]
+            [org.soulspace.qclojure.util.test :refer [approx= approx-vector= approx-matrix= vec2? real-part]]
+            [org.soulspace.qclojure.domain.math.core :as mcore]
             [org.soulspace.qclojure.application.algorithm.hhl :as hhl]
             [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
@@ -62,13 +64,6 @@
 ;;
 ;; Helper Functions for Classical Verification
 ;;
-(defn matrix-vector-multiply
-  "Multiply matrix A with vector x to get Ax"
-  [matrix vector]
-  (mapv (fn [row]
-          (reduce + (map * row vector)))
-        matrix))
-
 (defn solve-2x2-system
   "Solve 2x2 linear system Ax = b analytically"
   [[[a b] [c d]] [e f]]
@@ -90,7 +85,7 @@
       (mapv #(/ % norm) v)
       v)))
 
-(defn vectors-close? 
+#_(defn vectors-close? 
   "Check if two vectors are close within tolerance"
   [v1 v2 tolerance]
   (let [diff (mapv - v1 v2)
@@ -270,10 +265,10 @@
       ;; Test that the solution satisfies A*x ≈ b with proper scaling
       (when (:success result)
         (let [solution (:solution-vector result)
-              computed-b (matrix-vector-multiply matrix solution)]
+              computed-b (mcore/matrix-vector matrix solution)]
           ;; With corrected amplitude extraction and scaling,
           ;; expect better accuracy than before (was ~30%, now target ~20%)
-          (is (vectors-close? computed-b vector 0.2)
+          (is (approx-vector= computed-b vector 0.2)
               (str "A*x should equal b, got A*x=" computed-b " for b=" vector))))))
   
   (testing "Handles different positive definite matrix sizes"
@@ -486,7 +481,7 @@
       (is (not (nil? solution)) "Solve should return a solution")
       (is (= 2 (count solution)) "Solution should be 2D vector")
       ;; For identity matrix A=I, solution should be approximately the input vector
-      (is (vectors-close? solution vector 0.2) ; 20% tolerance for quantum sampling
+      (is (approx-vector= solution vector 0.2) ; 20% tolerance for quantum sampling
           (str "Identity matrix solution " solution " should be close to input " vector))))
   
   (testing "Solve function handles positive definite matrices"
@@ -497,8 +492,9 @@
       (is (not (nil? solution)) "Solve should return a solution for positive definite matrix")
       
       ;; Verify the solution satisfies A*x ≈ b within reasonable tolerance
-      (let [computed-b (matrix-vector-multiply matrix solution)
-            error-vector (mapv - computed-b vector)
+      (let [computed-b (mcore/matrix-vector matrix solution)
+            computed-b-real (mapv real-part computed-b)
+            error-vector (mapv - computed-b-real vector)
             max-error (apply max (map #(Math/abs %) error-vector))]
         (is (< max-error 0.3) ; 30% tolerance for complex matrices
             (str "Solution should satisfy A*x ≈ b, but got error " max-error)))))
@@ -543,12 +539,12 @@
       
       ;; With corrected amplitude extraction, expect the solution to satisfy A*x = b
       ;; For identity matrix, this means solution ≈ vector within quantum sampling error
-      (is (vectors-close? solution vector 0.1) ; 10% tolerance for quantum sampling
+      (is (approx-vector= solution vector 0.1) ; 10% tolerance for quantum sampling
           (str "Solution " solution " should be close to input " vector))
       
       ;; Most importantly: verify the solution satisfies A*x = b
-      (let [computed-b (matrix-vector-multiply matrix solution)]
-        (is (vectors-close? computed-b vector 0.1)
+      (let [computed-b (mcore/matrix-vector matrix solution)]
+        (is (approx-vector= computed-b vector 0.1)
             "A*x should equal b within tolerance"))))
 
   (testing "Statistical sampling requirements for quantum accuracy"
@@ -599,12 +595,12 @@
             (when (:success result)
               (if expected
                 ;; Test against known expected solution  
-                (is (vectors-close? solution expected 0.15) ; 15% tolerance
+                (is (approx-vector= solution expected 0.15) ; 15% tolerance
                     (str "For matrix " matrix " and vector " vector 
                          ", expected " expected " but got " solution))
                 ;; Test against classical solver
                 (when-let [classical-solution (solve-2x2-system matrix vector)]
-                  (is (vectors-close? solution classical-solution 0.15)
+                  (is (approx-vector= solution classical-solution 0.15)
                       (str "Quantum solution should match classical solution")))))))))))
 
 (comment
@@ -654,9 +650,9 @@
         solution (:solution-vector result)]
     (when (:success result)
       {:solution solution
-       :computed-b (matrix-vector-multiply matrix solution)
+       :computed-b (mcore/matrix-vector matrix solution)
        :original-b vector
-       :error (mapv - (matrix-vector-multiply matrix solution) vector)}))
+       :error (mapv - (mapv real-part (mcore/matrix-vector matrix solution)) vector)}))
 
   ;; Run property-based tests
   (tc/quick-check 30 hhl-algorithm-properties)

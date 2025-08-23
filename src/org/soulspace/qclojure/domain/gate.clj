@@ -3,7 +3,8 @@
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as m]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.state :as qs]))
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.math.core :as mcore]))
 
 ;; Specs for quantum gates
 (s/def ::gate-matrix (s/coll-of (s/coll-of ::qs/complex-amplitude :kind vector?) :kind vector?))
@@ -13,69 +14,6 @@
 
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
-
-;; High-level gate application functions - Convenient wrappers for common gatesns for quantum gates
-(defn matrix-vector-mult
-  "Multiply a ctor using fastmath complex numbers.
-  
-  Performs standard matrix-vector multiplication where each element
-  of the result vector is the dot product of the corresponding matrix
-  row with the input vector. All operations use fastmath complex arithmetic.
-  
-  This is the fundamental operation for applying quantum gates to quantum
-  states, where the gate matrix transforms the state vector.
-  
-  Parameters:
-  - matrix: 2D vector of vectors containing fastmath complex numbers
-  - vector: 1D vector of fastmath complex numbers
-  
-  Returns:
-  Vector of fastmath complex numbers representing the matrix-vector product
-  
-  Example:
-  (matrix-vector-mult pauli-x [(fc/complex 1 0) (fc/complex 0 0)])
-  ;=> [(fc/complex 0 0) (fc/complex 1 0)]  ; |0⟩ → |1⟩"
-  [matrix vector]
-  (mapv (fn [row]
-          (reduce fc/add (fc/complex 0 0)
-                  (map fc/mult row vector)))
-        matrix))
-
-(defn tensor-product-matrix
-  "Compute the tensor product of two matrices.
-  
-  The tensor product (Kronecker product) of matrices is fundamental for
-  constructing multi-qubit gate operations from single-qubit gates.
-  
-  For matrices A (m×n) and B (p×q), the tensor product A⊗B is an (mp×nq) matrix where:
-  A⊗B[i*p+k, j*q+l] = A[i,j] * B[k,l]
-  
-  This operation allows us to:
-  - Apply single-qubit gates to specific qubits in multi-qubit systems
-  - Build controlled gates from basic gates
-  - Construct composite quantum operations
-  
-  Parameters:
-  - matrix1: First matrix (2D vector of fastmath complex numbers)
-  - matrix2: Second matrix (2D vector of fastmath complex numbers)
-  
-  Returns:
-  2D vector representing the tensor product matrix1 ⊗ matrix2
-  
-  Example:
-  (tensor-product-matrix pauli-x pauli-i)
-  ;=> 4×4 matrix representing X⊗I gate for 2-qubit system"
-  [matrix1 matrix2]
-  (let [rows1 (count matrix1)
-        cols1 (count (first matrix1))
-        rows2 (count matrix2)
-        cols2 (count (first matrix2))]
-    (vec (for [i1 (range rows1)
-               i2 (range rows2)]
-           (vec (for [j1 (range cols1)
-                      j2 (range cols2)]
-                  (fc/mult (get-in matrix1 [i1 j1])
-                           (get-in matrix2 [i2 j2]))))))))
 
 ;; Basic single-qubit gates - Fundamental quantum gate matrices
 (def pauli-i
@@ -354,8 +292,8 @@
   4×4 matrix representing the CNOT gate
   
   Example:
-  (matrix-vector-mult (cnot-gate) [1 0 0 0])  ; |00⟩ → |00⟩
-  (matrix-vector-mult (cnot-gate) [0 0 1 0])  ; |10⟩ → |11⟩"
+  (matrix-vector (cnot-gate) [1 0 0 0])  ; |00⟩ → |00⟩
+  (matrix-vector (cnot-gate) [0 0 1 0])  ; |10⟩ → |11⟩"
   []
   [[(fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0) (fc/complex 0 0)]
    [(fc/complex 0 0) (fc/complex 1 0) (fc/complex 0 0) (fc/complex 0 0)]
@@ -389,7 +327,7 @@
   [gate-matrix n target-qubit]
   (let [identity-2x2 [[(fc/complex 1 0) (fc/complex 0 0)]
                       [(fc/complex 0 0) (fc/complex 1 0)]]]
-    (reduce tensor-product-matrix
+    (reduce mcore/kronecker
             (for [i (range n)]
               (if (= i target-qubit)
                 gate-matrix
@@ -430,11 +368,11 @@
         state-vector (:state-vector state)]
     (if (= n 1)
       ;; Single qubit case - direct application
-      {:state-vector (matrix-vector-mult gate-matrix state-vector)
+      {:state-vector (mcore/matrix-vector gate-matrix state-vector)
        :num-qubits 1}
       ;; Multi-qubit case - need to expand gate with identity matrices
       (let [expanded-gate (expand-gate-to-n-qubits gate-matrix n qubit-index)]
-        {:state-vector (matrix-vector-mult expanded-gate state-vector)
+        {:state-vector (mcore/matrix-vector expanded-gate state-vector)
          :num-qubits n}))))
 
 ;; Controlled gate operations - Two-qubit gates with control logic
@@ -655,7 +593,7 @@
          state-vector (:state-vector state)]
      (if (and (= n 2) (= control 0) (= target 1))
        ;; 2-qubit case with standard control=0, target=1: use direct CNOT matrix
-       {:state-vector (matrix-vector-mult (cnot-gate) state-vector)
+       {:state-vector (mcore/matrix-vector (cnot-gate) state-vector)
         :num-qubits 2}
        ;; All other cases: apply controlled operation
        (apply-controlled-gate state control target pauli-x)))))

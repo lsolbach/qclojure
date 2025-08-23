@@ -20,9 +20,9 @@
 (defn test-hamiltonian
   "Create a simple test Hamiltonian for VQE testing."
   []
-  [(ham/pauli-term -1.5 "IIII")
-   (ham/pauli-term 0.5 "ZIII")
-   (ham/pauli-term 0.3 "IZII")])
+  [(ham/pauli-term -1.5 "II")
+   (ham/pauli-term 0.5 "ZI")
+   (ham/pauli-term 0.3 "IZ")])
 
 (defn test-molecular-hamiltonians
   "Additional molecular Hamiltonians for testing VQE with different systems."

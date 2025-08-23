@@ -1,8 +1,14 @@
 # Changelog
 
 ## Version (NEXT)
+* added protocols for complex linear algebra backends
+* implemented complex linear algebra on clojure.math
+* implemented complex linear algebra on fastmath
+* added clojure.math based linear algebra backend
+* added fastmath based linear algebra backend
+* added public API for linear algebra in math.core
+* added benchmarks for linear algebra backends
 * improved layout of the svg circuit visualization
-* improved HHL algorithm
 * removed duplicated code
 * increased test coverage
 * updated tutorial

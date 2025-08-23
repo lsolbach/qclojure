@@ -29,3 +29,5 @@ Raise test coverage for
 * adapter.io.*
 * adapter.visualiation.*
 
+## Math Refactoring
+* separate pure math from quantum applications

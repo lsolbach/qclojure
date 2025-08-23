@@ -26,7 +26,8 @@
             [clojure.string :as str]
             [fastmath.core :as m]
             [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.circuit :as qc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.math.core :as math]))
 
 ;; Specs for HHL algorithm
 (s/def ::hermitian-matrix (s/and vector? 
@@ -89,8 +90,9 @@
   [matrix]
   {:pre [(validate-hermitian-matrix matrix)]}
   (let [n (count matrix)]
-    (if (= n 2)
+    (cond
       ;; For 2x2 matrices, compute eigenvalues directly
+      (= n 2)
       (let [[[a b] [c d]] matrix
             trace (+ a d)
             det (- (* a d) (* b c))
@@ -101,9 +103,29 @@
                 lambda2 (/ (- trace sqrt-disc) 2)]
             (and (pos? lambda1) (pos? lambda2)))
           false)) ; Complex eigenvalues indicate not positive definite
-      ;; For larger matrices, use Sylvester's criterion or other methods
-      (throw (ex-info "Positive definiteness check not implemented for matrices > 2x2"
-                      {:matrix matrix :size n})))))
+      
+      ;; For 3x3 and 4x4 matrices, use eigendecomposition
+      (<= n 4)
+      (let [{:keys [eigenvalues]} (math/eigen-hermitian matrix)]
+        (every? #(> % 1e-14) eigenvalues))
+      
+      ;; For larger matrices, use eigenvalues (det = product of eigenvalues)
+      (<= n 8)
+      (try
+        (every? #(> % 1e-14)
+                (for [k (range 1 (inc n))]
+                  (let [submatrix (mapv #(subvec % 0 k) (subvec matrix 0 k))
+                        {:keys [eigenvalues]} (math/eigen-hermitian submatrix)
+                        det (reduce * eigenvalues)]
+                    det)))
+        (catch Exception _
+          false)) ; If eigenvalue computation fails, assume not positive definite
+      
+      ;; For very large matrices, not implemented
+      :else
+      (throw (ex-info "Positive definiteness check not implemented for matrices > 8x8"
+                      {:matrix matrix :size n
+                       :message "Use specialized linear algebra library"})))))
 
 (defn estimate-condition-number
   "Estimate the condition number κ(A) = λ_max / λ_min of a Hermitian matrix.

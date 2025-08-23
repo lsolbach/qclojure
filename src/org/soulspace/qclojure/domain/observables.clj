@@ -13,7 +13,8 @@
   (:require [clojure.spec.alpha :as s]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.gate :as gate]
-            [org.soulspace.qclojure.domain.state :as state]))
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.math.core :as mcore]))
 
 ;;
 ;; Specs for Observables
@@ -62,46 +63,10 @@
 ;;
 ;; Helper Functions for Matrix Operations
 ;;
-(defn matrix-add
-  "Add two matrices of complex numbers element-wise"
-  [m1 m2]
-  (mapv (fn [row1 row2]
-          (mapv fc/add row1 row2))
-        m1 m2))
-
-(defn matrix-scalar-mult
-  "Multiply matrix of complex numbers by scalar"
-  [scalar matrix]
-  (mapv (fn [row]
-          (mapv (fn [elem] (fc/mult (fc/complex scalar 0) elem)) row))
-        matrix))
-
 (defn zero-matrix
   "Create a zero matrix of complex numbers of given dimensions"
   [rows cols]
   (vec (repeat rows (vec (repeat cols fc/ZERO)))))
-
-(defn matrix-mult
-  "Multiply two matrices of complex numbers"
-  [m1 m2]
-  (let [rows1 (count m1)
-        cols1 (count (first m1))
-        cols2 (count (first m2))]
-    (vec (for [i (range rows1)]
-           (vec (for [j (range cols2)]
-                  (reduce fc/add fc/ZERO
-                          (for [k (range cols1)]
-                            (fc/mult (get-in m1 [i k])
-                                   (get-in m2 [k j]))))))))))
-
-(defn hermitian-conjugate
-  "Compute Hermitian conjugate (complex conjugate transpose) of matrix of complex numbers"
-  [matrix]
-  (let [rows (count matrix)
-        cols (count (first matrix))]
-    (vec (for [j (range cols)]
-           (vec (for [i (range rows)]
-                  (fc/conjugate (get-in matrix [i j]))))))))
 
 (defn matrix-equal?
   "Check if two matrices of complex numbers are equal within tolerance"
@@ -136,7 +101,7 @@
   {:pre [(s/valid? (s/coll-of (s/tuple number? ::observable)) coeffs-observables)]}
   (reduce 
     (fn [result [coeff obs]]
-      (matrix-add result (matrix-scalar-mult coeff obs)))
+      (mcore/add result (mcore/scale obs coeff)))
     (zero-matrix (count (first (second (first coeffs-observables))))
                  (count (second (first coeffs-observables))))
     coeffs-observables))
@@ -154,7 +119,7 @@
      (tensor-product [pauli-x pauli-z])"
   [observables]
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
-  (reduce gate/tensor-product-matrix observables))
+  (reduce mcore/kronecker observables))
 
 ;;
 ;; Pauli String Functions
@@ -202,9 +167,8 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        obs-psi (gate/matrix-vector-mult observable state-vec)
-        conj-psi (map fc/conjugate state-vec)]
-    (fc/re (reduce fc/add (map fc/mult conj-psi obs-psi)))))
+        obs-psi (mcore/matrix-vector observable state-vec)]
+    (fc/re (mcore/inner-product state-vec obs-psi))))
 
 (defn variance
   "Calculate variance of observable: ⟨O²⟩ - ⟨O⟩²
@@ -219,7 +183,7 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [exp-val (expectation-value observable quantum-state)
-        obs-squared (matrix-mult observable observable)
+        obs-squared (mcore/matrix-multiply observable observable)
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
@@ -233,8 +197,7 @@
      Boolean indicating if matrix is Hermitian"
   [matrix]
   {:pre [(s/valid? ::matrix matrix)]}
-  (let [hermitian-conj (hermitian-conjugate matrix)]
-    (matrix-equal? matrix hermitian-conj)))
+  (mcore/hermitian? matrix))
 
 ;;
 ;; Measurement Simulation
@@ -272,59 +235,57 @@
       {exp-val 1.0})))
 
 (comment
-  ;; Test basic observables
-  (require '[org.soulspace.qclojure.domain.observables :as obs] :reload)
-  
+
   ;; Basic Pauli observables
-  obs/pauli-x  ; σₓ (bit-flip)
-  obs/pauli-y  ; σᵧ (bit and phase flip)
-  obs/pauli-z  ; σᵤ (phase flip)
-  obs/identity-op  ; I (identity)
-  
+  pauli-x  ; σₓ (bit-flip)
+  pauli-y  ; σᵧ (bit and phase flip)
+  pauli-z  ; σᵤ (phase flip)
+  identity-op  ; I (identity)
+
   ;; Single-qubit expectation values
-  (obs/expectation-value obs/pauli-z state/|0⟩)  ; => 1.0
-  (obs/expectation-value obs/pauli-z state/|1⟩)  ; => -1.0
-  (obs/expectation-value obs/pauli-z state/|+⟩)  ; => 0.0
-  (obs/expectation-value obs/pauli-x state/|+⟩)  ; => 1.0
-  
+  (expectation-value pauli-z state/|0⟩)  ; => 1.0
+  (expectation-value pauli-z state/|1⟩)  ; => -1.0
+  (expectation-value pauli-z state/|+⟩)  ; => 0.0
+  (expectation-value pauli-x state/|+⟩)  ; => 1.0
+
   ;; Multi-qubit Pauli string observables
-  (def xz-observable (obs/pauli-string->observable "XZ"))  ; X ⊗ Z
-  (def zzx-observable (obs/pauli-string->observable "ZZX")) ; Z ⊗ Z ⊗ X
-  
+  (def xz-observable (pauli-string->observable "XZ"))  ; X ⊗ Z
+  (def zzx-observable (pauli-string->observable "ZZX")) ; Z ⊗ Z ⊗ X
+
   ;; Linear combinations (custom Hamiltonians)
-  (def custom-hamiltonian 
-    (obs/linear-combination [[1.5 obs/pauli-x] 
-                             [2.0 obs/pauli-z] 
-                             [0.5 obs/identity-op]]))
-  
+  (def custom-hamiltonian
+    (linear-combination [[1.5 pauli-x]
+                         [2.0 pauli-z]
+                         [0.5 identity-op]]))
+
   ;; Bell measurement observable: (Z⊗I + I⊗Z)/2
   (def bell-measurement
-    (obs/linear-combination 
-      [[0.5 (obs/tensor-product [obs/pauli-z obs/identity-op])]
-       [0.5 (obs/tensor-product [obs/identity-op obs/pauli-z])]]))
-  
+    (linear-combination
+     [[0.5 (tensor-product [pauli-z identity-op])]
+      [0.5 (tensor-product [identity-op pauli-z])]]))
+
   ;; Expectation values and variances
-  (obs/expectation-value custom-hamiltonian state/|+⟩)
-  (obs/variance obs/pauli-z state/|+⟩)  ; => 1.0 (maximum uncertainty)
-  (obs/variance obs/pauli-z state/|0⟩)  ; => 0.0 (no uncertainty)
-  
+  (expectation-value custom-hamiltonian state/|+⟩)
+  (variance pauli-z state/|+⟩)  ; => 1.0 (maximum uncertainty)
+  (variance pauli-z state/|0⟩)  ; => 0.0 (no uncertainty)
+
   ;; Measurement probabilities
-  (obs/measurement-probabilities obs/pauli-z state/|+⟩)  ; => {1.0 0.5, -1.0 0.5}
-  (obs/measurement-probabilities obs/pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
-  
+  (measurement-probabilities pauli-z state/|+⟩)  ; => {1.0 0.5, -1.0 0.5}
+  (measurement-probabilities pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
+
   ;; Verify observables are Hermitian
-  (obs/is-hermitian? obs/pauli-x)        ; => true
-  (obs/is-hermitian? custom-hamiltonian) ; => true
-  
+  (is-hermitian? pauli-x)        ; => true
+  (is-hermitian? custom-hamiltonian) ; => true
+
   ;; Test with Bell states
-  (def bell-state (state/normalize-state 
-                    (state/multi-qubit-state 
-                      [(fc/complex 1.0) (fc/complex 0.0) 
-                       (fc/complex 0.0) (fc/complex 1.0)])))
-  
-  (obs/expectation-value (obs/pauli-string->observable "ZZ") bell-state)  ; => 1.0
-  
+  (def bell-state (state/normalize-state
+                   (state/multi-qubit-state
+                    [(fc/complex 1.0) (fc/complex 0.0)
+                     (fc/complex 0.0) (fc/complex 1.0)])))
+
+  (expectation-value (pauli-string->observable "ZZ") bell-state)  ; => 1.0
+
   ;; Performance testing
-  (time (obs/pauli-string->observable "XYZIXYZIXYZ"))  ; Large multi-qubit observable
-  
+  (time (pauli-string->observable "XYZIXYZIXYZ"))  ; Large multi-qubit observable
+
   )

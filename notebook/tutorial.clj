@@ -382,6 +382,7 @@ qg/t-dag-gate
 
 (def bell-state
   (qc/execute-circuit bell-circuit (qs/zero-state 2)))
+
 ;; We can visualize the probability distribution of the Bell state.
 
 (kind/html (viz/visualize-quantum-state :svg bell-state))
@@ -1069,18 +1070,18 @@ qft-state
 
 ;; We can use Shor's algorithm to factor a composite integer.
 
-; (def shor-result (shor/shor-algorithm (sim/create-simulator) 15))
+;(def shor-result (shor/shor-algorithm (sim/create-simulator) 15 {:shots 10}))
 
 ;; The result of Shor's algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
-; shor-result
+;shor-result
 
 ;; The result shows that Shor's algorithm correctly factors the composite integer 15
 ;; into its prime factors 3 and 5.
 ;; The measurement outcome is the prime factors of 15, which are 3 and 5.
 
-; (:result shor-result)
+;(:result shor-result)
 
 ;; ### HHL Algorithm
 ;; The [HHL algorithm](https://en.wikipedia.org/wiki/HHL_algorithm) is a
@@ -1166,15 +1167,15 @@ qft-state
 ;; the solution to the system of linear equations Ax = b.
 
 (def hhl-result
-  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 10000}))
+  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 20000}))
 
 ;; The result of the HHL algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 
 hhl-result
 
-;; The result shows that the HHL algorithm correctly solves the system of
-;; linear equations represented by the matrix A and the vector b.
+;; The result shows that the HHL algorithm correctly aproximates the solution of
+;; the system of linear equations represented by the matrix A and the vector b.
 
 ;; The measurement outcome is the vector of unknowns x that satisfies the equations.
 
@@ -1184,7 +1185,7 @@ hhl-result
 
 (kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :final-state])))
 
-;; The final quantum state shows that the HHL algorithm correctly solves the
+;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
 
@@ -1311,7 +1312,7 @@ h2-hamiltonian
                                         :num-layers            2
                                         :max-iterations        200
                                         :tolerance             1e-5
-                                        :learning-rate         0.2
+                                        :learning-rate         0.1
                                         :optimization-method   :adam}))
 
 vqe-result

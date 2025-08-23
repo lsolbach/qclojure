@@ -814,7 +814,6 @@
         total-overlap (reduce fc/add overlap-terms)]
     (fc/abs total-overlap)))
 
-
 ;; Default states for convenience - pre-defined common quantum states
 (def |0⟩
   "Single-qubit |0⟩ computational basis state."

@@ -7,7 +7,6 @@
   - Matrix operations for quantum natural gradient
   - Performance and convergence behavior"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.domain.math.linear-algebra :as la]
             [org.soulspace.qclojure.application.algorithm.optimization :as qopt]))
 
 ;;

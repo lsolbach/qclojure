@@ -272,16 +272,16 @@
   This is used in Shor's algorithm for classical preprocessing - if N is a perfect power,
   we can factor it classically without needing quantum period finding.
   
-  Examples:
-  - perfect-power-factor(8) = 2 (since 8 = 2^3)
-  - perfect-power-factor(9) = 3 (since 9 = 3^2)
-  - perfect-power-factor(15) = 1 (since 15 is not a perfect power)
-  
   Parameters:
   - N: The number to check for perfect power
   
   Returns:
-  Base factor a if N = a^k for some k > 1, otherwise returns 1"
+  Base factor a if N = a^k for some k > 1, otherwise returns 1
+  
+  Examples:
+    - perfect-power-factor(8) = 2 (since 8 = 2^3)
+    - perfect-power-factor(9) = 3 (since 9 = 3^2)
+    - perfect-power-factor(15) = 1 (since 15 is not a perfect power)"
   [N]
   {:pre [(pos? N)]}
   

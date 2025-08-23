@@ -22,8 +22,9 @@
   3. Apply mitigation to measured data using matrix inversion
   4. Analyze improvement in measurement fidelity"
   (:require [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.domain.math.linear-algebra :as la]
-            [org.soulspace.qclojure.domain.state :as qs]))
+            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [fastmath.complex :as fc]))
 
 ;;
 ;; Readout Error Mitigation
@@ -118,7 +119,7 @@
       single-qubit-matrix
       ;; Compute tensor product iteratively for multi-qubit systems
       (reduce (fn [acc-matrix _]
-                (la/tensor-product acc-matrix single-qubit-matrix))
+                (mcore/kronecker acc-matrix single-qubit-matrix))
               single-qubit-matrix
               (range (dec num-qubits))))))
 
@@ -175,13 +176,13 @@
         ;; Solve the linear system: C * true_probs = measured_probs
         ;; where C is the calibration matrix
         corrected-probs (try
-                          (la/solve-linear-system calibration-matrix measured-probs)
+                          (mcore/solve-linear-system calibration-matrix measured-probs)
                           (catch Exception e
                             (println "Matrix inversion failed, using measured probabilities:" (.getMessage e))
                             measured-probs))
         
         ;; Ensure probabilities are non-negative and normalized
-        clipped-probs (mapv #(max 0.0 %) corrected-probs)
+        clipped-probs (mapv #(max 0.0 (fc/re %)) corrected-probs)
         prob-sum (reduce + clipped-probs)
         normalized-probs (if (> prob-sum 1e-10)
                            (mapv #(/ % prob-sum) clipped-probs)

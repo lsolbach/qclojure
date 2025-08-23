@@ -13,8 +13,8 @@
     Use `set-backend!` to change the global backend, or `with-backend` to override in a dynamic scope."
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
-   [org.soulspace.qclojure.domain.math.clojure.clojure-math :as cmath]
-   [org.soulspace.qclojure.domain.math.fastmath.fastmath :as fmath]))
+   [org.soulspace.qclojure.domain.math.clojure.backend :as cmath]
+   [org.soulspace.qclojure.domain.math.fastmath.backend :as fmath]))
 
 ;; Unified tolerance (can be overridden via backend config :tolerance). Defined after backend vars.
 (def ^:dynamic *tolerance* 1.0e-12)
@@ -38,17 +38,17 @@
 (def ^:private backend-constructors
   {:pure (fn [opts]
            (let [tol (or (:tolerance opts) 1.0e-12)]
-             (cmath/->ClojureMathBackend tol (merge {:tolerance tol} opts))))
+             (cmath/->ClojureMathComplexBackend tol (merge {:tolerance tol} opts))))
    :fastmath (fn [opts]
                (let [tol (or (:tolerance opts) 1.0e-12)]
-                 (fmath/->FastMathBackend tol (merge {:tolerance tol} opts))))})
+                 (fmath/->FastMathComplexBackend tol (merge {:tolerance tol} opts))))})
 
 ;; Current backend selection
 (def ^:dynamic *backend*
   "Current math backend instance. Bind dynamically with `with-backend`.
     	Defaults to a ->ClojureMathBackend instance."
   (let [tol 1.0e-12]
-    (cmath/->ClojureMathBackend tol {:tolerance tol})))
+    (cmath/->ClojureMathComplexBackend tol {:tolerance tol})))
 
 (def ^:dynamic *backend-key*
   "Current math backend key for informational purposes."

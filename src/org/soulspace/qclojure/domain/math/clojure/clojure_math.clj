@@ -1361,8 +1361,6 @@
                                     row-norms (mapv (fn [i]
                                                       (math/sqrt (reduce + (for [j (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
-                                    cols-r (apply map vector R)
-                                    cols-i (apply map vector I)
                                     col-norms (mapv (fn [j]
                                                       (math/sqrt (reduce + (for [i (range n)]
                                                                              (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
@@ -1856,7 +1854,7 @@
     ;; Real path: requires real symmetric positive definite (SPD) matrix.
     ;; Complex path: supports Hermitian positive definite complex matrix.
     (if (complex-matrix? A)
-      (let [Ar (:real A) Ai (:imag A) [n _] (matrix-shape A)]
+      (let [[n _] (matrix-shape A)]
         (when (zero? n) {:real [] :imag []})
         (when (not (hermitian-complex? A 1e-10)) (throw (ex-info "matrix-log implemented only for Hermitian positive definite complex matrices" {:matrix A})))
         ;; Use eigen-decomposition A = V Λ V^H, then log(A) = V log(Λ) V^H

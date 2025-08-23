@@ -177,8 +177,8 @@
   (trace [_ A] (fcla/trace A))
   (inner-product [_ x y] (fcla/inner-product x y))
   (norm2 [_ x] (fcla/norm2 x))
-  (solve-linear-system [_ A b] (fcla/gaussian-elimination-solve A b))
-  (inverse [_ A] (fcla/gaussian-elimination-inverse A))
+  (solve-linear-system [_ A b] (fcla/solve-linear A b))
+  (inverse [_ A] (fcla/inverse A))
   (hermitian?
     ([backend A] (fcla/hermitian? A (tolerance* backend)))
     ([_ A eps] (fcla/hermitian? A eps)))

@@ -1,9 +1,8 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.fastmath-complex
   (:require
-   [fastmath.math :as fm]
+   [fastmath.core :as fm]
    [fastmath.complex :as fc]
-   [fastmath.matrix :as fmat]
-   [org.soulspace.qclojure.domain.math.protocols :as proto]))
+   [fastmath.matrix :as fmat]))
 
 ;;;
 ;;; Configuration and utilities
@@ -50,7 +49,7 @@
 ;;;
 ;;; Matrix algebra helper functions
 ;;;
-(defn- real-matrix?
+(defn real-matrix?
   "Check if a matrix contains only real numbers (zero imaginary parts)."
   [matrix]
   (every? (fn [row]
@@ -60,7 +59,7 @@
                     row))
           matrix))
 
-(defn- complex->real
+(defn complex->real
   "Extract real part of a complex number, checking it's actually real."
   [z]
   (let [vec2-z (ensure-complex z)]
@@ -69,7 +68,7 @@
                       {:value z :imaginary (fc/im vec2-z)})))
     (fc/re vec2-z)))
 
-(defn- complex-matrix->real-matrix
+(defn complex-matrix->real-matrix
   "Convert complex matrix to real matrix."
   [matrix]
   (let [data (into-array (map (fn [row]
@@ -77,7 +76,7 @@
                               matrix))]
     (fmat/mat data)))
 
-(defn- complex-matrix-shape
+(defn complex-matrix-shape
   "Get the shape of a matrix containing Complex elements."
   [matrix]
   (if (vector? matrix)
@@ -92,7 +91,7 @@
   (let [s (ensure-complex scalar)]
     (fc/mult v s)))
 
-(defn- gaussian-elimination-solve
+(defn solve-linear
   "Solve linear system using Gaussian elimination for complex matrices."
   [A b]
   (let [[n m] (complex-matrix-shape A)]
@@ -160,7 +159,7 @@
                            (range n))
                      (inc i)))))))))
 
-(defn- gaussian-elimination-inverse
+(defn inverse
   "Compute matrix inverse using Gaussian elimination for complex matrices."
   [A]
   (let [[n m] (complex-matrix-shape A)]
@@ -855,7 +854,7 @@
 
               ;; Compute V * exp(Λ) * V^-1
               V eigenvectors
-              V-inv (gaussian-elimination-inverse V)
+              V-inv (inverse V)
               temp (matrix-multiply exp-diag V-inv)]
 
           (matrix-multiply V temp))
@@ -928,7 +927,7 @@
                            (range n))
 
             ;; Compute V^(-1)
-            V-inv (gaussian-elimination-inverse eigenvecs)
+            V-inv (inverse eigenvecs)
 
             ;; Result: V * log(Λ) * V^(-1)
             temp (matrix-multiply eigenvecs log-diag)]
@@ -976,7 +975,7 @@
                             (range n))
 
             ;; Compute V^(-1)
-            V-inv (gaussian-elimination-inverse eigenvecs)
+            V-inv (inverse eigenvecs)
 
             ;; Result: V * √Λ * V^(-1)
             temp (matrix-multiply eigenvecs sqrt-diag)]

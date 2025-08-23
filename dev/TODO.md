@@ -30,6 +30,4 @@ Raise test coverage for
 * adapter.visualiation.*
 
 ## Math Refactoring
-* separate real/complex backends
-* decide to go all complex or return double scalars, vectors and matrices from math backends
 * separate pure math from quantum applications

@@ -825,6 +825,132 @@
                           (recur (inc j) Lr Li))))))]
           (recur (inc i) Lr Li))))))
 
+;; Helper functions for real matrix operations
+(defn- matrix-add-real [A B]
+  "Add two real matrices"
+  (vec (for [i (range (count A))]
+         (vec (for [j (range (count (first A)))]
+                (+ (get-in A [i j]) (get-in B [i j])))))))
+
+(defn- matrix-scale-real [A s]
+  "Scale a real matrix by scalar s"
+  (vec (for [i (range (count A))]
+         (vec (for [j (range (count (first A)))]
+                (* s (get-in A [i j])))))))
+
+(defn- matrix-multiply-real [A B]
+  "Multiply two real matrices"
+  (let [n (count A) m (count (first B)) p (count B)]
+    (vec (for [i (range n)]
+           (vec (for [j (range m)]
+                  (reduce + (for [k (range p)]
+                              (* (get-in A [i k]) (get-in B [k j]))))))))))
+
+(defn- matrix-inverse-real [A]
+  "Compute inverse of a real matrix using Gaussian elimination"
+  (let [n (count A)
+        ;; Create augmented matrix [A | I]
+        aug (vec (for [i (range n)]
+                   (vec (concat (nth A i) 
+                               (for [j (range n)] (if (= i j) 1.0 0.0))))))]
+    ;; Gaussian elimination with partial pivoting
+    (loop [k 0 aug aug]
+      (if (>= k n)
+        ;; Extract the right half (the inverse)
+        (vec (for [i (range n)]
+               (vec (subvec (nth aug i) n))))
+        ;; Find pivot
+        (let [pivot-row (+ k (apply max-key #(Math/abs (get-in aug [% k])) (range k n)))
+              aug (if (= pivot-row k) aug
+                      ;; Swap rows
+                      (assoc aug k (nth aug pivot-row) pivot-row (nth aug k)))
+              pivot (get-in aug [k k])]
+          (if (< (Math/abs pivot) 1e-12)
+            (throw (ex-info "Matrix is singular" {}))
+            ;; Eliminate column k
+            (let [aug (assoc-in aug [k] (vec (map #(/ % pivot) (nth aug k))))
+                  aug (loop [i 0 aug aug]
+                        (if (>= i n) aug
+                            (if (= i k) (recur (inc i) aug)
+                                (let [factor (get-in aug [i k])
+                                      new-row (vec (map - (nth aug i) 
+                                                       (map #(* factor %) (nth aug k))))]
+                                  (recur (inc i) (assoc aug i new-row))))))]
+              (recur (inc k) aug))))))))
+
+(defn- real-matrix-exp
+  "Compute matrix exponential of a real matrix using scaling and squaring with Padé approximation.
+  Input: A real matrix as vector of vectors [[...][...]]
+  Output: A real matrix as vector of vectors"
+  [A]
+  (let [n (count A)]
+    (cond
+      ;; 1x1 case
+      (= n 1)
+      [[(math/exp (get-in A [0 0]))]]
+      
+      ;; Small matrices: use Taylor series
+      (<= n 2)
+      (let [max-norm (apply max (for [i (range n) j (range n)] (abs (get-in A [i j]))))]
+        (if (< max-norm 0.1)
+          ;; Taylor series: exp(A) ≈ I + A + A²/2 + A³/6 + ...
+          (let [I (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) 1.0 0.0)))))
+                A2 (matrix-multiply-real A A)
+                A3 (matrix-multiply-real A2 A)]
+            (matrix-add-real 
+              (matrix-add-real 
+                (matrix-add-real I A)
+                (matrix-scale-real A2 0.5))
+              (matrix-scale-real A3 (/ 1.0 6.0))))
+          ;; Scale down, compute exp, then square back up
+          (let [s (math/ceil (/ (math/log (/ max-norm 0.1)) (math/log 2)))
+                A-scaled (matrix-scale-real A (/ 1.0 (math/pow 2 s)))
+                exp-scaled (real-matrix-exp A-scaled)]
+            ;; Square s times
+            (loop [k 0 result exp-scaled]
+              (if (>= k s) result
+                  (recur (inc k) (matrix-multiply-real result result)))))))
+      
+      ;; Larger matrices: use scaling and squaring
+      :else
+      (let [max-norm (apply max (for [i (range n) j (range n)] (abs (get-in A [i j]))))
+            s (max 0 (math/ceil (/ (math/log (/ max-norm 1.0)) (math/log 2))))
+            A-scaled (if (> s 0) (matrix-scale-real A (/ 1.0 (math/pow 2 s))) A)
+            ;; Padé(6,6) approximation for exp(A-scaled)
+            I (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) 1.0 0.0)))))
+            A2 (matrix-multiply-real A-scaled A-scaled)
+            A3 (matrix-multiply-real A2 A-scaled)
+            A4 (matrix-multiply-real A2 A2)
+            A5 (matrix-multiply-real A3 A2)
+            A6 (matrix-multiply-real A3 A3)
+            ;; Numerator: I + A + A²/2 + A³/6 + A⁴/24 + A⁵/120 + A⁶/720
+            num (matrix-add-real I
+                  (matrix-add-real A-scaled
+                    (matrix-add-real (matrix-scale-real A2 0.5)
+                      (matrix-add-real (matrix-scale-real A3 (/ 1.0 6.0))
+                        (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
+                          (matrix-add-real (matrix-scale-real A5 (/ 1.0 120.0))
+                            (matrix-scale-real A6 (/ 1.0 720.0))))))))
+            ;; Denominator: I - A + A²/2 - A³/6 + A⁴/24 - A⁵/120 + A⁶/720
+            den (matrix-add-real I
+                  (matrix-add-real (matrix-scale-real A-scaled -1.0)
+                    (matrix-add-real (matrix-scale-real A2 0.5)
+                      (matrix-add-real (matrix-scale-real A3 (/ -1.0 6.0))
+                        (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
+                          (matrix-add-real (matrix-scale-real A5 (/ -1.0 120.0))
+                            (matrix-scale-real A6 (/ 1.0 720.0))))))))
+            ;; Solve den * X = num for X (i.e., X = den^(-1) * num)
+            exp-scaled (try
+                         (let [den-inv (matrix-inverse-real den)]
+                           (matrix-multiply-real den-inv num))
+                         (catch Exception _
+                           ;; Fallback to Taylor series if inverse fails
+                           (matrix-add-real I (matrix-add-real A-scaled (matrix-scale-real A2 0.5)))))]
+        ;; Square s times to get exp(A)
+        (loop [k 0 result exp-scaled]
+          (if (>= k s) result
+              (recur (inc k) (matrix-multiply-real result result))))))))
+
 (defn matrix-exp
   "Compute matrix exponential of a complex matrix A.
   Returns a complex matrix in SoA form."
@@ -858,7 +984,8 @@
       (let [Z (vec (for [i (range n)] (vec (concat (nth X i) (map #(- (double %)) (nth Y i))))))
             Z2 (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
             B (into [] (concat Z Z2))
-            E (matrix-exp B)
+            ;; Use real matrix exponential for the embedded real matrix
+            E (real-matrix-exp B)
             Er (vec (for [i (range n)] (subvec (E i) 0 n)))
             Ei (vec (for [i (range n)] (subvec (E (+ i n)) 0 n)))]
         {:real Er :imag Ei}))))

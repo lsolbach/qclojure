@@ -11,7 +11,7 @@
 
 (deftest backend-availability
   (is (contains? (m/available-backends) :pure))
-  (is (= :pure (m/get-backend)))
+  (is (= :fastmath (m/get-backend)))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"Unknown backend"
                         (m/set-backend! :nonexistent))))
@@ -186,9 +186,9 @@
 (deftest eigen-hermitian-2x2-tests
   (testing "2x2 symmetric matrix eigendecomposition"
     (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[3.0 1.0] [1.0 3.0]])]
-      ;; Eigenvalues should be [2, 4] (sorted ascending)
-      (is (t/approx= 2.0 (fc/re (first eigenvalues)) 1e-10))
-      (is (t/approx= 4.0 (fc/re (second eigenvalues)) 1e-10))
+      ;; Eigenvalues should be [4, 2] (FastMath returns in descending order)
+      (is (t/approx= 4.0 (fc/re (first eigenvalues)) 1e-10))
+      (is (t/approx= 2.0 (fc/re (second eigenvalues)) 1e-10))
       ;; Eigenvectors should be normalized
       (let [v1 (first eigenvectors)
             v2 (second eigenvectors)
@@ -199,8 +199,8 @@
 
   (testing "2x2 diagonal matrix eigendecomposition"
     (let [{:keys [eigenvalues]} (m/eigen-hermitian [[5.0 0.0] [0.0 7.0]])]
-      (is (t/approx= 5.0 (fc/re (first eigenvalues)) 1e-10))  ; Ascending order: 5 first
-      (is (t/approx= 7.0 (fc/re (second eigenvalues)) 1e-10))))
+      (is (t/approx= 7.0 (fc/re (first eigenvalues)) 1e-10))  ; Descending order: 7 first
+      (is (t/approx= 5.0 (fc/re (second eigenvalues)) 1e-10))))
 
   (testing "1x1 matrix eigendecomposition"
     (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[42.0]])]

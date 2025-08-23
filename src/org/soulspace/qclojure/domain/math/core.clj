@@ -14,7 +14,8 @@
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
    [org.soulspace.qclojure.domain.math.clojure.backend :as cmath]
-   [org.soulspace.qclojure.domain.math.fastmath.backend :as fmath]))
+   [org.soulspace.qclojure.domain.math.fastmath.backend :as fmath]
+   [fastmath.complex :as fc]))
 
 ;; Unified tolerance (can be overridden via backend config :tolerance). Defined after backend vars.
 (def ^:dynamic *tolerance* 1.0e-12)
@@ -38,21 +39,21 @@
 (def ^:private backend-constructors
   {:pure (fn [opts]
            (let [tol (or (:tolerance opts) 1.0e-12)]
-             (cmath/->ClojureMathComplexBackend tol (merge {:tolerance tol} opts))))
+             (cmath/->ClojureMathComplexBackend tol opts)))
    :fastmath (fn [opts]
                (let [tol (or (:tolerance opts) 1.0e-12)]
-                 (fmath/->FastMathComplexBackend tol (merge {:tolerance tol} opts))))})
+                 (fmath/->FastMathComplexBackend tol opts)))})
 
 ;; Current backend selection
 (def ^:dynamic *backend*
   "Current math backend instance. Bind dynamically with `with-backend`.
-    	Defaults to a ->ClojureMathBackend instance."
+    	Defaults to a FastMathComplexBackend instance."
   (let [tol 1.0e-12]
-    (cmath/->ClojureMathComplexBackend tol {:tolerance tol})))
+    (fmath/->FastMathComplexBackend tol {})))
 
 (def ^:dynamic *backend-key*
   "Current math backend key for informational purposes."
-  :pure)
+  :fastmath)
 
 ;; Unified tolerance (can be overridden via backend config :tolerance)
 
@@ -186,14 +187,13 @@
   - imag-part: sequence of imaginary components (same length)
 
   Returns:
-  Complex vector map {:real [...], :imag [...]}.
+  Complex vector as Vec2 format [#vec2 [...], #vec2 [...], ...].
 
   Example:
-  (complex-vector [1 0] [0 1])  ; => |ψ> = [1+0i, 0+1i]"
+  (complex-vector [1 0] [0 1])  ; => [#vec2 [1.0, 0.0], #vec2 [0.0, 1.0]]"
   [real-part imag-part]
   {:pre [(= (count real-part) (count imag-part))]}
-  {:real (vec (map double real-part))
-   :imag (vec (map double imag-part))})
+  (mapv #(fc/complex (double %1) (double %2)) real-part imag-part))
 
 (defn complex-matrix
   "Create a complex matrix from real & imaginary part matrices.
@@ -202,12 +202,13 @@
   - real-m: matrix (vector of row vectors) of real parts
   - imag-m: matrix of imaginary parts (same shape)
 
-  Returns complex matrix map {:real real-m' :imag imag-m'} with elements coerced to double."
+  Returns complex matrix as Vec2 format [[#vec2 [...], ...], ...]."
   [real-m imag-m]
   {:pre [(= (count real-m) (count imag-m))
          (every? true? (map (fn [r i] (= (count r) (count i))) real-m imag-m))]}
-  {:real (mapv (fn [row] (mapv double row)) real-m)
-   :imag (mapv (fn [row] (mapv double row)) imag-m)})
+  (mapv (fn [real-row imag-row]
+          (mapv #(fc/complex (double %1) (double %2)) real-row imag-row))
+        real-m imag-m))
 
 ;;
 ;; Basic structural & arithmetic operations

@@ -384,6 +384,21 @@
                       row))
             diff)))
 
+(defn diagonal?
+  "Check if a complex matrix A is diagonal (off-diagonal elements ≈ 0)."
+  [A eps]
+  (let [[n m] (complex-matrix-shape A)]
+    (when (not= n m)
+      false)
+    ;; Check if all off-diagonal elements are within tolerance of zero
+    (every? (fn [i]
+              (every? (fn [j]
+                        (if (= i j)
+                          true  ; diagonal elements can be anything
+                          (< (fc/abs (get-in A [i j])) eps)))
+                      (range n)))
+            (range n))))
+
 (defn unitary?
   "Check if a complex matrix U is unitary (Uᴴ U ≈ I)."
   [U eps]
@@ -447,8 +462,8 @@
           ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
           ;; Take only the first n eigenvalues (the rest are duplicates)
           complex-eigenvals (mapv (fn [i]
-                                    {:real (get real-eigenvals-array (* 2 i))
-                                     :imag 0.0})  ; Hermitian matrices have real eigenvalues
+                                    ; Hermitian matrices have real eigenvalues
+                                    (fc/complex (get real-eigenvals-array (* 2 i)) 0.0))
                                   (range n))
 
           ;; Extract complex eigenvectors
@@ -488,9 +503,7 @@
             eigenvals (:eigenvalues eigen-result)]
         ;; All eigenvalues should be non-negative
         (every? (fn [eigenval]
-                  (let [real-part (if (map? eigenval)
-                                    (:real eigenval)
-                                    (fc/re eigenval))]
+                  (let [real-part (fc/re eigenval)]
                     (>= real-part (- eps))))
                 eigenvals)))
     (catch Exception e
@@ -578,9 +591,7 @@
 
         ;; Singular values are sqrt of eigenvalues of A†A
         singular-values (mapv (fn [eigenval]
-                                (let [real-part (if (map? eigenval)
-                                                  (:real eigenval)
-                                                  (fc/re eigenval))
+                                (let [real-part (fc/re eigenval)
                                       sqrt-val (fm/sqrt (fm/max 0.0 real-part))]
                                   sqrt-val))
                               eigenvalues)
@@ -831,12 +842,8 @@
 
               ;; Compute exp(lambda_i) for each eigenvalue  
               exp-eigenvals (mapv (fn [eigenval]
-                                    (let [re (if (map? eigenval)
-                                               (:real eigenval)
-                                               (fc/re eigenval))
-                                          im (if (map? eigenval)
-                                               (:imag eigenval)
-                                               (fc/im eigenval))
+                                    (let [re (fc/re eigenval)
+                                          im (fc/im eigenval)
                                           exp-re (fm/exp re)
                                           result-re (* exp-re (fm/cos im))
                                           result-im (* exp-re (fm/sin im))]
@@ -945,45 +952,66 @@
     (when (not= n m)
       (throw (ex-info "Matrix square root requires square matrix" {:shape [n m]})))
 
-    ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
-    (try
-      (let [eigen-result (eigen-general A)
-            eigenvals (:eigenvalues eigen-result)
-            eigenvecs (:eigenvectors eigen-result)
+    ;; Check if matrix is diagonal - use direct approach
+    (if (diagonal? A 1e-10)
+      ;; For diagonal matrices, just take sqrt of diagonal elements
+      (mapv (fn [i]
+              (mapv (fn [j]
+                      (if (= i j)
+                        (let [diag-elem (get-in A [i j])
+                              r (fc/abs diag-elem)
+                              theta (fc/arg diag-elem)]
+                          (when (< r 1e-14)
+                            (throw (ex-info "Cannot compute sqrt of zero diagonal element"
+                                            {:element diag-elem :position [i j]})))
+                          ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
+                          (let [sqrt-r (fm/sqrt r)
+                                half-theta (/ theta 2.0)]
+                            (fc/complex (* sqrt-r (fm/cos half-theta))
+                                        (* sqrt-r (fm/sin half-theta)))))
+                        (fc/complex 0.0 0.0)))
+                    (range n)))
+            (range n))
+      
+      ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
+      (try
+        (let [eigen-result (eigen-general A)
+              eigenvals (:eigenvalues eigen-result)
+              eigenvecs (:eigenvectors eigen-result)
 
-            ;; Compute square root of eigenvalues using principal branch
-            sqrt-eigenvals (mapv (fn [lambda]
-                                   (let [r (fc/abs lambda)
-                                         theta (fc/arg lambda)]
-                                     (when (< r 1e-14)
-                                       (throw (ex-info "Cannot compute sqrt of zero eigenvalue"
-                                                       {:eigenvalue lambda})))
-                                     ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
-                                     (let [sqrt-r (fm/sqrt r)
-                                           half-theta (/ theta 2.0)]
-                                       (fc/complex (* sqrt-r (fm/cos half-theta))
-                                                   (* sqrt-r (fm/sin half-theta))))))
-                                 eigenvals)
+              ;; Compute square root of eigenvalues using principal branch
+              sqrt-eigenvals (mapv (fn [lambda]
+                                     (let [r (fc/abs lambda)
+                                           theta (fc/arg lambda)]
+                                       (when (< r 1e-14)
+                                         (throw (ex-info "Cannot compute sqrt of zero eigenvalue"
+                                                         {:eigenvalue lambda})))
+                                       ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
+                                       (let [sqrt-r (fm/sqrt r)
+                                             half-theta (/ theta 2.0)]
+                                         (fc/complex (* sqrt-r (fm/cos half-theta))
+                                                     (* sqrt-r (fm/sin half-theta))))))
+                                   eigenvals)
 
-            ;; Create diagonal matrix of sqrt eigenvalues
-            sqrt-diag (mapv (fn [i]
-                              (mapv (fn [j]
-                                      (if (= i j)
-                                        (get sqrt-eigenvals i)
-                                        (fc/complex 0.0 0.0)))
-                                    (range n)))
-                            (range n))
+              ;; Create diagonal matrix of sqrt eigenvalues
+              sqrt-diag (mapv (fn [i]
+                                (mapv (fn [j]
+                                        (if (= i j)
+                                          (get sqrt-eigenvals i)
+                                          (fc/complex 0.0 0.0)))
+                                      (range n)))
+                              (range n))
 
-            ;; Compute V^(-1)
-            V-inv (inverse eigenvecs)
+              ;; Compute V^(-1)
+              V-inv (inverse eigenvecs)
 
-            ;; Result: V * √Λ * V^(-1)
-            temp (matrix-multiply eigenvecs sqrt-diag)]
-        (matrix-multiply temp V-inv))
-      (catch Exception e
-        (throw (ex-info "Complex matrix square root failed"
-                        {:original-error (.getMessage e)
-                         :matrix-size n}))))))
+              ;; Result: V * √Λ * V^(-1)
+              temp (matrix-multiply eigenvecs sqrt-diag)]
+          (matrix-multiply temp V-inv))
+        (catch Exception e
+          (throw (ex-info "Complex matrix square root failed"
+                          {:original-error (.getMessage e)
+                           :matrix-size n})))))))
 
 
 (defn spectral-norm
@@ -995,16 +1023,17 @@
         ;; Get eigenvalues of A†A
         eigenvals-result (if (real-matrix? ATA)
                            (let [real-ATA (complex-matrix->real-matrix ATA)]
-                             (map #(fc/complex % 0.0) (fmat/eigenvalues real-ATA)))
+                             ;; fmat/eigenvalues returns Vec2 even for real matrices, so extract real parts
+                             (map fc/re (fmat/eigenvalues real-ATA)))
                            ;; Complex ATA case - use eigendecomposition
                            (let [eigen-result (eigen-hermitian ATA)]
-                             (map (fn [ev]
-                                    (if (map? ev)
-                                      (fc/complex (:real ev) (:imag ev))
-                                      ev))
-                                  (:eigenvalues eigen-result))))]
+                             (:eigenvalues eigen-result)))]
     ;; Spectral norm is sqrt of largest eigenvalue of A†A
-    (fm/sqrt (apply max (map fc/re eigenvals-result)))))
+    (fm/sqrt (apply max (map (fn [ev]
+                               (if (instance? fastmath.vector.Vec2 ev)
+                                 (fc/re ev)
+                                 ev))
+                             eigenvals-result)))))
 
 (defn condition-number
   "Compute the condition number κ₂(A) = ||A||₂ * ||A⁻¹||₂ for a complex matrix A."
@@ -1020,9 +1049,7 @@
 
         ;; Convert eigenvalues to singular values (sqrt of real parts)
         singular-values (mapv (fn [eigenval]
-                                (let [real-part (if (map? eigenval)
-                                                  (:real eigenval)
-                                                  (fc/re eigenval))]
+                                (let [real-part (fc/re eigenval)]
                                   (fm/sqrt (fm/max 0.0 real-part))))
                               ata-eigenvals)
 

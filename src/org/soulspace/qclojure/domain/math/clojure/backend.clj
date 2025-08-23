@@ -17,18 +17,6 @@
 ;;;
 (defrecord ClojureMathComplexBackend [tolerance config])
 
-;;
-;; Factory
-;;
-(defn make-backend
-  "Create a new Clojure math backend. Options:
-   :tolerance  numeric tolerance used by predicates (default 1e-12)
-   :config     arbitrary config map."
-  ([] (->ClojureMathComplexBackend default-tolerance {:tolerance default-tolerance}))
-  ([{:keys [tolerance] :as opts}]
-   (->ClojureMathComplexBackend (or tolerance default-tolerance)
-                                (merge {:tolerance (or tolerance default-tolerance)} (dissoc opts :tolerance)))))
-
 ;;;
 ;;; BackendAdapter protocol implementation
 ;;;

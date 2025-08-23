@@ -70,18 +70,6 @@
 ;;;
 (defrecord FastMathComplexBackend [tolerance config])
 
-;;
-;; Factory
-;;
-(defn make-backend
-  "Create a new Fastmath backend. Options:
-   :tolerance  numeric tolerance used by predicates (default 1e-12)
-   :config     arbitrary config map."
-  ([] (->FastMathComplexBackend default-tolerance {:tolerance default-tolerance}))
-  ([{:keys [tolerance] :as opts}]
-   (->FastMathComplexBackend (or tolerance default-tolerance)
-                             (merge {:tolerance (or tolerance default-tolerance)} (dissoc opts :tolerance)))))
-
 ;;;
 ;;; BackendAdapter protocol implementation
 ;;;
@@ -110,8 +98,12 @@
   (backend->vector [_ v]
     "Convert FastMath vector to QClojure representation."
     (cond
-      ;; Vector of Vec2 - convert to complex maps
-      (and (vector? v) (every? complex? v)) (mapv vec2->complex-map v)
+      ;; Vector of Vec2 - return as-is (Vec2 is the external format)
+      (and (vector? v) (every? complex? v)) v
+
+      ;; Real number vector - convert to Vec2 with zero imaginary parts
+      (and (vector? v) (every? number? v))
+      (mapv #(fc/complex (double %) 0.0) v)
 
       ;; Already in QClojure format - pass through
       (vector? v) v
@@ -123,6 +115,15 @@
     (cond
       ;; Matrix of Vec2 complex numbers - pass through
       (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m)) m
+
+      ;; SoA format matrix - convert to Vec2
+      (and (map? m) (contains? m :real) (contains? m :imag)
+           (vector? (:real m)) (vector? (:imag m)))
+      (let [real-part (:real m)
+            imag-part (:imag m)]
+        (mapv (fn [real-row imag-row]
+                (mapv #(fc/complex %1 %2) real-row imag-row))
+              real-part imag-part))
 
       ;; Complex matrix - convert to Vec2
       (complex-matrix? m) (mapv #(mapv complex-map->vec2 %) m)
@@ -136,9 +137,8 @@
   (backend->matrix [_ m]
     "Convert FastMath matrix to QClojure representation."
     (cond
-      ;; Matrix of Vec2 - convert to complex maps
-      (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m))
-      (mapv #(mapv vec2->complex-map %) m)
+      ;; Matrix of Vec2 - return as-is (Vec2 is the external format)
+      (and (vector? m) (every? #(and (vector? %) (every? complex? %)) m)) m
 
       ;; Already in QClojure format - pass through
       (vector? m) m
@@ -152,7 +152,7 @@
   (backend->scalar [_ s]
     "Convert FastMath scalar to QClojure representation."
     (cond
-      (complex? s) (vec2->complex-map s)
+      (complex? s) s  ; Return Vec2 as-is (Vec2 is the external format)
       (number? s) s
       :else (throw (ex-info "Cannot convert from backend scalar" {:value s})))))
 
@@ -187,9 +187,7 @@
     ([_ U eps] (fcla/unitary? U eps)))
   (positive-semidefinite?
     ([backend A] (fcla/positive-semidefinite? A (tolerance* backend)))
-    ([_ A eps] (fcla/positive-semidefinite? A eps)))
-  ;
-  )
+    ([_ A eps] (fcla/positive-semidefinite? A eps))))
 
 ;;;
 ;;; MatrixDecompositions protocol implementation  
@@ -203,9 +201,7 @@
   (qr-decomposition [_ A] (fcla/qr-decomposition A))
   (cholesky-decomposition
     ([backend A] (fcla/cholesky-decomposition A (tolerance* backend)))
-    ([_ A eps] (fcla/cholesky-decomposition A eps)))
-  ;
-  )
+    ([_ A eps] (fcla/cholesky-decomposition A eps))))
 
 ;;;
 ;;; MatrixFunctions protocol implementation
@@ -215,9 +211,7 @@
 
   (matrix-exp [_ A] (fcla/matrix-exp A))
   (matrix-log [_ A] (fcla/matrix-log A))
-  (matrix-sqrt [_ A] (fcla/matrix-sqrt A))
-   ;
-  )
+  (matrix-sqrt [_ A] (fcla/matrix-sqrt A)))
 
 ;;;
 ;;; MatrixAnalysis protocol implementation
@@ -226,9 +220,7 @@
   FastMathComplexBackend
 
   (spectral-norm [_ A] (fcla/spectral-norm A))
-  (condition-number [_ A] (fcla/condition-number A))
-  ;
-  )
+  (condition-number [_ A] (fcla/condition-number A)))
 
 ;;;
 ;;; QuantumStateOps protocol implementation  
@@ -241,6 +233,4 @@
   (density-matrix [_ psi] (fcla/projector-from-state psi))
   (trace-one?
     ([backend rho] (fcla/trace-one? rho (tolerance* backend)))
-    ([_ rho eps] (fcla/trace-one? rho eps)))
-  ;
-  )
+    ([_ rho eps] (fcla/trace-one? rho eps))))

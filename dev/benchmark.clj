@@ -33,6 +33,19 @@
   (vec (repeatedly n #(fc/complex (- (rand 2.0) 1.0) 
                                   (- (rand 2.0) 1.0)))))
 
+;; tiny test data for quick benchmarks (4x4)
+(def cA4 
+  "4x4 complex Hermitian matrix for quick benchmarking."
+  (make-hermitian-complex (random-complex-matrix 4 4)))
+
+(def cB4 
+  "4x4 complex Hermitian matrix for quick benchmarking."
+  (make-hermitian-complex (random-complex-matrix 4 4)))
+
+(def cv4 
+  "4-element complex vector for quick benchmarking."
+  (random-complex-vector 4))
+
 ;; Smaller test data for quick benchmarks (10x10)
 (def cA10 
   "10x10 complex Hermitian matrix for quick benchmarking."
@@ -87,6 +100,12 @@
   (let [backend-name (mcore/get-backend)]
     (println (str "Running benchmarks with backend: " backend-name))
     
+    ;; Complex matrix operations (4x4)
+    (println "Complex matrix operations (4x4):")
+    (benchmark-matrix-multiply cA4 cB4 backend-name)
+    (benchmark-matrix-vector cA4 cv4 backend-name)
+    (benchmark-eigen-hermitian cA4 backend-name)
+
     ;; Complex matrix operations (10x10 for quick tests)
     (println "Complex matrix operations (10x10):")
     (benchmark-matrix-multiply cA10 cB10 backend-name)

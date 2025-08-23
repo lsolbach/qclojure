@@ -23,7 +23,8 @@
   4. Analyze improvement in measurement fidelity"
   (:require [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.math.core :as mcore]
-            [org.soulspace.qclojure.domain.state :as qs]))
+            [org.soulspace.qclojure.domain.state :as qs]
+            [fastmath.complex :as fc]))
 
 ;;
 ;; Readout Error Mitigation
@@ -181,7 +182,7 @@
                             measured-probs))
         
         ;; Ensure probabilities are non-negative and normalized
-        clipped-probs (mapv #(max 0.0 %) corrected-probs)
+        clipped-probs (mapv #(max 0.0 (fc/re %)) corrected-probs)
         prob-sum (reduce + clipped-probs)
         normalized-probs (if (> prob-sum 1e-10)
                            (mapv #(/ % prob-sum) clipped-probs)

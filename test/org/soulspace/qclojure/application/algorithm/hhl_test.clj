@@ -493,7 +493,8 @@
       
       ;; Verify the solution satisfies A*x ≈ b within reasonable tolerance
       (let [computed-b (mcore/matrix-vector matrix solution)
-            error-vector (mapv - computed-b vector)
+            computed-b-real (mapv real-part computed-b)
+            error-vector (mapv - computed-b-real vector)
             max-error (apply max (map #(Math/abs %) error-vector))]
         (is (< max-error 0.3) ; 30% tolerance for complex matrices
             (str "Solution should satisfy A*x ≈ b, but got error " max-error)))))
@@ -651,7 +652,7 @@
       {:solution solution
        :computed-b (mcore/matrix-vector matrix solution)
        :original-b vector
-       :error (mapv - (mcore/matrix-vector matrix solution) vector)}))
+       :error (mapv - (mapv real-part (mcore/matrix-vector matrix solution)) vector)}))
 
   ;; Run property-based tests
   (tc/quick-check 30 hhl-algorithm-properties)

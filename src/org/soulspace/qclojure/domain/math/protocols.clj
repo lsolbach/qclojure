@@ -233,6 +233,20 @@
     Returns:
     New vector (length m) representing the product A × x")
 
+  (inner-product [backend x y]
+               "Compute the vector inner product ⟨x|y⟩.
+    
+    Parameters:
+    - backend: Backend instance
+    - x: First vector (real or complex)
+    - y: Second vector (real or complex) with same length as x
+    
+    Returns:
+    Scalar representing the inner product
+    
+    Note:
+    Conjugates the first argument if complex (follows Dirac bra-ket notation)")
+
   (outer-product [backend x y]
     "Compute the outer product x ⊗ y†.
     
@@ -245,9 +259,9 @@
     New matrix (m×n) representing x ⊗ y†
     
     Note:
-    For complex vectors, conjugates y but not x (follows Dirac notation)")
+    For complex vectors, conjugates y but not x (follows Dirac bra-ket notation)")
 
-  (hadamard [backend A B]
+  (hadamard-product [backend A B]
     "Compute the element-wise (Hadamard) product A ⊙ B.
     
     Parameters:
@@ -258,7 +272,7 @@
     Returns:
     New matrix with element-wise multiplication of A and B")
 
-  (kronecker [backend A B]
+  (kronecker-product [backend A B]
     "Compute the Kronecker (tensor) product A ⊗ B.
     
     Parameters:
@@ -306,20 +320,6 @@
     
     Returns:
     Scalar (real or complex) representing the sum of diagonal elements")
-
-  (inner-product [backend x y]
-    "Compute the vector inner product ⟨x|y⟩.
-    
-    Parameters:
-    - backend: Backend instance
-    - x: First vector (real or complex)
-    - y: Second vector (real or complex) with same length as x
-    
-    Returns:
-    Scalar representing the inner product
-    
-    Note:
-    Conjugates the first argument if complex (follows Dirac bra-ket notation)")
 
   (norm2 [backend x]
     "Compute the Euclidean (L2) norm ||x||₂.

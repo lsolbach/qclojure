@@ -102,7 +102,7 @@
   "Benchmark matrix-vector multiplication for different backends."
   [A v backend-name]
   (println (str "Benchmarking matrix-vector multiplication with " backend-name " backend:"))
-  (crit/bench (mcore/matrix-vector A v)))
+  (crit/bench (mcore/matrix-vector-product A v)))
 
 (defn run-all-benchmarks
   "Run all benchmarks with current backend settings."

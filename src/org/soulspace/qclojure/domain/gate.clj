@@ -327,7 +327,7 @@
   [gate-matrix n target-qubit]
   (let [identity-2x2 [[(fc/complex 1 0) (fc/complex 0 0)]
                       [(fc/complex 0 0) (fc/complex 1 0)]]]
-    (reduce mcore/kronecker
+    (reduce mcore/kronecker-product
             (for [i (range n)]
               (if (= i target-qubit)
                 gate-matrix
@@ -368,11 +368,11 @@
         state-vector (:state-vector state)]
     (if (= n 1)
       ;; Single qubit case - direct application
-      {:state-vector (mcore/matrix-vector gate-matrix state-vector)
+      {:state-vector (mcore/matrix-vector-product gate-matrix state-vector)
        :num-qubits 1}
       ;; Multi-qubit case - need to expand gate with identity matrices
       (let [expanded-gate (expand-gate-to-n-qubits gate-matrix n qubit-index)]
-        {:state-vector (mcore/matrix-vector expanded-gate state-vector)
+        {:state-vector (mcore/matrix-vector-product expanded-gate state-vector)
          :num-qubits n}))))
 
 ;; Controlled gate operations - Two-qubit gates with control logic
@@ -593,7 +593,7 @@
          state-vector (:state-vector state)]
      (if (and (= n 2) (= control 0) (= target 1))
        ;; 2-qubit case with standard control=0, target=1: use direct CNOT matrix
-       {:state-vector (mcore/matrix-vector (cnot-gate) state-vector)
+       {:state-vector (mcore/matrix-vector-product (cnot-gate) state-vector)
         :num-qubits 2}
        ;; All other cases: apply controlled operation
        (apply-controlled-gate state control target pauli-x)))))

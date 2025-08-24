@@ -265,7 +265,7 @@
       ;; Test that the solution satisfies A*x ≈ b with proper scaling
       (when (:success result)
         (let [solution (:solution-vector result)
-              computed-b (mcore/matrix-vector matrix solution)]
+              computed-b (mcore/matrix-vector-product matrix solution)]
           ;; With corrected amplitude extraction and scaling,
           ;; expect better accuracy than before (was ~30%, now target ~20%)
           (is (approx-vector= computed-b vector 0.2)
@@ -492,7 +492,7 @@
       (is (not (nil? solution)) "Solve should return a solution for positive definite matrix")
       
       ;; Verify the solution satisfies A*x ≈ b within reasonable tolerance
-      (let [computed-b (mcore/matrix-vector matrix solution)
+      (let [computed-b (mcore/matrix-vector-product matrix solution)
             computed-b-real (mapv real-part computed-b)
             error-vector (mapv - computed-b-real vector)
             max-error (apply max (map #(Math/abs %) error-vector))]
@@ -543,7 +543,7 @@
           (str "Solution " solution " should be close to input " vector))
       
       ;; Most importantly: verify the solution satisfies A*x = b
-      (let [computed-b (mcore/matrix-vector matrix solution)]
+      (let [computed-b (mcore/matrix-vector-product matrix solution)]
         (is (approx-vector= computed-b vector 0.1)
             "A*x should equal b within tolerance"))))
 
@@ -650,9 +650,9 @@
         solution (:solution-vector result)]
     (when (:success result)
       {:solution solution
-       :computed-b (mcore/matrix-vector matrix solution)
+       :computed-b (mcore/matrix-vector-product matrix solution)
        :original-b vector
-       :error (mapv - (mapv real-part (mcore/matrix-vector matrix solution)) vector)}))
+       :error (mapv - (mapv real-part (mcore/matrix-vector-product matrix solution)) vector)}))
 
   ;; Run property-based tests
   (tc/quick-check 30 hhl-algorithm-properties)

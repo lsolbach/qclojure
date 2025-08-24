@@ -119,7 +119,7 @@
       single-qubit-matrix
       ;; Compute tensor product iteratively for multi-qubit systems
       (reduce (fn [acc-matrix _]
-                (mcore/kronecker acc-matrix single-qubit-matrix))
+                (mcore/kronecker-product acc-matrix single-qubit-matrix))
               single-qubit-matrix
               (range (dec num-qubits))))))
 

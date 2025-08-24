@@ -119,7 +119,7 @@
      (tensor-product [pauli-x pauli-z])"
   [observables]
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
-  (reduce mcore/kronecker observables))
+  (reduce mcore/kronecker-product observables))
 
 ;;
 ;; Pauli String Functions
@@ -167,7 +167,7 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        obs-psi (mcore/matrix-vector observable state-vec)]
+        obs-psi (mcore/matrix-vector-product observable state-vec)]
     (fc/re (mcore/inner-product state-vec obs-psi))))
 
 (defn variance

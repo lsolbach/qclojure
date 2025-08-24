@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.11.0
 * added protocols for complex linear algebra backends
 * implemented complex linear algebra on clojure.math
 * implemented complex linear algebra on fastmath

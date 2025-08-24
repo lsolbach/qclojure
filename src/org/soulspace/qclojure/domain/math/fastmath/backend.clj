@@ -221,16 +221,3 @@
 
   (spectral-norm [_ A] (fcla/spectral-norm A))
   (condition-number [_ A] (fcla/condition-number A)))
-
-;;;
-;;; QuantumStateOps protocol implementation  
-;;;
-(extend-protocol proto/QuantumStateOps
-  FastMathComplexBackend
-
-  (state-normalize [_ state] (fcla/state-normalize state))
-  (projector-from-state [_ psi] (fcla/projector-from-state psi))
-  (density-matrix [_ psi] (fcla/projector-from-state psi))
-  (trace-one?
-    ([backend rho] (fcla/trace-one? rho (tolerance* backend)))
-    ([_ rho eps] (fcla/trace-one? rho eps))))

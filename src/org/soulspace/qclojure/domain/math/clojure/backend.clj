@@ -314,16 +314,3 @@
   ClojureMathComplexBackend
   (spectral-norm [_ A] (ccla/spectral-norm A))
   (condition-number [_ A] (ccla/condition-number A)))
-
-;;
-;; QuantumStateOps protocol implementation
-;;
-(extend-protocol proto/QuantumStateOps
-  ClojureMathComplexBackend
-  (state-normalize [_ state] (ccla/state-normalize state))
-  (projector-from-state [_ psi] (ccla/projector-from-state psi))
-  (density-matrix [_ psi] (ccla/density-matrix psi))
-  (trace-one?
-    ([b rho] (ccla/trace-one? rho (tolerance* b)))
-    ([_ rho eps] (ccla/trace-one? rho eps))))
-

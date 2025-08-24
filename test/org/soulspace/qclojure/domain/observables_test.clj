@@ -3,7 +3,8 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [fastmath.complex :as c]
             [org.soulspace.qclojure.domain.observables :as obs]
-            [org.soulspace.qclojure.domain.state :as state]))
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.math.core :as mcore]))
 
 ;; Helper functions for testing
 (defn approx=
@@ -109,14 +110,14 @@
 ;;
 (deftest test-hermitian-properties
   (testing "Pauli matrices are Hermitian"
-    (is (obs/is-hermitian? obs/pauli-x))
-    (is (obs/is-hermitian? obs/pauli-y))
-    (is (obs/is-hermitian? obs/pauli-z))
-    (is (obs/is-hermitian? obs/identity-op)))
+    (is (mcore/hermitian? obs/pauli-x))
+    (is (mcore/hermitian? obs/pauli-y))
+    (is (mcore/hermitian? obs/pauli-z))
+    (is (mcore/hermitian? obs/identity-op)))
   
   (testing "Linear combinations of Hermitian operators are Hermitian"
     (let [combo (obs/linear-combination [[0.3 obs/pauli-x] [0.7 obs/pauli-z]])]
-      (is (obs/is-hermitian? combo)))))
+      (is (mcore/hermitian? combo)))))
 
 ;;
 ;; Integration Tests
@@ -129,7 +130,7 @@
           bell-obs (obs/linear-combination [[0.5 z-i] [0.5 i-z]])]
       
       ;; Verify it's Hermitian
-      (is (obs/is-hermitian? bell-obs))
+      (is (mcore/hermitian? bell-obs))
       
       ;; Test with Bell state |00⟩ + |11⟩
       (let [bell-state (state/normalize-state 

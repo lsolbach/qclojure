@@ -187,18 +187,6 @@
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
-(defn is-hermitian?
-  "Check if a matrix is Hermitian (O = O†)
-   
-   Parameters:
-   - matrix: matrix to check
-   
-   Returns:
-     Boolean indicating if matrix is Hermitian"
-  [matrix]
-  {:pre [(s/valid? ::matrix matrix)]}
-  (mcore/hermitian? matrix))
-
 ;;
 ;; Measurement Simulation
 ;;
@@ -274,8 +262,8 @@
   (measurement-probabilities pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
 
   ;; Verify observables are Hermitian
-  (is-hermitian? pauli-x)        ; => true
-  (is-hermitian? custom-hamiltonian) ; => true
+  (mcore/hermitian? pauli-x)        ; => true
+  (mcore/hermitian? custom-hamiltonian) ; => true
 
   ;; Test with Bell states
   (def bell-state (state/normalize-state

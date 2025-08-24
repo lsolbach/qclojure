@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.clojure.clojure-math-complex
+(ns org.soulspace.qclojure.domain.math.clojure.complex-linear-algebra
   (:require
    [clojure.math :as math]))
 

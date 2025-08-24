@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.domain.math.clojure.backend
   "Backend for Clojure complex numbers."
   (:require [org.soulspace.qclojure.domain.math.protocols :as proto]
-            [org.soulspace.qclojure.domain.math.clojure.clojure-math-complex :as ccla]
+            [org.soulspace.qclojure.domain.math.clojure.complex-linear-algebra :as ccla]
             [fastmath.complex :as fc]))
 
 ;;;

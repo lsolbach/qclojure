@@ -1,6 +1,6 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.backend
   "Backend for fastmath complex numbers."
-  (:require [org.soulspace.qclojure.domain.math.fastmath.fastmath-complex :as fcla]
+  (:require [org.soulspace.qclojure.domain.math.fastmath.complex-linear-algebra :as fcla]
             [org.soulspace.qclojure.domain.math.protocols :as proto]
             [fastmath.complex :as fc]))
 

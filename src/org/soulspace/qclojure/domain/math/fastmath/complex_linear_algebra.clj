@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.domain.math.fastmath.fastmath-complex
+(ns org.soulspace.qclojure.domain.math.fastmath.complex-linear-algebra
   (:require
    [fastmath.core :as fm]
    [fastmath.complex :as fc]

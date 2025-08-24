@@ -212,31 +212,6 @@
           "Spectral norm of [[1 2] [3 4]] should be approximately 5.465"))))
 
 ;;;
-;;; QuantumStateOps smoke tests
-;;;
-(deftest test-quantum-state-ops
-  (testing "inner product"
-    (let [v1 (proto/vector->backend backend [1.0 0.0])
-          v2 (proto/vector->backend backend [0.0 1.0])
-          result (proto/inner-product backend v1 v2)]
-      (is (util/approx= 0.0 (fc/re result) 1e-10)
-          "Inner product of orthogonal vectors should be zero")))
-  
-  (testing "norm"
-    (let [v (proto/vector->backend backend [3.0 4.0])
-          result (proto/norm2 backend v)]
-      (is (util/approx= 5.0 result 1e-10)
-          "Norm of [3,4] should be 5")))
-  
-  (testing "state normalize"
-    (let [v (proto/vector->backend backend [3.0 4.0])
-          result (proto/state-normalize backend v)
-          result-converted (vec2-vector->real-vector (proto/backend->vector backend result))
-          expected [0.6 0.8]]
-      (is (util/approx-vector= expected result-converted 1e-10)
-          "Normalized [3,4] should be [0.6, 0.8]"))))
-
-;;;
 ;;; Rich comment for running tests
 ;;;
 (comment

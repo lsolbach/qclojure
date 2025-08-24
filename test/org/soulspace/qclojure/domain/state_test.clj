@@ -5,7 +5,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]))
 
@@ -37,7 +37,7 @@
       ;; Check normalization (amplitude squared sum = 1)
       (let [amplitudes (:state-vector |+⟩)
             norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-        (is (< (m/abs (- norm 1.0)) 1e-10)))))
+        (is (< (fm/abs (- norm 1.0)) 1e-10)))))
 
   (testing "Minus state creation"
     (let [|-⟩ (qs/minus-state)]
@@ -93,16 +93,20 @@
           |+0⟩ (qs/tensor-product |+⟩ |0⟩)]
       (is (= (:num-qubits |+0⟩) 2))
       ;; Should be in state (|00⟩ + |10⟩)/√2
-      (let [expected-amp (/ 1.0 (m/sqrt 2))
-            [[a0-real a0-imag] [a1-real a1-imag] [a2-real a2-imag] [a3-real a3-imag]] (:state-vector |+0⟩)]
-        (is (< (m/abs (- a0-real expected-amp)) 1e-10))
-        (is (< (m/abs a0-imag) 1e-10))
-        (is (< (m/abs a1-real) 1e-10))
-        (is (< (m/abs a1-imag) 1e-10))
-        (is (< (m/abs (- a2-real expected-amp)) 1e-10))
-        (is (< (m/abs a2-imag) 1e-10))
-        (is (< (m/abs a3-real) 1e-10))
-        (is (< (m/abs a3-imag) 1e-10))))))
+      (let [expected-amp (/ 1.0 (fm/sqrt 2))
+            [a0 a1 a2 a3] (:state-vector |+0⟩)
+            a0-real (fc/re a0) a0-imag (fc/im a0)
+            a1-real (fc/re a1) a1-imag (fc/im a1)
+            a2-real (fc/re a2) a2-imag (fc/im a2)
+            a3-real (fc/re a3) a3-imag (fc/im a3)]
+        (is (< (Math/abs (- a0-real expected-amp)) 1e-10))
+        (is (< (Math/abs a0-imag) 1e-10))
+        (is (< (Math/abs a1-real) 1e-10))
+        (is (< (Math/abs a1-imag) 1e-10))
+        (is (< (Math/abs (- a2-real expected-amp)) 1e-10))
+        (is (< (Math/abs a2-imag) 1e-10))
+        (is (< (Math/abs a3-real) 1e-10))
+        (is (< (Math/abs a3-imag) 1e-10))))))
 
 ;;
 ;; State normalization tests
@@ -115,7 +119,7 @@
       ;; Check norm = 1
       (let [amplitudes (:state-vector normalized)
             norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-        (is (< (m/abs (- norm 1.0)) 1e-10)))))
+        (is (< (fm/abs (- norm 1.0)) 1e-10)))))
 
   (testing "Already normalized state remains unchanged"
     (let [|+⟩ (qs/plus-state)
@@ -444,8 +448,8 @@
                       (if (zero? original-ratio)
                         (< (Math/abs normalized-ratio) 1e-10)
                         ;; Use relative error tolerance for better numerical stability
-                        (let [relative-error (/ (m/abs (- original-ratio normalized-ratio))
-                                                (m/abs original-ratio))]
+                        (let [relative-error (/ (fm/abs (- original-ratio normalized-ratio))
+                                                (fm/abs original-ratio))]
                           (< relative-error 1e-9))))))))
 
 (defspec computational-basis-states-are-orthogonal 30

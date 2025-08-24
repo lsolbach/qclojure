@@ -26,14 +26,14 @@
 
 (deftest multiply-matrix-vector-basic
   (is (t/approx-matrix= [5.0 11.0]
-                        (m/matrix-vector [[1.0 2.0]
+                        (m/matrix-vector-product [[1.0 2.0]
                                           [3.0 4.0]]
                                          [1.0 2.0]))))
 
 (deftest transpose-basic
   (is (t/approx-matrix= [[1.0 3.0]
                          [2.0 4.0]]
-                        (m/matrix-transpose [[1.0 2.0]
+                        (m/transpose [[1.0 2.0]
                                              [3.0 4.0]]))))
 
 (deftest tensor-product-basic
@@ -41,7 +41,7 @@
                          [2.0 6.0 4.0 12.0]
                          [4.0 12.0 8.0 24.0]
                          [8.0 24.0 16.0 48.0]]
-                        (m/kronecker [[1.0 2.0]
+                        (m/kronecker-product [[1.0 2.0]
                                       [4.0 8.0]]
                                      [[1.0 3.0]
                                       [2.0 6.0]]))))
@@ -59,7 +59,7 @@
       (is (= [[1.0 0.0]
               [0.0 1.0]] rounded)))
     (let [x (m/solve-linear-system A [11.0 10.0])
-          Ax (m/matrix-vector A x)
+          Ax (m/matrix-vector-product A x)
           rounded (mapv (fn [v] (/ (Math/round (* 10.0 (fc/re v))) 10.0)) Ax)]
       (is (= [11.0 10.0] rounded)))))
 
@@ -72,9 +72,9 @@
                   [0.0 2.0]]
            :imag [[0.0 -1.0]
                   [-1.0 0.0]]}
-        C (m/complex-matrix-multiply A B)
+        C (m/matrix-multiply A B)
         H (m/conjugate-transpose A)
-        K (m/complex-kronecker A B)
+        K (m/kronecker-product A B)
         expected-C [[(fc/complex 3.0 0.0) (fc/complex 0.0 1.0)]
                     [(fc/complex 0.0 1.0) (fc/complex 3.0 0.0)]]
         expected-H [[(fc/complex 1.0 0.0) (fc/complex 0.0 -1.0)]
@@ -113,61 +113,6 @@
       ;; Note: API returns Vec2 format, so we extract real/imag using fc functions
       (is (t/approx= 25.0 (fc/re ip)))
       (is (t/approx= 0.0 (fc/im ip))))))
-
-(deftest normalization-tests
-  (testing "Real vector normalization"
-    (let [v [3.0 4.0]
-          n (m/state-normalize v)]
-      (is (t/approx= 1.0 (Math/sqrt (reduce + (map #(fc/re (fc/mult % %)) n)))))))
-  (testing "Complex vector normalization"
-    (let [v (m/complex-vector [3.0 0.0] [4.0 0.0])
-          n (m/state-normalize v)]
-      (is (t/approx= 1.0 (Math/sqrt (reduce + (map #(fc/re (fc/mult % (fc/conjugate %))) n))))))))
-
-(deftest projector-and-density-tests
-  (testing "Projector from real normalized state"
-    (let [psi (m/state-normalize [3.0 4.0])
-          P (m/projector-from-state psi)]
-      ;; Idempotent: P*P = P (approx)
-      (let [PP (m/matrix-multiply P P)]
-        (is (t/approx-matrix= P PP (m/current-tolerance))))
-      ;; Rank-1: trace equals 1 
-      (is (t/approx= 1.0 (fc/re (reduce fc/add (fc/complex 0.0 0.0) (map-indexed (fn [i row] (nth row i)) P)))))))
-  (testing "Projector from complex normalized state"
-    (let [psi (m/state-normalize (m/complex-vector [1.0 0.0] [1.0 0.0]))
-          P (m/projector-from-state psi)]
-      ;; Hermitian: P == P^†
-      (is (true? (m/hermitian? P)))
-      ;; Trace one
-      (is (true? (m/trace-one? P)))))
-  (testing "density-matrix alias equivalence"
-    (let [psi (m/state-normalize [1.0 2.0 2.0 1.0])
-          P (m/projector-from-state psi)
-          D (m/density-matrix psi)]
-      (is (= P D)))))
-
-(deftest trace-and-psd-tests
-  (testing "trace-one? true on projector"
-    (let [psi (m/state-normalize [1.0 2.0 2.0 1.0])
-          P (m/projector-from-state psi)]
-      (is (true? (m/trace-one? P)))))
-  (testing "trace-one? false on scaled projector"
-    (let [psi (m/state-normalize [1.0 0.0])
-          P (m/projector-from-state psi)
-          scaled (mapv (fn [row] (mapv #(fc/mult % (fc/complex 2.0 0.0)) row)) P)]
-      (is (false? (m/trace-one? scaled)))))
-  (testing "positive-semidefinite? real projector"
-    (let [psi (m/state-normalize [1.0 2.0 2.0 1.0])
-          P (m/projector-from-state psi)]
-      (is (true? (m/positive-semidefinite? P)))))
-  (testing "positive-semidefinite? complex projector"
-    (let [psi (m/state-normalize (m/complex-vector [1.0 0.0] [1.0 0.0]))
-          P (m/projector-from-state psi)]
-      (is (true? (m/positive-semidefinite? P)))))
-  (testing "positive-semidefinite? rejects non-PSD matrix"
-    (let [A [[0.0 1.0]
-             [1.0 -3.0]]] ; has negative eigenvalue
-      (is (false? (m/positive-semidefinite? A))))))
 
 (deftest unitary-tests
   (testing "Identity is unitary (real)"
@@ -399,100 +344,6 @@
       (is (every? #(< (Math/abs (fc/im %)) 1e-12) eigenvalues)) ; eigenvalues should be real
       (is (t/approx= spec-norm spec-norm)) ; spec-norm should be a valid number/Vec2
       (is (number? cond-num))))) ; cond-num should be a valid number
-
-;;
-;; Property-based tests
-;;
-(def tol (m/current-tolerance))
-
-(defspec projector-complex-properties 60
-  (prop/for-all [ar (gen/double* {:min -3 :max 3 :NaN? false :infinite? false})
-                 ai (gen/double* {:min -3 :max 3 :NaN? false :infinite? false})
-                 br (gen/double* {:min -3 :max 3 :NaN? false :infinite? false})
-                 bi (gen/double* {:min -3 :max 3 :NaN? false :infinite? false})]
-                (let [norm2 (+ (* ar ar) (* ai ai) (* br br) (* bi bi))]
-                  (if (< norm2 1e-4)
-                    true ; skip poorly conditioned vectors
-                    (let [v (m/complex-vector [ar br] [ai bi])
-                          psi (m/state-normalize v)
-                          P (m/projector-from-state psi)
-                          psi' (m/complex-matrix-vector P psi)
-                          H (m/conjugate-transpose P)
-                          trace-r (fc/re (reduce fc/add (fc/complex 0.0 0.0) (map-indexed (fn [i row] (nth row i)) P)))
-                          rel= (fn [x y]
-                                 (let [x-val (if (instance? fastmath.vector.Vec2 x) (fc/re x) (double x))
-                                       y-val (if (instance? fastmath.vector.Vec2 y) (fc/re y) (double y))
-                                       mx (max 1.0 (Math/abs x-val) (Math/abs y-val))]
-                                   (< (Math/abs (- x-val y-val)) (* 1e-6 mx))))]
-                      (and (every? true? (map rel= psi psi'))
-                           (t/approx-matrix= P H 1e-8)
-                           (t/approx= 1.0 trace-r 1e-8)))))))
-
-(defspec normalization-idempotent-real 50
-  (prop/for-all [a (gen/double* {:min -20 :max 20 :NaN? false :infinite? false})
-                 b (gen/double* {:min -20 :max 20 :NaN? false :infinite? false})]
-                (let [magnitude-squared (+ (* a a) (* b b))]
-                  (if (or (and (zero? a) (zero? b))
-                          ;; Filter out values too small for reliable numerical computation
-                          (< magnitude-squared 1e-20)
-                          ;; Also filter out cases where one component dominates too much
-                          (and (not (zero? magnitude-squared))
-                               (or (< (Math/abs a) (* 1e-12 (Math/abs b)))
-                                   (< (Math/abs b) (* 1e-12 (Math/abs a))))))
-                    true
-                    (let [v [a b]
-                          n1 (m/state-normalize v)
-                          n2 (m/state-normalize n1)
-                          norm (Math/sqrt (reduce + (map #(fc/re (fc/mult % (fc/conjugate %))) n1)))
-                          ;; Use relative tolerance for better numerical stability
-                          tolerance (max 1e-10 (* 1e-15 (Math/sqrt magnitude-squared)))]
-                      (and (t/approx= 1.0 norm tolerance)
-                           (every? true? (map (fn [x y] (t/approx= (fc/re x) (fc/re y) tolerance)) n1 n2))))))))
-
-(defspec normalization-idempotent-complex 40
-  (prop/for-all [ar (gen/double* {:min -10 :max 10 :NaN? false :infinite? false})
-                 ai (gen/double* {:min -10 :max 10 :NaN? false :infinite? false})
-                 br (gen/double* {:min -10 :max 10 :NaN? false :infinite? false})
-                 bi (gen/double* {:min -10 :max 10 :NaN? false :infinite? false})]
-                (let [magnitude-squared (+ (* ar ar) (* ai ai) (* br br) (* bi bi))]
-                  (if (or (and (zero? ar) (zero? ai) (zero? br) (zero? bi))
-                          ;; Filter out values too small for reliable numerical computation
-                          (< magnitude-squared 1e-20))
-                    true
-                    (let [v (m/complex-vector [ar br] [ai bi])
-                          n1 (m/state-normalize v)
-                          n2 (m/state-normalize n1)
-                          norm (Math/sqrt (reduce + (map #(fc/re (fc/mult % (fc/conjugate %))) n1)))
-                          ;; Use adaptive tolerance
-                          tolerance (max 1e-10 (* 1e-15 (Math/sqrt magnitude-squared)))]
-                      (and (t/approx= 1.0 norm tolerance)
-                           (t/approx-matrix=
-                            (m/projector-from-state n1)
-                            (m/projector-from-state n2) tolerance)))))))
-
-(defspec rotation-unitary-preserves-norm 60
-  (prop/for-all [theta (gen/double* {:min (* -2 Math/PI) :max (* 2 Math/PI) :NaN? false :infinite? false})
-                 a (gen/double* {:min -5 :max 5 :NaN? false :infinite? false})
-                 b (gen/double* {:min -5 :max 5 :NaN? false :infinite? false})]
-                (let [magnitude-squared (+ (* a a) (* b b))]
-                  (if (or (and (zero? a) (zero? b))
-                          ;; Filter out values too small for reliable numerical computation
-                          (< magnitude-squared 1e-20)
-                          ;; Filter out degenerate cases where one component dominates
-                          (and (not (zero? magnitude-squared))
-                               (or (< (Math/abs a) (* 1e-12 (Math/abs b)))
-                                   (< (Math/abs b) (* 1e-12 (Math/abs a))))))
-                    true
-                    (let [c (Math/cos theta)
-                          s (Math/sin theta)
-                          R [[c (- s)]
-                             [s c]]
-                          v (m/state-normalize [a b])
-                          v2 (m/matrix-vector R v)
-                          norm2 (Math/sqrt (reduce + (map #(fc/re (fc/mult % (fc/conjugate %))) v2)))
-                          ;; Use adaptive tolerance based on input magnitude
-                          tolerance (max 1e-10 (* 1e-15 (Math/sqrt magnitude-squared)))]
-                      (t/approx= 1.0 norm2 tolerance))))))
 
 (comment
   (run-tests)

@@ -490,8 +490,11 @@
         v2 (:state-vector state2)
         n1 (:num-qubits state1)
         n2 (:num-qubits state2)
-        result-vector (mcore/kronecker-product v1 v2)]
-    {:state-vector (vec result-vector)
+        ;; Tensor product of vectors: for each element in v1, multiply by each element in v2
+        result-vector (vec (for [a1 v1
+                                 a2 v2]
+                             (fc/mult a1 a2)))]
+    {:state-vector result-vector
      :num-qubits (+ n1 n2)}))
 
 (defn state-projector

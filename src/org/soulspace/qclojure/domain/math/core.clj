@@ -13,6 +13,7 @@
     Use `set-backend!` to change the global backend, or `with-backend` to override in a dynamic scope."
   (:require
    [org.soulspace.qclojure.domain.math.protocols :as proto]
+   [org.soulspace.qclojure.domain.math.complex :as complex]
    [org.soulspace.qclojure.domain.math.clojure.backend :as cmath]
    [org.soulspace.qclojure.domain.math.fastmath.backend :as fmath]
    [fastmath.complex :as fc]))
@@ -384,7 +385,7 @@
     (from-backend-matrix result)))
 
 ;;
-;; Transforms
+;; Transformations
 ;;
 (defn transpose
   "Compute the transpose Aᵀ.

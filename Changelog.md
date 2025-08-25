@@ -2,6 +2,7 @@
 
 ## Version 0.11.1
 * removed unfinished neanderthal backend
+* updated the tutorial
 
 ## Version 0.11.0
 * added protocols for complex linear algebra backends

@@ -18,7 +18,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
 3. **Quantum Algorithm Implementations**
 
-   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE and Shor algorithms
+   Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE, QAOA and Shor algorithms
 
 4. **Extensible Quantum Backend System**
 
@@ -128,12 +128,12 @@ images of the circuit and the final state.
                 (sim/create-simulator) [1 0 1 0] {:shots 100}))
 
 ;; Examine the results
-(:final-state bv-result)
-(:measurement-results bv-result)
+(get-in bv-result [:execution-result :final-state])
+(get-in bv-result [:execution-result :measurement-results])
 
 ;; Create SVG visualizations for the circuit and the final state
 (spit "bv-circuit.svg" (vis/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
-(spit "bv-state.svg" (vis/visualize-quantum-state :svg (:final-state bv-result)))
+(spit "bv-state.svg" (vis/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 ```
 
 #### Visualizations of the Bernstein-Varizani Circuit and Final State
@@ -166,4 +166,3 @@ lein test
 
 ## License
 Eclipse Public License 1.0 (EPL1.0)
-

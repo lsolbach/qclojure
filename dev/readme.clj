@@ -52,10 +52,10 @@ qs/|+⟩
                 (sim/create-simulator) [1 0 1 0] {:shots 100}))
 
 ;; Examine the results
-(:final-state bv-result)
-(:measurement-results bv-result)
+(get-in bv-result [:execution-result :final-state])
+(get-in bv-result [:execution-result :measurement-results])
 
 ;; Create SVG visualizations for the circuit and the final state
 (spit "bv-circuit.svg" (vis/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
-(spit "bv-state.svg" (vis/visualize-quantum-state :svg (:final-state bv-result)))
+(spit "bv-state.svg" (vis/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 )

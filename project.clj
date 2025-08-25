@@ -10,6 +10,11 @@
                  [hiccup/hiccup "2.0.0"]]
 
   :profiles {:dev [:user {}]
+             :sim-heavy {:jvm-opts ["-Xms8g" "-Xmx32g"
+                                    "-XX:MaxGCPauseMillis=200"
+                                    "-XX:+AlwaysPreTouch"]}
+             :container {:jvm-opts ["-XX:InitialRAMPercentage=2.0"
+                                    "-XX:MaxRAMPercentage=60.0"]}
              :clay {:dependencies [[org.scicloj/clay "2-beta52"]]
                     :source-paths ["src" "notebook"]}}
 

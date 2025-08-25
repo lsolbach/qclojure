@@ -1,7 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
-*
+* added lein profiles for bigger simulations and for running in a container
 
 ## Version 0.11.1
 * removed unfinished neanderthal backend

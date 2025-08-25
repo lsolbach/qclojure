@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* added Quantum Approximate Optimization Algorithm (QAOA) for Max-CUT, Max-SAT and TSP problems
 * added lein profiles for bigger simulations and for running in a container
 
 ## Version 0.11.1

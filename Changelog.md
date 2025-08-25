@@ -2,7 +2,9 @@
 
 ## Version (NEXT)
 * added Quantum Approximate Optimization Algorithm (QAOA) for Max-CUT, Max-SAT and TSP problems
-* added lein profiles for bigger simulations and for running in a container
+* added parameter values to tooltips in SVG circuit visualisation
+* added lein profiles with JVM options for bigger simulations and for running in a container
+* updated tutorial
 
 ## Version 0.11.1
 * removed unfinished neanderthal backend

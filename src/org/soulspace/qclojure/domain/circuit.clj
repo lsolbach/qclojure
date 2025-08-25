@@ -81,7 +81,7 @@
     :name name
     :description description}))
 
-(defn add-operation
+(defn- add-operation
   "Add a quantum operation (gate or measurement) to a quantum circuit.
   
   This is the core function for building quantum circuits by appending operations

@@ -41,6 +41,41 @@
      :total-shown total-shown
      :n-hidden n-hidden}))
 
+(defn format-angle-value
+  "Format an angle value showing mathematical representation when possible.
+  
+  Parameters:
+  - angle: Angle value in radians
+  
+  Returns:
+  String with mathematical representation (like π/2) or decimal with π fraction"
+  [angle]
+  (let [pi Math/PI
+        two-pi (* 2 pi)
+        half-pi (/ pi 2)
+        quarter-pi (/ pi 4)
+        three-quarter-pi (* 3 quarter-pi)
+        tolerance 0.001]
+    (cond
+      (< (abs angle) tolerance) "0"
+      (< (abs (- angle pi)) tolerance) "π"
+      (< (abs (- angle two-pi)) tolerance) "2π"
+      (< (abs (- angle half-pi)) tolerance) "π/2"
+      (< (abs (- angle quarter-pi)) tolerance) "π/4"
+      (< (abs (- angle three-quarter-pi)) tolerance) "3π/4"
+      (< (abs (- angle (/ pi 3))) tolerance) "π/3"
+      (< (abs (- angle (/ pi 6))) tolerance) "π/6"
+      (< (abs (- angle (* 2 (/ pi 3)))) tolerance) "2π/3"
+      ;; Negative values
+      (< (abs (+ angle pi)) tolerance) "-π"
+      (< (abs (+ angle half-pi)) tolerance) "-π/2"
+      (< (abs (+ angle quarter-pi)) tolerance) "-π/4"
+      ;; For other values, show both raw and fraction of π
+      :else (let [pi-fraction (/ angle pi)]
+              (if (and (>= pi-fraction -10) (<= pi-fraction 10))
+                (str (qmath/round-precision angle 3) " (" (qmath/round-precision pi-fraction 3) "π)")
+                (str (qmath/round-precision angle 3)))))))
+
 (defn format-amplitude-display
   "Format complex amplitude for human-readable display.
   

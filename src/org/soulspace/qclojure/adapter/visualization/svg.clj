@@ -12,6 +12,43 @@
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
 
+;;;
+;;; Parameter Formatting for Tooltips
+;;;
+(defn format-gate-parameters
+  "Format gate parameters for tooltip display with appropriate symbols and formatting.
+  
+  Parameters:
+  - gate-type: Keyword identifying the gate type
+  - params: Operation parameters map containing :angle
+  
+  Returns:
+  Formatted string for tooltip display, or nil if no parameters"
+  [gate-type params]
+  (when-let [angle (:angle params)]
+    (case gate-type
+      ;; Single-qubit rotation gates
+      :rx (str "θ=" (common/format-angle-value angle))
+      :ry (str "θ=" (common/format-angle-value angle))
+      :rz (str "φ=" (common/format-angle-value angle))
+      :phase (str "φ=" (common/format-angle-value angle))
+      
+      ;; Controlled rotation gates  
+      :crx (str "θ=" (common/format-angle-value angle))
+      :cry (str "θ=" (common/format-angle-value angle))
+      :crz (str "φ=" (common/format-angle-value angle))
+      
+      ;; Rydberg gates
+      :rydberg-cphase (str "φ=" (common/format-angle-value angle))
+      
+      ;; Global rotation gates
+      :global-rx (str "θ=" (common/format-angle-value angle))
+      :global-ry (str "θ=" (common/format-angle-value angle))
+      :global-rz (str "φ=" (common/format-angle-value angle))
+      
+      ;; Default case for any other parametric gates
+      (str "param=" (common/format-angle-value angle)))))
+
 ;;
 ;; Bar Chart Common SVG Components  
 ;;
@@ -332,446 +369,449 @@
 
 (defmethod viz/visualize-circuit :svg
   [_format circuit & {:keys [width height gate-spacing qubit-spacing show-measurements interactive]
-            :or {gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
+                      :or {gate-spacing 60 qubit-spacing 60 show-measurements true interactive true}}]
+  
+  (let [n-qubits (:num-qubits circuit)
+        circuit-depth (qc/circuit-depth circuit)
+        margin {:top 70 :right 50 :bottom 30 :left 70}
 
-(let [n-qubits (:num-qubits circuit)
-      circuit-depth (qc/circuit-depth circuit)
-      margin {:top 70 :right 50 :bottom 30 :left 70}
+        ;; Calculate default dimensions based on circuit properties
+        ;; Width: based on circuit depth (number of sequential layers)
+        default-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing) (:left margin) (:right margin))
+        ;; Height: based on number of qubits
+        default-height (+ (* n-qubits qubit-spacing) (:top margin) (:bottom margin))
 
-      ;; Calculate default dimensions based on circuit properties
-      ;; Width: based on circuit depth (number of sequential layers)
-      default-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing) (:left margin) (:right margin))
-      ;; Height: based on number of qubits
-      default-height (+ (* n-qubits qubit-spacing) (:top margin) (:bottom margin))
-      
-      ;; Use provided dimensions or calculated defaults
-      final-width (if (some? width) width default-width)
-      final-height (if (some? height) height default-height)
+        ;; Use provided dimensions or calculated defaults
+        final-width (if (some? width) width default-width)
+        final-height (if (some? height) height default-height)
 
-      ;; Calculate circuit area dimensions (excluding margins)
-      circuit-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing))
+        ;; Calculate circuit area dimensions (excluding margins)
+        circuit-width (+ (* circuit-depth gate-spacing) (* 2 gate-spacing))
 
-      ;; Gate visual properties
-      operation-styles {:x {:fill "#ef4444" :symbol "X"}
-                   :y {:fill "#22c55e" :symbol "Y"}
-                   :z {:fill "#3b82f6" :symbol "Z"}
-                   :h {:fill "#8b5cf6" :symbol "H"}
-                   :s {:fill "#f59e0b" :symbol "S"}
-                   :s-dag {:fill "#f59e0b" :symbol "S†"}
-                   :t {:fill "#06b6d4" :symbol "T"}
-                   :t-dag {:fill "#06b6d4" :symbol "T†"}
-                   :rx {:fill "#ec4899" :symbol "RX"}
-                   :ry {:fill "#10b981" :symbol "RY"}
-                   :rz {:fill "#6366f1" :symbol "RZ"}
-                   :phase {:fill "#9333ea" :symbol "P"}
-;                   :cx {:fill "#ef4444" :symbol "CX"}
-                   :cy {:fill "#22c55e" :symbol "CY"}
-                   :cz {:fill "#3b82f6" :symbol "CZ"}
-                   :swap {:fill "#fb923c" :symbol "×"}
-                   :iswap {:fill "#fb923c" :symbol "i×"}
-                   :crx {:fill "#ec4899" :symbol "CRX"}
-                   :cry {:fill "#10b981" :symbol "CRY"}
-                   :crz {:fill "#6366f1" :symbol "CRZ"}
-                   :toffoli {:fill "#64748b" :symbol "CCX"}
-                   :fredkin {:fill "#fb923c" :symbol "C×"}
-                   ;; Rydberg gates
-                   :rydberg-cz {:fill "#b91c1c" :symbol "R●"}
-                   :rydberg-cphase {:fill "#dc2626" :symbol "R●"}
-                   :rydberg-blockade {:fill "#7f1d1d" :symbol "RB"}
-                   ;; Global gates
-                   :global-x {:fill "#f59e0b" :symbol "GX"}
-                   :global-y {:fill "#84cc16" :symbol "GY"}
-                   :global-z {:fill "#3b82f6" :symbol "GZ"}
-                   :global-h {:fill "#8b5cf6" :symbol "GH"}
-                   :global-rx {:fill "#ec4899" :symbol "GRX"}
-                   :global-ry {:fill "#10b981" :symbol "GRY"}
-                   :global-rz {:fill "#6366f1" :symbol "GRZ"}}
+        ;; Gate visual properties
+        operation-styles {:x {:fill "#ef4444" :symbol "X"}
+                          :y {:fill "#22c55e" :symbol "Y"}
+                          :z {:fill "#3b82f6" :symbol "Z"}
+                          :h {:fill "#8b5cf6" :symbol "H"}
+                          :s {:fill "#f59e0b" :symbol "S"}
+                          :s-dag {:fill "#f59e0b" :symbol "S†"}
+                          :t {:fill "#06b6d4" :symbol "T"}
+                          :t-dag {:fill "#06b6d4" :symbol "T†"}
+                          :rx {:fill "#ec4899" :symbol "RX"}
+                          :ry {:fill "#10b981" :symbol "RY"}
+                          :rz {:fill "#6366f1" :symbol "RZ"}
+                          :phase {:fill "#9333ea" :symbol "P"}
+;                          :cx {:fill "#ef4444" :symbol "CX"} ; CNOT alias
+                          :cy {:fill "#22c55e" :symbol "CY"}
+                          :cz {:fill "#3b82f6" :symbol "CZ"}
+                          :swap {:fill "#fb923c" :symbol "×"}
+                          :iswap {:fill "#fb923c" :symbol "i×"}
+                          :crx {:fill "#ec4899" :symbol "CRX"}
+                          :cry {:fill "#10b981" :symbol "CRY"}
+                          :crz {:fill "#6366f1" :symbol "CRZ"}
+                          :toffoli {:fill "#64748b" :symbol "CCX"}
+                          :fredkin {:fill "#fb923c" :symbol "C×"}
+                          ;; Rydberg gates
+                          :rydberg-cz {:fill "#b91c1c" :symbol "R●"}
+                          :rydberg-cphase {:fill "#dc2626" :symbol "R●"}
+                          :rydberg-blockade {:fill "#7f1d1d" :symbol "RB"}
+                          ;; Global gates
+                          :global-x {:fill "#f59e0b" :symbol "GX"}
+                          :global-y {:fill "#84cc16" :symbol "GY"}
+                          :global-z {:fill "#3b82f6" :symbol "GZ"}
+                          :global-h {:fill "#8b5cf6" :symbol "GH"}
+                          :global-rx {:fill "#ec4899" :symbol "GRX"}
+                          :global-ry {:fill "#10b981" :symbol "GRY"}
+                          :global-rz {:fill "#6366f1" :symbol "GRZ"}}
 
-      ;; Qubit lines
-      qubit-lines (for [q (range n-qubits)]
-                    (let [y (+ (:top margin) (* q qubit-spacing))]
-                      [:g
-                       ;; Qubit label
-                       [:text {:x 30 :y (+ y 5)
-                               :font-size "14" :fill "#374151"}
-                        (str "q" q " |0⟩")]
-                       ;; Qubit line
-                       [:line {:x1 (:left margin) :y1 y
-                               :x2 (+ (:left margin) circuit-width) :y2 y
-                               :stroke "#9ca3af" :stroke-width 2}]]))
+        ;; Qubit lines
+        qubit-lines (for [q (range n-qubits)]
+                      (let [y (+ (:top margin) (* q qubit-spacing))]
+                        [:g
+                         ;; Qubit label
+                         [:text {:x 30 :y (+ y 5)
+                                 :font-size "14" :fill "#374151"}
+                          (str "q" q " |0⟩")]
+                         ;; Qubit line
+                         [:line {:x1 (:left margin) :y1 y
+                                 :x2 (+ (:left margin) circuit-width) :y2 y
+                                 :stroke "#9ca3af" :stroke-width 2}]]))
 
-      ;; Use common layer assignment functions
-      gates (common/extract-circuit-gates circuit)
-      gate-layer-assignments (common/assign-gates-to-layers gates n-qubits)
+        ;; Use common layer assignment functions
+        gates (common/extract-circuit-gates circuit)
+        gate-layer-assignments (common/assign-gates-to-layers gates n-qubits)
 
-      ;; Generate gate elements
-      gate-elements (map
-                     (fn [assignment]
-                       (let [gate (:gate assignment)
-                             layer (:layer assignment)
-                             gate-type (:operation-type gate)
-                             params (:operation-params gate)
-                             control (:control params)
-                             target (:target params)
-                             x (+ (:left margin) (* layer gate-spacing))
+        ;; Generate gate elements
+        gate-elements (map
+                       (fn [assignment]
+                         (let [gate (:gate assignment)
+                               layer (:layer assignment)
+                               gate-type (:operation-type gate)
+                               params (:operation-params gate)
+                               control (:control params)
+                               target (or (:target params) (first (:targets params)))
+                               x (+ (:left margin) (* layer gate-spacing))
 
-                             gate-info (get operation-styles gate-type
-                                            {:fill "#6b7280" :symbol (name gate-type)})]
+                               gate-info (get operation-styles gate-type
+                                              {:fill "#6b7280" :symbol (name gate-type)})]
 
-                         (cond
-                           ;; CNOT / CX gate
-                           (or (= gate-type :cnot) (= gate-type :cx))
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - X gate
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#374151" :stroke-width 2}]
-                              [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:line {:x1 x :y1 (- target-y 8) :x2 x :y2 (+ target-y 8)
-                                      :stroke "#374151" :stroke-width 2}]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str "CNOT: control=" control ", target=" target)]])
+                           (cond
+                             ;; CNOT / CX gate
+                             (or (= gate-type :cnot) (= gate-type :cx))
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - X gate
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#374151" :stroke-width 2}]
+                                [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:line {:x1 x :y1 (- target-y 8) :x2 x :y2 (+ target-y 8)
+                                        :stroke "#374151" :stroke-width 2}]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str "CNOT: control=" control ", target=" target)]])
 
-                           ;; CZ gate
-                           (= gate-type :cz)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - Z gate
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#3b82f6" :stroke-width 2}]
-                              [:text {:x x :y (+ target-y 5)
-                                      :text-anchor "middle" :font-size "12" :fill "#3b82f6" :font-weight "bold"}
-                               "Z"]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str "CZ: control=" control ", target=" target)]])
+                             ;; CZ gate
+                             (= gate-type :cz)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - Z gate
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#3b82f6" :stroke-width 2}]
+                                [:text {:x x :y (+ target-y 5)
+                                        :text-anchor "middle" :font-size "12" :fill "#3b82f6" :font-weight "bold"}
+                                 "Z"]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str "CZ: control=" control ", target=" target)]])
 
-                           ;; CY gate
-                           (= gate-type :cy)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - Y gate
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#22c55e" :stroke-width 2}]
-                              [:text {:x x :y (+ target-y 5)
-                                      :text-anchor "middle" :font-size "12" :fill "#22c55e" :font-weight "bold"}
-                               "Y"]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str "CY: control=" control ", target=" target)]])
+                             ;; CY gate
+                             (= gate-type :cy)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - Y gate
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#22c55e" :stroke-width 2}]
+                                [:text {:x x :y (+ target-y 5)
+                                        :text-anchor "middle" :font-size "12" :fill "#22c55e" :font-weight "bold"}
+                                 "Y"]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str "CY: control=" control ", target=" target)]])
 
-                           ;; Controlled rotation gates (CRX, CRY, CRZ)
-                           (#{:crx :cry :crz} gate-type)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))
-                                 angle (first (:rotation-angles params))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - Rotation gate
-                              [:rect {:x (- x 15) :y (- target-y 12) :width 30 :height 24
-                                      :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
-                                      :rx 4}]
-                              [:text {:x x :y (+ target-y 5)
-                                      :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
-                               (:symbol gate-info)]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str gate-type " gate: control=" control ", target=" target 
-                                           (when angle (str ", angle=" angle)))]])
+                             ;; Controlled rotation gates (CRX, CRY, CRZ)
+                             (#{:crx :cry :crz} gate-type)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - Rotation gate
+                                [:rect {:x (- x 15) :y (- target-y 12) :width 30 :height 24
+                                        :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
+                                        :rx 4}]
+                                [:text {:x x :y (+ target-y 5)
+                                        :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
+                                 (:symbol gate-info)]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str gate-type " gate: control=" control ", target=" target
+                                             (when-let [param-str (format-gate-parameters gate-type params)]
+                                               (str ", " param-str)))]])
 
-                           ;; SWAP gate
-                           (= gate-type :swap)
-                           (let [qubit1 (:qubit1 params)
-                                 qubit2 (:qubit2 params)
-                                 qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
-                                 qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Swap symbol on first qubit
-                              [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              ;; Swap symbol on second qubit
-                              [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min qubit1-y qubit2-y)
-                                      :x2 x :y2 (max qubit1-y qubit2-y)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:title (str "SWAP: qubits " qubit1 " and " qubit2)]])
+                             ;; SWAP gate
+                             (= gate-type :swap)
+                             (let [qubit1 (:qubit1 params)
+                                   qubit2 (:qubit2 params)
+                                   qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
+                                   qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Swap symbol on first qubit
+                                [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                ;; Swap symbol on second qubit
+                                [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min qubit1-y qubit2-y)
+                                        :x2 x :y2 (max qubit1-y qubit2-y)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:title (str "SWAP: qubits " qubit1 " and " qubit2)]])
 
-                           ;; iSWAP gate
-                           (= gate-type :iswap)
-                           (let [qubit1 (:qubit1 params)
-                                 qubit2 (:qubit2 params)
-                                 qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
-                                 qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Swap symbols
-                              [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              ;; 'i' indicator
-                              [:text {:x (- x 20) :y (/ (+ qubit1-y qubit2-y) 2)
-                                      :text-anchor "middle" :font-size "12" :fill "#fb923c" :font-weight "bold"}
-                               "i"]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min qubit1-y qubit2-y)
-                                      :x2 x :y2 (max qubit1-y qubit2-y)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:title (str "iSWAP: qubits " qubit1 " and " qubit2)]])
+                             ;; iSWAP gate
+                             (= gate-type :iswap)
+                             (let [qubit1 (:qubit1 params)
+                                   qubit2 (:qubit2 params)
+                                   qubit1-y (+ (:top margin) (* qubit1 qubit-spacing))
+                                   qubit2-y (+ (:top margin) (* qubit2 qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Swap symbols
+                                [:line {:x1 (- x 6) :y1 (- qubit1-y 6) :x2 (+ x 6) :y2 (+ qubit1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ qubit1-y 6) :x2 (+ x 6) :y2 (- qubit1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (- qubit2-y 6) :x2 (+ x 6) :y2 (+ qubit2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ qubit2-y 6) :x2 (+ x 6) :y2 (- qubit2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                ;; 'i' indicator
+                                [:text {:x (- x 20) :y (/ (+ qubit1-y qubit2-y) 2)
+                                        :text-anchor "middle" :font-size "12" :fill "#fb923c" :font-weight "bold"}
+                                 "i"]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min qubit1-y qubit2-y)
+                                        :x2 x :y2 (max qubit1-y qubit2-y)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:title (str "iSWAP: qubits " qubit1 " and " qubit2)]])
 
-                           ;; Toffoli gate (CCX)
-                           (= gate-type :toffoli)
-                           (let [control1 (:control1 params)
-                                 control2 (:control2 params)
-                                 control1-y (+ (:top margin) (* control1 qubit-spacing))
-                                 control2-y (+ (:top margin) (* control2 qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dots
-                              [:circle {:cx x :cy control1-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              [:circle {:cx x :cy control2-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol (same as X/CNOT)
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#374151" :stroke-width 2}]
-                              [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:line {:x1 x :y1 (- target-y 8) :x2 x :y2 (+ target-y 8)
-                                      :stroke "#374151" :stroke-width 2}]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control1-y target-y)
-                                      :x2 x :y2 (max control1-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:line {:x1 x :y1 (min control2-y target-y)
-                                      :x2 x :y2 (max control2-y target-y)
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str "Toffoli (CCX): controls=[" control1 ", " control2 "], target=" target)]])
+                             ;; Toffoli gate (CCX)
+                             (= gate-type :toffoli)
+                             (let [control1 (:control1 params)
+                                   control2 (:control2 params)
+                                   control1-y (+ (:top margin) (* control1 qubit-spacing))
+                                   control2-y (+ (:top margin) (* control2 qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dots
+                                [:circle {:cx x :cy control1-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                [:circle {:cx x :cy control2-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol (same as X/CNOT)
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#374151" :stroke-width 2}]
+                                [:line {:x1 (- x 8) :y1 target-y :x2 (+ x 8) :y2 target-y
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:line {:x1 x :y1 (- target-y 8) :x2 x :y2 (+ target-y 8)
+                                        :stroke "#374151" :stroke-width 2}]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control1-y target-y)
+                                        :x2 x :y2 (max control1-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:line {:x1 x :y1 (min control2-y target-y)
+                                        :x2 x :y2 (max control2-y target-y)
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str "Toffoli (CCX): controls=[" control1 ", " control2 "], target=" target)]])
 
-                           ;; Fredkin gate (CSWAP)
-                           (= gate-type :fredkin)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target1 (:target1 params)
-                                 target2 (:target2 params)
-                                 target1-y (+ (:top margin) (* target1 qubit-spacing))
-                                 target2-y (+ (:top margin) (* target2 qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Swap symbols on targets
-                              [:line {:x1 (- x 6) :y1 (- target1-y 6) :x2 (+ x 6) :y2 (+ target1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ target1-y 6) :x2 (+ x 6) :y2 (- target1-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (- target2-y 6) :x2 (+ x 6) :y2 (+ target2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              [:line {:x1 (- x 6) :y1 (+ target2-y 6) :x2 (+ x 6) :y2 (- target2-y 6)
-                                      :stroke "#fb923c" :stroke-width 2}]
-                              ;; Connection lines
-                              [:line {:x1 x :y1 (min control-y (min target1-y target2-y))
-                                      :x2 x :y2 (max control-y (max target1-y target2-y))
-                                      :stroke "#374151" :stroke-width 2}]
-                              [:title (str "Fredkin (CSWAP): control=" control ", targets=[" target1 ", " target2 "]")]])
+                             ;; Fredkin gate (CSWAP)
+                             (= gate-type :fredkin)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target1 (:target1 params)
+                                   target2 (:target2 params)
+                                   target1-y (+ (:top margin) (* target1 qubit-spacing))
+                                   target2-y (+ (:top margin) (* target2 qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#374151" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Swap symbols on targets
+                                [:line {:x1 (- x 6) :y1 (- target1-y 6) :x2 (+ x 6) :y2 (+ target1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ target1-y 6) :x2 (+ x 6) :y2 (- target1-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (- target2-y 6) :x2 (+ x 6) :y2 (+ target2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                [:line {:x1 (- x 6) :y1 (+ target2-y 6) :x2 (+ x 6) :y2 (- target2-y 6)
+                                        :stroke "#fb923c" :stroke-width 2}]
+                                ;; Connection lines
+                                [:line {:x1 x :y1 (min control-y (min target1-y target2-y))
+                                        :x2 x :y2 (max control-y (max target1-y target2-y))
+                                        :stroke "#374151" :stroke-width 2}]
+                                [:title (str "Fredkin (CSWAP): control=" control ", targets=[" target1 ", " target2 "]")]])
 
-                           ;; Rydberg CZ gate
-                           (= gate-type :rydberg-cz)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot with Rydberg styling
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#b91c1c" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - Rydberg controlled gate
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#b91c1c" :stroke-width 2}]
-                              [:text {:x x :y (+ target-y 5)
-                                      :text-anchor "middle" :font-size "10" :fill "#b91c1c" :font-weight "bold"}
-                               "R●"]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#b91c1c" :stroke-width 2}]
-                              [:title (str "Rydberg CZ: control=" control ", target=" target)]])
+                             ;; Rydberg CZ gate
+                             (= gate-type :rydberg-cz)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot with Rydberg styling
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#b91c1c" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - Rydberg controlled gate
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#b91c1c" :stroke-width 2}]
+                                [:text {:x x :y (+ target-y 5)
+                                        :text-anchor "middle" :font-size "10" :fill "#b91c1c" :font-weight "bold"}
+                                 "R●"]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#b91c1c" :stroke-width 2}]
+                                [:title (str "Rydberg CZ: control=" control ", target=" target)]])
 
-                           ;; Rydberg CPhase gate
-                           (= gate-type :rydberg-cphase)
-                           (let [control-y (+ (:top margin) (* control qubit-spacing))
-                                 target-y (+ (:top margin) (* target qubit-spacing))
-                                 phi (:angle params)]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Control dot with Rydberg styling
-                              [:circle {:cx x :cy control-y :r 6
-                                        :fill "#dc2626" :stroke "#ffffff" :stroke-width 2}]
-                              ;; Target symbol - Rydberg controlled phase gate
-                              [:circle {:cx x :cy target-y :r 12
-                                        :fill "none" :stroke "#dc2626" :stroke-width 2}]
-                              [:text {:x x :y (+ target-y 2)
-                                      :text-anchor "middle" :font-size "9" :fill "#dc2626" :font-weight "bold"}
-                               "R●"]
-                              [:text {:x x :y (+ target-y 12)
-                                      :text-anchor "middle" :font-size "7" :fill "#dc2626"}
-                               (when phi (str "φ=" (qmath/round-precision phi 2)))]
-                              ;; Connection line
-                              [:line {:x1 x :y1 (min control-y target-y)
-                                      :x2 x :y2 (max control-y target-y)
-                                      :stroke "#dc2626" :stroke-width 2}]
-                              [:title (str "Rydberg CPhase: control=" control ", target=" target
-                                           (when phi (str ", φ=" (qmath/round-precision phi 2))))]])
+                             ;; Rydberg CPhase gate
+                             (= gate-type :rydberg-cphase)
+                             (let [control-y (+ (:top margin) (* control qubit-spacing))
+                                   target-y (+ (:top margin) (* target qubit-spacing))
+                                   phi (:angle params)]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Control dot with Rydberg styling
+                                [:circle {:cx x :cy control-y :r 6
+                                          :fill "#dc2626" :stroke "#ffffff" :stroke-width 2}]
+                                ;; Target symbol - Rydberg controlled phase gate
+                                [:circle {:cx x :cy target-y :r 12
+                                          :fill "none" :stroke "#dc2626" :stroke-width 2}]
+                                [:text {:x x :y (+ target-y 2)
+                                        :text-anchor "middle" :font-size "9" :fill "#dc2626" :font-weight "bold"}
+                                 "R●"]
+                                [:text {:x x :y (+ target-y 12)
+                                        :text-anchor "middle" :font-size "7" :fill "#dc2626"}
+                                 (when phi (str "φ=" (common/format-angle-value phi)))]
+                                ;; Connection line
+                                [:line {:x1 x :y1 (min control-y target-y)
+                                        :x2 x :y2 (max control-y target-y)
+                                        :stroke "#dc2626" :stroke-width 2}]
+                                [:title (str "Rydberg CPhase: control=" control ", target=" target
+                                             (when-let [param-str (or (when phi (str "φ=" (common/format-angle-value phi)))
+                                                                      (format-gate-parameters gate-type params))]
+                                               (str ", " param-str)))]])
 
-                           ;; Rydberg blockade gate
-                           (= gate-type :rydberg-blockade)
-                           (let [qubit-indices (:qubit-indices params)
-                                 phi (:angle params)
-                                 min-qubit (apply min qubit-indices)
-                                 max-qubit (apply max qubit-indices)
-                                 min-y (+ (:top margin) (* min-qubit qubit-spacing))
-                                 max-y (+ (:top margin) (* max-qubit qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Blockade symbols on each participating qubit
-                              (for [q qubit-indices]
-                                (let [qubit-y (+ (:top margin) (* q qubit-spacing))]
-                                  [:g {:key (str "blockade-" q)}
-                                   [:rect {:x (- x 15) :y (- qubit-y 12) :width 30 :height 24
-                                           :fill "#7f1d1d" :stroke "#ffffff" :stroke-width 2
-                                           :rx 4}]
-                                   [:text {:x x :y (+ qubit-y 5)
-                                           :text-anchor "middle" :font-size "9" :fill "#ffffff" :font-weight "bold"}
-                                    "RB"]]))
-                              ;; Connection line spanning all participating qubits
-                              [:line {:x1 x :y1 min-y
-                                      :x2 x :y2 max-y
-                                      :stroke "#7f1d1d" :stroke-width 3}]
-                              [:title (str "Rydberg Blockade: qubits=" qubit-indices
-                                           (when phi (str ", φ=" (qmath/round-precision phi 2))))]])
+                             ;; Rydberg blockade gate
+                             (= gate-type :rydberg-blockade)
+                             (let [qubit-indices (:qubit-indices params)
+                                   phi (:angle params)
+                                   min-qubit (apply min qubit-indices)
+                                   max-qubit (apply max qubit-indices)
+                                   min-y (+ (:top margin) (* min-qubit qubit-spacing))
+                                   max-y (+ (:top margin) (* max-qubit qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Blockade symbols on each participating qubit
+                                (for [q qubit-indices]
+                                  (let [qubit-y (+ (:top margin) (* q qubit-spacing))]
+                                    [:g {:key (str "blockade-" q)}
+                                     [:rect {:x (- x 15) :y (- qubit-y 12) :width 30 :height 24
+                                             :fill "#7f1d1d" :stroke "#ffffff" :stroke-width 2
+                                             :rx 4}]
+                                     [:text {:x x :y (+ qubit-y 5)
+                                             :text-anchor "middle" :font-size "9" :fill "#ffffff" :font-weight "bold"}
+                                      "RB"]]))
+                                ;; Connection line spanning all participating qubits
+                                [:line {:x1 x :y1 min-y
+                                        :x2 x :y2 max-y
+                                        :stroke "#7f1d1d" :stroke-width 3}]
+                                [:title (str "Rydberg Blockade: qubits=" qubit-indices
+                                             (when phi (str ", φ=" (qmath/round-precision phi 2))))]])
 
-                           ;; Global gates - affect all qubits
-                           (#{:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz} gate-type)
-                           (let [gate-info (get operation-styles gate-type)
-                                 angle (:angle params)]
-                             [:g {:class (when interactive "gate-group")}
-                              ;; Global gate indicator - spans all qubits
-                              [:rect {:x (- x 20) :y (+ (:top margin) -20)
-                                      :width 40 :height (+ (* n-qubits qubit-spacing) 40)
-                                      :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
-                                      :rx 8 :opacity 0.8}]
-                              ;; Gate symbol in center
-                              [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 5)
-                                      :text-anchor "middle" :font-size "14" :fill "#ffffff" :font-weight "bold"}
-                               (:symbol gate-info)]
-                              ;; Angle annotation for rotation gates
-                              (when (and (#{:global-rx :global-ry :global-rz} gate-type) angle)
-                                [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 20)
-                                        :text-anchor "middle" :font-size "10" :fill "#ffffff"}
-                                 (str "θ=" (qmath/round-precision angle 2))])
-                              ;; Global indicator text
-                              [:text {:x x :y (+ (:top margin) -10)
-                                      :text-anchor "middle" :font-size "8" :fill (:fill gate-info) :font-weight "bold"}
-                               "GLOBAL"]
-                              [:title (str "Global " (name gate-type) " gate on all qubits"
-                                           (when angle (str ", angle=" (qmath/round-precision angle 2))))]])
+                             ;; Global gates - affect all qubits
+                             (#{:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz} gate-type)
+                             (let [gate-info (get operation-styles gate-type)
+                                   angle (:angle params)]
+                               [:g {:class (when interactive "gate-group")}
+                                ;; Global gate indicator - spans all qubits
+                                [:rect {:x (- x 20) :y (+ (:top margin) -20)
+                                        :width 40 :height (+ (* n-qubits qubit-spacing) 40)
+                                        :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
+                                        :rx 8 :opacity 0.8}]
+                                ;; Gate symbol in center
+                                [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 5)
+                                        :text-anchor "middle" :font-size "14" :fill "#ffffff" :font-weight "bold"}
+                                 (:symbol gate-info)]
+                                ;; Angle annotation for rotation gates
+                                (when (and (#{:global-rx :global-ry :global-rz} gate-type) angle)
+                                  [:text {:x x :y (+ (:top margin) (* (/ (dec n-qubits) 2) qubit-spacing) 20)
+                                          :text-anchor "middle" :font-size "10" :fill "#ffffff"}
+                                   (str "θ=" (common/format-angle-value angle))])
+                                ;; Global indicator text
+                                [:text {:x x :y (+ (:top margin) -10)
+                                        :text-anchor "middle" :font-size "8" :fill (:fill gate-info) :font-weight "bold"}
+                                 "GLOBAL"]
+                                [:title (str "Global " (name gate-type) " gate on all qubits"
+                                             (when-let [param-str (or (when angle (str "angle=" (common/format-angle-value angle)))
+                                                                      (format-gate-parameters gate-type params))]
+                                               (str ", " param-str)))]])
 
-                           ;; Single-qubit gates (default case)
-                           :else
-                           (let [gate-y (+ (:top margin) (* target qubit-spacing))]
-                             [:g {:class (when interactive "gate-group")}
-                              [:rect {:x (- x 15) :y (- gate-y 12) :width 30 :height 24
-                                      :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
-                                      :rx 4}]
-                              [:text {:x x :y (+ gate-y 5)
-                                      :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
-                               (:symbol gate-info)]
-                              (when (= gate-type :phase)
-                                [:text {:x x :y (+ gate-y 16)
-                                        :text-anchor "middle" :font-size "8" :fill "#ffffff"}
-                                 (when-let [angle (first (:rotation-angles params))]
-                                   (str "φ=" (qmath/round-precision angle 2)))])
-                              [:title (str gate-type " gate on qubit " target
-                                           (when-let [angle (and (#{:rx :ry :rz :phase} gate-type) 
-                                                                (first (:rotation-angles params)))]
-                                             (str ", angle=" (qmath/round-precision angle 2))))]]))))
-                     gate-layer-assignments)
+                             ;; Single-qubit gates (default case)
+                             :else
+                             (let [gate-y (+ (:top margin) (* target qubit-spacing))]
+                               [:g {:class (when interactive "gate-group")}
+                                [:rect {:x (- x 15) :y (- gate-y 12) :width 30 :height 24
+                                        :fill (:fill gate-info) :stroke "#ffffff" :stroke-width 2
+                                        :rx 4}]
+                                [:text {:x x :y (+ gate-y 5)
+                                        :text-anchor "middle" :font-size "12" :fill "#ffffff" :font-weight "bold"}
+                                 (:symbol gate-info)]
+                                (when (= gate-type :phase)
+                                  [:text {:x x :y (+ gate-y 16)
+                                          :text-anchor "middle" :font-size "8" :fill "#ffffff"}
+                                   (when-let [angle (:angle params)]
+                                     (str "φ=" (common/format-angle-value angle)))])
+                                [:title (str gate-type " gate on qubit " target
+                                             (when-let [param-str (format-gate-parameters gate-type params)]
+                                               (str ", " param-str)))]]))))
+                       gate-layer-assignments)
 
-      ;; Measurement symbols
-      measurements (when show-measurements
-                     (for [q (range n-qubits)]
-                       (let [x (+ (:left margin) circuit-width 20)
-                             y (+ (:top margin) (* q qubit-spacing))]
-                         [:g
-                          ;; Measurement box
-                          [:rect {:x (- x 15) :y (- y 12) :width 30 :height 24
-                                  :fill "#fbbf24" :stroke "#f59e0b" :stroke-width 2
-                                  :rx 4}]
-                          [:text {:x x :y (+ y 5)
-                                  :text-anchor "middle" :font-size "10" :fill "#92400e" :font-weight "bold"}
-                           "M"]
-                          [:title (str "Measure qubit " q)]])))
+        ;; Measurement symbols
+        measurements (when show-measurements
+                       (for [q (range n-qubits)]
+                         (let [x (+ (:left margin) circuit-width 20)
+                               y (+ (:top margin) (* q qubit-spacing))]
+                           [:g
+                            ;; Measurement box
+                            [:rect {:x (- x 15) :y (- y 12) :width 30 :height 24
+                                    :fill "#fbbf24" :stroke "#f59e0b" :stroke-width 2
+                                    :rx 4}]
+                            [:text {:x x :y (+ y 5)
+                                    :text-anchor "middle" :font-size "10" :fill "#92400e" :font-weight "bold"}
+                             "M"]
+                            [:title (str "Measure qubit " q)]])))
 
-      ;; Title and circuit info
-      title [:text {:x (/ final-width 2) :y 35
-                    :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
-             (or (:name circuit) "Quantum Circuit")]
+        ;; Title and circuit info
+        title [:text {:x (/ final-width 2) :y 35
+                      :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
+               (or (:name circuit) "Quantum Circuit")]
 
-      circuit-info [:g
-                    [:text {:x 30 :y (- final-height 30)
-                            :font-size "12" :fill "#6b7280"}
-                     (str "Qubits: " n-qubits " | Gates: " (count gates) " | Depth: " circuit-depth)]
-                    (when (:description circuit)
-                      [:text {:x 30 :y (- final-height 15)
+        circuit-info [:g
+                      [:text {:x 30 :y (- final-height 30)
                               :font-size "12" :fill "#6b7280"}
-                       (:description circuit)])]
+                       (str "Qubits: " n-qubits " | Gates: " (count gates) " | Depth: " circuit-depth)]
+                      (when (:description circuit)
+                        [:text {:x 30 :y (- final-height 15)
+                                :font-size "12" :fill "#6b7280"}
+                         (:description circuit)])]
 
-      ;; Interactive styles
-      styles (when interactive
-               [:defs
-                [:style ".gate-group:hover rect { opacity: 1; stroke-width: 3; }
+        ;; Interactive styles
+        styles (when interactive
+                 [:defs
+                  [:style ".gate-group:hover rect { opacity: 1; stroke-width: 3; }
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }"]])]
 
-  (str
-   (h/html
-    [:svg {:width final-width :height final-height
-           :xmlns "http://www.w3.org/2000/svg"
-           :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
-     styles
-     title
-     qubit-lines
-     gate-elements
-     measurements
-     circuit-info]))))
+    (str
+     (h/html
+      [:svg {:width final-width :height final-height
+             :xmlns "http://www.w3.org/2000/svg"
+             :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
+       styles
+       title
+       qubit-lines
+       gate-elements
+       measurements
+       circuit-info]))))
 
 (defmethod viz/visualize-bar-chart :svg
   [_format state & {:keys [width height threshold max-bars show-amplitudes]

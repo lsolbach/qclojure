@@ -20,7 +20,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE and Shor algorithms
 
-4. **Extensible Backend System**
+4. **Extensible Quantum Backend System**
 
    Protocol-based architecture allowing integration with different quantum simulators and hardware backends
 
@@ -28,23 +28,23 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 
    Automatic gate cancellation, qubit optimization, gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
-6. **Error Mitigation**
+6. **Local Quantum Simulator Backend**
+
+   Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles. Pluggable complex linear algebra backends for the simulators
+
+7. **Error Mitigation**
    
    Different strategies like readout error mitigation, ZNE, symmetry verification and virtual distillation, support for autoselection based on circuit and noise profile properties
 
-6. **Local Quantum Simulator Backend**
-
-   Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles
-
-7. **OpenQASM Integration**
+8. **OpenQASM Integration**
 
    Bidirectional conversion between quantum circuits and OpenQASM 2/3 formats for interoperability with other quantum computing platforms
 
-8. **Visualization**
+9. **Visualization**
 
    Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML.
 
-9. **Comprehensive Testing & Validation**
+10. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
 

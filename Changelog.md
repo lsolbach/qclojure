@@ -1,5 +1,8 @@
 # Changelog
 
+## Version 0.11.1
+* removed unfinished neanderthal backend
+
 ## Version 0.11.0
 * added protocols for complex linear algebra backends
 * implemented complex linear algebra on clojure.math

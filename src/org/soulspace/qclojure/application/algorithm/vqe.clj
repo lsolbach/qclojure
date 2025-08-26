@@ -29,12 +29,12 @@
             [org.soulspace.qclojure.application.algorithm.optimization :as qopt]
             [org.soulspace.qclojure.application.backend :as qb]))
 
-(s/def ::ansatz-type 
+(s/def ::ansatz-type
   #{:hardware-efficient :uccsd :symmetry-preserving :chemistry-inspired :custom})
 
 (s/def ::vqe-config
   (s/keys :req-un [::hamiltonian ::ansatz-type ::num-qubits]
-          :opt-un [::initial-parameters ::max-iterations ::tolerance 
+          :opt-un [::initial-parameters ::max-iterations ::tolerance
                    ::optimization-method ::shots ::measurement-grouping]))
 
 ;; TODO check hamiltonian and fix it, if necessary
@@ -73,20 +73,19 @@
    ;; and should give Hartree-Fock energy of exactly -1.117 Ha
    [(ham/pauli-term -1.13956020 "IIII")    ; Identity/constant term (nuclear + electronic)
     (ham/pauli-term 0.39793742 "IIIZ")    ; Single-qubit Z terms
-    (ham/pauli-term -0.39793742 "IIZI")  
-    (ham/pauli-term 0.39793742 "IZII")   
-    (ham/pauli-term -0.39793742 "ZIII")  
+    (ham/pauli-term -0.39793742 "IIZI")
+    (ham/pauli-term 0.39793742 "IZII")
+    (ham/pauli-term -0.39793742 "ZIII")
     (ham/pauli-term -0.01128010 "IIZZ")   ; Two-qubit ZZ interactions
-    (ham/pauli-term -0.01128010 "IZIZ")  
-    (ham/pauli-term -0.01128010 "IZZI")  
-    (ham/pauli-term -0.01128010 "ZIIZ")  
-    (ham/pauli-term -0.01128010 "ZIZI")  
-    (ham/pauli-term -0.01128010 "ZZZZ")  
+    (ham/pauli-term -0.01128010 "IZIZ")
+    (ham/pauli-term -0.01128010 "IZZI")
+    (ham/pauli-term -0.01128010 "ZIIZ")
+    (ham/pauli-term -0.01128010 "ZIZI")
+    (ham/pauli-term -0.01128010 "ZZZZ")
     (ham/pauli-term -0.18093120 "XXII")   ; Exchange terms (X-X interactions)
     (ham/pauli-term -0.18093120 "YYII")   ; Exchange terms (Y-Y interactions)  
-    (ham/pauli-term -0.18093120 "IIXX")  
-    (ham/pauli-term -0.18093120 "IIYY")
-    ]))
+    (ham/pauli-term -0.18093120 "IIXX")
+    (ham/pauli-term -0.18093120 "IIYY")]))
 
 (defn heisenberg-hamiltonian
   "Create a Heisenberg model Hamiltonian for a 1D chain.
@@ -111,7 +110,7 @@
            pauli [\X \Y \Z]]
        (let [j (mod (inc i) num-sites)
              pauli-string (apply str (map (fn [k]
-                                            (cond 
+                                            (cond
                                               (= k i) pauli
                                               (= k j) pauli
                                               :else \I))
@@ -150,20 +149,20 @@
                          ;; Get measurement results for this specific Pauli string
                          pauli-measurements (get measurement-results pauli-str {})
                          ;; Calculate expectation from measurement frequencies
-                         expectation (reduce-kv 
+                         expectation (reduce-kv
                                       (fn [acc bit-string count]
                                         (let [prob (/ (double count) (double total-shots))
                                               ;; Calculate Pauli string eigenvalue for this bit string
                                               ;; After proper basis rotation, all measurements are in Z basis
-                                              pauli-value (reduce * (map-indexed 
-                                                                      (fn [i pauli-char]
-                                                                        (let [bit (Character/digit (nth bit-string i) 10)]
-                                                                          (case pauli-char
-                                                                            \I 1
-                                                                            ;; All Pauli operators have eigenvalues ±1
-                                                                            ;; After basis rotation, measured in computational basis
-                                                                            (\Z \X \Y) (if (= bit 0) 1 -1))))
-                                                                      pauli-str))]
+                                              pauli-value (reduce * (map-indexed
+                                                                     (fn [i pauli-char]
+                                                                       (let [bit (Character/digit (nth bit-string i) 10)]
+                                                                         (case pauli-char
+                                                                           \I 1
+                                                                           ;; All Pauli operators have eigenvalues ±1
+                                                                           ;; After basis rotation, measured in computational basis
+                                                                           (\Z \X \Y) (if (= bit 0) 1 -1))))
+                                                                     pauli-str))]
                                           (+ acc (* prob pauli-value))))
                                       0.0 pauli-measurements)]
                      (* coeff expectation)))
@@ -185,7 +184,7 @@
   [pauli-terms basis-type base-circuit]
   (case basis-type
     :z base-circuit  ; No rotation needed for Z measurement
-    
+
     :x (let [num-qubits (:num-qubits base-circuit)]
          ;; Add H gates to rotate X basis to Z basis
          (reduce (fn [circuit qubit]
@@ -196,7 +195,7 @@
                      circuit))
                  base-circuit
                  (range num-qubits)))
-    
+
     :y (let [num-qubits (:num-qubits base-circuit)]
          ;; Add S†H gates to rotate Y basis to Z basis  
          (reduce (fn [circuit qubit]
@@ -209,9 +208,9 @@
                      circuit))
                  base-circuit
                  (range num-qubits)))
-    
+
     :mixed (throw (ex-info "Mixed Pauli terms require separate measurement circuits"
-                          {:pauli-terms pauli-terms}))))
+                           {:pauli-terms pauli-terms}))))
 
 ;;
 ;; VQE Core Algorithm
@@ -263,7 +262,7 @@
 
         ;; Return the energy (real number to be minimized)
         energy)
-      
+
       (catch Exception e
         ;; Return large positive value if any step fails
         (println "VQE objective evaluation failed:" (.getMessage e))
@@ -300,23 +299,23 @@
   (let [method (:optimization-method options :adam)]  ; Default to Adam
     (case method
       ;; Custom implementations
-      :gradient-descent 
+      :gradient-descent
       (qopt/gradient-descent-optimization objective-fn initial-parameters options)
-      
+
       :adam
       (qopt/adam-optimization objective-fn initial-parameters options)
-      
+
       :quantum-natural-gradient
-      (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters 
-                                            (merge options
-                                                   {:ansatz-fn (:ansatz-fn options)
-                                                    :backend (:backend options)
-                                                    :exec-options (:exec-options options)}))
-      
+      (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters
+                                                  (merge options
+                                                         {:ansatz-fn (:ansatz-fn options)
+                                                          :backend (:backend options)
+                                                          :exec-options (:exec-options options)}))
+
       ;; Fastmath derivative-free optimizers (verified working)
       (:nelder-mead :powell :cmaes :bobyqa)
       (qopt/fastmath-derivative-free-optimization method objective-fn initial-parameters options)
-      
+
       ;; Fastmath gradient-based optimizers (not available in this version)
       (:gradient :lbfgsb)
       (qopt/fastmath-gradient-based-optimization method objective-fn initial-parameters options)
@@ -324,8 +323,8 @@
       ;; Default fallback
       (throw (ex-info (str "Unknown optimization method: " method)
                       {:method method
-                       :available-methods [:gradient-descent :adam :quantum-natural-gradient 
-                                          :nelder-mead :powell :cmaes :bobyqa :gradient]})))))
+                       :available-methods [:gradient-descent :adam :quantum-natural-gradient
+                                           :nelder-mead :powell :cmaes :bobyqa :gradient]})))))
 
 (defn variational-quantum-eigensolver
   "Main VQE algorithm implementation.
@@ -394,16 +393,16 @@
         ansatz-fn (case ansatz-type
                     :hardware-efficient
                     (ansatz/hardware-efficient-ansatz num-qubits
-                                               (:num-layers options 1)
-                                               (:entangling-gate options :cnot))
+                                                      (:num-layers options 1)
+                                                      (:entangling-gate options :cnot))
                     :chemistry-inspired
                     (ansatz/chemistry-inspired-ansatz num-qubits (:num-excitation-layers options 1))
                     :uccsd
                     (ansatz/uccsd-inspired-ansatz num-qubits (:num-excitations options 2))
                     :symmetry-preserving
                     (ansatz/symmetry-preserving-ansatz num-qubits
-                                                (:num-particles options 2)
-                                                (:num-layers options 1))
+                                                       (:num-particles options 2)
+                                                       (:num-layers options 1))
                     :custom
                     (:custom-ansatz options))
 
@@ -496,26 +495,26 @@
   [objective-fn optimal-params perturbation-size]
   (let [num-params (count optimal-params)
         optimal-energy (objective-fn optimal-params)
-        
+
         ;; Calculate gradients (finite difference)
         gradients (mapv (fn [i]
-                          (let [params-plus (assoc optimal-params i 
-                                                    (+ (nth optimal-params i) perturbation-size))
-                                params-minus (assoc optimal-params i 
-                                                     (- (nth optimal-params i) perturbation-size))
+                          (let [params-plus (assoc optimal-params i
+                                                   (+ (nth optimal-params i) perturbation-size))
+                                params-minus (assoc optimal-params i
+                                                    (- (nth optimal-params i) perturbation-size))
                                 energy-plus (objective-fn params-plus)
                                 energy-minus (objective-fn params-minus)]
                             (/ (- energy-plus energy-minus) (* 2 perturbation-size))))
                         (range num-params))
-        
+
         ;; Calculate parameter sensitivities
         sensitivities (mapv (fn [i]
-                              (let [params-perturbed (assoc optimal-params i 
+                              (let [params-perturbed (assoc optimal-params i
                                                             (+ (nth optimal-params i) perturbation-size))
                                     energy-perturbed (objective-fn params-perturbed)]
                                 (abs (- energy-perturbed optimal-energy))))
                             (range num-params))]
-    
+
     {:optimal-energy optimal-energy
      :gradients gradients
      :gradient-norm (m/sqrt (reduce + (map #(* % %) gradients)))
@@ -534,7 +533,7 @@
   [optimization-result]
   (let [history (:history optimization-result [])
         energies (map :energy history)]
-    
+
     (when (seq energies)
       {:total-iterations (count energies)
        :initial-energy (first energies)
@@ -543,12 +542,12 @@
        :convergence-rate (when (> (count energies) 1)
                            (/ (- (first energies) (last energies))
                               (count energies)))
-       :monotonic-decrease? (every? (fn [[e1 e2]] (<= e2 e1)) 
-                                   (partition 2 1 energies))})))
+       :monotonic-decrease? (every? (fn [[e1 e2]] (<= e2 e1))
+                                    (partition 2 1 energies))})))
 
 (comment
   (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-  
+
   ;; Example 1: UCCSD-inspired ansatz for H₂ molecule
   ;; This example uses the UCCSD ansatz with a 4-qubit representation of H₂.
   ;; The ansatz is designed to capture electron correlation effects in molecular systems.
@@ -592,5 +591,4 @@
                    (get-in uccsd-result [:analysis :initial-energy])))
   (println (format "Correlation Energy:      %.8f Ha"
                    (- (get-in uccsd-result [:results :optimal-energy])
-                      (get-in uccsd-result [:analysis :initial-energy]))))
-  )
+                      (get-in uccsd-result [:analysis :initial-energy])))))

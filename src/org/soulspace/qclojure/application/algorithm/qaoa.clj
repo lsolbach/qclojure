@@ -123,31 +123,31 @@
   [clauses num-variables]
   {:pre [(coll? clauses) (pos-int? num-variables)
          (every? #(and (coll? %) (seq %)) clauses)]}
-  
+
   (letfn [(parse-literal [literal]
             "Parse a literal into [var-index negated?] pair"
             (cond
               ;; Positive integer literal
               (and (integer? literal) (>= literal 0))
               [literal false]
-              
+
               ;; Keyword :not-X format
               (and (keyword? literal) (.startsWith (name literal) "not-"))
               (let [var-str (subs (name literal) 4)]
                 [(Integer/parseInt var-str) true])
-              
+
               ;; Map format {:variable X :negated boolean}
               (map? literal)
               [(:variable literal) (:negated literal false)]
-              
+
               :else
               (throw (ex-info "Invalid literal format" {:literal literal}))))
-          
+
           (clause-hamiltonian [clause]
             "Generate Hamiltonian terms for a single clause"
             (let [parsed-literals (map parse-literal clause)
                   num-literals (count parsed-literals)]
-              
+
               (if (= num-literals 1)
                 ;; Single literal clause: H = (1 - l) where l = (1±Z)/2
                 (let [[var-idx negated?] (first parsed-literals)
@@ -160,24 +160,24 @@
                     ;; For positive literal xᵢ: H = (1 - (1+Zᵢ)/2) = (1-Zᵢ)/2
                     [{:coefficient 0.5 :pauli-string pauli-i}
                      {:coefficient -0.5 :pauli-string pauli-z}]))
-                
+
                 ;; Multi-literal clause: Expand product ∏ᵢ (1 - lᵢ)
                 ;; This creates 2^k terms where k is number of literals
                 (let [all-subsets (combi/subsets (range num-literals))]
                   (for [subset all-subsets]
                     (let [coeff (if (even? (count subset)) 1.0 -1.0)
                           ;; Build Pauli string for this subset
-                          pauli-chars (reduce 
-                                        (fn [chars idx]
-                                          (let [[var-idx negated?] (nth parsed-literals idx)]
-                                            (assoc chars var-idx 
-                                                   (if negated? \Z \Z))))  ; Both use Z, sign handled by coeff
-                                        (vec (repeat num-variables \I))
-                                        subset)
+                          pauli-chars (reduce
+                                       (fn [chars idx]
+                                         (let [[var-idx negated?] (nth parsed-literals idx)]
+                                           (assoc chars var-idx
+                                                  (if negated? \Z \Z))))  ; Both use Z, sign handled by coeff
+                                       (vec (repeat num-variables \I))
+                                       subset)
                           pauli-string (apply str pauli-chars)]
                       {:coefficient (* coeff (/ 1.0 (Math/pow 2 num-literals)))
                        :pauli-string pauli-string}))))))]
-    
+
     (mapcat clause-hamiltonian clauses)))
 
 (defn travelling-salesman-hamiltonian
@@ -206,101 +206,101 @@
            (and (pos? n)
                 (every? #(= (count %) n) distance-matrix)
                 (every? #(every? number? %) distance-matrix)))]}
-  
+
   (let [n (count distance-matrix)
         num-qubits (* n n)
         max-distance (apply max (flatten distance-matrix))
         ;; Auto-calculate penalty weight to ensure constraints dominate
         A (or penalty-weight (* 2 max-distance n))
-        
+
         ;; Helper function to get qubit index for city i at time j
         qubit-index (fn [city time] (+ (* city n) time))
-        
+
         ;; Helper to create single Z Pauli string
         single-z (fn [qubit-idx]
                    (apply str (assoc (vec (repeat num-qubits \I)) qubit-idx \Z)))
-        
+
         ;; Helper to create ZZ Pauli string
         double-z (fn [q1 q2]
                    (apply str (-> (vec (repeat num-qubits \I))
-                                 (assoc q1 \Z)
-                                 (assoc q2 \Z))))]
-    
+                                  (assoc q1 \Z)
+                                  (assoc q2 \Z))))]
+
     (concat
-      ;; 1. Cost function: minimize travel distances
-      ;; H_cost = Σ_{i,j,t} d_{i,j} * (1 + Z_{i,t})/2 * (1 + Z_{j,t+1})/2
-      ;; Expanding: d_{i,j}/4 * (1 + Z_{i,t} + Z_{j,t+1} + Z_{i,t}Z_{j,t+1})
-      (for [i (range n)
-            j (range n)
-            t (range n)
-            :when (not= i j)]  ; No self-loops
-        (let [distance (nth (nth distance-matrix i) j)
-              q1 (qubit-index i t)
-              q2 (qubit-index j (mod (inc t) n))  ; Next time step (periodic)
-              coeff (/ distance 4.0)]
-          ;; Generate all four terms from the expansion
-          [{:coefficient coeff :pauli-string (apply str (repeat num-qubits \I))}      ; constant
-           {:coefficient coeff :pauli-string (single-z q1)}                          ; Z_i
-           {:coefficient coeff :pauli-string (single-z q2)}                          ; Z_j  
-           {:coefficient coeff :pauli-string (double-z q1 q2)}]))                     ; Z_i Z_j
-      
-      ;; 2. City constraints: each city visited exactly once
-      ;; Σ_i (Σ_j x_{i,j} - 1)² = Σ_i (Σ_j (1+Z_{i,j})/2 - 1)²
-      ;; = Σ_i (Σ_j Z_{i,j}/2 + (n-2)/2)²
-      (for [i (range n)]
-        (let [;; Expand (Σ_j Z_{i,j}/2 + (n-2)/2)²
-              ;; = (Σ_j Z_{i,j})²/4 + (n-2)/2 * Σ_j Z_{i,j} + (n-2)²/4
-              
-              ;; Quadratic terms: Σ_{j₁,j₂} Z_{i,j₁} Z_{i,j₂} / 4
-              quadratic-terms
-              (for [j1 (range n)
-                    j2 (range n)]
-                (let [q1 (qubit-index i j1)
-                      q2 (qubit-index i j2)
-                      coeff (/ A 4.0)]
-                  (if (= j1 j2)
-                    {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I, so just Z term  
-                    {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
-              
-              ;; Linear terms: (n-2)/2 * Σ_j Z_{i,j}
-              linear-terms
-              (for [j (range n)]
-                {:coefficient (* A (- n 2) 0.5) 
-                 :pauli-string (single-z (qubit-index i j))})
-              
-              ;; Constant term: (n-2)²/4
-              constant-term
-              {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
-               :pauli-string (apply str (repeat num-qubits \I))}]
-          
-          (concat quadratic-terms linear-terms [constant-term])))
-      
-      ;; 3. Time constraints: exactly one city visited at each time
-      ;; Similar structure to city constraints but summing over cities for each time
-      (for [t (range n)]
-        (let [;; Quadratic terms: Σ_{i₁,i₂} Z_{i₁,t} Z_{i₂,t} / 4
-              quadratic-terms
-              (for [i1 (range n)
-                    i2 (range n)]
-                (let [q1 (qubit-index i1 t)
-                      q2 (qubit-index i2 t)
-                      coeff (/ A 4.0)]
-                  (if (= i1 i2)
-                    {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I term
-                    {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
-              
-              ;; Linear terms: (n-2)/2 * Σ_i Z_{i,t}
-              linear-terms
-              (for [i (range n)]
-                {:coefficient (* A (- n 2) 0.5)
-                 :pauli-string (single-z (qubit-index i t))})
-              
-              ;; Constant term: (n-2)²/4
-              constant-term
-              {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
-               :pauli-string (apply str (repeat num-qubits \I))}]
-          
-          (concat quadratic-terms linear-terms [constant-term]))))))
+     ;; 1. Cost function: minimize travel distances
+     ;; H_cost = Σ_{i,j,t} d_{i,j} * (1 + Z_{i,t})/2 * (1 + Z_{j,t+1})/2
+     ;; Expanding: d_{i,j}/4 * (1 + Z_{i,t} + Z_{j,t+1} + Z_{i,t}Z_{j,t+1})
+     (for [i (range n)
+           j (range n)
+           t (range n)
+           :when (not= i j)]  ; No self-loops
+       (let [distance (nth (nth distance-matrix i) j)
+             q1 (qubit-index i t)
+             q2 (qubit-index j (mod (inc t) n))  ; Next time step (periodic)
+             coeff (/ distance 4.0)]
+         ;; Generate all four terms from the expansion
+         [{:coefficient coeff :pauli-string (apply str (repeat num-qubits \I))}      ; constant
+          {:coefficient coeff :pauli-string (single-z q1)}                          ; Z_i
+          {:coefficient coeff :pauli-string (single-z q2)}                          ; Z_j  
+          {:coefficient coeff :pauli-string (double-z q1 q2)}]))                     ; Z_i Z_j
+
+     ;; 2. City constraints: each city visited exactly once
+     ;; Σ_i (Σ_j x_{i,j} - 1)² = Σ_i (Σ_j (1+Z_{i,j})/2 - 1)²
+     ;; = Σ_i (Σ_j Z_{i,j}/2 + (n-2)/2)²
+     (for [i (range n)]
+       (let [;; Expand (Σ_j Z_{i,j}/2 + (n-2)/2)²
+             ;; = (Σ_j Z_{i,j})²/4 + (n-2)/2 * Σ_j Z_{i,j} + (n-2)²/4
+
+             ;; Quadratic terms: Σ_{j₁,j₂} Z_{i,j₁} Z_{i,j₂} / 4
+             quadratic-terms
+             (for [j1 (range n)
+                   j2 (range n)]
+               (let [q1 (qubit-index i j1)
+                     q2 (qubit-index i j2)
+                     coeff (/ A 4.0)]
+                 (if (= j1 j2)
+                   {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I, so just Z term  
+                   {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
+
+             ;; Linear terms: (n-2)/2 * Σ_j Z_{i,j}
+             linear-terms
+             (for [j (range n)]
+               {:coefficient (* A (- n 2) 0.5)
+                :pauli-string (single-z (qubit-index i j))})
+
+             ;; Constant term: (n-2)²/4
+             constant-term
+             {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
+              :pauli-string (apply str (repeat num-qubits \I))}]
+
+         (concat quadratic-terms linear-terms [constant-term])))
+
+     ;; 3. Time constraints: exactly one city visited at each time
+     ;; Similar structure to city constraints but summing over cities for each time
+     (for [t (range n)]
+       (let [;; Quadratic terms: Σ_{i₁,i₂} Z_{i₁,t} Z_{i₂,t} / 4
+             quadratic-terms
+             (for [i1 (range n)
+                   i2 (range n)]
+               (let [q1 (qubit-index i1 t)
+                     q2 (qubit-index i2 t)
+                     coeff (/ A 4.0)]
+                 (if (= i1 i2)
+                   {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I term
+                   {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
+
+             ;; Linear terms: (n-2)/2 * Σ_i Z_{i,t}
+             linear-terms
+             (for [i (range n)]
+               {:coefficient (* A (- n 2) 0.5)
+                :pauli-string (single-z (qubit-index i t))})
+
+             ;; Constant term: (n-2)²/4
+             constant-term
+             {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
+              :pauli-string (apply str (repeat num-qubits \I))}]
+
+         (concat quadratic-terms linear-terms [constant-term]))))))
 
 ;; Add TSP solution decoder
 (defn decode-tsp-solution
@@ -315,36 +315,36 @@
   Map with decoded tour information"
   [measurement n distance-matrix]
   (let [qubit-values (mapv #(Character/digit % 10) measurement)
-        
+
         ;; Build assignment matrix: city i at time j
         assignment-matrix
         (for [i (range n)]
           (for [j (range n)]
             (nth qubit-values (+ (* i n) j))))
-        
+
         ;; Extract tour by finding which city is visited at each time
         tour (for [t (range n)]
-               (let [cities-at-time-t (keep-indexed 
-                                       (fn [i _] 
+               (let [cities-at-time-t (keep-indexed
+                                       (fn [i _]
                                          (when (= 1 (nth (nth assignment-matrix i) t)) i))
                                        (range n))]
                  (if (= 1 (count cities-at-time-t))
                    (first cities-at-time-t)
                    :invalid)))  ; Multiple or no cities at this time
-        
+
         ;; Check tour validity
         valid-tour? (and (every? #(not= % :invalid) tour)
-                        (= (set tour) (set (range n))))  ; All cities visited exactly once
-        
+                         (= (set tour) (set (range n))))  ; All cities visited exactly once
+
         ;; Calculate tour cost if valid
         tour-cost (when valid-tour?
-                    (reduce + (map-indexed 
-                              (fn [idx _]
-                                (let [current-city (nth tour idx)
-                                      next-city (nth tour (mod (inc idx) n))]
-                                  (nth (nth distance-matrix current-city) next-city)))
-                              tour)))]
-    
+                    (reduce + (map-indexed
+                               (fn [idx _]
+                                 (let [current-city (nth tour idx)
+                                       next-city (nth tour (mod (inc idx) n))]
+                                   (nth (nth distance-matrix current-city) next-city)))
+                               tour)))]
+
     {:tour tour
      :valid valid-tour?
      :cost tour-cost
@@ -954,7 +954,7 @@
   ;; Example 3: Traveling Salesman Problem (TSP) - PRODUCTION READY
   ;; Full n² qubit encoding with proper constraint handling
   ;; Note: This uses exponential quantum resources - practical for n ≤ 4
-  (def production-tsp-distances 
+  (def production-tsp-distances
     [[0 2 3]   ; Distances from city 0 to cities 0,1,2
      [2 0 1]   ; Distances from city 1 to cities 0,1,2  
      [3 1 0]]) ; Distances from city 2 to cities 0,1,2
@@ -980,13 +980,13 @@
   (println "Classical Optimum:" tsp-classical)
   (println "Approximation Ratio:" (/ (:optimal-energy tsp-result) tsp-classical))
   (println "Success:" (:success tsp-result))
-  
+
   ;; Decode TSP solution from quantum measurement
   (when (:success tsp-result)
     (let [best-measurement "100010001"  ; Example valid tour measurement
           decoded-tour (decode-tsp-solution best-measurement 3 production-tsp-distances)]
       (println "Decoded Tour:" (:tour decoded-tour))
-      (println "Tour Valid:" (:valid decoded-tour)) 
+      (println "Tour Valid:" (:valid decoded-tour))
       (println "Tour Cost:" (:cost decoded-tour))))
 
   ;; Example 4: Custom Ising model

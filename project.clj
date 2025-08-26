@@ -1,4 +1,4 @@
-(defproject org.soulspace/qclojure "0.12.0-SNAPSHOT"
+(defproject org.soulspace/qclojure "0.12.0"
   :description "A library to implement and simulate quantum and hybrid algorithms in idiomatic Clojure"
   :license {:name "Eclipse Public License 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}

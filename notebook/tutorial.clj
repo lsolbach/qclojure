@@ -3,7 +3,7 @@
 ;; This is a simple tutorial to demonstrate the use of the
 ;; [QClojure](https://github.com/lsolbach/qclojure) library.
 ;; It covers the creation of quantum states, gates, and circuits and the
-;; excution of quantum and hybrid algorithms on a QClojure backend.
+;; execution of quantum and hybrid algorithms on a QClojure backend.
 ;;
 ;; ## Introduction to Quantum Computing
 ;; Quantum computing is a fascinating field that combines computer science,
@@ -417,8 +417,51 @@ qg/t-dag-gate
 
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.
+;; 
+;; ## Math Backends for Complex Linear Algebra
+;; Simulating quantum circuits on a classical computer requires efficient
+;; linear algebra operations on complex numbers. QClojure provides a
+;; domain.math.core namespace that abstracts the underlying complex linear algebra
+;; implementation. This namespace provides the public API for complex linear
+;; algebra operations used in QClojure. It allows to switch between different
+;; implementations of complex linear algebra without changing the QClojure code.
+;; Protocols define the operations that need to be implemented by a
+;; specific implementation:
+;; * MatrixAlgebra, defining basic matrix operations like addition, multiplication,
+;;   products (kronecker/tensor, outer, inner, hadamard), conjugate transpose, etc.
+;; * MatrixDecompositions, defining matrix decompositions like
+;;   singular value decomposition, eigenvalue decomposition, etc.
+;; * MatrixFunctions, defining matrix functions like exponentiation, logarithm, square root, etc.
+;; * MatrixAnalysis, defining matrix analysis functions like spectral norm, condition number, etc.
+;; Currently, QClojure supports two backend implementations:
+;; * Fastmath Backend (`:fastmath`), based on FastMath, a high-performance numerical computing
+;;   library for Clojure. It provides efficient implementations of complex linear
+;;   algebra operations based on Apache Commons Math.
+;; * Pure Clojure Math Backend (`:pure`), based on Clojure Math, a pure Clojure implementation
+;;   of complex linear algebra operations for educational purpose.
+;; 
+;; The Fastmath backend is the default backend used by QClojure, as it provides
+;; better performance for large quantum states and circuits. The Clojure Math
+;; backend should be used only for educational purposes or for small quantum states and
+;; circuits.
+
+(require '[org.soulspace.qclojure.domain.math.core :as mcore])
+
+;; You can switch between the backends by using the `set-backend` function.
+
+(mcore/set-backend! :pure)
+
+(mcore/set-backend! :fastmath)
+
+;; After switching the backend, all complex linear algebra operations
+;; will use the selected backend. Backends may use a different representation
+;; for complex numbers and matrices, but the public API handles the conversion
+;; between the different representations.
 ;;
-;; ## Backends
+;; A BLAS/LAPACK (CPU) and OpenCL/CUDA (GPU) enabled backend would be desirable for simulating
+;; larger quantum states and circuits, but is not yet available.
+;;
+;; ## Quantum Computing Backends
 ;; QClojure can be extended with backends to run quantum circuits on quantum hardware.
 ;; The *application.backend* namespace contains the protocols to be implemented by a
 ;; specific backend. A backend can be used to execute a quantum circuit.
@@ -428,8 +471,18 @@ qg/t-dag-gate
 ;; QClojure comes with two simulator backends in the *adapter.backend* that can be used to
 ;; simulate quantum circuits on a classical computer.
 ;; * The ideal simulator backend simulates an ideal quantum computer without
-;;   phyiscal constraints like noise.
+;;   physical constraints like noise.
 ;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
+;;
+;; Simulating quantum circuits on a classical computer is computationally expensive,
+;; as the state space of a quantum system grows exponentially with the number of qubits.
+;; Therefore, the simulator backends are limited to a certain number of qubits,
+;; depending on the available memory and processing power of the classical computer.
+;; The simulator backends are limited to about 20 qubits on a typical desktop computer.
+;; Also note that the time to simulate a quantum circuit grows exponentially with the
+;; number of qubits and the depth of the circuit.
+;; Therefore, simulating quantum circuits with a large number of qubits or a deep
+;; circuit can take a long time.
 ;;
 ;; ### Ideal Simulator Backend
 ;; Let's try the ideal simulator first by requiring the `simulator` namespace.
@@ -478,7 +531,7 @@ qg/t-dag-gate
 
 (require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])
 
-;; We can instanciate the noisy simulator with the `create-noisy-simulator` function
+;; We can instantiate the noisy simulator with the `create-noisy-simulator` function
 ;; and provide a noise profile. The noise profile we use is derived from the
 ;; IBM Lagos Quantum Computer.
 
@@ -488,7 +541,7 @@ qg/t-dag-gate
 ;; a physical quantum computer can have. All different types of noise contribute
 ;; to the errors in the measurement.
 ;;
-;; Let's instanciate the noisy simulator with the IBM Lagos profile.
+;; Let's instantiate the noisy simulator with the IBM Lagos profile.
 
 (def lagos-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))
 
@@ -503,7 +556,7 @@ lagos-50-result
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
 ;; even though those states should have the highest counts. The other states
-;; should have a distinctivly lower count. But if you use to few shots, you
+;; should have a distinctively lower count. But if you use to few shots, you
 ;; could be unlucky and measure the wrong answers. The probability to measure
 ;; the wrong answers gets lower by increasing the number of shots.
 
@@ -512,7 +565,7 @@ lagos-50-result
 lagos-10k-result
 
 ;; With 10000 shots, the difference of the counts of the correct answers
-;; and the counts of the wrong anwsers should be quite significant.
+;; and the counts of the wrong answers should be quite significant.
 
 (kind/html (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result)))
 
@@ -521,7 +574,7 @@ lagos-10k-result
 
 (noisy/noise-model-for :ionq-forte)
 
-;; Let's instanciate the noisy simulator with the IonQ Forte profile.
+;; Let's instantiate the noisy simulator with the IonQ Forte profile.
 
 (def forte-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ionq-forte)))
 
@@ -614,10 +667,15 @@ forte-10k-result
 
 (require '[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])
 
-;; Lets define a constant function and a balanced function first.
+;; Let's define a constant function and a balanced function first.
+;;
+;; Constant function: f(x) = 1
 
-(def constant-fn (fn [_x] true))  ; Constant function: f(x) = 1
-(def balanced-fn (fn [x] x))     ; Balanced function: f(x) = x
+(def constant-fn (fn [_x] true))
+
+;; Balanced function: f(x) = x
+
+(def balanced-fn (fn [x] x))
 
 ;; Now we can create the circuit for the Deutsch algorithm for the constant function.
 
@@ -645,7 +703,7 @@ deutsch-constant-result
 ;; The measurement outcome is 0, which indicates that the function is constant.
 (:result deutsch-constant-result)
 
-;; Lets visualize the final quantum state after executing the Deutsch algorithm
+;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the constant function. It is contained in the execution result of the algorithm.
 
 (kind/html (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :final-state])))
@@ -670,7 +728,7 @@ deutsch-balanced-result
 ;; The result shows that the Deutsch algorithm correctly identifies the balanced function.
 (:result deutsch-balanced-result)
 
-;; Lets visualize the final quantum state after executing the Deutsch algorithm
+;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the balanced function.
 (kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :final-state])))
 
@@ -745,7 +803,7 @@ bv-result
 (:result bv-result)
 
 ;; The measurement outcome is the hidden binary string, which is 110.
-;; Lets visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
+;; Let's visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
 (kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 
@@ -820,7 +878,7 @@ simon-result
 
 (:result simon-result)
 
-;; Lets visualize the final quantum states after executing Simon's algorithm.
+;; Let's visualize the final quantum states after executing Simon's algorithm.
 ;; As Simon's algorithm can return multiple results, depending on the size of the hidden
 ;; string, we visualize the final states.
 
@@ -942,10 +1000,10 @@ grover-result
 ;; and Hadamard gates to the qubits, transforming the quantum state into its
 ;; frequency domain representation.
 
-(def qft-state
+(def qft-result
   (qb/execute-circuit (sim/create-simulator) qft-circuit))
 
-qft-state
+qft-result
 
 ;; The circuit for the QFT can also be used to implement the inverse QFT,
 ;; which is the reverse operation of the QFT.
@@ -1031,6 +1089,11 @@ qft-state
 ;; Shor's algorithm uses the Quantum Fourier Transform and Quantum Phase Estimation to find the period
 ;; of a function related to the integer to be factored.
 ;;
+;; Shor's algorithm uses lots of qubits and is thus not really feasible to run on
+;; current quantum hardware and simulators. For small integers, it can be run on
+;; simulators, but the results may not be very interesting. For a n-bit integer,
+;; Shor's algorithm requires at least about 2n + 3 qubits.
+;;
 ;; #### Problem Statement
 ;; Given a composite integer N, the goal is to find its prime factors using
 ;; as few evaluations of a function as possible.
@@ -1068,7 +1131,9 @@ qft-state
 
 (require '[org.soulspace.qclojure.application.algorithm.shor :as shor])
 
-;; We can use Shor's algorithm to factor a composite integer.
+;; We can use Shor's algorithm to factor a composite integer, e.g. 15.
+;; The algorithm should return the prime factors 3 and 5, may run for quite
+;; a while depending on the random numbers chosen.
 
 ;(def shor-result (shor/shor-algorithm (sim/create-simulator) 15 {:shots 10}))
 
@@ -1181,7 +1246,7 @@ hhl-result
 
 (:result hhl-result)
 
-;; Lets visualize the final quantum state after executing the HHL algorithm.
+;; Let's visualize the final quantum state after executing the HHL algorithm.
 
 (kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :final-state])))
 
@@ -1256,26 +1321,27 @@ hhl-result
 simple-hamiltonian
 
 ;; Let's run the VQE algorithm with the simple Hamiltonian.
-;; We'll use the hardware-efficient ansatz and the Adam optimizer
+;; We'll use the hardware-efficient ansatz and the gradient descent optimizer
 ;; with parameter shift gradients.
 
 (def simple-vqe-result
-  (vqe/variational-quantum-eigensolver (sim/create-simulator)
-                                       {:hamiltonian simple-hamiltonian
-                                        :ansatz-type :hardware-efficient
-                                        :num-qubits 4
-                                        :num-layers 1
-                                        :max-iterations 200
-                                        :tolerance 1e-4
-                                        :optimization-method :gradient-descent  ; Use gradient descent optimization
-                                        :learning-rate 0.01
-                                        :shots 1}))
+  (vqe/variational-quantum-eigensolver
+   (sim/create-simulator)
+   {:hamiltonian simple-hamiltonian
+    :ansatz-type :hardware-efficient
+    :num-qubits 4
+    :num-layers 1
+    :max-iterations 200
+    :tolerance 1e-4
+    :optimization-method :gradient-descent  ; Use gradient descent optimization
+    :learning-rate 0.01
+    :shots 1}))
 
 simple-vqe-result
 
 ;; We can use the VQE algorithm to find the ground state energy of a quantum system.
 ;; For example, let's find the ground state energy of molecular hydrogen,
-;; for which the Hamiltionian can be represented as a sum of Pauli operators.
+;; for which the Hamiltonian can be represented as a sum of Pauli operators.
 
 (def h2-hamiltonian (vqe/molecular-hydrogen-hamiltonian))
 
@@ -1304,16 +1370,17 @@ h2-hamiltonian
 ;; that uses the parameter shift rule to compute gradients. 
 
 (def vqe-result
-  (vqe/variational-quantum-eigensolver (sim/create-simulator)
-                                       {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
-                                        :ansatz-type           :uccsd
-                                        :num-qubits            4
-                                        :num-excitations       2
-                                        :num-layers            2
-                                        :max-iterations        200
-                                        :tolerance             1e-5
-                                        :learning-rate         0.1
-                                        :optimization-method   :adam}))
+  (vqe/variational-quantum-eigensolver
+   (sim/create-simulator)
+   {:hamiltonian           (vqe/molecular-hydrogen-hamiltonian)
+    :ansatz-type           :uccsd
+    :num-qubits            4
+    :num-excitations       2
+    :num-layers            2
+    :max-iterations        200
+    :tolerance             1e-5
+    :learning-rate         0.1
+    :optimization-method   :adam}))
 
 vqe-result
 
@@ -1324,3 +1391,223 @@ vqe-result
 ;; The final circuit with the optimal parameters is
 
 (kind/html (viz/visualize-circuit :svg (:circuit vqe-result)))
+
+
+;; ### Quantum Approximation Optimization Algorithm (QAOA)
+;; The [Quantum Approximation Optimization Algorithm (QAOA)](https://en.wikipedia.org/wiki/Quantum_approximate_optimization_algorithm)
+;; is a hybrid quantum-classical algorithm used to solve combinatorial optimization problems.
+;; It is particularly useful for problems that can be represented as a cost function,
+;; such as the Max-Cut problem, where the goal is to partition a graph into
+;; two subsets such that the number of edges between the subsets is maximized.
+;; The QAOA algorithm uses a parameterized quantum circuit to prepare a trial state,
+;; and a classical optimization algorithm to maximize the expectation value of
+;; the cost function with respect to the trial state.
+;; 
+;; #### Max-Cut Problem
+;; The Max-Cut problem is a combinatorial optimization problem that can be
+;; represented as a graph. The goal is to partition the vertices of the graph
+;; into two subsets such that the number of edges between the subsets is maximized.
+;; The Max-Cut problem can be represented as a cost function, where the cost
+;; function is the number of edges between the two subsets.
+;; The QAOA algorithm can be used to find an approximate solution to the Max-Cut
+;;
+;; #### Max-SAT Problem
+;; The Max-SAT problem is a combinatorial optimization problem that can be
+;; represented as a boolean formula in conjunctive normal form (CNF). The goal
+;; is to find an assignment of truth values to the variables in the formula
+;; that maximizes the number of satisfied clauses. The Max-SAT problem can be
+;; represented as a cost function, where the cost function is the number of
+;; satisfied clauses. The QAOA algorithm can be used to find an approximate
+;; solution to the Max-SAT problem.
+;;
+;; #### Traveling Salesperson Problem
+;; The Traveling Salesperson Problem (TSP) is a combinatorial optimization
+;; problem that can be represented as a graph. The goal is to find the shortest
+;; possible route that visits each vertex exactly once and returns to the
+;; starting vertex. The TSP can be represented as a cost function, where the
+;; cost function is the total distance of the route. The QAOA algorithm can
+;; be used to find an approximate solution to the TSP.
+;; 
+;; The QAOA algorithm is also used in quantum machine learning and other optimization problems,
+;; where it can be used to find the optimal parameters for a quantum circuit
+;; that represents a trial state.
+;;
+;; #### Problem Statement
+;; Given a cost function C that represents a combinatorial optimization problem,
+;; the goal is to find the optimal solution x* that maximizes the cost function
+;; using as few evaluations of the cost function as possible.
+;;
+;; #### Classical Approach
+;; In a classical setting, finding the optimal solution to a combinatorial
+;; optimization problem requires evaluating the cost function for all possible
+;; solutions, which can be computationally expensive for large problems.
+;; Classical algorithms such as simulated annealing or genetic algorithms can
+;; be used to find approximate solutions, but they are limited by the size of
+;; the problem and the complexity of the cost function.
+;;
+;; #### Quantum Approach
+;; The QAOA algorithm allows us to find approximate solutions to combinatorial
+;; optimization problems using a hybrid quantum-classical approach. It leverages
+;; the power of quantum computing to prepare trial states and measure the
+;; expectation value of the cost function, while using classical optimization
+;; algorithms to maximize the expectation value and find the optimal parameters
+;; for the trial state.
+;;
+;; #### Quantum Circuit
+;; The QAOA algorithm can be implemented using a quantum circuit with the following steps:
+;; 1. Prepare a parameterized quantum circuit that represents the trial state.
+;;    The circuit can be represented as a series of quantum gates that depend on
+;;    a set of parameters θ.
+;; 2. Initialize the parameters θ to some initial values.
+;; 3. Execute the quantum circuit to prepare the trial state |ψ(θ)⟩.
+;; 4. Measure the expectation value of the cost function C with respect to
+;;    the trial state |ψ(θ)⟩. This involves applying the cost function as a quantum gate
+;;    and measuring the qubits to obtain the expectation value ⟨C⟩.
+;; 5. Use a classical optimization algorithm to update the parameters θ based on the
+;;    measured expectation value ⟨C⟩. The optimization algorithm can be
+;;    gradient-based or gradient-free, depending on the problem.
+;; 6. Repeat steps 3-5 until convergence, i.e., until the expectation value ⟨C⟩
+;;    does not change significantly or a maximum number of iterations is reached.
+;; 7. The final expectation value ⟨C⟩ represents the optimal solution x* to the combinatorial
+;;    optimization problem.
+;;
+;; To explore the QAOA algorithm, we need to require the `qaoa` namespace.
+
+(require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
+
+;; Let's define a simple triangular graph for the Max-Cut problem.
+
+(def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
+
+;; We can use the QAOA algorithm to solve the Max-Cut problem for the defined graph.
+
+(def triangle-qaoa-result
+  (qaoa/quantum-approximate-optimization-algorithm
+   (sim/create-simulator)
+   {:problem-type :max-cut
+    :problem-hamiltonian (qaoa/max-cut-hamiltonian triangle-graph 3)
+    :problem-instance triangle-graph  ; Triangle with unit weights
+    :num-qubits 3
+    :num-layers 2
+    :optimization-method :adam
+    :max-iterations 100
+    :tolerance 1e-6
+    :shots 10000}))
+
+;; The result of the QAOA algorithm is a map that contains the result of the
+;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+
+triangle-qaoa-result
+
+;; The result shows that the QAOA algorithm approximated the optimal solution
+;; for the Max-Cut problem on the triangular graph,  which is 2.0.
+
+(:result triangle-qaoa-result)
+
+;; The final circuit with the optimal parameters is
+
+(kind/html (viz/visualize-circuit :svg (:circuit triangle-qaoa-result)))
+
+;; Let's visualize the final quantum state after executing the QAOA algorithm.
+
+; (kind/html (viz/visualize-quantum-state :svg (get-in triangle-qaoa-result [:execution-result :final-state])))
+
+;; The final quantum state shows the approximation of the optimal solution
+;; to the Max-Cut problem for the triangular graph. The final quantum state
+;; is a superposition of the states that represent the optimal solution to
+;; the Max-Cut problem.
+;;
+;; # I/O Support
+;; QClojure supports various input and output formats for quantum circuits
+;; and quantum states. This allows users to easily import and export quantum
+;; circuits and states between different quantum computing frameworks and tools.
+;; The supported formats include:
+;; * Extensible Data Notation (EDN)
+;; * JSON (JavaScript Object Notation)
+;; * QASM (Quantum Assembly Language)
+;; 
+;; Let's import the I/O namespace providing the API for reading and writing
+;; quantum circuits and quantum states.
+
+(require '[org.soulspace.qclojure.adapter.io :as io])
+
+;; Now we define some test data to demonstrate the I/O capabilities.
+;; We create a quantum circuit with medium complexity for import and export.
+
+(def test-circuit
+  (-> (qc/create-circuit 3 "I/O Test Circuit" "A circuit with medium complexity")
+      (qc/h-gate 0)
+      (qc/cnot-gate 0 1)
+      (qc/t-gate 1)
+      (qc/cnot-gate 1 2)
+      (qc/measure-operation [0 1 2])))
+
+;; ## EDN Support
+;; EDN (Extensible Data Notation) is a data format that is similar to JSON
+;; but is more expressive and flexible. It is a subset of Clojure syntax
+;; and is used for representing data structures in a human-readable format.
+;; QClojure supports EDN format for importing and exporting quantum circuits
+;; and quantum states.
+
+(require '[org.soulspace.qclojure.adapter.io.edn :as edn])
+
+;; Let's first write a simple quantum state to disk in EDN format.
+
+(io/export-quantum-state :edn qs/|+⟩ "plus-state.edn")
+
+;; We can read the quantum state in EDN form back from disk.
+
+(io/import-quantum-state :edn "plus-state.edn")
+
+;; ## JSON Support
+;; JSON (JavaScript Object Notation) is a lightweight data interchange format
+;; that is easy for humans to read and write and easy for machines to parse
+;; and generate. It is widely used for data exchange between web applications
+;; and servers.
+;; QClojure supports JSON format for importing and exporting quantum circuits
+;; and quantum states. To use JSON I/O capabilities, we need to require
+;; the `io.json` namespace.
+
+(require '[org.soulspace.qclojure.adapter.io.json :as json])
+
+;; The functions for JSON I/O are the same, just with the different format
+;; keyword `:json`.
+;; Let's write the same quantum state to disk in JSON format.
+
+(io/export-quantum-state :json qs/|+⟩ "plus-state.json")
+
+;; We can read the quantum state in JSON form back from disk.
+
+(io/import-quantum-state :json "plus-state.json")
+
+;; ### QASM Support
+;; QASM (Quantum Assembly Language) is a low-level programming language
+;; used to describe quantum circuits. It is a standard format for representing
+;; quantum circuits and is supported by many quantum computing frameworks.
+;; QASM allows us to define quantum gates, measurements, and other operations
+;; in a text-based format that can be easily shared and executed on different
+;; quantum computing platforms.
+;; 
+;; QClojure supports QASM 2 and QASM 3 formats, allowing users to import
+;; and export quantum circuits in QASM format. It does not support quantum states
+;; in QASM format, as QASM is primarily used for representing quantum circuits.
+;;
+;; Let's require the QASM namespace to explore the QASM I/O capabilities.
+
+(require '[org.soulspace.qclojure.adapter.io.qasm :as qasm])
+
+;; We can export the quantum circuit to QASM 2 format.
+
+(io/export-quantum-circuit :qasm2 test-circuit "test-circuit-qasm2.qasm")
+
+;; We can read the quantum circuit in QASM 2 format back from disk.
+
+(io/import-quantum-circuit :qasm2 "test-circuit-qasm2.qasm")
+
+;; We can also export the quantum circuit to QASM 3 format.
+
+(io/export-quantum-circuit :qasm3 test-circuit "test-circuit-qasm3.qasm")
+
+;; We can read the quantum circuit in QASM 3 format back from disk.
+
+(io/import-quantum-circuit :qasm3 "test-circuit-qasm3.qasm")

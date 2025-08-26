@@ -23,7 +23,6 @@
   quantum advantage for certain problem instances."
   (:require [clojure.spec.alpha :as s]
             [clojure.math.combinatorics :as combi]
-            [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -534,27 +533,85 @@
          (vector? parameters)
          (even? (count parameters))
          (pos-int? num-qubits)]}
-  (let [p (/ (count parameters) 2)  ; Number of QAOA layers
-        param-pairs (partition 2 parameters)  ; [(γ₁ β₁) (γ₂ β₂) ...]
-        initial-circuit (qc/create-circuit num-qubits "QAOA Ansatz")]
+  (let [param-pairs (partition 2 parameters)  ; [(γ₁ β₁) (γ₂ β₂) ...]
+        initial-circuit (qc/create-circuit num-qubits "QAOA Ansatz")
+        ;; Start with equal superposition state |+⟩^⊗n
+        circuit-with-init (reduce (fn [circ qubit]
+                                    (qc/h-gate circ qubit))
+                                  initial-circuit
+                                  (range num-qubits))]
 
-    ;; Start with equal superposition state |+⟩^⊗n
-    (let [circuit-with-init (reduce (fn [circ qubit]
-                                      (qc/h-gate circ qubit))
-                                    initial-circuit
-                                    (range num-qubits))]
+    ;; Apply layers of alternating evolution
+    (reduce (fn [circ [gamma beta]]
+              (-> circ
+                  ;; Apply problem Hamiltonian evolution e^(-iγH_P)
+                  (#(let [prob-circuit (hamiltonian-evolution-circuit problem-hamiltonian gamma num-qubits)]
+                      (cc/compose-circuits % prob-circuit)))
+                  ;; Apply mixer Hamiltonian evolution e^(-iβH_M)  
+                  (#(let [mixer-circuit (hamiltonian-evolution-circuit mixer-hamiltonian beta num-qubits)]
+                      (cc/compose-circuits % mixer-circuit)))))
+            circuit-with-init
+            param-pairs)))
 
-      ;; Apply p layers of alternating evolution
-      (reduce (fn [circ [gamma beta]]
-                (-> circ
-                    ;; Apply problem Hamiltonian evolution e^(-iγH_P)
-                    (#(let [prob-circuit (hamiltonian-evolution-circuit problem-hamiltonian gamma num-qubits)]
-                        (cc/compose-circuits % prob-circuit)))
-                    ;; Apply mixer Hamiltonian evolution e^(-iβH_M)  
-                    (#(let [mixer-circuit (hamiltonian-evolution-circuit mixer-hamiltonian beta num-qubits)]
-                        (cc/compose-circuits % mixer-circuit)))))
-              circuit-with-init
-              param-pairs))))
+(defn smart-parameter-initialization
+  "Generate smart initial parameters for QAOA based on theoretical insights and heuristics.
+  
+  Different strategies:
+  - :theoretical - Based on known optimal values for small p
+  - :adiabatic - Linear interpolation from adiabatic evolution  
+  - :random-smart - Improved random initialization in good ranges
+  
+  Parameters:
+  - num-layers: Number of QAOA layers (p)
+  - problem-type: Type of optimization problem (:max-cut, :max-sat, etc.)
+  - strategy: Initialization strategy keyword
+  
+  Returns:
+  Vector of [γ₁ β₁ γ₂ β₂ ...] parameters"
+  [num-layers problem-type strategy]
+  (case strategy
+    :theoretical
+    (case num-layers
+      1 (case problem-type
+          :max-cut [0.39 0.20]  ; Near-optimal for MaxCut p=1 from literature
+          :max-sat [0.35 0.25]  ; Heuristic for Max-SAT
+          [0.4 0.2])            ; Default
+      2 (case problem-type
+          :max-cut [0.37 0.19 0.42 0.21]  ; Optimized for MaxCut p=2
+          :max-sat [0.35 0.22 0.38 0.24]  ; Heuristic for Max-SAT p=2  
+          [0.4 0.2 0.35 0.18])            ; Default p=2
+      ;; For p > 2, use interpolation
+      (let [base-gamma (case problem-type :max-cut 0.38 :max-sat 0.36 0.37)
+            base-beta (case problem-type :max-cut 0.20 :max-sat 0.23 0.21)]
+        (vec (mapcat (fn [layer]
+                       (let [scale (+ 0.8 (* 0.4 (/ layer num-layers)))]
+                         [(* base-gamma scale) (* base-beta scale)]))
+                     (range num-layers)))))
+
+    :adiabatic
+    ;; Linear schedule: γᵢ = γₘₐₓ * i/p, βᵢ = βₘₐₓ * (1 - i/p)
+    (let [gamma-max (case problem-type :max-cut 0.75 :max-sat 0.70 0.6)
+          beta-max (case problem-type :max-cut 0.4 :max-sat 0.45 0.35)]
+      (vec (mapcat (fn [layer]
+                     (let [t (/ (inc layer) num-layers)]
+                       [(* gamma-max t) (* beta-max (- 1 t))]))
+                   (range num-layers))))
+
+    :random-smart
+    ;; Random in theoretically good ranges, alternating γ and β
+    (let [gamma-range (case problem-type :max-cut [0.2 0.6] :max-sat [0.1 0.5] [0.15 0.55])
+          beta-range (case problem-type :max-cut [0.1 0.3] :max-sat [0.15 0.35] [0.1 0.3])]
+      (vec (mapcat (fn [_]
+                     [(+ (first gamma-range)
+                         (* (rand) (- (second gamma-range) (first gamma-range))))
+                      (+ (first beta-range)
+                         (* (rand) (- (second beta-range) (first beta-range))))])
+                   (range num-layers))))
+
+    ;; Unknown strategy - throw error
+    (throw (ex-info "Unknown parameter initialization strategy"
+                    {:strategy strategy
+                     :valid-strategies #{:theoretical :adiabatic :random-smart}}))))
 
 ;;;
 ;;; QAOA Algorithm Implementation
@@ -638,66 +695,6 @@
 
       ;; Default fallback
       (throw (ex-info "Unknown optimization method" {:method method})))))
-
-(defn smart-parameter-initialization
-  "Generate smart initial parameters for QAOA based on theoretical insights and heuristics.
-  
-  Different strategies:
-  - :theoretical - Based on known optimal values for small p
-  - :adiabatic - Linear interpolation from adiabatic evolution  
-  - :random-smart - Improved random initialization in good ranges
-  
-  Parameters:
-  - num-layers: Number of QAOA layers (p)
-  - problem-type: Type of optimization problem (:max-cut, :max-sat, etc.)
-  - strategy: Initialization strategy keyword
-  
-  Returns:
-  Vector of [γ₁ β₁ γ₂ β₂ ...] parameters"
-  [num-layers problem-type strategy]
-  (case strategy
-    :theoretical
-    (case num-layers
-      1 (case problem-type
-          :max-cut [0.39 0.20]  ; Near-optimal for MaxCut p=1 from literature
-          :max-sat [0.35 0.25]  ; Heuristic for Max-SAT
-          [0.4 0.2])            ; Default
-      2 (case problem-type
-          :max-cut [0.37 0.19 0.42 0.21]  ; Optimized for MaxCut p=2
-          :max-sat [0.35 0.22 0.38 0.24]  ; Heuristic for Max-SAT p=2  
-          [0.4 0.2 0.35 0.18])            ; Default p=2
-      ;; For p > 2, use interpolation
-      (let [base-gamma (case problem-type :max-cut 0.38 :max-sat 0.36 0.37)
-            base-beta (case problem-type :max-cut 0.20 :max-sat 0.23 0.21)]
-        (vec (mapcat (fn [layer]
-                       (let [scale (+ 0.8 (* 0.4 (/ layer num-layers)))]
-                         [(* base-gamma scale) (* base-beta scale)]))
-                     (range num-layers)))))
-
-    :adiabatic
-    ;; Linear schedule: γᵢ = γₘₐₓ * i/p, βᵢ = βₘₐₓ * (1 - i/p)
-    (let [gamma-max (case problem-type :max-cut 0.75 :max-sat 0.70 0.6)
-          beta-max (case problem-type :max-cut 0.4 :max-sat 0.45 0.35)]
-      (vec (mapcat (fn [layer]
-                     (let [t (/ (inc layer) num-layers)]
-                       [(* gamma-max t) (* beta-max (- 1 t))]))
-                   (range num-layers))))
-
-    :random-smart
-    ;; Random in theoretically good ranges, alternating γ and β
-    (let [gamma-range (case problem-type :max-cut [0.2 0.6] :max-sat [0.1 0.5] [0.15 0.55])
-          beta-range (case problem-type :max-cut [0.1 0.3] :max-sat [0.15 0.35] [0.1 0.3])]
-      (vec (mapcat (fn [_]
-                     [(+ (first gamma-range)
-                         (* (rand) (- (second gamma-range) (first gamma-range))))
-                      (+ (first beta-range)
-                         (* (rand) (- (second beta-range) (first beta-range))))])
-                   (range num-layers))))
-
-    ;; Unknown strategy - throw error
-    (throw (ex-info "Unknown parameter initialization strategy" 
-                    {:strategy strategy
-                     :valid-strategies #{:theoretical :adiabatic :random-smart}}))))
 
 (defn quantum-approximate-optimization-algorithm
   "Main QAOA algorithm implementation.
@@ -802,7 +799,8 @@
             :num-layers num-layers
             :problem-hamiltonian problem-hamiltonian
             :mixer-hamiltonian mixer-hamiltonian
-            :final-circuit final-circuit
+            :result final-energy
+            :circuit final-circuit
             :total-runtime-ms (- end-time start-time)
             :approximation-ratio approximation-ratio
             :gamma-parameters (vec (take-nth 2 optimal-params))      ; [γ₁ γ₂ ...]

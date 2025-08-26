@@ -1,6 +1,7 @@
 # TODOs
 
 ## Next steps
+* Handle measurement operations in QASM 2
 * integrate error mitigation in the noisy simulator
 * consistently handle backend errors in all algorithms
 * optimize shor's algorithm implementation and quantum period finding

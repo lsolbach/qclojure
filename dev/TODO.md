@@ -2,7 +2,7 @@
 
 ## Next steps
 * integrate error mitigation in the noisy simulator
-* handle backend job failures in algorithms
+* consistently handle backend errors in all algorithms
 * optimize shor's algorithm implementation and quantum period finding
 
 ## Backlog
@@ -14,4 +14,4 @@
 * add separation between text and graphics in svg visualization
 * extract formatting information to edn
 * remove hardware references from gate-decomposition (domain layer)
-
+* consistently handle backend errors in all algorithms

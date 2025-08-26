@@ -55,24 +55,26 @@
    {:pre [(> N 1)]}
 
    (let [;; Extract options with defaults - use smaller defaults for better performance
-         n-qubits (get options :n-qubits
-                       (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2))))))
-         n-measurements (get options :n-measurements 3)  ; Reduced from 10 to 3
-         max-attempts (get options :max-attempts 5)      ; Reduced from 10 to 5
+         ;; Cap precision for small N to keep circuits tractable on simulator
+         default-nq (* 2 (int (Math/ceil (/ (Math/log N) (Math/log 2)))))
+         capped-nq (if (<= N 21) (min default-nq 4) default-nq)
+         n-qubits (get options :n-qubits capped-nq)
+         n-measurements (get options :n-measurements 1)  ; lighter default
+         max-attempts (get options :max-attempts 3)      ; lighter default
          ]
 
      ;; Step 1: Classical preprocessing
      (cond
        ;; Check if N is prime (can't be factored)
        (qmath/prime? N) {:factors []
-                      :success false
-                      :N N
-                      :attempts []
-                      :method :classical-prime-check
-                      :message "Cannot factor prime numbers"
-                      :statistics {:runtime 0
-                                   :attempts 0
-                                   :n-measurements 0}}
+                         :success false
+                         :N N
+                         :attempts []
+                         :method :classical-prime-check
+                         :message "Cannot factor prime numbers"
+                         :statistics {:runtime 0
+                                      :attempts 0
+                                      :n-measurements 0}}
 
        ;; Check if N is even
        (even? N) {:factors [2 (/ N 2)]

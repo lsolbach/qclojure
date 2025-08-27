@@ -1,5 +1,5 @@
-(defproject org.soulspace/qclojure "0.12.0"
-  :description "A library to implement and simulate quantum and hybrid algorithms in idiomatic Clojure"
+(defproject org.soulspace/qclojure "0.13.0-SNAPSHOT"
+  :description "QClojure is a library to implement and simulate quantum and hybrid algorithms in idiomatic Clojure."
   :license {:name "Eclipse Public License 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.1"]

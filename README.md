@@ -8,45 +8,52 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 ![GitHub](https://img.shields.io/github/license/lsolbach/QClojure)
 
 ## Main Features of QClojure
+QClojure provides the core features for quantum computing.
+
 1. **Pure Functional Quantum Circuit Construction**
 
    Build quantum circuits using immutable data structures and functional composition with convenience gate functions (H, X, Y, Z, CNOT, etc.)
 
-2. **Comprehensive Gate Library**
+1. **Comprehensive Gate Library**
 
    Support for 20+ quantum gates including single-qubit gates (Pauli, Hadamard, phase), controlled gates (CNOT, CZ, CY), rotation gates (RX, RY, RZ), multi-qubit gates (Toffoli, Fredkin, SWAP), rydberg and global gates
 
-3. **Quantum Algorithm Implementations**
+1. **Quantum Algorithm Implementations**
 
    Built-in implementations of classic quantum algorithms including Deutsch, Bernstein-Vazirani, Simon, Grover, QFT, QPE, QPF, HHL, VQE, QAOA and Shor algorithms
 
-4. **Extensible Quantum Backend System**
+1. **Extensible Quantum Backend System**
 
    Protocol-based architecture allowing integration with different quantum simulators and hardware backends
 
-5. **Circuit Transformation & Optimization**
+1. **Circuit Transformation & Optimization**
 
    Automatic gate cancellation, qubit optimization, gate decomposition and circuit transformation to match backend-supported gate sets and topologies
 
-6. **Local Quantum Simulator Backend**
+1. **Local Quantum Simulator Backend**
 
    Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles. Pluggable complex linear algebra backends for the simulators
 
-7. **Error Mitigation**
+1. **Error Mitigation**
    
    Different strategies like readout error mitigation, ZNE, symmetry verification and virtual distillation, support for autoselection based on circuit and noise profile properties
 
-8. **OpenQASM Integration**
+1. **OpenQASM Integration**
 
    Bidirectional conversion between quantum circuits and OpenQASM 2/3 formats for interoperability with other quantum computing platforms
 
-9. **Visualization**
+1. **Visualization**
 
-   Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML.
+   Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML
 
-10. **Comprehensive Testing & Validation**
+1. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
+
+### Extensions of QClojure
+Additional features, like specific backend implementations or algorithms for specific domains, will be provided as separate libraries, e.g.
+* [qclojure-braket](https://github.com/lsolbach/qclojure-braket) - QClojure backend to quantum computers and simulators provided by Amazon Braket
+* [qclojure-ml](https://github.com/lsolbach/qclojure-ml) - QClojure Machine Learning (QML) algorithms
 
 ## Usage
 QClojure is a library to be used in programs or interactive within the REPL.
@@ -75,7 +82,6 @@ qs/|+⟩
 #### Visualizations of the Plus State
 ![Bloch Sphere Visualization of the Plus state](/doc/images/bloch-plus-state.svg)
 ![Visualization of the probabilities of the Plus state](/doc/images/prob-plus-state.svg)
-
 
 
 ### Bell Circuit Example

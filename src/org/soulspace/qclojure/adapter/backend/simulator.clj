@@ -108,7 +108,7 @@
           initial-state (if (:initial-state options)
                           (:initial-state options)
                           (qs/zero-state num-qubits))
-          final-state (qc/execute-circuit circuit initial-state)
+          final-state (:final-state (qc/execute-circuit circuit initial-state))
 
           ;; Perform measurements
           measurement-results (measure-quantum-state

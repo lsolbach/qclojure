@@ -246,7 +246,7 @@
                       (qc/cnot-gate 1 2))
           
           ;; Execute the circuit
-          final-state (qc/execute-circuit circuit (qs/zero-state 3))
+          final-state (:final-state (qc/execute-circuit circuit (qs/zero-state 3)))
           
           ;; Generate all visualizations
           circuit-viz (viz/visualize-circuit :ascii circuit)

@@ -420,31 +420,28 @@
   [ansatz-fn backend parameters param-index options]
   (let [shift (/ m/PI 2)
         ;; Create shifted parameter vectors
-        params-plus (assoc parameters param-index 
-                          (+ (nth parameters param-index) shift))
-        params-minus (assoc parameters param-index 
-                           (- (nth parameters param-index) shift))
-        
+        params-plus (assoc parameters param-index
+                           (+ (nth parameters param-index) shift))
+        params-minus (assoc parameters param-index
+                            (- (nth parameters param-index) shift))
+
         ;; Execute circuits to get states
         circuit-plus (ansatz-fn params-plus)
         circuit-minus (ansatz-fn params-minus)
-        
-        state-plus (try
-                     (let [result (qb/execute-circuit backend circuit-plus options)]
-                       (if (= (:job-status result) :completed)
-                         (:final-state result)
-                         (qc/execute-circuit circuit-plus (qs/zero-state (:num-qubits circuit-plus)))))
-                     (catch Exception _
+
+        state-plus (let [result (qb/execute-circuit backend circuit-plus options)]
+                     (if (= (:job-status result) :completed)
+                       (:final-state result)
+                       ;; TODO: no fallback, handle backend failures appropriately
                        (qc/execute-circuit circuit-plus (qs/zero-state (:num-qubits circuit-plus)))))
-        
-        state-minus (try
-                      (let [result (qb/execute-circuit backend circuit-minus options)]
-                        (if (= (:job-status result) :completed)
-                          (:final-state result)
-                          (qc/execute-circuit circuit-minus (qs/zero-state (:num-qubits circuit-minus)))))
-                      (catch Exception _
+
+
+        state-minus (let [result (qb/execute-circuit backend circuit-minus options)]
+                      (if (= (:job-status result) :completed)
+                        (:final-state result)
+                        ;; TODO: no fallback, handle backend failures appropriately
                         (qc/execute-circuit circuit-minus (qs/zero-state (:num-qubits circuit-minus)))))
-        
+                    
         ;; Compute derivative as (|ψ⁺⟩ - |ψ⁻⟩) / 2
         amplitudes-plus (:amplitudes state-plus)
         amplitudes-minus (:amplitudes state-minus)]
@@ -503,12 +500,10 @@
         
         ;; Get current state |ψ(θ)⟩
         current-circuit (ansatz-fn parameters)
-        current-state (try
-                        (let [result (qb/execute-circuit backend current-circuit options)]
-                          (if (= (:job-status result) :completed)
-                            (:final-state result)
-                            (qc/execute-circuit current-circuit (qs/zero-state (:num-qubits current-circuit)))))
-                        (catch Exception _
+        current-state (let [result (qb/execute-circuit backend current-circuit options)]
+                        (if (= (:job-status result) :completed)
+                          (:final-state result)
+                          ;; TODO: no fallback, handle backend failures appropriately
                           (qc/execute-circuit current-circuit (qs/zero-state (:num-qubits current-circuit)))))
         
         ;; Compute all state derivatives |∂ψ/∂θᵢ⟩

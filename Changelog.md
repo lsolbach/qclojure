@@ -1,5 +1,20 @@
 # Changelog
 
+## Version (NEXT)
+* added unified, comprehensive result preparation/extraction, supports
+  * `:measurements` (basic sampling)
+  * `:observables` (observable expectations)
+  * `:variance` (observable variances)
+  * `:hamiltonian` (hamiltonian energy)
+  * `:probabilities` (probability distributions)
+  * `:amplitudes` (amplitude extraction)
+  * `:state-vector` (simulation only)
+  * `:density-matrix` (simulation only)
+  * `:fidelity` (fidelity analysis)
+  * `:sample` (sampling for QPU hardware)
+* changed the return type of execute-circuit to return a map instead of just the state vector to incorporate the result types
+  * use `:final-state` to extract the state-vector
+
 ## Version 0.12.0
 * added Quantum Approximate Optimization Algorithm (QAOA) for Max-CUT, Max-SAT and TSP problems
 * added parameter values to tooltips in SVG circuit visualization

@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.application.algorithm.qaoa :as qaoa]
-            [org.soulspace.qclojure.domain.hamiltonian :as ham]))
+            [org.soulspace.qclojure.domain.hamiltonian :as ham]
+            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
 
 ;;
 ;; Test data
@@ -127,7 +128,7 @@
   (testing "QAOA objective function creation and evaluation"
     (let [problem-ham (qaoa/max-cut-hamiltonian line-graph 3) 
           mixer-ham (qaoa/standard-mixer-hamiltonian 3)
-          objective-fn (qaoa/create-qaoa-objective problem-ham mixer-ham 3 nil {})]
+          objective-fn (qaoa/create-qaoa-objective problem-ham mixer-ham 3 (sim/create-simulator) {})]
       (is (fn? objective-fn) "Should return a function")
       ;; Test with simple parameters
       (let [energy (objective-fn [0.1 0.2])]

@@ -411,7 +411,7 @@
   (testing "Circuit execution"
     (let [bell-circuit (qc/bell-state-circuit)
           initial-state qs/|00⟩
-          result-state (qc/execute-circuit bell-circuit initial-state)]
+          result-state (:final-state (qc/execute-circuit bell-circuit initial-state))]
       
       (is (= (:num-qubits result-state) 2))
       (is (= (count (:state-vector result-state)) 4))
@@ -634,7 +634,7 @@
 ;;;
 (deftest test-measure-subsystem
   (testing "Measuring quantum subsystems"
-    (let [bell-state (qc/execute-circuit (qc/bell-state-circuit) qs/|00⟩)]
+    (let [bell-state (:final-state (qc/execute-circuit (qc/bell-state-circuit) qs/|00⟩))]
       
       (testing "Measure single qubit from Bell state"
         (let [measurement-result (qc/measure-subsystem bell-state [0])]

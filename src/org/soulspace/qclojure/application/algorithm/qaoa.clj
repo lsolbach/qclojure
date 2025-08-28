@@ -641,16 +641,11 @@
          (pos-int? num-qubits)]}
   (fn objective [parameters]
     (try
-      (let [circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian parameters num-qubits)]
-        (if backend
-          ;; Execute on quantum backend
-          (let [result (qb/execute-circuit backend circuit options)
-                final-state (:final-state result)]
-            (ham/hamiltonian-expectation problem-hamiltonian final-state))
-          ;; Direct simulation
-          (let [initial-state (qs/zero-state num-qubits)
-                final-state (qc/execute-circuit circuit initial-state)]
-            (ham/hamiltonian-expectation problem-hamiltonian final-state))))
+      (let [circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian parameters num-qubits)
+            ;; Execute on quantum backend
+            result (qb/execute-circuit backend circuit options)
+            final-state (:final-state result)]
+        (ham/hamiltonian-expectation problem-hamiltonian final-state))
       (catch Exception e
         (println "Error in QAOA objective function:" (.getMessage e))
         Double/POSITIVE_INFINITY))))  ; Return high energy for failed evaluations

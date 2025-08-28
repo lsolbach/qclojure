@@ -119,7 +119,7 @@
           initial-state (qs/zero-state 1)]
       ;; Execute circuit
       (dotimes [_ 10]
-        (let [final-state (qc/execute-circuit circuit initial-state)]
+        (let [final-state (:final-state (qc/execute-circuit circuit initial-state))]
           (is (map? final-state) "Circuit execution should return a state")
           ;; The final state should be either |0⟩ or |1⟩ due to measurement
           (let [amplitudes (:state-vector final-state)
@@ -135,7 +135,7 @@
           initial-state (qs/zero-state 2)]
       ;; Execute multiple times to see probabilistic behavior
       (dotimes [_ 10]
-        (let [final-state (qc/execute-circuit circuit initial-state)]
+        (let [final-state (:final-state (qc/execute-circuit circuit initial-state))]
           (is (map? final-state) "Circuit execution should return a state")
           (is (= (:num-qubits final-state) 2) "Should still be a 2-qubit state")))))
 
@@ -146,7 +146,7 @@
                      (qc/measure-all-operation))
           initial-state (qs/zero-state 2)]
       (dotimes [_ 5]
-        (let [final-state (qc/execute-circuit circuit initial-state)
+        (let [final-state (:final-state (qc/execute-circuit circuit initial-state))
               amplitudes (:state-vector final-state)
               non-zero-count (count (filter #(> (fc/abs %) 1e-10) amplitudes))]
           (is (= non-zero-count 1) 
@@ -162,7 +162,7 @@
                            (qc/cnot-gate 0 1)
                            (qc/measure-operation [0 1]))
           initial-state (qs/zero-state 2)
-          final-state (qc/execute-circuit bell-circuit initial-state)
+          final-state (:final-state (qc/execute-circuit bell-circuit initial-state))
           state-vector (:state-vector final-state)
           num-qubits (:num-qubits final-state)
           non-zero-amplitudes (filter #(> (fc/abs %) 1e-10) state-vector)
@@ -176,7 +176,7 @@
                       (qc/h-gate 1)
                       (qc/measure-operation [0]))
           initial-state (qs/zero-state 2)
-          final-state (qc/execute-circuit circuit initial-state)
+          final-state (:final-state (qc/execute-circuit circuit initial-state))
           state-vector (:state-vector final-state)
           non-zero-amplitudes (filter #(> (fc/abs %) 1e-10) state-vector)
           num-non-zero (count non-zero-amplitudes)]
@@ -187,7 +187,7 @@
                       (qc/h-gate 0)
                       (qc/measure-operation [0]))
           initial-state (qs/zero-state 1)
-          final-state (qc/execute-circuit circuit initial-state)
+          final-state (:final-state (qc/execute-circuit circuit initial-state))
           state-vector (:state-vector final-state)
           non-zero-amplitudes (filter #(> (fc/abs %) 1e-10) state-vector)
           num-non-zero (count non-zero-amplitudes)]
@@ -205,7 +205,7 @@
                            (qc/h-gate 0)
                            (qc/cnot-gate 0 1))
           initial-state (qs/zero-state 2)
-          bell-state (qc/execute-circuit bell-circuit initial-state)
+          bell-state (:final-state (qc/execute-circuit bell-circuit initial-state))
           
           ;; Perform many measurements to check correlations
           num-trials 100
@@ -227,7 +227,7 @@
                           (qc/cnot-gate 0 1)
                           (qc/cnot-gate 0 2))
           initial-state (qs/zero-state 3)
-          ghz-state (qc/execute-circuit ghz-circuit initial-state)
+          ghz-state (:final-state (qc/execute-circuit ghz-circuit initial-state))
           
           ;; Perform measurements
           num-trials 50

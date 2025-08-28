@@ -1,0 +1,486 @@
+(ns org.soulspace.qclojure.domain.result
+  "Enhanced quantum circuit execution results with comprehensive result types.
+   
+   This namespace provides a systematic way to extract different types of
+   results from quantum circuit executions, supporting both hardware and
+   simulation backends with QASM 3 and Amazon Braket compatible result types.
+   
+   Design Philosophy:
+   - Leverage existing functions from state, observables, and hamiltonian namespaces
+   - Support QASM 3.0 and Amazon Braket result type specifications
+   - Provide both simulation-only and hardware-compatible result types
+   - Enable systematic extraction without code duplication"
+  (:require [clojure.spec.alpha :as s]
+            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.observables :as obs]
+            [org.soulspace.qclojure.domain.hamiltonian :as ham]))
+
+;;
+;; Specs for enhanced results (QASM 3.0 / Braket compatible)
+;;
+(s/def ::result-type #{:measurement :expectation :variance :probability 
+                       :amplitude :state-vector :density-matrix :fidelity
+                       :sample :adjoint-gradient})
+
+(s/def ::measurement-result
+  (s/keys :req-un [::measurement-outcomes ::measurement-probabilities]
+          :opt-un [::shot-count ::measurement-qubits]))
+
+(s/def ::expectation-result  
+  (s/keys :req-un [::expectation-value ::observable]
+          :opt-un [::variance-value ::target-qubits]))
+
+(s/def ::probability-result
+  (s/keys :req-un [::probability-outcomes ::target-qubits]))
+
+(s/def ::amplitude-result
+  (s/keys :req-un [::amplitude-values ::basis-states]))
+
+(s/def ::state-vector-result
+  (s/keys :req-un [::state-vector ::num-qubits]))
+
+(s/def ::density-matrix-result
+  (s/keys :req-un [::density-matrix ::num-qubits]))
+
+(s/def ::variance-result
+  (s/keys :req-un [::variance-value ::observable]
+          :opt-un [::target-qubits]))
+
+(s/def ::sample-result
+  (s/keys :req-un [::sample-outcomes ::observable ::shot-count]
+          :opt-un [::target-qubits]))
+
+(s/def ::enhanced-circuit-result
+  (s/keys :req-un [::final-state ::result-types]
+          :opt-un [::measurement-results ::expectation-results 
+                   ::probability-results ::amplitude-results
+                   ::state-vector-result ::density-matrix-result
+                   ::variance-results ::sample-results
+                   ::execution-metadata]))
+
+;;
+;; Result type extractors - systematic use of existing functions
+;;
+(defn extract-measurement-results
+  "Extract measurement results from circuit execution using existing state functions.
+   
+   Leverages: qs/measure-state, qs/measurement-probabilities
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - measurement-qubits: Qubits that were measured (optional, defaults to all)
+   - shots: Number of measurement shots (default 1)
+   
+   Returns:
+   Map with measurement outcomes and probabilities (Braket Sample format)"
+  [final-state & {:keys [measurement-qubits shots] :or {shots 1}}]
+  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  (let [num-qubits (:num-qubits final-state)
+        measured-qubits (or measurement-qubits (range num-qubits))
+        ;; Perform multiple shots for statistical results
+        shot-results (repeatedly shots #(qs/measure-state final-state))
+        outcomes (mapv :outcome shot-results)
+        theoretical-probs (qs/measurement-probabilities final-state)
+        frequencies (frequencies outcomes)
+        empirical-probs (into {} (map (fn [[outcome count]]
+                                       [outcome (/ count shots)])
+                                     frequencies))]
+    {:measurement-outcomes outcomes
+     :measurement-probabilities theoretical-probs
+     :empirical-probabilities empirical-probs
+     :shot-count shots
+     :measurement-qubits measured-qubits
+     :frequencies frequencies}))
+
+(defn extract-expectation-results
+  "Extract expectation value results for observables.
+   
+   Leverages: obs/expectation-value, obs/tensor-product, obs/identity-op
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - observables: Collection of observables to measure
+   - target-qubits: (optional) Specific qubits for each observable
+   
+   Returns:
+   Vector of expectation value results (Braket Expectation format)"
+  [final-state observables & {:keys [target-qubits]}]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (coll? observables)]}
+  (let [num-qubits (:num-qubits final-state)]
+    (mapv (fn [observable target-qubit]
+            (let [full-observable (if target-qubit
+                                   ;; Expand single-qubit observable to multi-qubit
+                                   (let [ops (mapv (fn [i]
+                                                    (if (= i target-qubit)
+                                                      observable
+                                                      obs/identity-op))
+                                                  (range num-qubits))]
+                                     (obs/tensor-product ops))
+                                   ;; Use observable as-is (should match state dimensionality)
+                                   observable)
+                  exp-val (obs/expectation-value full-observable final-state)]
+              {:expectation-value exp-val
+               :observable observable
+               :target-qubits (when target-qubit [target-qubit])}))
+          observables
+          (if target-qubits
+            target-qubits
+            (repeat (count observables) nil)))))
+
+(defn extract-variance-results
+  "Extract variance results for observables.
+   
+   Leverages: obs/variance
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - observables: Collection of observables to measure
+   - target-qubits: (optional) Specific qubits for each observable
+   
+   Returns:
+   Vector of variance results (Braket Variance format)"
+  [final-state observables & {:keys [target-qubits]}]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (coll? observables)]}
+  (let [num-qubits (:num-qubits final-state)]
+    (mapv (fn [observable target-qubit]
+            (let [full-observable (if target-qubit
+                                   ;; Expand single-qubit observable to multi-qubit
+                                   (let [ops (mapv (fn [i]
+                                                    (if (= i target-qubit)
+                                                      observable
+                                                      obs/identity-op))
+                                                  (range num-qubits))]
+                                     (obs/tensor-product ops))
+                                   ;; Use observable as-is (should match state dimensionality)
+                                   observable)
+                  var-val (obs/variance full-observable final-state)]
+              {:variance-value var-val
+               :standard-deviation (Math/sqrt var-val)
+               :observable observable
+               :target-qubits (when target-qubit [target-qubit])}))
+          observables
+          (if target-qubits
+            target-qubits
+            (repeat (count observables) nil)))))
+
+(defn extract-hamiltonian-expectation
+  "Extract expectation value for a Hamiltonian (energy measurement).
+   
+   Leverages: ham/hamiltonian-expectation, ham/group-commuting-terms
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution  
+   - hamiltonian: Hamiltonian to measure
+   
+   Returns:
+   Map with energy expectation value and measurement optimization info"
+  [final-state hamiltonian]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (ham/validate-hamiltonian hamiltonian)]}
+  {:energy-expectation (ham/hamiltonian-expectation hamiltonian final-state)
+   :hamiltonian hamiltonian
+   :measurement-groups (ham/group-commuting-terms hamiltonian)
+   :measurement-bases (ham/group-pauli-terms-by-measurement-basis hamiltonian)})
+
+(defn extract-probability-results
+  "Extract probability results for specific computational basis states.
+   
+   Leverages: qs/probability, qs/measurement-probabilities
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - target-qubits: (optional) Specific qubits to measure (defaults to all)
+   - target-states: (optional) Specific target basis state indices or bit patterns
+   
+   Returns:
+   Map with probabilities (Braket Probability format)"
+  [final-state & {:keys [target-qubits target-states]}]
+  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  (let [num-qubits (:num-qubits final-state)]
+    (if target-states
+      ;; Specific target states requested
+      (let [probability-outcomes 
+            (into {} (map (fn [target]
+                           (let [prob (if (vector? target)
+                                       ;; Target is bit pattern like [1 0 1]
+                                       (qs/probability final-state (qs/bits-to-index target))
+                                       ;; Target is basis state index
+                                       (qs/probability final-state target))]
+                             [target prob]))
+                         target-states))]
+        {:probability-outcomes probability-outcomes
+         :target-states target-states
+         :target-qubits target-qubits})
+      ;; All probabilities for specified qubits (or all qubits)
+      (let [used-qubits (or target-qubits (range num-qubits))
+            all-probs (qs/measurement-probabilities final-state)]
+        {:probability-outcomes (into {} (map-indexed vector all-probs))
+         :target-qubits used-qubits
+         :all-probabilities all-probs}))))
+
+(defn extract-amplitude-results
+  "Extract amplitude results for specific computational basis states.
+   
+   Leverages: qs/state-vector (direct access to amplitudes)
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - basis-states: Vector of basis state indices to extract amplitudes for
+   
+   Returns:
+   Map with complex amplitudes (Braket Amplitude format)"
+  [final-state basis-states]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (vector? basis-states)]}
+  (let [state-vector (:state-vector final-state)
+        amplitude-values
+        (into {} (map (fn [basis-idx]
+                       [basis-idx (nth state-vector basis-idx)])
+                     basis-states))]
+    {:amplitude-values amplitude-values
+     :basis-states basis-states}))
+
+(defn extract-state-vector-result
+  "Extract complete state vector (simulation only).
+   
+   Leverages: qs/state-vector, qs/basis-labels
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   
+   Returns:
+   Complete state vector representation (Braket StateVector format)"
+  [final-state]
+  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  {:state-vector (:state-vector final-state)
+   :num-qubits (:num-qubits final-state)
+   :basis-labels (qs/basis-labels (:num-qubits final-state))})
+
+(defn extract-density-matrix-result  
+  "Extract density matrix representation (simulation only).
+   
+   Leverages: qs/density-matrix, qs/trace-one?
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   
+   Returns:
+   Density matrix representation (Braket style)"
+  [final-state]
+  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  (let [rho (qs/density-matrix final-state)]
+    {:density-matrix rho
+     :num-qubits (:num-qubits final-state)
+     :trace-valid (qs/trace-one? rho)}))
+
+(defn extract-fidelity-result
+  "Extract fidelity between final state and reference states.
+   
+   Leverages: qs/state-fidelity
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - reference-states: Vector of reference states to compare against
+   
+   Returns:
+   Map with fidelity values for each reference state"
+  [final-state reference-states]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (coll? reference-states)]}
+  (let [fidelities
+        (into {} (map-indexed (fn [idx ref-state]
+                               [(str "reference-" idx) 
+                                (qs/state-fidelity final-state ref-state)])
+                             reference-states))]
+    {:fidelities fidelities
+     :reference-states reference-states}))
+
+(defn extract-sample-results
+  "Extract sample results for observables (hardware measurement simulation).
+   
+   Leverages: obs/measurement-probabilities, simulated sampling
+   
+   Parameters:
+   - final-state: Final quantum state after circuit execution
+   - observables: Collection of observables to sample
+   - shots: Number of measurement shots
+   - target-qubits: (optional) Specific qubits for each observable
+   
+   Returns:
+   Vector of sample results (Braket Sample format)"
+  [final-state observables shots & {:keys [target-qubits]}]
+  {:pre [(s/valid? ::qs/quantum-state final-state)
+         (coll? observables)
+         (pos-int? shots)]}
+  (mapv (fn [observable]
+          (let [measurement-probs (obs/measurement-probabilities observable final-state)
+                ;; Simulate sampling from the probability distribution
+                sample-outcomes (repeatedly shots 
+                                           (fn []
+                                             (let [rand-val (rand)]
+                                               ;; Find the eigenvalue corresponding to this random sample
+                                               (loop [[[eigenval prob] & rest] (seq measurement-probs)
+                                                      cumulative 0.0]
+                                                 (let [new-cumulative (+ cumulative prob)]
+                                                   (if (or (< rand-val new-cumulative) (empty? rest))
+                                                     eigenval
+                                                     (recur rest new-cumulative)))))))]
+            {:sample-outcomes sample-outcomes
+             :observable observable
+             :shot-count shots
+             :target-qubits target-qubits
+             :frequencies (frequencies sample-outcomes)}))
+        observables))
+
+(defn compute-results
+  "Compute specified results from the final quantum state after circuit execution.
+   
+   Parameters:
+   - result: Result map containing :final-state (the final quantum state after executinga circuit)
+   - result-specs: Map specifying which results to extract
+   
+   Result specs format (all optional):
+   {:measurements {:shots 1000 :qubits [0 1]}
+    :expectation {:observables [pauli-z pauli-x] :targets [0]}
+    :variance {:observables [pauli-z] :targets [0]}  
+    :hamiltonian my-hamiltonian
+    :probabilities {:targets [[1 0] [0 1]] :qubits [0 1]}
+    :amplitudes {:basis-states [0 1 2 3]}
+    :state-vector true
+    :density-matrix true
+    :fidelity {:references [|0⟩ |1⟩]}
+    :sample {:observables [pauli-z] :shots 1000 :targets [0]}}
+   
+   Returns:
+   Map of extracted results based on requested types"
+  [result result-specs]
+  {:pre [(s/valid? ::qs/quantum-state (:final-state result))
+         (map? result-specs)]}
+
+  (let [final-state (:final-state result)]
+
+    ;; Extract each requested result type systematically
+    (cond-> result
+
+      ;; Basic measurements (Sample result type)
+      (:measurements result-specs)
+      (assoc :measurement-results
+             (let [specs (:measurements result-specs)]
+               (extract-measurement-results
+                final-state
+                :measurement-qubits (:qubits specs)
+                :shots (or (:shots specs) 1))))
+
+      ;; Observable expectation values (Expectation result type)
+      (:expectation result-specs)
+      (assoc :expectation-results
+             (let [specs (:expectation result-specs)]
+               (extract-expectation-results
+                final-state
+                (:observables specs)
+                :target-qubits (:targets specs))))
+
+      ;; Observable variances (Variance result type)
+      (:variance result-specs)
+      (assoc :variance-results
+             (let [specs (:variance result-specs)]
+               (extract-variance-results
+                final-state
+                (:observables specs)
+                :target-qubits (:targets specs))))
+
+      ;; Hamiltonian energy measurement (specialized Expectation)
+      (:hamiltonian result-specs)
+      (assoc :hamiltonian-result
+             (extract-hamiltonian-expectation final-state (:hamiltonian result-specs)))
+
+      ;; Specific probability outcomes (Probability result type)
+      (:probabilities result-specs)
+      (assoc :probability-results
+             (let [specs (:probabilities result-specs)]
+               (extract-probability-results
+                final-state
+                :target-qubits (:qubits specs)
+                :target-states (:targets specs))))
+
+      ;; Amplitude extraction (Amplitude result type)
+      (:amplitudes result-specs)
+      (assoc :amplitude-results
+             (extract-amplitude-results
+              final-state
+              (:basis-states (:amplitudes result-specs))))
+
+      ;; Complete state vector (StateVector result type - simulation only)
+      (:state-vector result-specs)
+      (assoc :state-vector-result
+             (extract-state-vector-result final-state))
+
+      ;; Density matrix (simulation only)  
+      (:density-matrix result-specs)
+      (assoc :density-matrix-result
+             (extract-density-matrix-result final-state))
+
+      ;; Fidelity measurements (custom analysis)
+      (:fidelity result-specs)
+      (assoc :fidelity-results
+             (extract-fidelity-result
+              final-state
+              (:references (:fidelity result-specs))))
+
+      ;; Sample results (Sample result type for observables)
+      (:sample result-specs)
+      (assoc :sample-results
+             (let [specs (:sample result-specs)]
+               (extract-sample-results
+                final-state
+                (:observables specs)
+                (or (:shots specs) 1000)
+                :target-qubits (:targets specs)))))))
+
+;;
+;; Result analysis and post-processing
+;;
+(defn summarize-results
+  "Create a human-readable summary of execution results."
+  [results]
+  (let [result-types (:result-types results)
+        summary {:execution-summary (:execution-metadata results)
+                 :available-results (vec result-types)}]
+    
+    (cond-> summary
+      
+      (:measurement-results results)
+      (assoc :measurement-summary
+             (let [mr (:measurement-results results)]
+               {:total-shots (:shot-count mr)
+                :unique-outcomes (count (distinct (:measurement-outcomes mr)))
+                :most-probable-outcome (when-let [emp-probs (:empirical-probabilities mr)]
+                                       (first (sort-by second > emp-probs)))}))
+      
+      (:expectation-results results)
+      (assoc :expectation-summary
+             (mapv (fn [er]
+                    {:expectation (:expectation-value er)})
+                   (:expectation-results results)))
+      
+      (:variance-results results)
+      (assoc :variance-summary
+             (mapv (fn [vr]
+                    {:variance (:variance-value vr)
+                     :uncertainty (:standard-deviation vr)})
+                   (:variance-results results)))
+      
+      (:hamiltonian-result results)
+      (assoc :energy-summary
+             {:energy (:energy-expectation (:hamiltonian-result results))
+              :measurement-groups (count (:measurement-groups (:hamiltonian-result results)))})
+      
+      (:fidelity-results results)
+      (assoc :fidelity-summary
+             (let [fidelities (:fidelities (:fidelity-results results))]
+               (when (seq fidelities)
+                 {:max-fidelity (apply max (vals fidelities))
+                  :min-fidelity (apply min (vals fidelities))
+                  :average-fidelity (/ (reduce + (vals fidelities)) (count fidelities))}))))))

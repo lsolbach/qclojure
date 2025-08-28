@@ -349,19 +349,19 @@ qg/t-dag-gate
 ;; We can execute the circuit with the `qc/execute-circuit` function
 ;; on the state |0⟩ to create the Hadamard state.
 
-(def hadamard-circuit-state
+(def hadamard-circuit-result
   (qc/execute-circuit simple-circuit qs/|0⟩))
 
 ;; We can visualize the probability distribution of the Hadamard circuit state.
 
-(kind/html (viz/visualize-quantum-state :svg hadamard-circuit-state))
+(kind/html (viz/visualize-quantum-state :svg (:final-state hadamard-circuit-result)))
 
 ;; The probability distribution shows that the Hadamard circuit state is
 ;; in a superposition of the ground and excited states. It is the same as the
 ;; Hadamard state we created earlier, but now created by a quantum circuit, not
 ;; just the application of a single gate on a quantum state.
 
-(kind/html (viz/visualize-bloch-sphere :svg hadamard-circuit-state))
+(kind/html (viz/visualize-bloch-sphere :svg (:final-state hadamard-circuit-result)))
 
 ;; The *qc* namespace also has some predefined circuits.
 ;;
@@ -380,12 +380,12 @@ qg/t-dag-gate
 ;; The Bell state is a two-qubit state that is
 ;;[entangled](https://en.wikipedia.org/wiki/Entanglement).
 
-(def bell-state
+(def bell-result
   (qc/execute-circuit bell-circuit (qs/zero-state 2)))
 
 ;; We can visualize the probability distribution of the Bell state.
 
-(kind/html (viz/visualize-quantum-state :svg bell-state))
+(kind/html (viz/visualize-quantum-state :svg (:final-state bell-result)))
 
 ;; The *qc* namespace also has a predefined circuit for multi-qubit states.
 ;; This circuit can be used to create entangled states with more than two
@@ -408,12 +408,12 @@ qg/t-dag-gate
 ;;
 ;; We can apply the GHZ circuit to the state |000⟩ to create the GHZ state.
 
-(def ghz-state
+(def ghz-result
   (qc/execute-circuit ghz-circuit (qs/zero-state 3)))
 
 ;; We can visualize the probability distribution of the GHZ state.
 
-(kind/html (viz/visualize-quantum-state :svg ghz-state))
+(kind/html (viz/visualize-quantum-state :svg (:final-state ghz-result)))
 
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.

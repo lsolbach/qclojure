@@ -246,17 +246,13 @@
             circuit (ansatz-fn params-vec)
 
             ;; Step 2: Execute circuit to get final quantum state
-            final-state (try
-                          (let [execution-result (qb/execute-circuit backend circuit options)]
-                            (if (= (:job-status execution-result) :completed)
-                              (:final-state execution-result)
-                              ;; Fallback to simulation if backend execution fails
-                              (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
-                          (catch Exception _e
-                            ;; Fallback to direct simulation if backend unavailable
+            final-state (let [execution-result (qb/execute-circuit backend circuit options)]
+                          (if (= (:job-status execution-result) :completed)
+                            (:final-state execution-result)
+                            ;; Fallback to simulation if backend execution fails
+                            ;; TODO: no fallback, handle backend failures appropriately
                             (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
-
-
+                          
             ;; Step 3: Calculate Hamiltonian expectation value (energy)
             energy (ham/hamiltonian-expectation hamiltonian final-state)]
 

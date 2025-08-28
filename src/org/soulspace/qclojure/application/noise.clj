@@ -13,7 +13,9 @@
             [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.domain.state :as qs]))
 
-;; Specs for noise application functions
+;;;
+;;; Specs for noise application functions
+;;;
 (s/def ::noise-type keyword?) ; Allow any keyword, function will handle unknown types gracefully
 (s/def ::noise-strength (s/and number? #(<= 0 % 1)))
 (s/def ::t1-time pos?) ; T1 relaxation time in microseconds
@@ -96,10 +98,9 @@
       ;; no noise for this gate type, return clean state
       clean-state)))
 
-;;
-;; Readout Noise Application Functions
-;;
-
+;;;
+;;; Readout Noise Application Functions
+;;;
 (defn apply-readout-noise
   "Apply advanced readout noise with potential correlations.
   

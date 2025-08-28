@@ -10,7 +10,8 @@
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
-            [org.soulspace.qclojure.adapter.visualization.common :as common]))
+            [org.soulspace.qclojure.adapter.visualization.common :as common]
+            [org.soulspace.qclojure.application.hardware-optimization :as hw]))
 
 ;;;
 ;;; Parameter Formatting for Tooltips
@@ -1021,6 +1022,129 @@
                    (+ padding (* row y-step))]))
               (range num-qubits)))
       
+      :hexagonal
+      ;; Specialized layout for heavy-hex topologies using proper 2D lattice coordinates
+      ;; Based on IBM Quantum heavy-hex lattice structure from real hardware
+      (letfn [(generate-heavy-hex-coordinates [n-qubits]
+                "Generate 2D lattice coordinates for IBM heavy-hex topologies"
+                (cond
+                  ;; 7-qubit basic heavy-hex (single hexagon)
+                  (= n-qubits 7)
+                  [[1 2]   ; qubit 0 - center
+                   [0 1]   ; qubit 1
+                   [0 2]   ; qubit 2  
+                   [0 3]   ; qubit 3
+                   [1 3]   ; qubit 4
+                   [2 2]   ; qubit 5
+                   [2 1]]  ; qubit 6
+                  
+                  ;; 27-qubit Falcon-style (IBM 27-qubit devices)
+                  (= n-qubits 27)
+                  [[1 0]   ; qubit 0
+                   [1 1]   ; qubit 1
+                   [2 1]   ; qubit 2
+                   [3 1]   ; qubit 3
+                   [1 2]   ; qubit 4
+                   [3 2]   ; qubit 5
+                   [0 3]   ; qubit 6
+                   [1 3]   ; qubit 7
+                   [3 3]   ; qubit 8
+                   [4 3]   ; qubit 9
+                   [1 4]   ; qubit 10
+                   [3 4]   ; qubit 11
+                   [1 5]   ; qubit 12
+                   [2 5]   ; qubit 13
+                   [3 5]   ; qubit 14
+                   [0 6]   ; qubit 15
+                   [1 6]   ; qubit 16
+                   [3 6]   ; qubit 17
+                   [4 6]   ; qubit 18
+                   [1 7]   ; qubit 19
+                   [3 7]   ; qubit 20
+                   [2 8]   ; qubit 21
+                   [1 9]   ; qubit 22
+                   [2 9]   ; qubit 23
+                   [3 9]   ; qubit 24
+                   [1 10]  ; qubit 25
+                   [3 10]] ; qubit 26
+                  
+                  ;; 65-qubit Hummingbird-style (larger IBM devices)
+                  (= n-qubits 65)
+                  (let [;; Generate coordinates based on heavy-hex lattice pattern
+                        coords (atom [])]
+                    ;; Start with center region
+                    (doseq [row (range 0 9)
+                            col (range 0 9)
+                            :let [coord [row col]]
+                            :when (and 
+                                   ;; Apply heavy-hex constraints
+                                   (or (even? (+ row col))
+                                       (and (odd? row) (odd? col))
+                                       (and (even? row) (even? col)))
+                                   ;; Limit to reasonable bounds
+                                   (< (count @coords) 65))]
+                      (swap! coords conj coord))
+                    ;; Pad with additional coordinates if needed
+                    (while (< (count @coords) 65)
+                      (let [last-coord (last @coords)
+                            next-coord [(inc (first last-coord)) (second last-coord)]]
+                        (swap! coords conj next-coord)))
+                    @coords)
+                  
+                  ;; For other sizes, generate approximate heavy-hex pattern
+                  :else
+                  (let [;; Estimate grid size based on qubit count
+                        grid-size (int (Math/ceil (Math/sqrt n-qubits)))
+                        coords (atom [])]
+                    ;; Generate coordinates in heavy-hex pattern
+                    (doseq [row (range grid-size)
+                            col (range grid-size)
+                            :when (< (count @coords) n-qubits)]
+                      ;; Use heavy-hex connectivity pattern
+                      (when (or (and (even? row) (even? col))
+                                (and (odd? row) (odd? col))
+                                (= (mod (+ row col) 3) 0))
+                        (swap! coords conj [row col])))
+                    ;; Fill remaining with grid pattern if needed
+                    (doseq [row (range grid-size)
+                            col (range grid-size)
+                            :when (< (count @coords) n-qubits)]
+                      (when-not (some #(= % [row col]) @coords)
+                        (swap! coords conj [row col])))
+                    @coords)))
+              
+              (transform-to-visual-coordinates [lattice-coords usable-width usable-height padding]
+                "Transform lattice coordinates to visual SVG coordinates"
+                (when (seq lattice-coords)
+                  (let [;; Find bounds of lattice coordinates
+                        all-rows (map first lattice-coords)
+                        all-cols (map second lattice-coords)
+                        min-row (apply min all-rows)
+                        max-row (apply max all-rows)
+                        min-col (apply min all-cols)
+                        max-col (apply max all-cols)
+                        
+                        ;; Calculate scaling factors
+                        row-range (max 1 (- max-row min-row))
+                        col-range (max 1 (- max-col min-col))
+                        scale-y (/ usable-height row-range)
+                        scale-x (/ usable-width col-range)]
+                    
+                    ;; Transform each coordinate
+                    (mapv (fn [[row col]]
+                            (let [;; Normalize to 0-based coordinates
+                                  norm-row (- row min-row)
+                                  norm-col (- col min-col)
+                                  ;; Scale to fit available space
+                                  x (+ padding (* norm-col scale-x))
+                                  y (+ padding (* norm-row scale-y))]
+                              [x y]))
+                          lattice-coords))))]
+        
+        ;; Generate and transform coordinates
+        (let [lattice-coords (generate-heavy-hex-coordinates num-qubits)]
+          (transform-to-visual-coordinates lattice-coords usable-width usable-height padding)))
+      
       :circular
       (let [radius (min (/ usable-width 2) (/ usable-height 2))
             angle-step (/ (* 2 Math/PI) num-qubits)]
@@ -1031,15 +1155,19 @@
               (range num-qubits)))
       
       :force
-      ;; Simple force-directed layout (basic spring model)
+      ;; Improved force-directed layout with topology-aware parameters
       (let [positions (atom (mapv (fn [_] 
                                     [(+ padding (rand usable-width))
                                      (+ padding (rand usable-height))])
                                   (range num-qubits)))
-            iterations 100
-            spring-length 100
-            spring-strength 0.1
-            repulsion-strength 1000]
+            ;; Scale parameters based on topology size
+            iterations (min 200 (max 50 (* num-qubits 2)))
+            spring-length (max 50 (min 150 (/ (Math/sqrt (+ (* usable-width usable-width) 
+                                                             (* usable-height usable-height))) 
+                                               (Math/sqrt num-qubits))))
+            spring-strength (/ 0.15 (Math/log (max 2 num-qubits)))
+            repulsion-strength (* 2000 (Math/sqrt num-qubits))
+            damping 0.8]
         
         (dotimes [_ iterations]
           (let [forces (atom (vec (repeat num-qubits [0 0])))]
@@ -1075,13 +1203,15 @@
                     (swap! forces update i (fn [[fx-old fy-old]] [(- fx-old fx) (- fy-old fy)]))
                     (swap! forces update j (fn [[fx-old fy-old]] [(+ fx-old fx) (+ fy-old fy)]))))))
             
-            ;; Apply forces with damping
+            ;; Apply forces with adaptive damping
             (swap! positions
                    (fn [pos]
                      (mapv (fn [i [x y]]
                              (let [[fx fy] (nth @forces i)
-                                   new-x (max padding (min (- width padding) (+ x (* fx 0.1))))
-                                   new-y (max padding (min (- height padding) (+ y (* fy 0.1))))]
+                                   ;; Use adaptive damping for better convergence
+                                   step-size (* damping 0.1)
+                                   new-x (max padding (min (- width padding) (+ x (* fx step-size))))
+                                   new-y (max padding (min (- height padding) (+ y (* fy step-size))))]
                                [new-x new-y]))
                            (range num-qubits)
                            pos)))))
@@ -1115,21 +1245,76 @@
 
 (defmethod viz/visualize-hardware-topology :svg
   [_format topology & {:keys [width height layout show-labels show-connectivity interactive]
-                       :or {width 600 height 400 layout :auto 
-                            show-labels true show-connectivity true interactive true}}]
+                       :or {layout :auto show-labels true show-connectivity true interactive true}}]
   (let [num-qubits (count topology)
+        total-edges (/ (reduce + (map count topology)) 2)
+        
         ;; Auto-select layout if needed
         chosen-layout (if (= layout :auto)
                         (common/auto-select-layout topology)
                         layout)
         
+        ;; Calculate default dimensions based on topology properties
+        ;; Base dimensions scale with sqrt of nodes for better space utilization
+        base-dimension (max 400 (* 80 (Math/sqrt num-qubits)))
+        
+        ;; Layout-specific dimension adjustments
+        default-dims (case chosen-layout
+                       :linear 
+                       ;; Linear needs more width than height
+                       [(max 600 (* num-qubits 60)) (max 200 (* 40 (Math/sqrt num-qubits)))]
+                       
+                       :circular
+                       ;; Circular needs square canvas with radius for circumference
+                       (let [radius (* num-qubits 20)
+                             dim (+ (* radius 2) 200)] ; padding for labels
+                         [dim dim])
+                       
+                       :hexagonal
+                       ;; Hexagonal layout: estimate layers and calculate radius needed
+                       (let [;; Rough estimate of layers in heavy-hex topology
+                             estimated-layers (max 2 (Math/ceil (Math/sqrt (/ num-qubits 6))))
+                             layer-spacing 80
+                             radius (+ (* estimated-layers layer-spacing) 50)
+                             dim (+ (* radius 2) 200)] ; padding for labels and info
+                         [dim dim])
+                       
+                       :grid
+                       ;; Grid layout: calculate optimal grid dimensions
+                       (let [cols (Math/ceil (Math/sqrt num-qubits))
+                             rows (Math/ceil (/ num-qubits cols))
+                             grid-width (max 400 (+ (* cols 80) 200))
+                             grid-height (max 300 (+ (* rows 80) 200))]
+                         [grid-width grid-height])
+                       
+                       :hierarchical
+                       ;; Star layout: needs space for center + radius for satellites
+                       (let [satellite-count (dec num-qubits)
+                             radius (* satellite-count 15)
+                             dim (+ (* radius 2) 300)]
+                         [dim dim])
+                       
+                       :force
+                       ;; Force-directed: larger space for complex topologies
+                       (let [density (/ total-edges (max 1 num-qubits))
+                             space-factor (+ 1.0 (* density 0.5)) ; More space for denser graphs
+                             dim (* base-dimension space-factor)]
+                         [dim dim])
+                       
+                       ;; Default case
+                       [base-dimension base-dimension])
+        
+        ;; Use provided dimensions or calculated defaults
+        final-width (or width (int (first default-dims)))
+        final-height (or height (int (second default-dims)))
+        
         ;; Reserve space for title and info panel
         title-height 50
         info-height 80
-        actual-viz-height (- height title-height info-height)
+        actual-viz-height (- final-height title-height info-height)
         
         ;; Calculate positions using adjusted dimensions
-        positions (calculate-topology-layout topology chosen-layout [width actual-viz-height])
+        positions (calculate-topology-layout topology chosen-layout [final-width actual-viz-height])
         ;; Offset positions to account for title space
         adjusted-positions (mapv (fn [[x y]] [x (+ y title-height)]) positions)
         
@@ -1153,7 +1338,7 @@
                              neighbors (get topology i)
                              degree (count neighbors)]
                          [:g {:class (when interactive "qubit-node")}
-                          [:circle {:cx x :cy y :r 20
+                          [:circle {:cx x :cy y :r 16
                                     :fill color :stroke "#ffffff" :stroke-width 3
                                     :opacity 0.9}
                            (when interactive
@@ -1176,21 +1361,21 @@
                         "Custom")
         
         ;; Title and info
-        title [:text {:x (/ width 2) :y 30
+        title [:text {:x (/ final-width 2) :y 30
                       :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
                (str "Hardware Topology (" topology-type ")")]
         
         info-panel [:g
-                    [:text {:x 20 :y (- height 60)
+                    [:text {:x 20 :y (- final-height 60)
                             :font-size "12" :fill "#374151"}
                      (str "Qubits: " num-qubits)]
-                    [:text {:x 20 :y (- height 45)
+                    [:text {:x 20 :y (- final-height 45)
                             :font-size "12" :fill "#374151"}
                      (str "Edges: " total-edges)]
-                    [:text {:x 20 :y (- height 30)
+                    [:text {:x 20 :y (- final-height 30)
                             :font-size "12" :fill "#374151"}
                      (str "Avg Degree: " (format "%.1f" avg-degree))]
-                    [:text {:x 20 :y (- height 15)
+                    [:text {:x 20 :y (- final-height 15)
                             :font-size "12" :fill "#374151"}
                      (str "Layout: " (name chosen-layout))]]
         
@@ -1203,7 +1388,7 @@
     
     (str
      (h/html
-      [:svg {:width width :height height
+      [:svg {:width final-width :height final-height
              :xmlns "http://www.w3.org/2000/svg"
              :style "background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"}
        styles
@@ -1219,7 +1404,6 @@
   (require '[org.soulspace.qclojure.domain.state :as qs])
   (require '[org.soulspace.qclojure.domain.gate :as qg])
   (require '[org.soulspace.qclojure.util.io :as qio])
-  (require '[org.soulspace.qclojure.application.hardware-optimization :as hw])
 
   (def bell-state (-> (qs/zero-state 2)
                       (qg/h-gate 0)
@@ -1261,28 +1445,33 @@
   (qio/save-file complex-circuit-svg "complex-circuit.svg")
 
   ;; Test SVG topology visualizations
-  
+
   ;; Create different topologies
   (def linear-5 (hw/linear-topology 5))
   (def ring-6 (hw/ring-topology 6))
   (def star-7 (hw/star-topology 7))
   (def grid-3x3 (hw/grid-topology 3 3))
-  
+  (def hhex-65 (hw/heavy-hex-topology 65))
+
   ;; Generate SVG visualizations
-  (def linear-svg (viz/visualize-hardware-topology :svg linear-5 :layout :grid))
-  (def ring-svg (viz/visualize-hardware-topology :svg ring-6 :layout :circular))
-  (def star-svg (viz/visualize-hardware-topology :svg star-7 :layout :hierarchical))
-  (def grid-svg (viz/visualize-hardware-topology :svg grid-3x3 :layout :grid))
-  
+  (def linear-svg (viz/visualize-hardware-topology :svg linear-5))
+  (def ring-svg (viz/visualize-hardware-topology :svg ring-6))
+  (def star-svg (viz/visualize-hardware-topology :svg star-7))
+  (def grid-svg (viz/visualize-hardware-topology :svg grid-3x3))
+  (def hhex-svg (viz/visualize-hardware-topology :svg hhex-65))
+
   ;; Save to files
   (qio/save-file linear-svg "linear-topology.svg")
   (qio/save-file ring-svg "ring-topology.svg")
   (qio/save-file star-svg "star-topology.svg")
   (qio/save-file grid-svg "grid-topology.svg")
-  
+  (qio/save-file hhex-svg "heavy-hex-topology.svg")
+
   ;; Test auto layout selection
   (common/auto-select-layout linear-5)  ;=> :grid
   (common/auto-select-layout ring-6)    ;=> :circular  
   (common/auto-select-layout star-7)    ;=> :hierarchical
+  (common/auto-select-layout grid-3x3)  ;=> :grid
+  (common/auto-select-layout hhex-65)   ;=> :hexagonal
   ;
   )

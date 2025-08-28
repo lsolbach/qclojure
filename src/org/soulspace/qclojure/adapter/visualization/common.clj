@@ -582,11 +582,25 @@
              (>= corner-count 4))) ; At least 4 corners suggests grid
       :grid
       
-      ;; Heavy-hex: characteristic degree 3 pattern with some degree 2
+      ;; Heavy-hex: characteristic pattern with a central high-degree qubit
+      ;; and surrounding qubits with consistent lower degrees
       (and (>= num-qubits 7)
-           (let [deg2-count (count (filter #(= % 2) degrees))
-                 deg3-count (count (filter #(= % 3) degrees))]
-             (and (> deg3-count 0) (> deg2-count 0))))
+           (let [deg-counts (frequencies degrees)
+                 max-deg (apply max degrees)
+                 min-deg (apply min degrees)]
+             (or 
+               ;; Pattern 1: One central qubit (degree 6) with 6 surrounding (degree 3)
+               ;; Like basic heavy-hex: [6 3 3 3 3 3 3]
+               (and (= max-deg 6) (>= min-deg 3) 
+                    (= (get deg-counts 6 0) 1)
+                    (>= (get deg-counts 3 0) 6))
+               
+               ;; Pattern 2: Mix of degree 2 and 3 with some higher degrees
+               ;; Like larger heavy-hex topologies
+               (and (>= max-deg 4) (<= max-deg 7)
+                    (let [deg2-count (get deg-counts 2 0)
+                          deg3-count (get deg-counts 3 0)]
+                      (and (> deg3-count 0) (> deg2-count 0)))))))
       :heavy-hex
       
       ;; Custom topology
@@ -612,7 +626,7 @@
       :ring :circular
       :star :hierarchical
       :grid :grid
-      :heavy-hex :force
+      :heavy-hex :hexagonal
       ;; For unknown topologies, decide based on connectivity density
       (cond
         ;; Star-like: hierarchical layout

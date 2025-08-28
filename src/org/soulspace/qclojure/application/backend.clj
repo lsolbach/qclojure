@@ -927,9 +927,3 @@
                :backend #(satisfies? QuantumBackend %)
                :options (s/? map?))
   :ret map?)
-
-(comment
-  ;; Example usage of the quantum backend protocol
-  
-  ;
-  )

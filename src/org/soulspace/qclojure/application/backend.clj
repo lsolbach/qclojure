@@ -900,8 +900,6 @@
                   :cnot {:noise-type :depolarizing :noise-strength 0.025
                          :t1-time 18.5 :t2-time 15.2 :gate-time 200.0}}
      :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.08}}}
-
-
    ;
    })
 

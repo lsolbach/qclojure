@@ -68,7 +68,7 @@ and generates two different SVG visualizations of this state.
 
 ```clojure
 (require '[org.soulspace.qclojure.domain.state :as qs])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; The plus state, a state in superposition with equal
@@ -76,13 +76,13 @@ and generates two different SVG visualizations of this state.
 qs/|+⟩
 
 ;; Create two SVG visualizations of the plus state 
-(spit "prob-plus-state.svg" (vis/visualize-quantum-state :svg qs/|+⟩))
-(spit "bloch-plus-state.svg" (vis/visualize-bloch-sphere :svg qs/|+⟩))
+(spit "prob-plus-state.svg" (viz/visualize-quantum-state :svg qs/|+⟩))
+(spit "bloch-plus-state.svg" (viz/visualize-bloch-sphere :svg qs/|+⟩))
 ```
+
 #### Visualizations of the Plus State
 ![Bloch Sphere Visualization of the Plus state](/doc/images/bloch-plus-state.svg)
 ![Visualization of the probabilities of the Plus state](/doc/images/prob-plus-state.svg)
-
 
 ### Bell Circuit Example
 This example shows the creation of a quantum circuit in a functional way and
@@ -94,7 +94,7 @@ final state.
 (require '[org.soulspace.qclojure.domain.circuit :as qc])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; Create a Bell state circuit
@@ -110,8 +110,8 @@ final state.
 (:measurement-results result)
 
 ;; Create SVG visualizations for the circuit and the final state
-(spit "bell-circuit.svg" (vis/visualize-circuit :svg circuit))
-(spit "bell-state.svg" (vis/visualize-quantum-state :svg (:final-state result)))
+(spit "bell-circuit.svg" (viz/visualize-circuit :svg circuit))
+(spit "bell-state.svg" (viz/visualize-quantum-state :svg (:final-state result)))
 ```
 
 #### Visualizations of the Bell Circuit and State
@@ -126,7 +126,7 @@ images of the circuit and the final state.
 (require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; Bernstein-Vazirani algorithm example
@@ -138,8 +138,8 @@ images of the circuit and the final state.
 (get-in bv-result [:execution-result :measurement-results])
 
 ;; Create SVG visualizations for the circuit and the final state
-(spit "bv-circuit.svg" (vis/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
-(spit "bv-state.svg" (vis/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
+(spit "bv-circuit.svg" (viz/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
+(spit "bv-state.svg" (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 ```
 
 #### Visualizations of the Bernstein-Varizani Circuit and Final State

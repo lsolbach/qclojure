@@ -8,7 +8,7 @@
             [hiccup2.core :as h]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.adapter.visualization :as viz]
+            [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
 
@@ -71,7 +71,7 @@
         chart-width (- width (:left margin) (:right margin))
         chart-height (- height (:top margin) (:bottom margin))
         bar-width (/ chart-width (max 1 data-count))]
-    
+
     {:margin margin
      :chart-width chart-width
      :chart-height chart-height
@@ -986,6 +986,232 @@
        x-axis
        bars]))))
 
+;;
+;; Hardware Topology Visualization
+;;
+(defn calculate-topology-layout
+  "Calculate optimal layout positions for topology visualization.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  - layout-type: Layout algorithm (:force, :grid, :circular, :hierarchical)
+  - canvas-size: [width height] of the canvas
+  
+  Returns:
+  Vector of [x y] positions for each qubit"
+  [topology layout-type canvas-size]
+  (let [num-qubits (count topology)
+        [width height] canvas-size
+        center-x (/ width 2)
+        center-y (/ height 2)
+        padding 50
+        usable-width (- width (* 2 padding))
+        usable-height (- height (* 2 padding))]
+    
+    (case layout-type
+      :grid
+      (let [cols (int (Math/ceil (Math/sqrt num-qubits)))
+            rows (int (Math/ceil (/ num-qubits cols)))
+            x-step (/ usable-width (max 1 (dec cols)))
+            y-step (/ usable-height (max 1 (dec rows)))]
+        (mapv (fn [i]
+                (let [row (quot i cols)
+                      col (mod i cols)]
+                  [(+ padding (* col x-step))
+                   (+ padding (* row y-step))]))
+              (range num-qubits)))
+      
+      :circular
+      (let [radius (min (/ usable-width 2) (/ usable-height 2))
+            angle-step (/ (* 2 Math/PI) num-qubits)]
+        (mapv (fn [i]
+                (let [angle (* i angle-step)]
+                  [(+ center-x (* radius (Math/cos angle)))
+                   (+ center-y (* radius (Math/sin angle)))]))
+              (range num-qubits)))
+      
+      :force
+      ;; Simple force-directed layout (basic spring model)
+      (let [positions (atom (mapv (fn [_] 
+                                    [(+ padding (rand usable-width))
+                                     (+ padding (rand usable-height))])
+                                  (range num-qubits)))
+            iterations 100
+            spring-length 100
+            spring-strength 0.1
+            repulsion-strength 1000]
+        
+        (dotimes [_ iterations]
+          (let [forces (atom (vec (repeat num-qubits [0 0])))]
+            ;; Calculate spring forces (attractions)
+            (doseq [i (range num-qubits)
+                    j (get topology i)]
+              (when (< j num-qubits)
+                (let [[xi yi] (nth @positions i)
+                      [xj yj] (nth @positions j)
+                      dx (- xj xi)
+                      dy (- yj yi)
+                      distance (Math/sqrt (+ (* dx dx) (* dy dy)))
+                      force-magnitude (* spring-strength (- distance spring-length))]
+                  (when (> distance 0.1)
+                    (let [fx (* force-magnitude (/ dx distance))
+                          fy (* force-magnitude (/ dy distance))]
+                      (swap! forces update i (fn [[fx-old fy-old]] [(+ fx-old fx) (+ fy-old fy)]))
+                      (swap! forces update j (fn [[fx-old fy-old]] [(- fx-old fx) (- fy-old fy)])))))))
+            
+            ;; Calculate repulsion forces
+            (doseq [i (range num-qubits)
+                    j (range (inc i) num-qubits)]
+              (let [[xi yi] (nth @positions i)
+                    [xj yj] (nth @positions j)
+                    dx (- xj xi)
+                    dy (- yj yi)
+                    distance-sq (+ (* dx dx) (* dy dy))
+                    distance (Math/sqrt distance-sq)]
+                (when (> distance 0.1)
+                  (let [force-magnitude (/ repulsion-strength distance-sq)
+                        fx (* force-magnitude (/ dx distance))
+                        fy (* force-magnitude (/ dy distance))]
+                    (swap! forces update i (fn [[fx-old fy-old]] [(- fx-old fx) (- fy-old fy)]))
+                    (swap! forces update j (fn [[fx-old fy-old]] [(+ fx-old fx) (+ fy-old fy)]))))))
+            
+            ;; Apply forces with damping
+            (swap! positions
+                   (fn [pos]
+                     (mapv (fn [i [x y]]
+                             (let [[fx fy] (nth @forces i)
+                                   new-x (max padding (min (- width padding) (+ x (* fx 0.1))))
+                                   new-y (max padding (min (- height padding) (+ y (* fy 0.1))))]
+                               [new-x new-y]))
+                           (range num-qubits)
+                           pos)))))
+        @positions)
+      
+      :hierarchical
+      ;; For star topologies or trees - put high-degree nodes at center
+      (let [degrees (mapv count topology)
+            max-degree (if (empty? degrees) 0 (apply max degrees))
+            central-nodes (keep-indexed (fn [i degree] 
+                                          (when (= degree max-degree) i)) 
+                                        degrees)]
+        (if (= (count central-nodes) 1)
+          ;; Star layout with one center
+          (let [center (first central-nodes)
+                others (remove #(= % center) (range num-qubits))
+                angle-step (/ (* 2 Math/PI) (count others))
+                radius (min (/ usable-width 2) (/ usable-height 2))]
+            (mapv (fn [i]
+                    (if (= i center)
+                      [center-x center-y]
+                      (let [angle (* (.indexOf others i) angle-step)]
+                        [(+ center-x (* radius (Math/cos angle)))
+                         (+ center-y (* radius (Math/sin angle)))])))
+                  (range num-qubits)))
+          ;; Fallback to grid layout
+          (calculate-topology-layout topology :grid canvas-size)))
+      
+      ;; Default: grid layout
+      (calculate-topology-layout topology :grid canvas-size))))
+
+(defmethod viz/visualize-hardware-topology :svg
+  [_format topology & {:keys [width height layout show-labels show-connectivity interactive]
+                       :or {width 600 height 400 layout :auto 
+                            show-labels true show-connectivity true interactive true}}]
+  (let [num-qubits (count topology)
+        ;; Auto-select layout if needed
+        chosen-layout (if (= layout :auto)
+                        (common/auto-select-layout topology)
+                        layout)
+        
+        ;; Reserve space for title and info panel
+        title-height 50
+        info-height 80
+        actual-viz-height (- height title-height info-height)
+        
+        ;; Calculate positions using adjusted dimensions
+        positions (calculate-topology-layout topology chosen-layout [width actual-viz-height])
+        ;; Offset positions to account for title space
+        adjusted-positions (mapv (fn [[x y]] [x (+ y title-height)]) positions)
+        
+        ;; Generate colors for qubits (quantum color scheme)
+        qubit-colors (common/generate-color-palette num-qubits :scheme :quantum)
+        
+        ;; Create edges (connections)
+        edges (when show-connectivity
+                (for [i (range num-qubits)
+                      j (get topology i)
+                      :when (< i j)] ; Avoid duplicate edges
+                  (let [[x1 y1] (nth adjusted-positions i)
+                        [x2 y2] (nth adjusted-positions j)]
+                    [:line {:x1 x1 :y1 y1 :x2 x2 :y2 y2
+                            :stroke "#6b7280" :stroke-width 2 :opacity 0.7}])))
+        
+        ;; Create qubit nodes
+        qubit-nodes (map-indexed
+                     (fn [i [x y]]
+                       (let [color (nth qubit-colors (mod i (count qubit-colors)))
+                             neighbors (get topology i)
+                             degree (count neighbors)]
+                         [:g {:class (when interactive "qubit-node")}
+                          [:circle {:cx x :cy y :r 20
+                                    :fill color :stroke "#ffffff" :stroke-width 3
+                                    :opacity 0.9}
+                           (when interactive
+                             [:title (str "Qubit " i "\nDegree: " degree "\nConnected to: [" (str/join ", " neighbors) "]")])]
+                          (when show-labels
+                            [:text {:x x :y (+ y 5)
+                                    :text-anchor "middle" :font-size "14" :font-weight "bold" 
+                                    :fill "#ffffff"}
+                             (str i)])]))
+                     adjusted-positions)
+        
+        ;; Topology information
+        total-edges (/ (reduce + (map count topology)) 2)
+        avg-degree (/ (reduce + (map count topology)) (double num-qubits))
+        topology-type (case chosen-layout
+                        :hierarchical "Star/Hierarchical"
+                        :circular "Ring/Circular" 
+                        :force "Complex/Force-directed"
+                        :grid "Grid/Regular"
+                        "Custom")
+        
+        ;; Title and info
+        title [:text {:x (/ width 2) :y 30
+                      :text-anchor "middle" :font-size "18" :font-weight "bold" :fill "#111827"}
+               (str "Hardware Topology (" topology-type ")")]
+        
+        info-panel [:g
+                    [:text {:x 20 :y (- height 60)
+                            :font-size "12" :fill "#374151"}
+                     (str "Qubits: " num-qubits)]
+                    [:text {:x 20 :y (- height 45)
+                            :font-size "12" :fill "#374151"}
+                     (str "Edges: " total-edges)]
+                    [:text {:x 20 :y (- height 30)
+                            :font-size "12" :fill "#374151"}
+                     (str "Avg Degree: " (format "%.1f" avg-degree))]
+                    [:text {:x 20 :y (- height 15)
+                            :font-size "12" :fill "#374151"}
+                     (str "Layout: " (name chosen-layout))]]
+        
+        ;; Interactive styles
+        styles (when interactive
+                 [:defs
+                  [:style ".qubit-node:hover circle { stroke-width: 4; opacity: 1; }
+                           .qubit-node:hover text { font-size: 16px; }
+                           text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }"]])]
+    
+    (str
+     (h/html
+      [:svg {:width width :height height
+             :xmlns "http://www.w3.org/2000/svg"
+             :style "background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;"}
+       styles
+       title
+       (seq edges)
+       (seq qubit-nodes)
+       info-panel]))))
+
 (comment
   ;; REPL examples for SVG visualization
 
@@ -993,6 +1219,7 @@
   (require '[org.soulspace.qclojure.domain.state :as qs])
   (require '[org.soulspace.qclojure.domain.gate :as qg])
   (require '[org.soulspace.qclojure.util.io :as qio])
+  (require '[org.soulspace.qclojure.application.hardware-optimization :as hw])
 
   (def bell-state (-> (qs/zero-state 2)
                       (qg/h-gate 0)
@@ -1032,5 +1259,30 @@
         (qc/fredkin-gate 1 2 0)))
   (def complex-circuit-svg (viz/visualize-circuit :svg complex-circuit :interactive true))
   (qio/save-file complex-circuit-svg "complex-circuit.svg")
+
+  ;; Test SVG topology visualizations
+  
+  ;; Create different topologies
+  (def linear-5 (hw/linear-topology 5))
+  (def ring-6 (hw/ring-topology 6))
+  (def star-7 (hw/star-topology 7))
+  (def grid-3x3 (hw/grid-topology 3 3))
+  
+  ;; Generate SVG visualizations
+  (def linear-svg (viz/visualize-hardware-topology :svg linear-5 :layout :grid))
+  (def ring-svg (viz/visualize-hardware-topology :svg ring-6 :layout :circular))
+  (def star-svg (viz/visualize-hardware-topology :svg star-7 :layout :hierarchical))
+  (def grid-svg (viz/visualize-hardware-topology :svg grid-3x3 :layout :grid))
+  
+  ;; Save to files
+  (qio/save-file linear-svg "linear-topology.svg")
+  (qio/save-file ring-svg "ring-topology.svg")
+  (qio/save-file star-svg "star-topology.svg")
+  (qio/save-file grid-svg "grid-topology.svg")
+  
+  ;; Test auto layout selection
+  (common/auto-select-layout linear-5)  ;=> :grid
+  (common/auto-select-layout ring-6)    ;=> :circular  
+  (common/auto-select-layout star-7)    ;=> :hierarchical
   ;
   )

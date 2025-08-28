@@ -14,7 +14,7 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.gate :as qg]
-            [org.soulspace.qclojure.adapter.visualization :as viz]
+            [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]))
 
 ;;; Complex Number Formatting Tests

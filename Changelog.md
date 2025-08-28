@@ -13,11 +13,13 @@
   * `:fidelity` (fidelity analysis)
   * `:sample` (sampling for QPU hardware)
 * changed the return type of execute-circuit to return a map instead of just the state vector to incorporate the result types
-  * use `:final-state` to extract the state-vector
+  * use `(:final-state result)` to extract the state-vector
 * improved QASM2/3 support
   * added missing QClojure gates
   * added result type pragmas for QASM3
   * improved problem reporting
+* added hardware topology visualization
+* moved `visualization` namespace from `adapter` to `application`
 
 ## Version 0.12.0
 * added Quantum Approximate Optimization Algorithm (QAOA) for Max-CUT, Max-SAT and TSP problems

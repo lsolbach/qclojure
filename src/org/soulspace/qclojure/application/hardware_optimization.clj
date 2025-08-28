@@ -5,6 +5,7 @@
    for specific hardware topologies, including qubit routing, SWAP insertion,
    and topology-aware optimization strategies."
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.qubit-optimization :as qo]
             [org.soulspace.qclojure.domain.gate-optimization :as go]
@@ -12,9 +13,9 @@
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]))
 
-;;
-;; Hardware Topology Creation Functions
-;;
+;;;
+;;; Hardware Topology Creation Functions
+;;;
 (defn linear-topology
   "Create a linear hardware topology where qubits are connected in a line.
   
@@ -241,9 +242,9 @@
                                 neighbors)))]
           (ensure-symmetric topology))))))
 
-;;
-;; Hardware Topology Optimization Functions
-;;
+;;;
+;;; Hardware Topology Optimization Functions
+;;;
 (defn validate-topology
   "Validate that a hardware topology is well-formed.
   
@@ -585,8 +586,9 @@
       :total-cost total-cost
       :topology-summary topology-summary})))
 
-;; Topology Analysis and Utility Functions
-
+;;;
+;;; Topology Analysis and Utility Functions
+;;;
 (defn analyze-topology-connectivity
   "Analyze the connectivity properties of a hardware topology.
   
@@ -712,6 +714,9 @@
                                      :operations (vec decomposed-ops))]
           (assoc topo-result :quantum-circuit updated-circuit))))))
 
+;;;
+;;; Full Optimization Pipeline
+;;;
 ;; TODO add more tests for all functions
 (defn optimize
   "Optimization pipeline that handles gate decomposition properly.

@@ -540,38 +540,204 @@
   [circuit]
   (filter #(not= (:operation-type %) :measure) (:operations circuit)))
 
+;;
+;; Hardware Topology Common Functions
+;;
+(defn detect-topology-type
+  "Detect the type of hardware topology based on connectivity patterns.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  
+  Returns:
+  Keyword indicating topology type: :linear, :ring, :star, :grid, :heavy-hex, :custom"
+  [topology]
+  (let [num-qubits (count topology)
+        degrees (mapv count topology)]
+    
+    (cond
+      ;; Single qubit
+      (= num-qubits 1) :single
+      
+      ;; Linear topology: degree 1 at ends, degree 2 in middle
+      (and (>= num-qubits 2)
+           (= (count (filter #(= % 1) degrees)) 2)
+           (every? #(<= % 2) degrees))
+      :linear
+      
+      ;; Ring topology: all qubits have degree 2
+      (and (>= num-qubits 3)
+           (every? #(= % 2) degrees))
+      :ring
+      
+      ;; Star topology: one center with high degree, others with degree 1
+      (and (>= num-qubits 2)
+           (= (count (filter #(= % (dec num-qubits)) degrees)) 1)
+           (= (count (filter #(= % 1) degrees)) (dec num-qubits)))
+      :star
+      
+      ;; Grid topology: regular degree pattern
+      (and (every? #(<= % 4) degrees)
+           (let [corner-count (count (filter #(= % 2) degrees))]
+             (>= corner-count 4))) ; At least 4 corners suggests grid
+      :grid
+      
+      ;; Heavy-hex: characteristic degree 3 pattern with some degree 2
+      (and (>= num-qubits 7)
+           (let [deg2-count (count (filter #(= % 2) degrees))
+                 deg3-count (count (filter #(= % 3) degrees))]
+             (and (> deg3-count 0) (> deg2-count 0))))
+      :heavy-hex
+      
+      ;; Custom topology
+      :else :custom)))
+
+(defn auto-select-layout
+  "Automatically select the best layout algorithm for a topology type.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  
+  Returns:
+  Keyword indicating best layout type (:grid, :circular, :force, :hierarchical, :linear)"
+  [topology]
+  (let [num-qubits (count topology)
+        degrees (mapv count topology)
+        max-degree (if (empty? degrees) 0 (apply max degrees))
+        avg-degree (if (empty? degrees) 0 (/ (reduce + degrees) (double num-qubits)))
+        topology-type (detect-topology-type topology)]
+    
+    (case topology-type
+      :linear :linear
+      :ring :circular
+      :star :hierarchical
+      :grid :grid
+      :heavy-hex :force
+      ;; For unknown topologies, decide based on connectivity density
+      (cond
+        ;; Star-like: hierarchical layout
+        (and (> max-degree (* 0.8 num-qubits))
+             (< avg-degree 2.5))
+        :hierarchical
+        
+        ;; Ring-like: circular layout
+        (and (>= num-qubits 3)
+             (< (Math/abs (- avg-degree 2.0)) 0.5))
+        :circular
+        
+        ;; Dense connectivity: force-directed
+        (> avg-degree 3.0)
+        :force
+        
+        ;; Default: grid layout for sparse topologies
+        :else :grid))))
+
+(defn calculate-topology-summary
+  "Calculate summary information about a topology for display.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  - topology-type: Optional topology type (will be detected if not provided)
+  
+  Returns:
+  Map with summary information:
+  - :type - Topology type keyword
+  - :num-qubits - Number of qubits
+  - :total-edges - Total number of connections
+  - :avg-degree - Average connectivity degree
+  - :connectivity-text - Human-readable connectivity description"
+  [topology & [topology-type]]
+  (let [num-qubits (count topology)
+        total-edges (/ (reduce + (map count topology)) 2)
+        avg-degree (if (> num-qubits 0)
+                     (/ (reduce + (map count topology)) (double num-qubits))
+                     0.0)
+        topo-type (or topology-type (detect-topology-type topology))
+        connectivity-text (str/join ", " 
+                                   (map-indexed (fn [i neighbors]
+                                                  (str i "→[" (str/join "," neighbors) "]"))
+                                                topology))]
+    
+    {:type topo-type
+     :num-qubits num-qubits
+     :total-edges total-edges
+     :avg-degree avg-degree
+     :connectivity-text connectivity-text}))
+
+(defn format-topology-info
+  "Format topology information for display.
+  
+  Parameters:
+  - summary: Topology summary from calculate-topology-summary
+  - show-connectivity: Whether to include detailed connectivity info
+  
+  Returns:
+  Formatted string with topology information"
+  [summary & {:keys [show-connectivity] :or {show-connectivity true}}]
+  (let [{:keys [type num-qubits total-edges avg-degree connectivity-text]} summary]
+    (str "Topology Information:\n"
+         "Type: " (name type) "\n"
+         "Qubits: " num-qubits "\n"
+         "Edges: " total-edges "\n"
+         "Avg Degree: " (format "%.1f" avg-degree)
+         (when show-connectivity
+           (str "\n" "Connectivity: " connectivity-text)))))
+
+(defn choose-layout-for-format
+  "Choose appropriate layout algorithm based on topology and target format.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  - format: Target format (:ascii, :svg)
+  - layout: User-specified layout (:auto for automatic selection)
+  
+  Returns:
+  Keyword indicating chosen layout algorithm"
+  [topology format layout]
+  (if (= layout :auto)
+    (let [auto-layout (auto-select-layout topology)]
+      (case format
+        :ascii (case auto-layout
+                 :circular :grid  ; ASCII doesn't support circular well, use grid
+                 :force :grid     ; ASCII doesn't support force-directed, use grid
+                 :hierarchical :grid ; ASCII star layout uses grid positioning
+                 auto-layout)
+        :svg auto-layout))
+    layout))
+
 (comment
   ;; REPL testing of common utilities
-  
+
   ;; Test state preparation
   (def test-state (qs/zero-state 2))
-  (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0) 
-                                 (fc/complex 0 0) (fc/complex 0.7 0)] 
+  (def bell-like {:state-vector [(fc/complex 0.7 0) (fc/complex 0 0)
+                                 (fc/complex 0 0) (fc/complex 0.7 0)]
                   :num-qubits 2})
-  
+
   ;; Test bar chart data preparation
   (prepare-bar-chart-data bell-like)
-  
+
   ;; Test amplitude formatting
   (format-amplitude-display (fc/complex 0.707 0.0))
   (format-amplitude-display (fc/complex 0.5 -0.3))
-  
+
   ;; Test summary calculations
   (let [probs [0.5 0.3 0.2 0.0]
         labels ["|00⟩" "|01⟩" "|10⟩" "|11⟩"]
         filtered (filter-significant-probabilities probs labels)]
     filtered)
   ;; Test Bloch sphere utilities
-  (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)] 
-                            :num-qubits 1})
+  (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)]
+                           :num-qubits 1})
   (def bloch-coords {:cartesian {:x 0.5 :y 0.5 :z 0.707}
-                      :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
-  
+                     :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
+
   (format-single-qubit-state single-qubit-state)
   (format-bloch-coordinates bloch-coords)
   (calculate-reference-distances bloch-coords)
   (format-reference-distances (calculate-reference-distances bloch-coords))
   (generate-bloch-legend :ascii)
   (prepare-bloch-display-data single-qubit-state bloch-coords)
+  ;
   )
 

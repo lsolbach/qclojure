@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.visualization
+(ns org.soulspace.qclojure.application.visualization
   "Core visualization API - unified interface to quantum visualization tools.
   
   This namespace provides a single entry point for all quantum visualization
@@ -121,6 +121,30 @@
   
   Returns:
   String containing formatted measurement histogram"
+  visualization-format)
+
+(defmulti visualize-hardware-topology
+  "Visualize hardware topology in specified format.
+  
+  Dispatches on format keyword (:ascii, :svg).
+  
+  Parameters:
+  - format: Visualization format (:ascii, :svg)
+  - topology: Hardware topology as vector of vectors (adjacency list)
+  - options: Format-specific visualization options
+    Common options:
+    - :layout - Layout algorithm (:auto, :grid, :circular, :force, :hierarchical)
+    - :show-labels - Whether to show qubit labels (default true)
+    - :show-connectivity - Whether to show connections (default true)
+    - :show-info - Whether to show topology information (default true)
+    ASCII-specific options:
+    - :style - Visualization style (:grid, :linear)
+    SVG-specific options:
+    - :width, :height - Canvas dimensions (default 600x400)
+    - :interactive - Enable hover effects (default true)
+  
+  Returns:
+  String containing formatted topology visualization"
   visualization-format)
 
 (comment

@@ -4,7 +4,7 @@
 
 (comment
 (require '[org.soulspace.qclojure.domain.state :as qs])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; The plus state, a state in superposition with equal
@@ -12,15 +12,15 @@
 qs/|+⟩
 
 ;; Create two SVG visualizations of the plus state 
-(spit "prob-plus-state.svg" (vis/visualize-quantum-state :svg qs/|+⟩))
-(spit "bloch-plus-state.svg" (vis/visualize-bloch-sphere :svg qs/|+⟩))
+(spit "prob-plus-state.svg" (viz/visualize-quantum-state :svg qs/|+⟩))
+(spit "bloch-plus-state.svg" (viz/visualize-bloch-sphere :svg qs/|+⟩))
 )
 
 (comment
 (require '[org.soulspace.qclojure.domain.circuit :as qc])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; Create a Bell state circuit
@@ -36,15 +36,15 @@ qs/|+⟩
 (:measurement-results result)
 
 ;; Create SVG visualizations for the circuit and the final state
-(spit "bell-circuit.svg" (vis/visualize-circuit :svg circuit))
-(spit "bell-state.svg" (vis/visualize-quantum-state :svg (:final-state result)))
+(spit "bell-circuit.svg" (viz/visualize-circuit :svg circuit))
+(spit "bell-state.svg" (viz/visualize-quantum-state :svg (:final-state result)))
 )
 
 (comment
 (require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
 (require '[org.soulspace.qclojure.application.backend :as qb])
 (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
-(require '[org.soulspace.qclojure.adapter.visualization :as vis])
+(require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; Bernstein-Vazirani algorithm example
@@ -56,6 +56,6 @@ qs/|+⟩
 (get-in bv-result [:execution-result :measurement-results])
 
 ;; Create SVG visualizations for the circuit and the final state
-(spit "bv-circuit.svg" (vis/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
-(spit "bv-state.svg" (vis/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
+(spit "bv-circuit.svg" (viz/visualize-circuit :svg (bv/bernstein-vazirani-circuit [1 0 1 0])))
+(spit "bv-state.svg" (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
 )

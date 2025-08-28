@@ -11,9 +11,9 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.adapter.visualization :as viz]
+            [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as vcoord]
-            [org.soulspace.qclojure.adapter.visualization.common :as vcommon]))
+            [org.soulspace.qclojure.adapter.visualization.common :as common]))
 
 (s/def ::quantum-data (s/or :state ::qs/quantum-state
                             :circuit ::qc/quantum-circuit
@@ -169,7 +169,7 @@
    Returns:
    Formatted string with phase details"
   [state [indices labels]]
-  (let [phase-details (vcommon/calculate-phase-info state indices labels)]
+  (let [phase-details (common/calculate-phase-info state indices labels)]
     (str "\nPhases:\n"
          (str/join "\n"
                    (map (fn [detail]
@@ -186,7 +186,7 @@
    Returns:
    Formatted string with amplitude details"
   [state [indices labels]]
-  (let [amp-details (vcommon/extract-amplitude-info state indices labels)]
+  (let [amp-details (common/extract-amplitude-info state indices labels)]
     (str "\nAmplitudes:\n"
          (str/join "\n"
                    (map (fn [detail]
@@ -207,7 +207,7 @@
                                             :max-bars max-bars)
 
         ;; Additional information when requested
-        chart-data (vcommon/prepare-bar-chart-data state
+        chart-data (common/prepare-bar-chart-data state
                                                   :threshold threshold
                                                   :max-bars max-bars)
         summary (:summary chart-data)
@@ -267,13 +267,13 @@
         sphere-string (str/join "\n" (map #(str/join "" %) sphere-chars))
 
         ;; Use common utilities for display data
-        display-data (vcommon/prepare-bloch-display-data state coords
+        display-data (common/prepare-bloch-display-data state coords
                                                         :show-coordinates true
                                                         :show-distances true
                                                         :precision 3
                                                         :format :ascii)
         
-        distance-text (str "Distances: " (vcommon/format-reference-distances (:distances display-data)))]
+        distance-text (str "Distances: " (common/format-reference-distances (:distances display-data)))]
 
     (str "Bloch Sphere Visualization:\n\n"
          sphere-string "\n\n"
@@ -486,8 +486,8 @@
   (let [n-qubits (:num-qubits circuit)
         
         ;; Use common layer assignment functions
-        gates (vcommon/extract-circuit-gates circuit)
-        gate-layer-assignments (vcommon/assign-gates-to-layers gates n-qubits)
+        gates (common/extract-circuit-gates circuit)
+        gate-layer-assignments (common/assign-gates-to-layers gates n-qubits)
         
         ;; Group gates by layer for parallel processing
         gates-by-layer (group-by :layer gate-layer-assignments)
@@ -701,7 +701,7 @@
                     :or {width 40 threshold 0.001 max-bars 16}}]
 
   (let [;; Use common utilities for data extraction and filtering
-        chart-data (vcommon/prepare-bar-chart-data state
+        chart-data (common/prepare-bar-chart-data state
                                                   :threshold threshold
                                                   :max-bars max-bars)
         probabilities (:probabilities chart-data)
@@ -784,6 +784,174 @@
          circuit-section
          complexity-section)))
 
+(defmethod viz/visualize-measurement-histogram :ascii
+  [_format measurements & {:keys [width threshold max-bars show-percentages]
+                          :or {width 40 threshold 1 max-bars 16 show-percentages true}}]
+  (let [;; Use common utilities for data preparation
+        chart-data (common/prepare-measurement-histogram-data measurements
+                                                              :threshold threshold
+                                                              :max-bars max-bars
+                                                              :normalize true) ; Always normalize for ASCII
+        counts (:counts chart-data)
+        labels (:labels chart-data)
+        max-count (:max-count chart-data)
+        total-shots (:total-shots chart-data)
+        
+        ;; Create normalized counts for bar length calculation
+        normalize-count #(if (zero? max-count) 0 (double (/ % max-count)))
+        
+        ;; Bar creation function
+        create-bar (fn [count label]
+                     (let [bar-length (int (* (normalize-count count) width))
+                           bar (str/join (repeat bar-length "█"))
+                           spaces (str/join (repeat (- width bar-length) " "))
+                           percentage (qmath/round-precision (* (double (/ count total-shots)) 100) 1)
+                           percentage-text (if show-percentages
+                                             (str " " percentage "% (" count " shots)")
+                                             (str " " count " shots"))]
+                       (str label ": " bar spaces percentage-text)))
+        
+        ;; Chart header
+        header (str "Measurement Histogram (" total-shots " total shots)\n"
+                   (str/join (repeat (+ width 25) "=")) "\n")
+        
+        ;; Generate bars
+        bars (str/join "\n" (map create-bar counts labels))
+        
+        ;; Summary footer
+        summary (:summary chart-data)
+        footer (str "\n" (str/join (repeat (+ width 25) "=")) "\n"
+                   "Outcomes shown: " (:num-shown summary) "/" (:num-outcomes summary)
+                   " (" (qmath/round-precision (:percentage-shown summary) 1) "%)")]
+    
+    (str header bars footer)))
+
+;;
+;; Hardware Topology Visualization Functions
+;;
+(defn visualize-topology-grid
+  "Create a grid-based ASCII representation of a hardware topology.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  - grid-width: Width of the grid (auto-calculated if nil)
+  - show-connections: Whether to show connection lines (default true)
+  
+  Returns:
+  ASCII string representation of the topology"
+  [topology & {:keys [grid-width show-connections] 
+               :or {show-connections true}}]
+  (let [num-qubits (count topology)
+        ;; Calculate grid dimensions
+        calculated-width (or grid-width (int (Math/ceil (Math/sqrt num-qubits))))
+        grid-height (int (Math/ceil (/ num-qubits calculated-width)))
+        
+        ;; Create empty grid
+        char-grid (vec (repeat (* grid-height 3) ; 3 chars height per row
+                              (vec (repeat (* calculated-width 5) \space)))) ; 5 chars width per column
+        
+        ;; Function to get grid position for a qubit
+        qubit-to-pos (fn [qubit-id]
+                       (let [row (quot qubit-id calculated-width)
+                             col (mod qubit-id calculated-width)]
+                         [(* row 3) (* col 5)]))
+        
+        ;; Place qubits on grid
+        grid-with-qubits (reduce (fn [grid qubit-id]
+                                   (let [[row col] (qubit-to-pos qubit-id)
+                                         qubit-str (if (< qubit-id 10) 
+                                                     (str " " qubit-id " ")
+                                                     (str qubit-id " "))]
+                                     (loop [g grid
+                                            chars (seq qubit-str)
+                                            c col]
+                                       (if (empty? chars)
+                                         g
+                                         (recur (assoc-in g [row c] (first chars))
+                                                (rest chars)
+                                                (inc c))))))
+                                 char-grid
+                                 (range num-qubits))
+        
+        ;; Add connections if requested
+        final-grid (if show-connections
+                     (reduce (fn [grid qubit-id]
+                               (let [neighbors (get topology qubit-id)
+                                     [q-row q-col] (qubit-to-pos qubit-id)]
+                                 (reduce (fn [g neighbor]
+                                           (when (and neighbor (< neighbor num-qubits)) ; Valid neighbor
+                                             (let [[n-row n-col] (qubit-to-pos neighbor)]
+                                               ;; Draw connection line
+                                               (cond
+                                                 ;; Horizontal connection
+                                                 (= q-row n-row)
+                                                 (let [start-col (min (+ q-col 3) (+ n-col 3))
+                                                       end-col (max (+ q-col 3) (+ n-col 3))]
+                                                   (loop [g2 g c start-col]
+                                                     (if (< c end-col)
+                                                       (recur (assoc-in g2 [q-row c] \─) (inc c))
+                                                       g2)))
+                                                 
+                                                 ;; Vertical connection  
+                                                 (= q-col n-col)
+                                                 (let [start-row (min (inc q-row) (inc n-row))
+                                                       end-row (max (inc q-row) (inc n-row))]
+                                                   (loop [g2 g r start-row]
+                                                     (if (< r end-row)
+                                                       (recur (assoc-in g2 [r (+ q-col 1)] \│) (inc r))
+                                                       g2)))
+                                                 
+                                                 ;; Default: just return grid unchanged for diagonal connections
+                                                 :else g)))
+                                           g)
+                                         grid
+                                         neighbors)))
+                             grid-with-qubits
+                             (range num-qubits))
+                     grid-with-qubits)]
+    
+    ;; Convert grid to string
+    (str/join "\n" (map #(str/join "" %) final-grid))))
+
+(defn visualize-topology-linear
+  "Create a linear ASCII representation of a hardware topology.
+  
+  Parameters:
+  - topology: Vector of vectors representing qubit connectivity
+  - horizontal: Whether to layout horizontally (default true)
+  
+  Returns:
+  ASCII string representation of the linear topology"
+  [topology & {:keys [horizontal] :or {horizontal true}}]
+  (let [num-qubits (count topology)]
+    (if horizontal
+      ;; Horizontal layout: 0─1─2─3─4
+      (str/join "─" (map str (range num-qubits)))
+      ;; Vertical layout
+      (str/join "\n│\n" (map str (range num-qubits))))))
+
+(defmethod viz/visualize-hardware-topology :ascii
+  [_format topology & {:keys [layout show-info] 
+                       :or {layout :auto show-info true}}]
+  (let [topology-type (common/detect-topology-type topology)
+        
+        ;; Choose layout based on topology type and user preference
+        chosen-layout (common/choose-layout-for-format topology :ascii layout)
+        
+        ;; Generate the main visualization
+        main-viz (case chosen-layout
+                   :linear (visualize-topology-linear topology)
+                   :grid (visualize-topology-grid topology)
+                   (visualize-topology-grid topology))
+        
+        ;; Add topology information if requested
+        info-text (when show-info
+                     (let [summary (common/calculate-topology-summary topology topology-type)]
+                       (str "\n" (common/format-topology-info summary :show-connectivity true))))]
+    
+    (str "Hardware Topology (" (name topology-type) "):\n"
+         main-viz
+         info-text)))
 (comment
   ;; REPL examples for ASCII visualization
 
@@ -824,45 +992,3 @@
 
   ;
   )
-
-(defmethod viz/visualize-measurement-histogram :ascii
-  [_format measurements & {:keys [width threshold max-bars show-percentages]
-                          :or {width 40 threshold 1 max-bars 16 show-percentages true}}]
-  (let [;; Use common utilities for data preparation
-        chart-data (vcommon/prepare-measurement-histogram-data measurements
-                                                              :threshold threshold
-                                                              :max-bars max-bars
-                                                              :normalize true) ; Always normalize for ASCII
-        counts (:counts chart-data)
-        labels (:labels chart-data)
-        max-count (:max-count chart-data)
-        total-shots (:total-shots chart-data)
-        
-        ;; Create normalized counts for bar length calculation
-        normalize-count #(if (zero? max-count) 0 (double (/ % max-count)))
-        
-        ;; Bar creation function
-        create-bar (fn [count label]
-                     (let [bar-length (int (* (normalize-count count) width))
-                           bar (str/join (repeat bar-length "█"))
-                           spaces (str/join (repeat (- width bar-length) " "))
-                           percentage (qmath/round-precision (* (double (/ count total-shots)) 100) 1)
-                           percentage-text (if show-percentages
-                                             (str " " percentage "% (" count " shots)")
-                                             (str " " count " shots"))]
-                       (str label ": " bar spaces percentage-text)))
-        
-        ;; Chart header
-        header (str "Measurement Histogram (" total-shots " total shots)\n"
-                   (str/join (repeat (+ width 25) "=")) "\n")
-        
-        ;; Generate bars
-        bars (str/join "\n" (map create-bar counts labels))
-        
-        ;; Summary footer
-        summary (:summary chart-data)
-        footer (str "\n" (str/join (repeat (+ width 25) "=")) "\n"
-                   "Outcomes shown: " (:num-shown summary) "/" (:num-outcomes summary)
-                   " (" (qmath/round-precision (:percentage-shown summary) 1) "%)")]
-    
-    (str header bars footer)))

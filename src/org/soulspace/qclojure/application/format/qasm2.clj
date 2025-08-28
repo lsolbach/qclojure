@@ -1,6 +1,7 @@
 (ns org.soulspace.qclojure.application.format.qasm2 
   (:require
     [org.soulspace.qclojure.domain.circuit :as qc]
+    [org.soulspace.qclojure.domain.operation-registry :as gr]
     [clojure.string :as str]))
 
 (defn circuit-to-qasm
@@ -24,6 +25,8 @@
                        (let [gate-type (:operation-type gate)
                              params (:operation-params gate)]
                          (case gate-type
+                           ;; Identity gate (QASM 2.0 compatible)
+                           :i (str "id q[" (:target params) "];")
                            :x (str "x q[" (:target params) "];")
                            :y (str "y q[" (:target params) "];")
                            :z (str "z q[" (:target params) "];")
@@ -34,6 +37,7 @@
                            :t-dag (str "tdg q[" (:target params) "];")
                            :phase (str "p(" (:angle params) ") q[" (:target params) "];")
                            :cnot (str "cx q[" (:control params) "],q[" (:target params) "];")
+                           :cx (str "cx q[" (:control params) "],q[" (:target params) "];") ;; Added cx as alias for cnot
                            :cz (str "cz q[" (:control params) "],q[" (:target params) "];")
                            :cy (str "cy q[" (:control params) "],q[" (:target params) "];")
                            :swap (str "swap q[" (:qubit1 params) "],q[" (:qubit2 params) "];")
@@ -46,7 +50,40 @@
                            :rx (str "rx(" (:angle params) ") q[" (:target params) "];")
                            :ry (str "ry(" (:angle params) ") q[" (:target params) "];")
                            :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
-                           (str "// Unknown gate: " (name gate-type)))))
+
+                           ;; Global gates - decompose to individual gate applications in QASM 2.0
+                           :global-x (str "// Global X gate - decomposed to individual X gates\n"
+                                          (str/join "\n" (map #(str "x q[" % "];") (range (:num-qubits circuit)))))
+                           :global-y (str "// Global Y gate - decomposed to individual Y gates\n"
+                                          (str/join "\n" (map #(str "y q[" % "];") (range (:num-qubits circuit)))))
+                           :global-z (str "// Global Z gate - decomposed to individual Z gates\n"
+                                          (str/join "\n" (map #(str "z q[" % "];") (range (:num-qubits circuit)))))
+                           :global-h (str "// Global Hadamard gate - decomposed to individual H gates\n"
+                                          (str/join "\n" (map #(str "h q[" % "];") (range (:num-qubits circuit)))))
+                           :global-rx (str "// Global RX(" (:angle params) ") gate - decomposed to individual RX gates\n"
+                                           (str/join "\n" (map #(str "rx(" (:angle params) ") q[" % "];") (range (:num-qubits circuit)))))
+                           :global-ry (str "// Global RY(" (:angle params) ") gate - decomposed to individual RY gates\n"
+                                           (str/join "\n" (map #(str "ry(" (:angle params) ") q[" % "];") (range (:num-qubits circuit)))))
+                           :global-rz (str "// Global RZ(" (:angle params) ") gate - decomposed to individual RZ gates\n"
+                                           (str/join "\n" (map #(str "rz(" (:angle params) ") q[" % "];") (range (:num-qubits circuit)))))
+
+                           ;; Rydberg gates - decompose to standard gates in QASM 2.0
+                           :rydberg-cz (str "// Rydberg CZ gate - decomposed to standard CZ\n"
+                                            "cz q[" (:control params) "],q[" (:target params) "];")
+                           :rydberg-cphase (str "// Rydberg controlled phase gate - decomposed to CRZ\n"
+                                                "crz(" (:angle params) ") q[" (:control params) "],q[" (:target params) "];")
+                           :rydberg-blockade (str "// Rydberg blockade gate - cannot be expressed in QASM 2.0\n"
+                                                  "// Requires hardware-specific backend support")
+
+                           ;; Measurement handling
+                           :measure "// Measurement will be handled by final measure statement"
+
+                           ;; Default case - try to get gate info and suggest decomposition
+                           (let [gate-info (gr/get-gate-info gate-type)]
+                             (if gate-info
+                               (str "// QClojure gate: " (:description gate-info) "\n"
+                                    "// Gate type: " (name gate-type) " - requires decomposition for QASM 2.0")
+                               (str "// Unknown gate: " (name gate-type)))))))
 
         gates-qasm (str/join "\n" (map gate-to-qasm (:operations circuit)))
 
@@ -79,14 +116,15 @@
         processed-circuit (reduce
                            (fn [c line]
                              (cond
-                               ;; Parse single-qubit gates (x, y, z, h, s, t, sdg, tdg)
-                               (re-find #"^(x|y|z|h|s|t|sdg|tdg)\s+q\[(\d+)\]" line)
-                               (let [[_ gate-type target] (re-find #"^(x|y|z|h|s|t|sdg|tdg)\s+q\[(\d+)\]" line)
+                               ;; Parse single-qubit gates (x, y, z, h, s, t, sdg, tdg, id)
+                               (re-find #"^(x|y|z|h|s|t|sdg|tdg|id)\s+q\[(\d+)\]" line)
+                               (let [[_ gate-type target] (re-find #"^(x|y|z|h|s|t|sdg|tdg|id)\s+q\[(\d+)\]" line)
                                      target-idx (Integer/parseInt target)
                                      ;; Map QASM gate names to QClojure gate keywords
                                      gate-keyword (case gate-type
                                                     "sdg" :s-dag
                                                     "tdg" :t-dag
+                                                    "id" :i
                                                     (keyword gate-type))]
                                  (qc/add-gate c gate-keyword :target target-idx))
 

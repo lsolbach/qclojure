@@ -1,96 +1,286 @@
 (ns org.soulspace.qclojure.application.format.qasm3
-  "OpenQASM 3.0 conversion functions for quantum circuits.
+  "OpenQASM 3.0 conversion functions for quantum circuits with enhanced result types.
   
   This namespace provides conversion between quantum circuit data structures
   and OpenQASM 3.0 format strings. QASM 3.0 is the latest version of the
-  OpenQASM quantum assembly language with improved syntax and features."
+  OpenQASM quantum assembly language with improved syntax, features, and
+  comprehensive support for result extraction including measurements,
+  expectation values, variance, probability, and observables.
+  
+  Supported QASM 3.0 result extensions:
+  - Basic measurements (c[i] = measure q[i])
+  - Observable expectation values (#pragma result expectation)
+  - Observable variance (#pragma result variance)
+  - Probability distributions (#pragma result probability)
+  - Amplitude extraction for specific states (#pragma result amplitude)
+  - Sample-based measurements with shot specification (#pragma result sample)
+  
+  Note: State vector and density matrix extraction are simulation-only
+  and not included in hardware-compatible QASM output."
   (:require
    [org.soulspace.qclojure.domain.circuit :as qc]
+   [org.soulspace.qclojure.domain.result :as result]
+   [org.soulspace.qclojure.domain.operation-registry :as gr]
    [clojure.string :as str]))
 
+;; Observable and result type conversion utilities
+(defn observable-to-qasm-comment
+  "Convert an observable to a QASM comment for documentation.
+   QASM 3.0 doesn't have native observable syntax yet, so we use comments."
+  [observable]
+  (cond
+    (= observable :pauli-x) "// Observable: Pauli-X"
+    (= observable :pauli-y) "// Observable: Pauli-Y"  
+    (= observable :pauli-z) "// Observable: Pauli-Z"
+    (map? observable) (str "// Observable: " (pr-str observable))
+    :else (str "// Observable: " (str observable))))
+
+(defn result-specs-to-qasm-pragmas
+  "Convert result specifications to QASM 3.0 pragma comments.
+   These provide metadata about what results should be extracted."
+  [result-specs]
+  (when (seq result-specs)
+    (let [pragma-lines
+          (mapcat (fn [[result-type spec]]
+                    (case result-type
+                      :measurements
+                      [(str "#pragma qclojure result measurement shots=" (get spec :shots 1000)
+                            (when-let [qubits (:qubits spec)]
+                              (str " qubits=" (str/join "," qubits))))]
+                      
+                      :expectation
+                      (let [observables (:observables spec [])
+                            targets (:targets spec [])]
+                        (map-indexed 
+                         (fn [idx obs]
+                           (str "#pragma qclojure result expectation observable=" 
+                                (name obs) 
+                                (when (< idx (count targets))
+                                  (str " target=" (nth targets idx)))))
+                         observables))
+                      
+                      :variance  
+                      (let [observables (:observables spec [])
+                            targets (:targets spec [])]
+                        (map-indexed 
+                         (fn [idx obs]
+                           (str "#pragma qclojure result variance observable=" 
+                                (name obs)
+                                (when (< idx (count targets))
+                                  (str " target=" (nth targets idx)))))
+                         observables))
+                      
+                      :probability
+                      [(str "#pragma qclojure result probability"
+                            (when-let [targets (:targets spec)]
+                              (str " targets=" (str/join "," targets)))
+                            (when-let [states (:states spec)]
+                              (str " states=" (str/join "," states))))]
+                      
+                      :amplitude
+                      [(str "#pragma qclojure result amplitude states=" 
+                            (str/join "," (:states spec [])))]
+                      
+                      :sample
+                      (let [observables (:observables spec [])
+                            shots (:shots spec 1000)
+                            targets (:targets spec [])]
+                        (map-indexed 
+                         (fn [idx obs]
+                           (str "#pragma qclojure result sample observable=" 
+                                (name obs) " shots=" shots
+                                (when (< idx (count targets))
+                                  (str " target=" (nth targets idx)))))
+                         observables))
+                      
+                      ;; Skip simulation-only results in hardware QASM
+                      (:state-vector :density-matrix :fidelity)
+                      [(str "// Simulation-only result: " (name result-type))]
+                      
+                      ;; Unknown result type
+                      [(str "// Unknown result type: " (name result-type))]))
+                  result-specs)]
+      (when (seq pragma-lines)
+        (str "\n// Result extraction specifications\n"
+             (str/join "\n" pragma-lines) "\n")))))
+
 (defn circuit-to-qasm
-  "Convert a quantum circuit to OpenQASM 3.0 format.
+  "Convert a quantum circuit to OpenQASM 3.0 format with result type support.
   
   OpenQASM 3.0 is the latest version of the quantum assembly language standard
   with improved syntax, built-in gates, and better type system support.
+  Enhanced with QClojure result extraction pragmas for comprehensive
+  quantum result types including measurements, expectation values, variance,
+  probability distributions, and observables.
   
   Parameters:
   - circuit: Quantum circuit to convert
+  - result-specs: (optional) Map specifying result extraction requirements
   
   Returns:
-  String containing QASM 3.0 code"
-  [circuit]
-  (let [num-qubits (:num-qubits circuit)
-        header (str "OPENQASM 3.0;\n\n"
-                    "qubit[" num-qubits "] q;\n"
-                    "bit[" num-qubits "] c;\n\n")
+  String containing QASM 3.0 code with result pragmas"
+  ([circuit]
+   (circuit-to-qasm circuit nil))
+  ([circuit result-specs]
+   (let [num-qubits (:num-qubits circuit)
+         header (str "OPENQASM 3.0;\n\n"
+                     "qubit[" num-qubits "] q;\n"
+                     "bit[" num-qubits "] c;\n")
 
-        gate-to-qasm (fn [gate]
-                       (let [gate-type (:operation-type gate)
-                             params (:operation-params gate)]
-                         (case gate-type
-                           ;; Single-qubit Pauli gates
-                           :x (str "x q[" (:target params) "];")
-                           :y (str "y q[" (:target params) "];")
-                           :z (str "z q[" (:target params) "];")
-                           
-                           ;; Single-qubit gates
-                           :h (str "h q[" (:target params) "];")
-                           :s (str "s q[" (:target params) "];")
-                           :t (str "t q[" (:target params) "];")
-                           :s-dag (str "sdg q[" (:target params) "];")
-                           :t-dag (str "tdg q[" (:target params) "];")
-                           
-                           ;; Rotation gates
-                           :rx (str "rx(" (:angle params) ") q[" (:target params) "];")
-                           :ry (str "ry(" (:angle params) ") q[" (:target params) "];")
-                           :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
-                           :phase (str "p(" (:angle params) ") q[" (:target params) "];")
-                           
-                           ;; Two-qubit gates
-                           :cnot (str "cx q[" (:control params) "], q[" (:target params) "];")
-                           :cx (str "cx q[" (:control params) "], q[" (:target params) "];")
-                           :cz (str "cz q[" (:control params) "], q[" (:target params) "];")
-                           :cy (str "cy q[" (:control params) "], q[" (:target params) "];")
-                           
-                           ;; Controlled rotation gates
-                           :crx (str "crx(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
-                           :cry (str "cry(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
-                           :crz (str "crz(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
-                           
-                           ;; SWAP gates
-                           :swap (str "swap q[" (:qubit1 params) "], q[" (:qubit2 params) "];")
-                           :iswap (str "iswap q[" (:qubit1 params) "], q[" (:qubit2 params) "];")
-                           
-                           ;; Three-qubit gates
-                           :toffoli (str "ccx q[" (:control1 params) "], q[" (:control2 params) "], q[" (:target params) "];")
-                           :fredkin (str "cswap q[" (:control params) "], q[" (:target1 params) "], q[" (:target2 params) "];")
-                           
-                           ;; Measurement
-                           :measure (let [qubits (:measurement-qubits params)]
-                                      (if (= 1 (count qubits))
-                                        (str "c[" (first qubits) "] = measure q[" (first qubits) "];")
-                                        (str/join "\n" 
-                                                  (map #(str "c[" % "] = measure q[" % "];") qubits))))
-                           
-                           ;; Default case for unknown gates
-                           (str "// Unknown gate: " (name gate-type)))))
+         ;; Add result specifications as pragmas
+         result-pragmas (result-specs-to-qasm-pragmas result-specs)
 
-        gates-qasm (str/join "\n" (map gate-to-qasm (:operations circuit)))]
+         gate-to-qasm (fn [gate]
+                        (let [gate-type (:operation-type gate)
+                              params (:operation-params gate)]
+                          (case gate-type
+                            ;; Identity gate
+                            :i (str "id q[" (:target params) "];")
 
-    (str header gates-qasm)))
+                            ;; Single-qubit Pauli gates
+                            :x (str "x q[" (:target params) "];")
+                            :y (str "y q[" (:target params) "];")
+                            :z (str "z q[" (:target params) "];")
+
+                            ;; Single-qubit gates
+                            :h (str "h q[" (:target params) "];")
+                            :s (str "s q[" (:target params) "];")
+                            :t (str "t q[" (:target params) "];")
+                            :s-dag (str "sdg q[" (:target params) "];")
+                            :t-dag (str "tdg q[" (:target params) "];")
+
+                            ;; Rotation gates
+                            :rx (str "rx(" (:angle params) ") q[" (:target params) "];")
+                            :ry (str "ry(" (:angle params) ") q[" (:target params) "];")
+                            :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
+                            :phase (str "p(" (:angle params) ") q[" (:target params) "];")
+
+                            ;; Two-qubit gates
+                            :cnot (str "cx q[" (:control params) "], q[" (:target params) "];")
+                            :cx (str "cx q[" (:control params) "], q[" (:target params) "];")
+                            :cz (str "cz q[" (:control params) "], q[" (:target params) "];")
+                            :cy (str "cy q[" (:control params) "], q[" (:target params) "];")
+
+                            ;; Controlled rotation gates
+                            :crx (str "crx(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
+                            :cry (str "cry(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
+                            :crz (str "crz(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
+
+                            ;; Controlled gates with single control
+                            :controlled (str "ctrl @ " (:gate params) " q[" (:control params) "], q[" (:target params) "];")
+
+                            ;; SWAP gates
+                            :swap (str "swap q[" (:qubit1 params) "], q[" (:qubit2 params) "];")
+                            :iswap (str "iswap q[" (:qubit1 params) "], q[" (:qubit2 params) "];")
+
+                            ;; Three-qubit gates
+                            :toffoli (str "ccx q[" (:control1 params) "], q[" (:control2 params) "], q[" (:target params) "];")
+                            :fredkin (str "cswap q[" (:control params) "], q[" (:target1 params) "], q[" (:target2 params) "];")
+
+                            ;; Global gates (neutral atom specific) - QASM 3.0 extension
+                            :global-x (str "// Global X gate - apply X to all qubits\n"
+                                           (str/join "\n" (map #(str "x q[" % "];") (range num-qubits))))
+                            :global-y (str "// Global Y gate - apply Y to all qubits\n"
+                                           (str/join "\n" (map #(str "y q[" % "];") (range num-qubits))))
+                            :global-z (str "// Global Z gate - apply Z to all qubits\n"
+                                           (str/join "\n" (map #(str "z q[" % "];") (range num-qubits))))
+                            :global-h (str "// Global Hadamard gate - apply H to all qubits\n"
+                                           (str/join "\n" (map #(str "h q[" % "];") (range num-qubits))))
+                            :global-rx (str "// Global RX(" (:angle params) ") gate - apply RX to all qubits\n"
+                                            (str/join "\n" (map #(str "rx(" (:angle params) ") q[" % "];") (range num-qubits))))
+                            :global-ry (str "// Global RY(" (:angle params) ") gate - apply RY to all qubits\n"
+                                            (str/join "\n" (map #(str "ry(" (:angle params) ") q[" % "];") (range num-qubits))))
+                            :global-rz (str "// Global RZ(" (:angle params) ") gate - apply RZ to all qubits\n"
+                                            (str/join "\n" (map #(str "rz(" (:angle params) ") q[" % "];") (range num-qubits))))
+
+                            ;; Rydberg gates (neutral atom specific) - QASM 3.0 extension
+                            ;; These are hardware-specific and decompose to standard gates in QASM
+                            :rydberg-cz (str "// Rydberg CZ gate - decomposed to standard CZ\n"
+                                             "cz q[" (:control params) "], q[" (:target params) "];")
+                            :rydberg-cphase (str "// Rydberg controlled phase gate - decomposed to CRZ\n"
+                                                 "crz(" (:angle params) ") q[" (:control params) "], q[" (:target params) "];")
+                            :rydberg-blockade (str "// Rydberg blockade gate - hardware specific\n"
+                                                   "// Cannot be directly expressed in standard QASM\n"
+                                                   "// Requires hardware-specific backend support")
+
+                            ;; Measurement
+                            :measure (let [qubits (:measurement-qubits params)]
+                                       (if (= 1 (count qubits))
+                                         (str "c[" (first qubits) "] = measure q[" (first qubits) "];")
+                                         (str/join "\n"
+                                                   (map #(str "c[" % "] = measure q[" % "];") qubits))))
+
+                            ;; Default case for unknown gates - try to get decomposition info
+                            (let [gate-info (gr/get-gate-info gate-type)]
+                              (if gate-info
+                                (str "// QClojure gate: " (:description gate-info) "\n"
+                                     "// Gate type: " (name gate-type) " - requires decomposition")
+                                (str "// Unknown gate: " (name gate-type)))))))
+
+         gates-qasm (str/join "\n" (map gate-to-qasm (:operations circuit)))]
+
+    (str header 
+         result-pragmas
+         "\n"
+         gates-qasm))))
+
+;; QASM 3.0 pragma parsing utilities
+(defn parse-result-pragma
+  "Parse a QClojure result pragma from QASM 3.0 comment.
+   
+   Example pragmas:
+   #pragma qclojure result measurement shots=1000 qubits=0,1
+   #pragma qclojure result expectation observable=pauli-z target=0
+   #pragma qclojure result variance observable=pauli-x target=1"
+  [pragma-line]
+  (when (str/starts-with? pragma-line "#pragma qclojure result")
+    (let [parts (str/split pragma-line #"\s+")
+          result-type (keyword (nth parts 3 nil))]
+      (when result-type
+        (let [param-pairs (drop 4 parts)
+              params (into {} (map (fn [pair]
+                                     (let [[k v] (str/split pair #"=" 2)]
+                                       [(keyword k) 
+                                        (cond
+                                          (re-matches #"\d+" v) (Long/parseLong v)
+                                          (str/includes? v ",") (mapv str/trim (str/split v #","))
+                                          :else v)]))
+                                   param-pairs))]
+          [result-type params])))))
+
+(defn collect-result-specs-from-qasm
+  "Collect all result specifications from QASM pragma comments."
+  [qasm-lines]
+  (let [pragmas (filter #(str/starts-with? (str/trim %) "#pragma qclojure result") qasm-lines)
+        parsed-pragmas (keep parse-result-pragma pragmas)]
+    (reduce (fn [specs [result-type params]]
+              (update specs result-type 
+                      (fn [existing]
+                        (if existing
+                          (cond
+                            ;; Merge observables and targets for expectation/variance/sample
+                            (#{:expectation :variance :sample} result-type)
+                            (-> existing
+                                (update :observables (fnil conj []) (:observable params))
+                                (update :targets (fnil conj []) (:target params)))
+                            
+                            ;; Replace for other types
+                            :else params)
+                          params))))
+            {} parsed-pragmas)))
 
 (defn qasm-to-circuit
-  "Convert OpenQASM 3.0 code to a quantum circuit.
+  "Convert OpenQASM 3.0 code to a quantum circuit with result specifications.
   
   This function parses OpenQASM 3.0 code and constructs a quantum circuit
-  object. It supports the basic gates and measurements defined in QASM 3.0.
+  object. It supports the basic gates and measurements defined in QASM 3.0,
+  plus QClojure result extraction pragmas.
   
   Parameters:
   - qasm: String containing OpenQASM 3.0 code
   
   Returns:
-  Quantum circuit object"
+  Map with :circuit (quantum circuit object) and :result-specs (parsed result specifications)"
   [qasm]
   (let [lines (str/split-lines qasm)
         ;; Parse the number of qubits from qubit declaration
@@ -100,20 +290,24 @@
                         Integer/parseInt)
         ;; Create empty circuit
         circuit (qc/create-circuit num-qubits "Converted Circuit")
+        
+        ;; Collect result specifications from pragmas
+        result-specs (collect-result-specs-from-qasm lines)
 
         ;; Process each line to add gates
         processed-circuit (reduce
                            (fn [c line]
                              (let [line (str/trim line)]
                                (cond
-                                 ;; Parse single-qubit gates (x, y, z, h, s, t, sdg, tdg)
-                                 (re-find #"^(x|y|z|h|s|t|sdg|tdg)\s+q\[(\d+)\]" line)
-                                 (let [[_ gate-type target] (re-find #"^(x|y|z|h|s|t|sdg|tdg)\s+q\[(\d+)\]" line)
+                                 ;; Parse single-qubit gates (x, y, z, h, s, t, sdg, tdg, id)
+                                 (re-find #"^(x|y|z|h|s|t|sdg|tdg|id)\s+q\[(\d+)\]" line)
+                                 (let [[_ gate-type target] (re-find #"^(x|y|z|h|s|t|sdg|tdg|id)\s+q\[(\d+)\]" line)
                                        target-idx (Integer/parseInt target)
                                        ;; Map QASM gate names to QClojure gate keywords
                                        gate-keyword (case gate-type
                                                       "sdg" :s-dag
                                                       "tdg" :t-dag
+                                                      "id" :i
                                                       (keyword gate-type))]
                                    (qc/add-gate c gate-keyword :target target-idx))
 
@@ -198,4 +392,5 @@
                                  :else c)))
                            circuit
                            lines)]
-    processed-circuit))
+    {:circuit processed-circuit
+     :result-specs result-specs}))

@@ -150,20 +150,20 @@
         :basic
         ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
         ;; Based on IBM's actual heavy-hex topology where qubits have degree 2 or 3
-        ;; Layout:    1
-        ;;           / \
-        ;;          0   2
+        ;; Layout:  0 
+        ;;          |
+        ;;          1---2
         ;;         /     \
         ;;        6       3
         ;;         \     /
         ;;          5---4
-        (let [topology [[1 6]              ; 0: corner qubit, degree 2
-                        [0 2]              ; 1: corner qubit, degree 2  
+        (let [topology [[1]                ; 0: edge qubit, degree 1
+                        [0 2 6]            ; 1: Connection qubit, degree 3  
                         [1 3]              ; 2: corner qubit, degree 2
                         [2 4]              ; 3: corner qubit, degree 2
                         [3 5]              ; 4: corner qubit, degree 2
                         [4 6]              ; 5: corner qubit, degree 2
-                        [5 0]]]            ; 6: corner qubit, degree 2
+                        [5 1]]]            ; 6: corner qubit, degree 2
           (ensure-symmetric topology))
 
         :falcon

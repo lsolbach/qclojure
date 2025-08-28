@@ -12,7 +12,10 @@
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
-;; Specs for hardware interface
+;;;
+;;; Specs for backend protocol
+;;;
+;; Specs for general backend protocol
 (s/def ::backend-type #{:simulator :hardware :cloud})
 (s/def ::backend-name string?)
 (s/def ::backend-config map?)
@@ -82,7 +85,9 @@
 
 ;; TODO add option to initialize backend with an initial state
 
-;; Protocol for quantum hardware backends
+;;;
+;;; Protocol for quantum computing backends (simulators, hardware, cloud services)
+;;;
 (defprotocol QuantumBackend
   "Protocol for quantum computing hardware backends.
   
@@ -125,7 +130,9 @@
   (get-queue-status [this]
     "Get information about the current job queue."))
 
-;; Enhanced protocol for cloud quantum backends
+;;;
+;;; Protocol for cloud quantum backends
+;;;
 (defprotocol CloudQuantumBackend
   "Extended protocol for cloud-based quantum computing backends.
   
@@ -200,7 +207,9 @@
     
     Returns: Map of individual job results"))
 
-;; High-level execution functions
+;;;
+;;; High-level execution functions
+;;;
 (defn execute-circuit
   "Execute a quantum circuit on the specified backend.
   
@@ -304,7 +313,9 @@
                  (Thread/sleep 100)
                  (recur))))))))))
 
-;; Utility functions for working with measurement results
+;;;
+;;; Utility functions for working with measurement results
+;;;
 (defn analyze-measurement-results
   "Analyze measurement results and compute statistics.
   
@@ -330,7 +341,9 @@
                                    (if (zero? p) 0 (* p (Math/log p))))
                                (vals probabilities))))}))
 
-;; Cloud backend utility functions
+;;;
+;;; Cloud backend utility functions
+;;;
 (defn cloud-backend?
   "Check if a backend is a cloud backend.
   
@@ -448,7 +461,9 @@
      :individual-estimates estimates
      :circuit-count (count circuit-list)}))
 
-;; Gate support utility functions
+;;;
+;;; Gate support utility functions
+;;;
 (defn supports-gate?
   "Check if a backend supports a specific gate.
   

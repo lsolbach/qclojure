@@ -7,9 +7,7 @@
   - Circuit fidelity estimation  
   - Platform comparison and benchmarking
   - Hardware-aware noise modeling
-  
-  These functions were moved from the noisy simulator backend to make them
-  available for broader use cases throughout the quantum computing stack."
+  - Realistic simulation of quantum algorithms under noise"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.channel :as channel]
@@ -42,10 +40,9 @@
 (s/def ::noise-model
   (s/keys :opt-un [::gate-noise ::readout-error]))
 
-;;
-;; Gate Noise Application Functions
-;;
-
+;;;
+;;; Gate Noise Application Functions
+;;;
 (defn apply-gate-noise
   "Apply noise model during gate operation.
   
@@ -184,21 +181,20 @@
                           clean-bitstring)]
     final-bitstring))
 
-  ;;
-  ;; Circuit Fidelity Analysis Functions
-  ;;
-
+  ;;;
+  ;;; Circuit Fidelity Analysis Functions
+  ;;;
   (defn estimate-circuit-fidelity
     "Estimate the overall fidelity of a circuit under given noise model.
   
-  This provides a rough estimate based on gate counts and noise strengths,
-  useful for circuit optimization and platform comparison.
+    This provides a rough estimate based on gate counts and noise strengths,
+    useful for circuit optimization and platform comparison.
   
-  Parameters:
-  - circuit: Quantum circuit to analyze
-  - noise-model: Noise model configuration
+    Parameters:
+    - circuit: Quantum circuit to analyze
+    - noise-model: Noise model configuration
   
-  Returns: Map with fidelity estimates and error analysis"
+    Returns: Map with fidelity estimates and error analysis"
     [circuit noise-model]
     {:pre [(s/valid? ::qc/quantum-circuit circuit)
            (s/valid? ::noise-model noise-model)]}
@@ -219,23 +215,22 @@
                                                [gate-type (* count (get-in noise-model [:gate-noise gate-type :noise-strength] 0.0))])
                                              gate-counts))}))
 
-  ;;
-  ;; Platform Comparison Functions
-  ;;
-
+  ;;;
+  ;;; Platform Comparison Functions
+  ;;;
   (defn compare-hardware-platforms
     "Compare circuit fidelity across different quantum hardware platforms.
   
-  This function is valuable for:
-  - Selecting the best platform for a given circuit
-  - Understanding platform-specific error characteristics
-  - Circuit design optimization for specific hardware
+    This function is valuable for:
+    - Selecting the best platform for a given circuit
+    - Understanding platform-specific error characteristics
+    - Circuit design optimization for specific hardware
   
-  Parameters:
-  - circuit: Quantum circuit to analyze
-  - platform-models: Map of platform names to noise models
+    Parameters:
+    - circuit: Quantum circuit to analyze
+    - platform-models: Map of platform names to noise models
   
-  Returns: Map of platform comparisons with fidelity estimates and characteristics"
+    Returns: Map of platform comparisons with fidelity estimates and characteristics"
     [circuit platform-models]
     {:pre [(s/valid? ::qc/quantum-circuit circuit)
            (map? platform-models)]}
@@ -260,21 +255,20 @@
                                              :else :unknown)})]))
                platform-models)))
 
-  ;;
-  ;; Utility Functions for Error Mitigation
-  ;;
-
+  ;;;
+  ;;; Utility Functions for Error Mitigation
+  ;;;
   (defn noise-aware-circuit-depth
     "Calculate effective circuit depth considering noise accumulation.
   
-  This metric accounts for how noise accumulates through circuit layers,
-  providing a more realistic assessment than gate count alone.
+    This metric accounts for how noise accumulates through circuit layers,
+    providing a more realistic assessment than gate count alone.
   
-  Parameters:
-  - circuit: Quantum circuit to analyze
-  - noise-model: Noise model for depth calculation
+    Parameters:
+    - circuit: Quantum circuit to analyze
+    - noise-model: Noise model for depth calculation
   
-  Returns: Effective depth considering noise accumulation"
+    Returns: Effective depth considering noise accumulation"
     [circuit noise-model]
     {:pre [(s/valid? ::qc/quantum-circuit circuit)
            (s/valid? ::noise-model noise-model)]}
@@ -290,12 +284,12 @@
   (defn recommend-error-mitigation
     "Recommend error mitigation strategies based on circuit and noise analysis.
   
-  Parameters:
-  - circuit: Quantum circuit to analyze
-  - noise-model: Hardware noise model
-  - options: Analysis options
+    Parameters:
+    - circuit: Quantum circuit to analyze
+    - noise-model: Hardware noise model
+    - options: Analysis options
   
-  Returns: Map with recommended mitigation strategies"
+    Returns: Map with recommended mitigation strategies"
     [circuit noise-model & [options]]
     {:pre [(s/valid? ::qc/quantum-circuit circuit)
            (s/valid? ::noise-model noise-model)]}

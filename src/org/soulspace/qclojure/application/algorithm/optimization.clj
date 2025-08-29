@@ -101,7 +101,7 @@
   
   See also: `org.soulspace.qclojure.application.algorithm.vqe` for usage in VQE."
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.optimization :as opt]
             [org.soulspace.qclojure.domain.math.core :as mcore]
             [org.soulspace.qclojure.domain.circuit :as qc]
@@ -161,7 +161,7 @@
   Returns:
   Gradient value for the specified parameter"
   ([objective-fn parameters param-index]
-   (parameter-shift-gradient objective-fn parameters param-index (/ m/PI 2)))
+   (parameter-shift-gradient objective-fn parameters param-index (/ fm/PI 2)))
   ([objective-fn parameters param-index shift]
    (let [params-plus (assoc parameters param-index
                             (+ (nth parameters param-index) shift))
@@ -189,10 +189,10 @@
   [objective-fn parameters param-types options]
   (mapv (fn [i param-type]
           (let [shift (case param-type
-                        :rotation (/ m/PI 2)      ; Standard π/2 for rotations
-                        :amplitude (/ m/PI 4)     ; Smaller shift for amplitudes  
-                        :phase (/ m/PI 2)         ; Standard for phases
-                        (/ m/PI 2))]              ; Default
+                        :rotation (/ fm/PI 2)      ; Standard π/2 for rotations
+                        :amplitude (/ fm/PI 4)     ; Smaller shift for amplitudes  
+                        :phase (/ fm/PI 2)         ; Standard for phases
+                        (/ fm/PI 2))]              ; Default
             (parameter-shift-gradient objective-fn parameters i shift)))
         (range (count parameters))
         param-types))
@@ -212,7 +212,7 @@
   ([objective-fn parameters]
    (calculate-parameter-shift-gradient objective-fn parameters {}))
   ([objective-fn parameters options]
-   (let [shift (:shift options (/ m/PI 2))
+   (let [shift (:shift options (/ fm/PI 2))
          parallel? (:parallel? options true)]
      (if parallel?
        ;; Use pmap for parallel computation of gradients
@@ -298,11 +298,11 @@
               new-v (mapv #(+ (* beta2 %1) (* (- 1 beta2) %2 %2)) v-vec gradient)
 
               ;; Bias correction
-              m-corrected (mapv #(/ % (- 1 (m/pow beta1 iteration))) new-m)
-              v-corrected (mapv #(/ % (- 1 (m/pow beta2 iteration))) new-v)
+              m-corrected (mapv #(/ % (- 1 (fm/pow beta1 iteration))) new-m)
+              v-corrected (mapv #(/ % (- 1 (fm/pow beta2 iteration))) new-v)
 
               ;; Parameter update
-              new-params (mapv #(- %1 (* learning-rate (/ %2 (+ (m/sqrt %3) epsilon))))
+              new-params (mapv #(- %1 (* learning-rate (/ %2 (+ (fm/sqrt %3) epsilon))))
                                params m-corrected v-corrected)
 
               ;; Energy evaluation
@@ -418,7 +418,7 @@
   Returns:
   Map representing the state derivative"
   [ansatz-fn backend parameters param-index options]
-  (let [shift (/ m/PI 2)
+  (let [shift (/ fm/PI 2)
         ;; Create shifted parameter vectors
         params-plus (assoc parameters param-index
                            (+ (nth parameters param-index) shift))

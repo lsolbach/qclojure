@@ -309,7 +309,7 @@
                                          :let [count1 (get measurement-results state 0)
                                                count2 (get measurement-results swapped-state 0)
                                                relative-diff (if (pos? total-shots)
-                                                               (/ (Math/abs (- count1 count2)) total-shots)
+                                                               (/ (abs (- count1 count2)) total-shots)
                                                                0.0)]
                                          :when (> relative-diff 0.05)]
                                      {:type :permutation-violation
@@ -351,7 +351,7 @@
                                    count2 (get measurement-results state2 0)
                                    expected-avg (/ (+ count1 count2) 2.0)
                                    difference (if (pos? total-shots)
-                                                (/ (Math/abs (- count1 count2)) total-shots)
+                                                (/ (abs (- count1 count2)) total-shots)
                                                 0.0)]
                              :when (> difference 0.05)] ; Configurable threshold
                          {:type :permutation-violation
@@ -442,7 +442,7 @@
           violations (for [triplet rotation-triplets
                            :let [counts (map #(get measurement-results % 0) triplet)
                                  avg-count (/ (reduce + counts) 3.0)
-                                 max-deviation (apply max (map #(Math/abs (- % avg-count)) counts))
+                                 max-deviation (apply max (map #(abs (- % avg-count)) counts))
                                  relative-deviation (if (pos? total-shots)
                                                       (/ max-deviation total-shots)
                                                       0.0)]
@@ -652,12 +652,12 @@
         ;; Enhanced parity violation detection
         parity-tolerance (get-in config [:thresholds :parity-tolerance])
         violations (if (and has-parity-preserving-circuit?
-                            (< (Math/abs parity-expectation) parity-tolerance))
+                            (< (abs parity-expectation) parity-tolerance))
                      (conj violations {:type :unexpected-parity-loss
                                       :expected (str "Non-zero parity expectation (±" parity-tolerance ")")
                                       :actual parity-expectation
                                       :confidence-interval (:confidence-interval parity-analysis)
-                                      :severity (cond (< (Math/abs parity-expectation) (/ parity-tolerance 2)) :high
+                                      :severity (cond (< (abs parity-expectation) (/ parity-tolerance 2)) :high
                                                       :else :medium)
                                       :suggestion "Check for decoherence or systematic measurement errors"})
                      violations)
@@ -674,7 +674,7 @@
                                     (let [;; For reflection symmetry, we expect |01⟩ and |10⟩ to have equal populations
                                           expected-01 (/ (+ state-01 state-10) 2.0)
                                           expected-10 expected-01
-                                          reflection-violation (/ (Math/abs (- state-01 state-10)) total)
+                                          reflection-violation (/ (abs (- state-01 state-10)) total)
                                           symmetry-score (- 1.0 reflection-violation)
                                           
                                           ;; Chi-squared test for the reflection symmetry hypothesis
@@ -703,7 +703,7 @@
                                                        :let [count1 (get measurement-results state1 0)
                                                              count2 (get measurement-results state2 0)
                                                              violation (if (pos? total-shots)
-                                                                         (/ (Math/abs (- count1 count2)) total-shots)
+                                                                         (/ (abs (- count1 count2)) total-shots)
                                                                          0.0)]
                                                        :when (> violation 0.05)]
                                                    {:states [state1 state2]
@@ -739,7 +739,7 @@
                                                      :let [count1 (get measurement-results state1 0)
                                                            count2 (get measurement-results state2 0)
                                                            violation (if (pos? total-shots)
-                                                                       (/ (Math/abs (- count1 count2)) total-shots)
+                                                                       (/ (abs (- count1 count2)) total-shots)
                                                                        0.0)]
                                                      :when (> violation 0.1)]
                                                  {:states [state1 state2]
@@ -790,7 +790,7 @@
         
         ;; Compute overall symmetry score with enhanced weighting and sensitivity
         overall-score (let [;; Normalize all component scores to [0,1] range
-                            parity-component (Math/abs parity-expectation)
+                            parity-component (abs parity-expectation)
                             reflection-component reflection-symmetry-score
                             permutation-component (:score permutation-analysis)
                             rotational-component (:score rotational-analysis)

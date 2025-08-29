@@ -1,16 +1,10 @@
 (ns org.soulspace.qclojure.adapter.backend.noisy-simulator-test
   "Comprehensive tests for the local noisy simulator backend."
   (:require [clojure.test :refer [deftest is testing use-fixtures run-tests]]
-            [fastmath.core :as m]
-            [fastmath.complex :as fc] 
             [org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.application.noise :as noise]
-            [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]
-            [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.util.test :as util]))
 
 ;; Test fixtures

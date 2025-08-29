@@ -6,7 +6,7 @@
   containing formatted ASCII art representations."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
@@ -52,7 +52,7 @@
               (if (< mag threshold)
                 "0"
                 (str (qmath/round-precision mag precision)
-                     "∠" (qmath/round-precision (m/degrees phase) 1) "°"))))))
+                     "∠" (qmath/round-precision (fm/degrees phase) 1) "°"))))))
 
 (defn format-quantum-state
   "Format quantum state for human-readable display.
@@ -245,20 +245,20 @@
                        (for [col (range -16 17)]
                          (let [x-sphere (/ col 2.0)  ; Account for character aspect ratio
                                y-sphere (- row)
-                               dist-from-center (m/sqrt (+ (* x-sphere x-sphere) (* y-sphere y-sphere)))]
+                               dist-from-center (fm/sqrt (+ (* x-sphere x-sphere) (* y-sphere y-sphere)))]
                            (cond
                              ;; Draw the state point
-                             (and (< (m/abs (- x-sphere (* x radius))) 1)
-                                  (< (m/abs (- y-sphere (* z radius))) 1))
+                             (and (< (fm/abs (- x-sphere (* x radius))) 1)
+                                  (< (fm/abs (- y-sphere (* z radius))) 1))
                              "●"
 
                              ;; Draw sphere outline
-                             (and (< (m/abs (- dist-from-center radius)) 0.8)
+                             (and (< (fm/abs (- dist-from-center radius)) 0.8)
                                   (>= dist-from-center (- radius 0.8)))
                              "·"
 
                              ;; Draw coordinate axes
-                             (and (< (m/abs x-sphere) 0.5) (< (m/abs y-sphere) 0.5))
+                             (and (< (fm/abs x-sphere) 0.5) (< (fm/abs y-sphere) 0.5))
                              "+"
 
                              ;; Empty space

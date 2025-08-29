@@ -100,7 +100,7 @@
       (is (= 3 (count (:probabilities result))))
       (is (= [0.5 0.3 0.15] (:probabilities result)))
       (is (= ["|00⟩" "|01⟩" "|10⟩"] (:labels result)))
-      (is (< (Math/abs (- 0.95 (:total-shown result))) 0.0001)) ; Account for floating point precision
+      (is (< (abs (- 0.95 (:total-shown result))) 0.0001)) ; Account for floating point precision
       (is (= 2 (:n-hidden result)))))
   
   (testing "Max count limitation"

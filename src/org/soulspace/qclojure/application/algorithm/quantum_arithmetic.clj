@@ -16,7 +16,7 @@
    - Resource-efficient (minimizing ancilla qubits)
    - Fault-tolerant ready (structured for error correction)
    - Modular and composable"
-  (:require [fastmath.core :as m]
+  (:require [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 

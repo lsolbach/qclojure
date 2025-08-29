@@ -2,7 +2,7 @@
   "Core quantum state representation and operations"
   (:require [clojure.string :as str]
             [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.math.core :as mcore]))
 
@@ -29,7 +29,7 @@
    String representation of the computational basis state in binary format."
   ([value]
    (if (number? value)
-     (basis-string value (m/log2int value))
+     (basis-string value (fm/log2int value))
      (basis-string value (count value))))
   ([value n-qubits]
    (let [binary-string (cond (number? value)
@@ -176,7 +176,7 @@
   [amplitude]
   {:pre [(s/valid? ::complex-amplitude amplitude)]
    :post [(s/valid? ::quantum-state %)]}
-  (let [norm (m/sqrt (+ (fc/abs amplitude) (fc/abs (- 1 amplitude))))]
+  (let [norm (fm/sqrt (+ (fc/abs amplitude) (fc/abs (- 1 amplitude))))]
     {:state-vector [(fc/complex (/ (fc/abs amplitude) norm) 0)
                     (fc/complex (/ (fc/abs (- 1 amplitude)) norm) 0)]
      :num-qubits 1}))
@@ -206,7 +206,7 @@
   {:pre [(every? #(s/valid? ::complex-amplitude %) amplitudes)]
    ;:post [(s/valid? ::quantum-state %)]
    }
-  (let [num-qubits (max 1 (m/log2int (count amplitudes)))
+  (let [num-qubits (max 1 (fm/log2int (count amplitudes)))
         state-vector amplitudes]
     {:state-vector state-vector
      :num-qubits num-qubits}))
@@ -283,7 +283,7 @@
   (plus-state)
   ;=> {:state-vector [0.707+0i, 0.707+0i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
      :num-qubits 1}))
 
@@ -307,7 +307,7 @@
   (minus-state)
   ;=> {:state-vector [0.707+0i, -0.707+0i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
      :num-qubits 1}))
 
@@ -330,7 +330,7 @@
   (plus-i-state)
   ;=> {:state-vector [0.707+0i, 0+0.707i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 sqrt2-inv)]
      :num-qubits 1}))
 
@@ -353,7 +353,7 @@
   (minus-i-state)
   ;=> {:state-vector [0.707+0i, 0-0.707i], :num-qubits 1}"
   []
-  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 (- sqrt2-inv))]
      :num-qubits 1}))
 
@@ -528,7 +528,7 @@
   (let [trace (mcore/trace rho)
         eps (mcore/current-tolerance)
         trace-real (fc/re trace)]  ; Extract real part of complex trace
-    (< (m/abs (- trace-real 1.0)) eps)))
+    (< (fm/abs (- trace-real 1.0)) eps)))
 
 (defn probabilities
   "Calculate the probabilities from the amplitudes of a quantum state.
@@ -569,7 +569,7 @@
             total (reduce + probs)
             eps (mcore/current-tolerance)
             probs (if (and (pos? total)
-                           (> (m/abs (- total 1.0)) eps))
+                           (> (fm/abs (- total 1.0)) eps))
                     ;; normalize to ensure Tr(ρ)=1
                     (mapv #(/ % total) probs)
                     probs)
@@ -721,7 +721,7 @@
         probabilities (mapv #(let [amp-mag (fc/abs %)] (* amp-mag amp-mag)) amplitudes)
         total-prob (reduce + probabilities)
         ;; Verify normalization (allowing for small numerical errors)
-        _ (when (> (Math/abs (- total-prob 1.0)) 1e-8)
+        _ (when (> (abs (- total-prob 1.0)) 1e-8)
             (throw (ex-info "State is not properly normalized"
                             {:total-probability total-prob})))
         cumulative-probs (reductions + probabilities)
@@ -824,7 +824,7 @@
 
         ;; Renormalize the collapsed state
         normalization-factor (if (> selected-probability 0)
-                               (/ 1.0 (m/sqrt selected-probability))
+                               (/ 1.0 (fm/sqrt selected-probability))
                                1.0)
         normalized-amplitudes (mapv #(fc/mult % (fc/complex normalization-factor 0)) collapsed-amplitudes)
 
@@ -870,20 +870,20 @@
           ;; 2-qubit case: trace out specified qubit
           (if (= trace-qubit 1)
             ;; Trace out second qubit: |00⟩ + |01⟩ -> |0⟩, |10⟩ + |11⟩ -> |1⟩
-            (let [amp0 (m/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
+            (let [amp0 (fm/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
                                   (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
-                  amp1 (m/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
+                  amp1 (fm/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
                                   (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)])
             ;; Trace out first qubit: |00⟩ + |10⟩ -> |0⟩, |01⟩ + |11⟩ -> |1⟩  
-            (let [amp0 (m/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
+            (let [amp0 (fm/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
                                   (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
-                  amp1 (m/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
+                  amp1 (fm/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
                                   (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)]))
           ;; For higher dimensions, use a simplified approach
           ;; This is a placeholder - full implementation would handle general case
-          [(fc/complex (/ 1 (m/sqrt 2)) 0) (fc/complex (/ 1 (m/sqrt 2)) 0)])]
+          [(fc/complex (/ 1 (fm/sqrt 2)) 0) (fc/complex (/ 1 (fm/sqrt 2)) 0)])]
 
     {:state-vector (vec reduced-amplitudes)
      :num-qubits (dec n-qubits)}))

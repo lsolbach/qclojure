@@ -1,6 +1,7 @@
 (ns org.soulspace.qclojure.domain.result-test
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [fastmath.complex :as fc]
+            [org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.result :as result]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
@@ -10,12 +11,6 @@
 ;;
 ;; Helper functions for testing
 ;;
-(defn approx=
-  "Test if two values are approximately equal within tolerance"
-  ([a b] (approx= a b 1e-10))
-  ([a b tolerance]
-   (< (Math/abs (- a b)) tolerance)))
-
 (defn create-test-result
   "Create a minimal test result structure"
   [quantum-state]
@@ -56,7 +51,7 @@
       (is (vector? result))
       (is (= (count result) 1))
       (let [first-result (first result)]
-        (is (approx= (:expectation-value first-result) 1.0))
+        (is (util/approx= (:expectation-value first-result) 1.0))
         (is (= (:observable first-result) obs/pauli-z)))))
   
   (testing "X expectation for |+⟩ state"
@@ -64,14 +59,14 @@
           result (result/extract-expectation-results plus-state [obs/pauli-x])]
       (is (= (count result) 1))
       (let [first-result (first result)]
-        (is (approx= (:expectation-value first-result) 1.0)))))
+        (is (util/approx= (:expectation-value first-result) 1.0)))))
   
   (testing "Multiple observables"
     (let [plus-state (qs/plus-state)
           result (result/extract-expectation-results plus-state [obs/pauli-x obs/pauli-z])]
       (is (= (count result) 2))
-      (is (approx= (:expectation-value (first result)) 1.0))
-      (is (approx= (:expectation-value (second result)) 0.0)))))
+      (is (util/approx= (:expectation-value (first result)) 1.0))
+      (is (util/approx= (:expectation-value (second result)) 0.0)))))
 
 (deftest test-extract-variance-results
   (testing "Z variance for |0⟩ state"
@@ -80,23 +75,23 @@
       (is (vector? result))
       (is (= (count result) 1))
       (let [first-result (first result)]
-        (is (approx= (:variance-value first-result) 0.0))
-        (is (approx= (:standard-deviation first-result) 0.0)))))
+        (is (util/approx= (:variance-value first-result) 0.0))
+        (is (util/approx= (:standard-deviation first-result) 0.0)))))
   
   (testing "Z variance for |+⟩ state"
     (let [plus-state (qs/plus-state)
           result (result/extract-variance-results plus-state [obs/pauli-z])]
       (is (= (count result) 1))
       (let [first-result (first result)]
-        (is (approx= (:variance-value first-result) 1.0))
-        (is (approx= (:standard-deviation first-result) 1.0))))))
+        (is (util/approx= (:variance-value first-result) 1.0))
+        (is (util/approx= (:standard-deviation first-result) 1.0))))))
 
 (deftest test-extract-hamiltonian-expectation
   (testing "Z Hamiltonian expectation"
     (let [zero-state (qs/zero-state 1)
           z-hamiltonian [(ham/pauli-term 1.0 "Z")]
           result (result/extract-hamiltonian-expectation zero-state z-hamiltonian)]
-      (is (approx= (:energy-expectation result) 1.0))
+      (is (util/approx= (:energy-expectation result) 1.0))
       (is (= (:hamiltonian result) z-hamiltonian))
       (is (coll? (:measurement-groups result)))
       (is (map? (:measurement-bases result)))))
@@ -106,7 +101,7 @@
           mixed-hamiltonian [(ham/pauli-term 0.5 "Z") (ham/pauli-term 0.5 "X")]
           result (result/extract-hamiltonian-expectation plus-state mixed-hamiltonian)]
       ;; For |+⟩: Z expectation = 0, X expectation = 1, so total = 0.5*0 + 0.5*1 = 0.5
-      (is (approx= (:energy-expectation result) 0.5)))))
+      (is (util/approx= (:energy-expectation result) 0.5)))))
 
 (deftest test-extract-probability-results
   (testing "Probability extraction for |0⟩ state"
@@ -115,8 +110,8 @@
       (is (contains? result :probability-outcomes))
       (is (contains? result :all-probabilities))
       (let [all-probs (:all-probabilities result)]
-        (is (approx= (first all-probs) 1.0))
-        (is (approx= (second all-probs) 0.0)))))
+        (is (util/approx= (first all-probs) 1.0))
+        (is (util/approx= (second all-probs) 0.0)))))
   
   (testing "Probability extraction with specific targets"
     (let [bell-state (:final-state (qc/execute-circuit (qc/bell-state-circuit) (qs/zero-state 2)))
@@ -125,8 +120,8 @@
       (is (= (:target-states result) [[0 0] [1 1]]))
       (let [outcomes (:probability-outcomes result)]
         ;; Bell state should have equal probability for |00⟩ and |11⟩
-        (is (approx= (get outcomes [0 0]) 0.5 0.1))
-        (is (approx= (get outcomes [1 1]) 0.5 0.1))))))
+        (is (util/approx= (get outcomes [0 0]) 0.5 0.1))
+        (is (util/approx= (get outcomes [1 1]) 0.5 0.1))))))
 
 (deftest test-extract-amplitude-results
   (testing "Amplitude extraction for |0⟩ state"
@@ -134,15 +129,15 @@
           result (result/extract-amplitude-results zero-state [0 1])]
       (is (= (:basis-states result) [0 1]))
       (let [amplitudes (:amplitude-values result)]
-        (is (approx= (fc/abs (get amplitudes 0)) 1.0))
-        (is (approx= (fc/abs (get amplitudes 1)) 0.0)))))
+        (is (util/approx= (fc/abs (get amplitudes 0)) 1.0))
+        (is (util/approx= (fc/abs (get amplitudes 1)) 0.0)))))
   
   (testing "Amplitude extraction for |+⟩ state"
     (let [plus-state (qs/plus-state)
           result (result/extract-amplitude-results plus-state [0 1])
           amplitudes (:amplitude-values result)]
-      (is (approx= (fc/abs (get amplitudes 0)) (/ 1.0 (Math/sqrt 2))))
-      (is (approx= (fc/abs (get amplitudes 1)) (/ 1.0 (Math/sqrt 2)))))))
+      (is (util/approx= (fc/abs (get amplitudes 0)) (/ 1.0 (Math/sqrt 2))))
+      (is (util/approx= (fc/abs (get amplitudes 1)) (/ 1.0 (Math/sqrt 2)))))))
 
 (deftest test-extract-state-vector-result  
   (testing "State vector extraction"
@@ -170,14 +165,14 @@
       (is (contains? result :fidelities))
       (is (= (:reference-states result) [another-zero]))
       (let [fidelities (:fidelities result)]
-        (is (approx= (get fidelities "reference-0") 1.0)))))
+        (is (util/approx= (get fidelities "reference-0") 1.0)))))
   
   (testing "Fidelity with orthogonal states"
     (let [zero-state (qs/zero-state 1)
           one-state (qs/one-state)
           result (result/extract-fidelity-result zero-state [one-state])
           fidelities (:fidelities result)]
-      (is (approx= (get fidelities "reference-0") 0.0)))))
+      (is (util/approx= (get fidelities "reference-0") 0.0)))))
 
 (deftest test-extract-sample-results
   (testing "Sample results for Z observable on |0⟩"
@@ -208,7 +203,7 @@
       
       (is (= (:shot-count (:measurement-results result)) 10))
       (is (= (count (:expectation-results result)) 1))
-      (is (approx= (:expectation-value (first (:expectation-results result))) 1.0)))))
+      (is (util/approx= (:expectation-value (first (:expectation-results result))) 1.0)))))
 
 (deftest test-compute-results-comprehensive
   (testing "Compute results with Bell state and multiple result types"
@@ -234,8 +229,8 @@
       ;; Bell state specific checks
       (let [prob-results (:probability-results result)
             amp-results (:amplitude-results result)]
-        (is (approx= (get (:probability-outcomes prob-results) [0 0]) 0.5 0.1))
-        (is (approx= (get (:probability-outcomes prob-results) [1 1]) 0.5 0.1))
+        (is (util/approx= (get (:probability-outcomes prob-results) [0 0]) 0.5 0.1))
+        (is (util/approx= (get (:probability-outcomes prob-results) [1 1]) 0.5 0.1))
         (is (= (:basis-states amp-results) [0 3]))))))
 
 (deftest test-compute-results-hamiltonian
@@ -248,7 +243,7 @@
       
       (is (contains? result :hamiltonian-result))
       (let [ham-result (:hamiltonian-result result)]
-        (is (approx= (:energy-expectation ham-result) 1.0))))))
+        (is (util/approx= (:energy-expectation ham-result) 1.0))))))
 
 (deftest test-compute-results-empty-specs
   (testing "Empty result specs"
@@ -278,11 +273,11 @@
       
       (let [expectation-summary (:expectation-summary summary)]
         (is (= (count expectation-summary) 1))
-        (is (approx= (:expectation (first expectation-summary)) 1.0)))
+        (is (util/approx= (:expectation (first expectation-summary)) 1.0)))
       
       (let [variance-summary (:variance-summary summary)]
         (is (= (count variance-summary) 1))
-        (is (approx= (:variance (first variance-summary)) 0.0))))))
+        (is (util/approx= (:variance (first variance-summary)) 0.0))))))
 
 (deftest test-real-circuit-integration
   (testing "Bell state circuit comprehensive analysis"
@@ -302,8 +297,8 @@
       (is (contains? result :state-vector-result))
       
       ;; Bell state should have no probability for |01⟩ and |10⟩
-      (is (approx= (get (:probability-outcomes (:probability-results result)) [0 1]) 0.0 0.1))
-      (is (approx= (get (:probability-outcomes (:probability-results result)) [1 0]) 0.0 0.1))))
+      (is (util/approx= (get (:probability-outcomes (:probability-results result)) [0 1]) 0.0 0.1))
+      (is (util/approx= (get (:probability-outcomes (:probability-results result)) [1 0]) 0.0 0.1))))
 
   (testing "GHZ state circuit analysis"
     (let [ghz-circuit (qc/ghz-state-circuit 3)
@@ -316,8 +311,8 @@
           result (result/compute-results test-result specs)]
       
       ;; GHZ state should have equal probability for |000⟩ and |111⟩
-      (is (approx= (get (:probability-outcomes (:probability-results result)) [0 0 0]) 0.5 0.1))
-      (is (approx= (get (:probability-outcomes (:probability-results result)) [1 1 1]) 0.5 0.1)))))
+      (is (util/approx= (get (:probability-outcomes (:probability-results result)) [0 0 0]) 0.5 0.1))
+      (is (util/approx= (get (:probability-outcomes (:probability-results result)) [1 1 1]) 0.5 0.1)))))
 
 (comment
   ;; Run all tests in this namespace

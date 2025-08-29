@@ -68,7 +68,7 @@
   "Solve 2x2 linear system Ax = b analytically"
   [[[a b] [c d]] [e f]]
   (let [det (- (* a d) (* b c))]
-    (when (> (Math/abs det) 1e-10)
+    (when (> (abs det) 1e-10)
       [(/ (- (* d e) (* b f)) det)
        (/ (- (* a f) (* c e)) det)])))
 
@@ -495,7 +495,7 @@
       (let [computed-b (mcore/matrix-vector-product matrix solution)
             computed-b-real (mapv real-part computed-b)
             error-vector (mapv - computed-b-real vector)
-            max-error (apply max (map #(Math/abs %) error-vector))]
+            max-error (apply max (map #(abs %) error-vector))]
         (is (< max-error 0.3) ; 30% tolerance for complex matrices
             (str "Solution should satisfy A*x ≈ b, but got error " max-error)))))
   
@@ -568,7 +568,7 @@
         
         (when (and low-solution (:success low-shot-result)) ; Only test if we got a result
           ;; Low shot count typically has higher error due to sampling noise
-          (let [errors (mapv #(Math/abs (- %1 %2)) low-solution expected)
+          (let [errors (mapv #(abs (- %1 %2)) low-solution expected)
                 max-error (apply max errors)
                 max-error-percent (* 100 (/ max-error (apply max expected)))]
             ;; This test documents the statistical nature - results vary

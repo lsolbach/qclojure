@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.domain.circuit-test
   "Tests for quantum circuit operations and composition"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]))
@@ -16,8 +16,8 @@
 (defn amplitude-close?
   "Test if two complex amplitudes are approximately equal"
   [a b tolerance]
-  (and (< (m/abs (- (.x a) (.x b))) tolerance)
-       (< (m/abs (- (.y a) (.y b))) tolerance)))
+  (and (< (fm/abs (- (.x a) (.x b))) tolerance)
+       (< (fm/abs (- (.y a) (.y b))) tolerance)))
 
 (defn state-close?
   "Test if two quantum states are approximately equal"
@@ -647,7 +647,7 @@
                   (= (:outcome measurement-result) 1)))
           
           ;; Probability should be approximately 0.5 for Bell state
-          (is (< (Math/abs (- (:probability measurement-result) 0.5)) 0.01))
+          (is (< (abs (- (:probability measurement-result) 0.5)) 0.01))
           
           ;; Collapsed state should have fewer qubits
           (is (= (:num-qubits (:collapsed-state measurement-result)) 1))))

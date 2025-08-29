@@ -22,7 +22,7 @@
    The diffusion operator applies inversion about the average amplitude."
   (:require
    [clojure.spec.alpha :as s]
-   [fastmath.core :as m]
+   [fastmath.core :as fm]
    [org.soulspace.qclojure.application.algorithms :as qa]
    [org.soulspace.qclojure.application.backend :as qb]
    [org.soulspace.qclojure.domain.circuit :as qc]
@@ -225,7 +225,7 @@
   (grover-circuit 2 #(contains? #{1 2} %) 1 {:add-measurements? true})"
   ([n-qubits oracle-fn]
    (let [search-space-size (bit-shift-left 1 n-qubits)
-         optimal-iterations (max 1 (int (* (/ m/PI 4) (m/sqrt search-space-size))))]
+         optimal-iterations (max 1 (int (* (/ fm/PI 4) (fm/sqrt search-space-size))))]
      (grover-circuit n-qubits oracle-fn optimal-iterations {})))
   ([n-qubits oracle-fn iterations]
    (grover-circuit n-qubits oracle-fn iterations {}))
@@ -289,7 +289,7 @@
   {:pre [(pos-int? N) (>= M 0) (<= M N)]}
   (if (zero? M)
     0  ; No targets - no iterations needed
-    (max 1 (int (* (/ m/PI 4) (m/sqrt (/ N M)))))))
+    (max 1 (int (* (/ fm/PI 4) (fm/sqrt (/ N M)))))))
 
 (defn grover-algorithm
   "Implement Grover's search algorithm.
@@ -328,10 +328,10 @@
   ([backend search-space-size oracle-fn options]
    {:pre [(satisfies? qb/QuantumBackend backend)
           (pos-int? search-space-size)
-          (= search-space-size (bit-shift-left 1 (m/log2int search-space-size)))  ; Power of 2
+          (= search-space-size (bit-shift-left 1 (fm/log2int search-space-size)))  ; Power of 2
           (fn? oracle-fn)]}
 
-   (let [n-qubits (m/log2int search-space-size)
+   (let [n-qubits (fm/log2int search-space-size)
 
          ;; Calculate target indices for optimal iteration count
          target-indices (filter oracle-fn (range search-space-size))

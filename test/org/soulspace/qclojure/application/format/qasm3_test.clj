@@ -8,17 +8,17 @@
             [org.soulspace.qclojure.application.format.qasm3 :as qasm3]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
-;;
-;; Helper functions for tests
-;;
+;;;
+;;; Helper functions for tests
+;;;
 (defn- contains-line?
   "Check if the text contains the given line."
   [text line]
   (some #(= % line) (str/split-lines text)))
 
-;;
-;; Test circuits
-;;
+;;;
+;;; Test circuits
+;;;
 (defn- bell-state-circuit
   "Create a Bell state circuit for testing."
   []
@@ -64,9 +64,9 @@
       (qc/add-gate :cry :control 2 :target 0 :angle (/ Math/PI 3))
       (qc/add-gate :crz :control 0 :target 3 :angle (/ Math/PI 8))))
 
-;;
-;; Test cases
-;;
+;;;
+;;; Test cases
+;;;
 (deftest test-circuit-to-qasm-header
   (testing "QASM 3.0 header generation"
     (let [circuit (qc/create-circuit 3 "Test Circuit")
@@ -174,7 +174,7 @@ h q[0];
 cx q[0], q[1];
 c[0] = measure q[0];
 c[1] = measure q[1];"
-          circuit (qasm3/qasm-to-circuit qasm-code)]
+          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       (is (= 2 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
 
@@ -207,7 +207,7 @@ s q[1];
 t q[2];
 sdg q[0];
 tdg q[1];"
-          circuit (qasm3/qasm-to-circuit qasm-code)]
+          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       (is (= 3 (:num-qubits circuit)))
       (is (= 8 (count (:operations circuit))))
       
@@ -226,16 +226,16 @@ rx(1.5708) q[0];
 ry(0.7854) q[1];
 rz(1.0472) q[0];
 p(0.5236) q[1];"
-          circuit (qasm3/qasm-to-circuit qasm-code)]
+          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       (is (= 2 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
       
       ;; Check angles
       (let [ops (:operations circuit)]
         (is (= :rx (:operation-type (first ops))))
-        (is (< (Math/abs (- 1.5708 (get-in (first ops) [:operation-params :angle]))) 1e-6))
+        (is (< (abs (- 1.5708 (get-in (first ops) [:operation-params :angle]))) 1e-6))
         (is (= :ry (:operation-type (second ops))))
-        (is (< (Math/abs (- 0.7854 (get-in (second ops) [:operation-params :angle]))) 1e-6))))))
+        (is (< (abs (- 0.7854 (get-in (second ops) [:operation-params :angle]))) 1e-6))))))
 
 (deftest test-qasm-to-circuit-advanced-gates
   (testing "Advanced gates QASM 3.0 to circuit conversion"
@@ -248,7 +248,7 @@ swap q[0], q[1];
 iswap q[1], q[2];
 ccx q[0], q[1], q[2];
 cswap q[3], q[0], q[2];"
-          circuit (qasm3/qasm-to-circuit qasm-code)]
+          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       (is (= 4 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
       
@@ -260,7 +260,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion from Bell state circuit to QASM 3.0 and back"
     (let [original-circuit (bell-state-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
+          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -276,7 +276,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion of complex circuit"
     (let [original-circuit (complex-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
+          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -291,7 +291,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion of advanced gates circuit"
     (let [original-circuit (advanced-gates-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
+          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -305,7 +305,7 @@ cswap q[3], q[0], q[2];"
                                    (filter #(contains? #{:crx :cry :crz} (:operation-type %)) 
                                            (:operations converted-circuit)))]
         (doseq [i (range (count original-angles))]
-          (is (< (Math/abs (- (nth original-angles i) (nth converted-angles i))) 1e-6)
+          (is (< (abs (- (nth original-angles i) (nth converted-angles i))) 1e-6)
               "Parametric gate angles should be preserved"))))))
 
 (deftest test_qasm3_vs_qasm2_headers
@@ -360,10 +360,10 @@ cswap q[3], q[0], q[2];"
           circuit (-> (qc/create-circuit 1 "Precision Test")
                       (qc/add-gate :rx :target 0 :angle precise-angle))
           qasm-code (qasm3/circuit-to-qasm circuit)
-          converted-circuit (qasm3/qasm-to-circuit qasm-code)
+          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))
           converted-angle (get-in (first (:operations converted-circuit)) 
                                   [:operation-params :angle])]
-      (is (< (Math/abs (- precise-angle converted-angle)) 1e-10)
+      (is (< (abs (- precise-angle converted-angle)) 1e-10)
           "High precision angles should be preserved"))))
 
 (comment

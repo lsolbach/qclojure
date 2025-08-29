@@ -24,7 +24,7 @@
    - hhl-algorithm: Execute HHL algorithm with backend"
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math.core :as math]))
@@ -147,14 +147,14 @@
   (let [n (count matrix)
         ;; Simple estimation using matrix norms
         ;; In practice, you'd use proper eigenvalue estimation
-        frobenius-norm (m/sqrt (reduce + (for [i (range n) j (range n)]
+        frobenius-norm (fm/sqrt (reduce + (for [i (range n) j (range n)]
                                            (let [elem (get-in matrix [i j])]
                                              (* elem elem)))))
         trace (reduce + (for [i (range n)] (get-in matrix [i i])))
         ;; Rough estimate: κ ≈ ||A||_F / (trace/n)
         avg-eigenvalue (/ trace n)
-        condition-estimate (if (> (Math/abs (double avg-eigenvalue)) 1e-10)
-                            (/ frobenius-norm (Math/abs (double avg-eigenvalue)))
+        condition-estimate (if (> (abs (double avg-eigenvalue)) 1e-10)
+                            (/ frobenius-norm (abs (double avg-eigenvalue)))
                             1000.0)] ; Default for near-singular matrices
     (max 1.0 condition-estimate)))
 
@@ -228,7 +228,7 @@
                                    (str "Prepare |b⟩ from " n "-element vector"))
         
         ;; Normalize the input vector
-        norm (m/sqrt (reduce + (map #(* % %) b-vector)))
+        norm (fm/sqrt (reduce + (map #(* % %) b-vector)))
         normalized-b (if (> norm 1e-10) 
                        (mapv #(/ % norm) b-vector)
                        ;; For zero vectors, default to |0⟩ state (first element = 1, rest = 0)
@@ -246,9 +246,9 @@
               a-val (if (number? a) (double a) 1.0)
               b-val (if (number? b) (double b) 0.0)
               ;; For |ψ⟩ = a|0⟩ + b|1⟩, we need RY(θ) where cos(θ/2) = a, sin(θ/2) = b
-              theta (if (and (> (Math/abs a-val) 1e-10) (> (Math/abs b-val) 1e-10))
-                      (* 2 (Math/atan2 (Math/abs b-val) (Math/abs a-val)))
-                      (if (> (Math/abs b-val) 1e-10) Math/PI 0.0))]
+              theta (if (and (> (abs a-val) 1e-10) (> (abs b-val) 1e-10))
+                      (* 2 (Math/atan2 (abs b-val) (abs a-val)))
+                      (if (> (abs b-val) 1e-10) Math/PI 0.0))]
           (qc/ry-gate circuit 0 theta))
         
         ;; For larger vectors, use a simplified encoding
@@ -360,8 +360,8 @@
                   nb1 (/ b1 norm)
                   nb2 (/ b2 norm)
                   ;; Create |ψ⟩ = nb1|0⟩ + nb2|1⟩ using RY gate
-                  theta (if (> (Math/abs nb2) 1e-10)
-                          (* 2 (Math/atan2 (Math/abs nb2) (Math/abs nb1)))
+                  theta (if (> (abs nb2) 1e-10)
+                          (* 2 (Math/atan2 (abs nb2) (abs nb1)))
                           0.0)]
               (qc/ry-gate % (first vector-register) theta))
             ;; For single element, just use |0⟩ (already prepared)
@@ -505,7 +505,7 @@
                                                  (let [A-times-amplitudes (mapv (fn [row] (reduce + (map * row normalized-amplitudes))) matrix)
                                                        numerator (reduce + (map * A-times-amplitudes b-vector))
                                                        denominator (reduce + (map * A-times-amplitudes A-times-amplitudes))]
-                                                   (if (> (Math/abs denominator) 1e-10)
+                                                   (if (> (abs denominator) 1e-10)
                                                      (/ numerator denominator)
                                                      1.0))
                                                  1.0)

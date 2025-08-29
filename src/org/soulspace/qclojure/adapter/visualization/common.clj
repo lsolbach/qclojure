@@ -5,7 +5,7 @@
   It focuses on pure data transformation and calculation, keeping format-specific
   rendering logic in the individual format namespaces."
   (:require [clojure.string :as str]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -148,7 +148,7 @@
     (mapv (fn [idx label]
             (let [amp (nth amplitudes idx)
                   magnitude (fc/abs amp)
-                  phase (m/degrees (fc/arg amp))
+                  phase (fm/degrees (fc/arg amp))
                   probability (* magnitude magnitude)]
               {:label label
                :amplitude (format-amplitude-display amp :precision precision)
@@ -171,7 +171,7 @@
   (let [amplitudes (:state-vector state)]
     (mapv (fn [idx label]
             (let [amp (nth amplitudes idx)
-                  phase (m/degrees (fc/arg amp))]
+                  phase (fm/degrees (fc/arg amp))]
               {:label label
                :phase-degrees (qmath/round-precision phase 1)}))
           indices labels)))
@@ -341,13 +341,13 @@
   [coords & {:keys [precision] :or {precision 3}}]
   (let [{θ :theta φ :phi} (:spherical coords)
         {x :x y :y z :z} (:cartesian coords)]
-    {:spherical-text (str "θ=" (qmath/round-precision (m/degrees θ) 1) "°, "
-                          "φ=" (qmath/round-precision (m/degrees φ) 1) "°")
+    {:spherical-text (str "θ=" (qmath/round-precision (fm/degrees θ) 1) "°, "
+                          "φ=" (qmath/round-precision (fm/degrees φ) 1) "°")
      :cartesian-text (str "(" (qmath/round-precision x precision) ", "
                               (qmath/round-precision y precision) ", " 
                               (qmath/round-precision z precision) ")")
-     :angles {:theta-deg (qmath/round-precision (m/degrees θ) 1)
-              :phi-deg (qmath/round-precision (m/degrees φ) 1)}
+     :angles {:theta-deg (qmath/round-precision (fm/degrees θ) 1)
+              :phi-deg (qmath/round-precision (fm/degrees φ) 1)}
      :vector {:x (qmath/round-precision x precision)
               :y (qmath/round-precision y precision) 
               :z (qmath/round-precision z precision)}}))
@@ -636,7 +636,7 @@
         
         ;; Ring-like: circular layout
         (and (>= num-qubits 3)
-             (< (Math/abs (- avg-degree 2.0)) 0.5))
+             (< (abs (- avg-degree 2.0)) 0.5))
         :circular
         
         ;; Dense connectivity: force-directed
@@ -744,7 +744,7 @@
   (def single-qubit-state {:state-vector [(fc/complex 0.707 0) (fc/complex 0.707 0)]
                            :num-qubits 1})
   (def bloch-coords {:cartesian {:x 0.5 :y 0.5 :z 0.707}
-                     :spherical {:theta (m/acos 0.707) :phi (m/atan2 0.5 0.5)}})
+                     :spherical {:theta (fm/acos 0.707) :phi (fm/atan2 0.5 0.5)}})
 
   (format-single-qubit-state single-qubit-state)
   (format-bloch-coordinates bloch-coords)

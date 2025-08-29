@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.application.noise-test
   "Comprehensive tests for quantum noise application functions."
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.application.noise :as noise]
             [org.soulspace.qclojure.domain.circuit :as qc]
@@ -13,13 +13,13 @@
   "Check if two numbers are approximately equal within tolerance."
   ([a b] (close-to? a b 1e-10))
   ([a b tolerance]
-   (< (m/abs (- a b)) tolerance)))
+   (< (fm/abs (- a b)) tolerance)))
 
 (defn state-norm
   "Calculate the norm of a quantum state."
   [state]
   (let [amplitudes (:state-vector state)]
-    (m/sqrt (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes)))))
+    (fm/sqrt (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes)))))
 
 (defn states-approximately-equal?
   "Check if two quantum states are approximately equal."

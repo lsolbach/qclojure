@@ -14,13 +14,8 @@
   The mitigation pipeline analyzes circuits and noise models to automatically
   select and apply the most effective strategies for each use case."
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
-            [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.application.noise :as noise]
             [org.soulspace.qclojure.application.error-mitigation.readout-error :as rem]
             [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
             [org.soulspace.qclojure.application.error-mitigation.symmetry-verification :as sym]

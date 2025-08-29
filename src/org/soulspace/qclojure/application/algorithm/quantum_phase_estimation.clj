@@ -26,7 +26,7 @@
   (def result (quantum-phase-estimation simulator (/ Math/PI 4) 3 :plus))
   (:estimated-phase (:result result)) ; => ~0.7854 (π/4)"
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
@@ -131,8 +131,8 @@
      :best-estimate best-estimate
      :weighted-average-phase weighted-phase
      :actual-phase actual-phase
-     :best-error (m/abs (- (:estimated-phase best-estimate) actual-phase))
-     :weighted-error (m/abs (- weighted-phase actual-phase))
+     :best-error (fm/abs (- (:estimated-phase best-estimate) actual-phase))
+     :weighted-error (fm/abs (- weighted-phase actual-phase))
      :total-shots total-shots}))
 
 (defn quantum-phase-estimation

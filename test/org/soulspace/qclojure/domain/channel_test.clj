@@ -4,7 +4,7 @@
   Comprehensive tests for quantum channel operations, Kraus operators,
   and channel composition functionality."
   (:require [clojure.test :refer [deftest testing is]]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.math :as qmath]
@@ -126,22 +126,22 @@
 (deftest test-coherent-error-kraus-operator
   (testing "Coherent error Kraus operators"
     (testing "X rotation"
-      (let [angle (/ m/PI 4) ; 45 degrees
+      (let [angle (/ fm/PI 4) ; 45 degrees
             kraus-op (channel/coherent-error-kraus-operator angle :x)
             matrix (:matrix kraus-op)
-            cos-half (m/cos (/ angle 2))]
+            cos-half (fm/cos (/ angle 2))]
         (is (util/approx= cos-half (fc/re (first (first matrix))))
             "Matrix[0,0] should be cos(θ/2)")
         (is (util/approx= cos-half (fc/re (second (second matrix))))
             "Matrix[1,1] should be cos(θ/2)")))
     
     (testing "Z rotation"
-      (let [angle (/ m/PI 6) ; 30 degrees
+      (let [angle (/ fm/PI 6) ; 30 degrees
             kraus-op (channel/coherent-error-kraus-operator angle :z)
             matrix (:matrix kraus-op)]
-        (is (util/approx= (m/cos angle) (fc/re (first (first matrix))))
+        (is (util/approx= (fm/cos angle) (fc/re (first (first matrix))))
             "Matrix[0,0] should be cos(θ)")
-        (is (util/approx= (m/cos (- angle)) (fc/re (second (second matrix))))
+        (is (util/approx= (fm/cos (- angle)) (fc/re (second (second matrix))))
             "Matrix[1,1] should be cos(-θ)")))))
 
 ;;

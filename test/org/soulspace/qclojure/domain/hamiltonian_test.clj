@@ -10,7 +10,7 @@
   - Measurement-based expectation calculations"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
-            [fastmath.core :as math]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.application.algorithm.vqe :as vqe]))
@@ -73,18 +73,18 @@
       ;; Z expectation values
       (is (= 1.0 (ham/pauli-string-expectation "Z" zero-state)) "Z|0⟩ should be +1")
       (is (= -1.0 (ham/pauli-string-expectation "Z" one-state)) "Z|1⟩ should be -1") 
-      (is (< (Math/abs (ham/pauli-string-expectation "Z" plus-state)) 1e-10) "Z|+⟩ should be ~0")
+      (is (< (abs (ham/pauli-string-expectation "Z" plus-state)) 1e-10) "Z|+⟩ should be ~0")
       
       ;; X expectation values
-      (is (< (Math/abs (ham/pauli-string-expectation "X" zero-state)) 1e-10) "X|0⟩ should be ~0")
-      (is (< (Math/abs (ham/pauli-string-expectation "X" one-state)) 1e-10) "X|1⟩ should be ~0")
-      (is (math/approx= 1.0 (ham/pauli-string-expectation "X" plus-state) 1e-10) "X|+⟩ should be +1")
-      (is (math/approx= -1.0 (ham/pauli-string-expectation "X" minus-state) 1e-10) "X|-⟩ should be -1")
+      (is (< (abs (ham/pauli-string-expectation "X" zero-state)) 1e-10) "X|0⟩ should be ~0")
+      (is (< (abs (ham/pauli-string-expectation "X" one-state)) 1e-10) "X|1⟩ should be ~0")
+      (is (fm/approx= 1.0 (ham/pauli-string-expectation "X" plus-state) 1e-10) "X|+⟩ should be +1")
+      (is (fm/approx= -1.0 (ham/pauli-string-expectation "X" minus-state) 1e-10) "X|-⟩ should be -1")
       
       ;; Identity expectation values
-      (is (math/approx= 1.0 (ham/pauli-string-expectation "I" zero-state) 1e-10) "I always gives +1")
-      (is (math/approx= 1.0 (ham/pauli-string-expectation "I" one-state) 1e-10) "I always gives +1")
-      (is (math/approx= 1.0 (ham/pauli-string-expectation "I" plus-state) 1e-10) "I always gives +1")))
+      (is (fm/approx= 1.0 (ham/pauli-string-expectation "I" zero-state) 1e-10) "I always gives +1")
+      (is (fm/approx= 1.0 (ham/pauli-string-expectation "I" one-state) 1e-10) "I always gives +1")
+      (is (fm/approx= 1.0 (ham/pauli-string-expectation "I" plus-state) 1e-10) "I always gives +1")))
   
   (testing "Multi-qubit Pauli strings"
     (let [|00⟩ (qs/zero-state 2)
@@ -144,7 +144,7 @@
           "Z expectation from |0⟩ measurements should be +1")
       (is (= -1.0 (vqe/measurement-based-expectation z-hamiltonian measurements-1 1000))
           "Z expectation from |1⟩ measurements should be -1")
-      (is (< (Math/abs (vqe/measurement-based-expectation z-hamiltonian measurements-plus 1000)) 0.1)
+      (is (< (abs (vqe/measurement-based-expectation z-hamiltonian measurements-plus 1000)) 0.1)
           "Z expectation from |+⟩ measurements should be ~0")))
   
   (testing "Multi-qubit measurement statistics"

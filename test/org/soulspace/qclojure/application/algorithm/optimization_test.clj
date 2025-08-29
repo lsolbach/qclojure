@@ -73,7 +73,7 @@
       
       (is (= (count grad-seq) (count grad-par)) "Should have same dimension")
       ;; Results should be approximately equal (within numerical precision)
-      (is (every? true? (map #(< (Math/abs (- %1 %2)) 1e-10) grad-seq grad-par))
+      (is (every? true? (map #(< (abs (- %1 %2)) 1e-10) grad-seq grad-par))
           "Parallel and sequential results should be approximately equal"))))
 
 ;;

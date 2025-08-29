@@ -814,7 +814,7 @@
                           diff-r (- arij sum-r) diff-i (- aiij sum-i)]
                       (if (= i j)
                         (do
-                          (when (> (Math/abs diff-i) 1e-12) (throw (ex-info "Hermitian diag not real" {:i i :imag diff-i})))
+                          (when (> (abs diff-i) 1e-12) (throw (ex-info "Hermitian diag not real" {:i i :imag diff-i})))
                           (when (neg? diff-r) (throw (ex-info "Matrix not HPD" {:i i :value diff-r})))
                           (let [val (Math/sqrt diff-r)]
                             (recur (inc j) (assoc-in Lr [i i] val) Li)))
@@ -860,12 +860,12 @@
         (vec (for [i (range n)]
                (vec (subvec (nth aug i) n))))
         ;; Find pivot
-        (let [pivot-row (+ k (apply max-key #(Math/abs (get-in aug [% k])) (range k n)))
+        (let [pivot-row (+ k (apply max-key #(abs (get-in aug [% k])) (range k n)))
               aug (if (= pivot-row k) aug
                       ;; Swap rows
                       (assoc aug k (nth aug pivot-row) pivot-row (nth aug k)))
               pivot (get-in aug [k k])]
-          (if (< (Math/abs pivot) 1e-12)
+          (if (< (abs pivot) 1e-12)
             (throw (ex-info "Matrix is singular" {}))
             ;; Eliminate column k
             (let [aug (assoc-in aug [k] (vec (map #(/ % pivot) (nth aug k))))
@@ -1095,6 +1095,6 @@
   ([rho eps]
    (let [tr (trace rho)
          eps (double (or eps default-tolerance))]
-     (and (< (Math/abs (- (:real tr) 1.0)) eps)
-          (< (Math/abs (:imag tr)) eps)))))
+     (and (< (abs (- (:real tr) 1.0)) eps)
+          (< (abs (:imag tr)) eps)))))
 

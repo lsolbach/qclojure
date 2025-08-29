@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.adapter.visualization.coordinates-test
   "Tests for quantum visualization coordinate transformations"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.adapter.visualization.coordinates :as coords]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -40,7 +40,7 @@
         (is (util/approx= (get-in coords-1 [:cartesian :x]) 0))
         (is (util/approx= (get-in coords-1 [:cartesian :y]) 0))
         (is (util/approx= (get-in coords-1 [:cartesian :z]) -1))
-        (is (util/approx= (get-in coords-1 [:spherical :theta]) m/PI))))
+        (is (util/approx= (get-in coords-1 [:spherical :theta]) fm/PI))))
     
     (testing "Superposition states"
       ;; |+⟩ = (|0⟩ + |1⟩)/√2 should map to +X axis (1, 0, 0)
@@ -48,7 +48,7 @@
         (is (util/approx= (get-in coords-plus [:cartesian :x]) 1))
         (is (util/approx= (get-in coords-plus [:cartesian :y]) 0))
         (is (util/approx= (get-in coords-plus [:cartesian :z]) 0))
-        (is (util/approx= (get-in coords-plus [:spherical :theta]) (/ m/PI 2))))
+        (is (util/approx= (get-in coords-plus [:spherical :theta]) (/ fm/PI 2))))
       
       ;; |-⟩ = (|0⟩ - |1⟩)/√2 should map to -X axis (-1, 0, 0)
       (let [coords-minus (coords/quantum-state-to-bloch-coordinates qs/|-⟩)]
@@ -74,7 +74,7 @@
       (doseq [state [qs/|0⟩ qs/|1⟩ qs/|+⟩ qs/|-⟩ qs/|+i⟩ qs/|-i⟩]]
         (let [coords (coords/quantum-state-to-bloch-coordinates state)
               {x :x y :y z :z} (:cartesian coords)
-              length (m/sqrt (+ (* x x) (* y y) (* z z)))]
+              length (fm/sqrt (+ (* x x) (* y y) (* z z)))]
           (is (util/approx= length 1.0)))))))
 
 ;;;
@@ -129,8 +129,8 @@
         ;; Objects closer to viewer (negative Y) should appear larger
         (let [close-point (coords/perspective-projection 1 -100 0 center scale distance)
               far-point (coords/perspective-projection 1 100 0 center scale distance)]
-          (is (> (m/abs (double (- (first close-point) 200)))
-                 (m/abs (double (- (first far-point) 200))))))))))
+          (is (> (fm/abs (double (- (first close-point) 200)))
+                 (fm/abs (double (- (first far-point) 200))))))))))
 
 ;;;
 ;;; Sphere Wireframe Tests
@@ -158,7 +158,7 @@
             (is (= (count point) 3)) ; [x y z]
             ;; Points should be on unit sphere (approximately)
             (let [[x y z] point
-                  radius (m/sqrt (+ (* x x) (* y y) (* z z)))]
+                  radius (fm/sqrt (+ (* x x) (* y y) (* z z)))]
               (is (util/approx= radius 1.0)))))))
     
     (testing "Meridian coordinates"
@@ -173,7 +173,7 @@
             (is (= (count point) 3)) ; [x y z]
             ;; Points should be on unit sphere (approximately)
             (let [[x y z] point
-                  radius (m/sqrt (+ (* x x) (* y y) (* z z)))]
+                  radius (fm/sqrt (+ (* x x) (* y y) (* z z)))]
               (is (util/approx= radius 1.0)))))))
     
     (testing "Edge cases"
@@ -199,7 +199,7 @@
     (testing "Reference coordinates are normalized"
       (doseq [[_label coords] coords/reference-state-coordinates]
         (let [{x :x y :y z :z} (:cartesian coords)
-              length (m/sqrt (+ (* x x) (* y y) (* z z)))]
+              length (fm/sqrt (+ (* x x) (* y y) (* z z)))]
           (is (util/approx= length 1.0)))))
     
     (testing "Specific coordinate values"
@@ -240,9 +240,9 @@
       (let [x-axis {:cartesian {:x 1 :y 0 :z 0}}
             y-axis {:cartesian {:x 0 :y 1 :z 0}}
             z-axis {:cartesian {:x 0 :y 0 :z 1}}]
-        (is (util/approx= (coords/bloch-distance x-axis y-axis) (m/sqrt 2)))
-        (is (util/approx= (coords/bloch-distance x-axis z-axis) (m/sqrt 2)))
-        (is (util/approx= (coords/bloch-distance y-axis z-axis) (m/sqrt 2)))))
+        (is (util/approx= (coords/bloch-distance x-axis y-axis) (fm/sqrt 2)))
+        (is (util/approx= (coords/bloch-distance x-axis z-axis) (fm/sqrt 2)))
+        (is (util/approx= (coords/bloch-distance y-axis z-axis) (fm/sqrt 2)))))
     
     (testing "Distance is symmetric"
       (let [coords1 {:cartesian {:x 0.6 :y 0.8 :z 0}}

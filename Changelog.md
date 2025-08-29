@@ -19,6 +19,7 @@
   * added result type pragmas for QASM3
   * improved problem reporting
 * added hardware topology visualization
+  * supports linear, grid, star and ring topologies
 * moved `visualization` namespace from `adapter` to `application`
 
 ## Version 0.12.0

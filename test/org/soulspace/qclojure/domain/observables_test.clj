@@ -2,16 +2,10 @@
   "Tests for quantum observables domain"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [fastmath.complex :as c]
+            [org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.observables :as obs]
-            [org.soulspace.qclojure.domain.state :as state]
-            [org.soulspace.qclojure.domain.math.core :as mcore]))
-
-;; Helper functions for testing
-(defn approx=
-  "Check if two numbers are approximately equal within tolerance"
-  ([a b] (approx= a b 1e-10))
-  ([a b tolerance]
-   (< (Math/abs (- a b)) tolerance)))
+            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.state :as state]))
 
 ;;
 ;; Basic Observable Tests
@@ -46,7 +40,7 @@
     (let [combo (obs/linear-combination [[0.5 obs/pauli-x] [0.5 obs/pauli-z]])]
       (is (= 2 (count combo)))
       (is (= 2 (count (first combo))))
-      (is (approx= 0.5 (c/re (first (first combo)))))))
+      (is (util/approx= 0.5 (c/re (first (first combo)))))))
   
   (testing "Single observable linear combination"
     (let [single-obs (obs/linear-combination [[1.0 obs/pauli-x]])]
@@ -67,43 +61,43 @@
 ;;
 (deftest test-expectation-values
   (testing "Pauli-Z expectation values"
-    (is (approx= 1.0 (obs/expectation-value obs/pauli-z state/|0⟩)))
-    (is (approx= -1.0 (obs/expectation-value obs/pauli-z state/|1⟩)))
-    (is (approx= 0.0 (obs/expectation-value obs/pauli-z state/|+⟩))))
+    (is (util/approx= 1.0 (obs/expectation-value obs/pauli-z state/|0⟩)))
+    (is (util/approx= -1.0 (obs/expectation-value obs/pauli-z state/|1⟩)))
+    (is (util/approx= 0.0 (obs/expectation-value obs/pauli-z state/|+⟩))))
   
   (testing "Pauli-X expectation values"
-    (is (approx= 0.0 (obs/expectation-value obs/pauli-x state/|0⟩)))
-    (is (approx= 0.0 (obs/expectation-value obs/pauli-x state/|1⟩)))
-    (is (approx= 1.0 (obs/expectation-value obs/pauli-x state/|+⟩))))
+    (is (util/approx= 0.0 (obs/expectation-value obs/pauli-x state/|0⟩)))
+    (is (util/approx= 0.0 (obs/expectation-value obs/pauli-x state/|1⟩)))
+    (is (util/approx= 1.0 (obs/expectation-value obs/pauli-x state/|+⟩))))
   
   (testing "Identity expectation value"
-    (is (approx= 1.0 (obs/expectation-value obs/identity-op state/|0⟩)))
-    (is (approx= 1.0 (obs/expectation-value obs/identity-op state/|1⟩)))
-    (is (approx= 1.0 (obs/expectation-value obs/identity-op state/|+⟩)))))
+    (is (util/approx= 1.0 (obs/expectation-value obs/identity-op state/|0⟩)))
+    (is (util/approx= 1.0 (obs/expectation-value obs/identity-op state/|1⟩)))
+    (is (util/approx= 1.0 (obs/expectation-value obs/identity-op state/|+⟩)))))
 
 (deftest test-variance
   (testing "Variance calculations"
     ;; For definite states, variance should be 0
-    (is (approx= 0.0 (obs/variance obs/pauli-z state/|0⟩)))
-    (is (approx= 0.0 (obs/variance obs/pauli-z state/|1⟩)))
+    (is (util/approx= 0.0 (obs/variance obs/pauli-z state/|0⟩)))
+    (is (util/approx= 0.0 (obs/variance obs/pauli-z state/|1⟩)))
     
     ;; For superposition states, variance should be non-zero
-    (is (approx= 1.0 (obs/variance obs/pauli-z state/|+⟩)))
-    (is (approx= 0.0 (obs/variance obs/pauli-x state/|+⟩)))))
+    (is (util/approx= 1.0 (obs/variance obs/pauli-z state/|+⟩)))
+    (is (util/approx= 0.0 (obs/variance obs/pauli-x state/|+⟩)))))
 
 (deftest test-measurement-probabilities
   (testing "Measurement probabilities for definite states"
     (let [prob-z-0 (obs/measurement-probabilities obs/pauli-z state/|0⟩)
           prob-z-1 (obs/measurement-probabilities obs/pauli-z state/|1⟩)]
-      (is (approx= 1.0 (get prob-z-0 1.0)))
-      (is (approx= 0.0 (get prob-z-0 -1.0)))
-      (is (approx= 0.0 (get prob-z-1 1.0)))
-      (is (approx= 1.0 (get prob-z-1 -1.0)))))
+      (is (util/approx= 1.0 (get prob-z-0 1.0)))
+      (is (util/approx= 0.0 (get prob-z-0 -1.0)))
+      (is (util/approx= 0.0 (get prob-z-1 1.0)))
+      (is (util/approx= 1.0 (get prob-z-1 -1.0)))))
   
   (testing "Measurement probabilities for superposition states"
     (let [prob-z-plus (obs/measurement-probabilities obs/pauli-z state/|+⟩)]
-      (is (approx= 0.5 (get prob-z-plus 1.0)))
-      (is (approx= 0.5 (get prob-z-plus -1.0))))))
+      (is (util/approx= 0.5 (get prob-z-plus 1.0)))
+      (is (util/approx= 0.5 (get prob-z-plus -1.0))))))
 
 ;;
 ;; Hermitian Property Tests
@@ -148,7 +142,7 @@
     (let [zero-2x2 (obs/zero-matrix 2 2)]
       (is (= 2 (count zero-2x2)))
       (is (= 2 (count (first zero-2x2))))
-      (is (approx= 0.0 (c/re (first (first zero-2x2)))))))
+      (is (util/approx= 0.0 (c/re (first (first zero-2x2)))))))
   
   (testing "Matrix equality with tolerance"
     (let [m1 obs/pauli-x]

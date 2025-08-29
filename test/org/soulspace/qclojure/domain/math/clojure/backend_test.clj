@@ -4,10 +4,10 @@
    Focuses on the pluggable backend architecture and its compliance with the math protocols.
    Smoke tests for basic operations are included."
   (:require [clojure.test :refer [deftest is testing run-tests]]
+            [fastmath.complex :as fc]
             [org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.math.protocols :as proto]
-            [org.soulspace.qclojure.domain.math.clojure.backend :as backend]
-            [fastmath.complex :as fc]))
+            [org.soulspace.qclojure.domain.math.clojure.backend :as backend]))
 
 (def backend (backend/->ClojureMathComplexBackend 1e-12 {}))
 
@@ -18,7 +18,7 @@
   "Extract real part from Vec2 complex number if imaginary part is zero, else return the Vec2"
   [v]
   (if (instance? fastmath.vector.Vec2 v)
-    (if (< (Math/abs (fc/im v)) 1e-10)
+    (if (< (abs (fc/im v)) 1e-10)
       (fc/re v)
       v)
     v))

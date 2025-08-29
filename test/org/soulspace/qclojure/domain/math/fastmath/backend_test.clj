@@ -19,7 +19,7 @@
   "Extract real part from Vec2 complex number if imaginary part is zero"
   [v]
   (if (instance? fastmath.vector.Vec2 v)
-    (if (< (Math/abs (fc/im v)) 1e-10)
+    (if (< (abs (fc/im v)) 1e-10)
       (fc/re v)
       v)
     v))

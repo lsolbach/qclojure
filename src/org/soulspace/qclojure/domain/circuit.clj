@@ -2,7 +2,7 @@
   "Quantum circuit representation and execution"
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]

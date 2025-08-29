@@ -1,10 +1,10 @@
 (ns org.soulspace.qclojure.domain.gate-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing run-tests]]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.clojure-test :refer [defspec]] 
-            [clojure.string :as str]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]))
@@ -180,7 +180,7 @@
 
       ;; Global X should transform |000⟩ → i|111⟩ (with possible global phase)
       ;; Check that the amplitude is at position 7 (binary 111) and has magnitude close to 1
-      (is (< (Math/abs (- (fc/abs (nth (:state-vector global-x-result) 7)) 1.0)) 1e-10))))
+      (is (< (abs (- (fc/abs (nth (:state-vector global-x-result) 7)) 1.0)) 1e-10))))
 
   (testing "Global Hadamard creates uniform superposition"
     (let [|00⟩ (qs/zero-state 2)
@@ -190,7 +190,7 @@
 
       ;; All four amplitudes should have equal magnitude (uniform superposition)
       (doseq [amp amplitudes]
-        (is (< (Math/abs (- (fc/abs amp) expected-magnitude)) 1e-10)))))
+        (is (< (abs (- (fc/abs amp) expected-magnitude)) 1e-10)))))
 
   (testing "Global rotation gates apply to all qubits"
     (let [|00⟩ (qs/zero-state 2)
@@ -203,7 +203,7 @@
       (is (not= (:state-vector global-rx-result) (:state-vector |00⟩)))
       (is (not= (:state-vector global-ry-result) (:state-vector |00⟩)))
       ;; Global RZ should preserve probability magnitude but add phases
-      (is (< (Math/abs (- (fc/abs (first (:state-vector global-rz-result))) 1.0)) 1e-10)))))
+      (is (< (abs (- (fc/abs (first (:state-vector global-rz-result))) 1.0)) 1e-10)))))
 
 (deftest test-multi-qubit-gates
   (testing "SWAP gate exchanges qubit states"
@@ -288,10 +288,10 @@
 
       ;; Y|0⟩ = i|1⟩
       (is (< (fc/abs (first (:state-vector y-0))) 1e-10) "Y|0⟩ first component should be 0")
-      (is (< (Math/abs (- (fc/im (second (:state-vector y-0))) 1.0)) 1e-10) "Y|0⟩ = i|1⟩")
+      (is (< (abs (- (fc/im (second (:state-vector y-0))) 1.0)) 1e-10) "Y|0⟩ = i|1⟩")
 
       ;; Y|1⟩ = -i|0⟩  
-      (is (< (Math/abs (- (fc/im (first (:state-vector y-1))) -1.0)) 1e-10) "Y|1⟩ = -i|0⟩")
+      (is (< (abs (- (fc/im (first (:state-vector y-1))) -1.0)) 1e-10) "Y|1⟩ = -i|0⟩")
       (is (< (fc/abs (second (:state-vector y-1))) 1e-10) "Y|1⟩ second component should be 0")))
 
   (testing "Pauli-Y gate is involution (Y² = I)"
@@ -347,7 +347,7 @@
 
       ;; When control=1 and target=1, apply phase flip
       ;; CZ|11⟩ should be -|11⟩
-      (is (< (Math/abs (+ (fc/re (nth (:state-vector cz-11) 3)) 1.0)) 1e-10) "CZ|11⟩ = -|11⟩"))))
+      (is (< (abs (+ (fc/re (nth (:state-vector cz-11) 3)) 1.0)) 1e-10) "CZ|11⟩ = -|11⟩"))))
 
 (deftest test-phase-gates
   (testing "S gate applies π/2 phase to |1⟩"
@@ -464,7 +464,7 @@
                         :h (qg/h-gate initial-state 0))
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec x-gate-is-involution 20
   (prop/for-all [_dummy (gen/return nil)]
@@ -482,7 +482,7 @@
           final-state (qg/rydberg-cz-gate initial-state 0 1)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec test-global-gates-preserve-normalization 20
   (prop/for-all [_dummy (gen/return nil)]
@@ -490,7 +490,7 @@
           final-state (qg/global-x-gate initial-state)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec test-multi-qubit-gates-preserve-normalization 20
   (prop/for-all [_dummy (gen/return nil)]
@@ -498,7 +498,7 @@
           final-state (qg/swap-gate initial-state 0 1)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec fredkin-gate-preserves-normalization 20
   (prop/for-all [_dummy (gen/return nil)]
@@ -506,7 +506,7 @@
           final-state (qg/fredkin-gate initial-state 0 1 2)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec controlled-gates-preserve-normalization 30
   (prop/for-all [gate-type (gen/elements [:cy :cz])]
@@ -515,7 +515,7 @@
           final-state (qg/apply-controlled-gate initial-state 0 1 gate-matrix)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec y-gate-preserves-normalization 20
   (prop/for-all [_dummy (gen/return nil)]
@@ -523,7 +523,7 @@
           final-state (qg/y-gate initial-state 0)
           amplitudes (:state-vector final-state)
           norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (< (Math/abs (- norm 1.0)) 1e-10))))
+      (< (abs (- norm 1.0)) 1e-10))))
 
 (comment
   (run-tests)

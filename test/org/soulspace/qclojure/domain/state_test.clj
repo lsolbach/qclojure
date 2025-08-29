@@ -37,7 +37,7 @@
       ;; Check normalization (amplitude squared sum = 1)
       (let [amplitudes (:state-vector |+⟩)
             norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-        (is (< (fm/abs (- norm 1.0)) 1e-10)))))
+        (is (< (abs (- norm 1.0)) 1e-10)))))
 
   (testing "Minus state creation"
     (let [|-⟩ (qs/minus-state)]
@@ -99,14 +99,14 @@
             a1-real (fc/re a1) a1-imag (fc/im a1)
             a2-real (fc/re a2) a2-imag (fc/im a2)
             a3-real (fc/re a3) a3-imag (fc/im a3)]
-        (is (< (Math/abs (- a0-real expected-amp)) 1e-10))
-        (is (< (Math/abs a0-imag) 1e-10))
-        (is (< (Math/abs a1-real) 1e-10))
-        (is (< (Math/abs a1-imag) 1e-10))
-        (is (< (Math/abs (- a2-real expected-amp)) 1e-10))
-        (is (< (Math/abs a2-imag) 1e-10))
-        (is (< (Math/abs a3-real) 1e-10))
-        (is (< (Math/abs a3-imag) 1e-10))))))
+        (is (< (abs (- a0-real expected-amp)) 1e-10))
+        (is (< (abs a0-imag) 1e-10))
+        (is (< (abs a1-real) 1e-10))
+        (is (< (abs a1-imag) 1e-10))
+        (is (< (abs (- a2-real expected-amp)) 1e-10))
+        (is (< (abs a2-imag) 1e-10))
+        (is (< (abs a3-real) 1e-10))
+        (is (< (abs a3-imag) 1e-10))))))
 
 ;;
 ;; State normalization tests
@@ -136,8 +136,8 @@
               orig-imag (fc/im orig-complex)
               renorm-real (fc/re renorm-complex)
               renorm-imag (fc/im renorm-complex)]
-          (is (< (Math/abs (- orig-real renorm-real)) 1e-10))
-          (is (< (Math/abs (- orig-imag renorm-imag)) 1e-10)))))))
+          (is (< (abs (- orig-real renorm-real)) 1e-10))
+          (is (< (abs (- orig-imag renorm-imag)) 1e-10)))))))
 
 ;;
 ;; Probability calculation tests
@@ -155,8 +155,8 @@
 
   (testing "Probability of plus state"
     (let [|+⟩ (qs/plus-state)]
-      (is (< (Math/abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10))
-      (is (< (Math/abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10))))
+      (is (< (abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10))
+      (is (< (abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10))))
 
   (testing "Multi-qubit probabilities"
     (let [|00⟩ (qs/zero-state 2)]
@@ -288,7 +288,7 @@
             state (qs/computational-basis-state n (vec bits))
             amplitudes (:state-vector state)
             norm-squared (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-        (is (< (Math/abs (- norm-squared 1.0)) 1e-10)))))
+        (is (< (abs (- norm-squared 1.0)) 1e-10)))))
 
   (testing "Error conditions"
     ;; Number of qubits doesn't match bits length
@@ -348,7 +348,7 @@
       (doseq [state all-basis-states]
         (let [amplitudes (:state-vector state)
               norm-squared (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-          (is (< (Math/abs (- norm-squared 1.0)) 1e-10))))
+          (is (< (abs (- norm-squared 1.0)) 1e-10))))
 
       ;; Test orthogonality - different states have zero inner product
       (doseq [i (range (count all-basis-states))
@@ -367,7 +367,7 @@
             num-positions (count (:state-vector (first all-basis-states)))
             total-amplitudes (for [i (range num-positions)]
                                (reduce fc/add (map #(nth % i) all-state-vectors)))]
-        (is (every? #(< (Math/abs (- (fc/abs %) 1.0)) 1e-10) total-amplitudes)))))
+        (is (every? #(< (abs (- (fc/abs %) 1.0)) 1e-10) total-amplitudes)))))
 
   (testing "Bit order convention consistency"
     ;; Test that our bit ordering is consistent with standard quantum computing notation
@@ -390,8 +390,8 @@
           |1⟩ (qs/computational-basis-state 1 [1])]
 
       ;; |+⟩ = (|0⟩ + |1⟩)/√2, so it should have equal amplitudes on |0⟩ and |1⟩
-      (is (< (Math/abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10))
-      (is (< (Math/abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10))
+      (is (< (abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10))
+      (is (< (abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10))
 
       ;; The computational basis states should have definite outcomes
       (is (= (qs/probability |0⟩ 0) 1.0))
@@ -421,7 +421,7 @@
                       product (qs/tensor-product state1 state2)
                       amplitudes (:state-vector product)
                       norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-                  (< (Math/abs (- norm 1.0)) 1e-10))))
+                  (< (abs (- norm 1.0)) 1e-10))))
 
 (defspec measurement-outcomes-are-valid 100
   (prop/for-all [n (gen/choose 1 4)]
@@ -446,7 +446,7 @@
                       (= normalized-ratio Double/POSITIVE_INFINITY)
                       ;; Handle zero ratio case specially  
                       (if (zero? original-ratio)
-                        (< (Math/abs normalized-ratio) 1e-10)
+                        (< (abs normalized-ratio) 1e-10)
                         ;; Use relative error tolerance for better numerical stability
                         (let [relative-error (/ (fm/abs (- original-ratio normalized-ratio))
                                                 (fm/abs original-ratio))]

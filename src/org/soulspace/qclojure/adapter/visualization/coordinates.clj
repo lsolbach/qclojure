@@ -3,7 +3,7 @@
   
   This namespace handles 3D to 2D projections for Bloch sphere visualization
   and other coordinate system transformations needed for quantum state graphics."
-  (:require [fastmath.core :as m]
+  (:require [fastmath.core :as fm]
             [fastmath.complex :as fc]))
 
 ;; Bloch sphere coordinate calculations
@@ -26,13 +26,13 @@
         β (second amplitudes)  ; amplitude for |1⟩
 
         ;; Calculate Bloch sphere coordinates
-        θ (* 2 (m/acos (fc/abs α)))  ; polar angle
+        θ (* 2 (fm/acos (fc/abs α)))  ; polar angle
         φ (fc/arg β)                 ; azimuthal angle  
 
         ;; Cartesian coordinates
-        x (* (m/sin θ) (m/cos φ))
-        y (* (m/sin θ) (m/sin φ))
-        z (m/cos θ)]
+        x (* (fm/sin θ) (fm/cos φ))
+        y (* (fm/sin θ) (fm/sin φ))
+        z (fm/cos θ)]
 
     {:spherical {:theta θ :phi φ}
      :cartesian {:x x :y y :z z}}))
@@ -51,14 +51,14 @@
   [x3d y3d z3d center scale]
   (let [[cx cy] center
         ;; Use standard isometric angles for proper axis alignment
-        angle-x-rad (/ m/PI 6) ; 30 degrees
-        angle-y-rad (/ m/PI 6) ; 30 degrees
+        angle-x-rad (/ fm/PI 6) ; 30 degrees
+        angle-y-rad (/ fm/PI 6) ; 30 degrees
 
         ;; Map axes properly (X right, Y upper-left, Z upper)
-        x-proj (- (* x3d (m/cos angle-x-rad)) (* y3d (m/cos angle-y-rad)))
+        x-proj (- (* x3d (fm/cos angle-x-rad)) (* y3d (fm/cos angle-y-rad)))
         y-proj (- (* z3d -0.8) ; Scale Z for better height balance
-                  (+ (* x3d (m/sin angle-x-rad))
-                     (* y3d (m/sin angle-y-rad))))]
+                  (+ (* x3d (fm/sin angle-x-rad))
+                     (* y3d (fm/sin angle-y-rad))))]
     [(+ cx (* scale x-proj))
      (+ cy (* scale y-proj))]))
 
@@ -107,22 +107,22 @@
   Map with :circles and :meridians containing coordinate sequences"
   [n-circles n-meridians n-points]
   (let [circles (for [i (range n-circles)]
-                  (let [lat-angle (* (/ i (dec n-circles)) m/PI)
-                        circle-radius (m/sin lat-angle)
-                        circle-z (m/cos lat-angle)]
+                  (let [lat-angle (* (/ i (dec n-circles)) fm/PI)
+                        circle-radius (fm/sin lat-angle)
+                        circle-z (fm/cos lat-angle)]
                     (for [j (range (inc n-points))]
-                      (let [lon-angle (* (/ j n-points) 2 m/PI)]
-                        [(* circle-radius (m/cos lon-angle))
-                         (* circle-radius (m/sin lon-angle))
+                      (let [lon-angle (* (/ j n-points) 2 fm/PI)]
+                        [(* circle-radius (fm/cos lon-angle))
+                         (* circle-radius (fm/sin lon-angle))
                          circle-z]))))
 
         meridians (for [i (range n-meridians)]
-                    (let [lon-angle (* (/ i n-meridians) 2 m/PI)]
+                    (let [lon-angle (* (/ i n-meridians) 2 fm/PI)]
                       (for [j (range (inc n-points))]
-                        (let [lat-angle (* (/ j n-points) m/PI)]
-                          [(* (m/sin lat-angle) (m/cos lon-angle))
-                           (* (m/sin lat-angle) (m/sin lon-angle))
-                           (m/cos lat-angle)]))))]
+                        (let [lat-angle (* (/ j n-points) fm/PI)]
+                          [(* (fm/sin lat-angle) (fm/cos lon-angle))
+                           (* (fm/sin lat-angle) (fm/sin lon-angle))
+                           (fm/cos lat-angle)]))))]
 
     {:circles circles
      :meridians meridians}))
@@ -150,7 +150,7 @@
   [coords1 coords2]
   (let [{x1 :x y1 :y z1 :z} (:cartesian coords1)
         {x2 :x y2 :y z2 :z} (:cartesian coords2)]
-    (m/sqrt (+ (* (- x2 x1) (- x2 x1))
+    (fm/sqrt (+ (* (- x2 x1) (- x2 x1))
                (* (- y2 y1) (- y2 y1))
                (* (- z2 z1) (- z2 z1))))))
 

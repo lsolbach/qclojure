@@ -17,7 +17,7 @@
    - Configurable parameters for flexibility
    - Hardware-aware circuit structures
    - Reusable across different algorithms"
-  (:require [fastmath.core :as m]
+  (:require [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;;
@@ -88,7 +88,7 @@
                           (if (>= qubit (dec num-qubits))
                             c-ent
                             (recur (qc/crz-gate c-ent qubit (inc qubit) 
-                                                (/ m/PI 4)) ; Fixed angle
+                                                (/ fm/PI 4)) ; Fixed angle
                                    (inc qubit)))))]
              (recur c-with-entangling
                     (inc layer)
@@ -314,7 +314,7 @@
             (flatten (for [_layer (range num-layers)]
                        (flatten (for [qubit (range num-qubits)]
                                   (if (< qubit num-electrons)
-                                    [0.1 m/PI 0.1]      ; RX small, RY=π for |1⟩, RZ small
+                                    [0.1 fm/PI 0.1]      ; RX small, RY=π for |1⟩, RZ small
                                     [0.1 0.1 0.1])))))))) ; Small rotations for unoccupied
     :chemistry-inspired
     (let [num-layers (:num-excitation-layers additional-options 1)
@@ -325,7 +325,7 @@
                       (concat
                        ;; Initial state preparation: π for occupied, 0 for unoccupied
                        (for [qubit (range num-qubits)]
-                         (if (< qubit num-electrons) m/PI 0.0))
+                         (if (< qubit num-electrons) fm/PI 0.0))
                        ;; Small values for excitation parameters  
                        (repeat (- params-per-layer num-qubits) 0.1))))))
 

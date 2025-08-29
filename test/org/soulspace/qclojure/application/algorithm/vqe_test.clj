@@ -7,7 +7,7 @@
   - Integration testing with molecular systems
   - Analysis and landscape exploration functions"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [fastmath.core :as math]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.application.algorithm.vqe :as vqe]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.ansatz :as ansatz]
@@ -193,7 +193,7 @@
           "Z expectation from |0⟩ measurements should be +1")
       (is (= -1.0 (vqe/measurement-based-expectation z-hamiltonian measurements-1 1000))
           "Z expectation from |1⟩ measurements should be -1")
-      (is (< (Math/abs (vqe/measurement-based-expectation z-hamiltonian measurements-plus 1000)) 0.1)
+      (is (< (abs (vqe/measurement-based-expectation z-hamiltonian measurements-plus 1000)) 0.1)
           "Z expectation from |+⟩ measurements should be ~0")))
   
   (testing "Multi-qubit measurement statistics"

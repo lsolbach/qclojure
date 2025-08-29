@@ -4,7 +4,7 @@
   Provides a contract for implementing backends to support linear algebra operations
   over numeric fields (ℝ or ℂ) with a focus on immutability and pure functions."
   (:require
-   [fastmath.complex :as complex]))
+   [fastmath.complex :as fc]))
 
 ;;;
 ;;; Backend adapter

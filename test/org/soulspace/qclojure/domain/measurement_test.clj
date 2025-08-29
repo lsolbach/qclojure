@@ -1,9 +1,9 @@
 (ns org.soulspace.qclojure.domain.measurement-test
   "Comprehensive tests for quantum measurement functionality"
   (:require [clojure.test :refer [deftest is testing run-tests]]
+            [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [fastmath.complex :as fc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;;
 ;; Test basic quantum measurement functionality
@@ -105,7 +105,7 @@
           collapsed-state (:collapsed-state measurement)
           amplitudes (:state-vector collapsed-state)
           norm-squared (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]
-      (is (< (Math/abs (- norm-squared 1.0)) 1e-10) 
+      (is (< (abs (- norm-squared 1.0)) 1e-10) 
           "State should remain normalized after partial measurement"))))
 
 ;;
@@ -192,7 +192,7 @@
           non-zero-amplitudes (filter #(> (fc/abs %) 1e-10) state-vector)
           num-non-zero (count non-zero-amplitudes)]
       (is (= num-non-zero 1) "After measurement, only one amplitude should be non-zero")
-      (is (< (Math/abs (- (fc/abs (first non-zero-amplitudes)) 1.0)) 1e-10)
+      (is (< (abs (- (fc/abs (first non-zero-amplitudes)) 1.0)) 1e-10)
           "The non-zero amplitude should have magnitude 1"))))
 
 ;;
@@ -253,16 +253,16 @@
       (is (= (qs/probability |0⟩ 1) 0.0) "P(|1⟩|0⟩) = 0")
       (is (= (qs/probability |1⟩ 0) 0.0) "P(|0⟩|1⟩) = 0")
       (is (= (qs/probability |1⟩ 1) 1.0) "P(|1⟩|1⟩) = 1")
-      (is (< (Math/abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10) "P(|0⟩|+⟩) = 0.5")
-      (is (< (Math/abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10) "P(|1⟩|+⟩) = 0.5")))
+      (is (< (abs (- (qs/probability |+⟩ 0) 0.5)) 1e-10) "P(|0⟩|+⟩) = 0.5")
+      (is (< (abs (- (qs/probability |+⟩ 1) 0.5)) 1e-10) "P(|1⟩|+⟩) = 0.5")))
 
   (testing "Probability vector calculation"
     (let [|+⟩ (qs/plus-state)
           probs (qs/measurement-probabilities |+⟩)]
       (is (= (count probs) 2) "Single qubit should have 2 probabilities")
-      (is (< (Math/abs (- (nth probs 0) 0.5)) 1e-10) "P(0) should be 0.5")
-      (is (< (Math/abs (- (nth probs 1) 0.5)) 1e-10) "P(1) should be 0.5")
-      (is (< (Math/abs (- (reduce + probs) 1.0)) 1e-10) "Probabilities should sum to 1"))))
+      (is (< (abs (- (nth probs 0) 0.5)) 1e-10) "P(0) should be 0.5")
+      (is (< (abs (- (nth probs 1) 0.5)) 1e-10) "P(1) should be 0.5")
+      (is (< (abs (- (reduce + probs) 1.0)) 1e-10) "Probabilities should sum to 1"))))
 
 ;;
 ;; Test utility functions
@@ -312,7 +312,6 @@
       ;; Should not throw an exception for states within normalization tolerance
       (is (map? (qs/measure-state slightly-unnormalized))
           "Should handle slightly unnormalized states gracefully"))))
-
 
 (comment 
   (run-tests)

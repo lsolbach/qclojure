@@ -16,7 +16,7 @@
   - Decoherence parameter calculations
   - Matrix operations for quantum channel mathematics"
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]))
@@ -54,8 +54,8 @@
          (<= p 0.75)] ; Physical constraint for depolarizing channel
    :post [(s/valid? ::quantum-channel %)]}
   (let [;; Use existing Pauli matrices from gate namespace
-        no-error-coeff (m/sqrt (- 1.0 p))
-        error-coeff (m/sqrt (/ p 3.0))]
+        no-error-coeff (fm/sqrt (- 1.0 p))
+        error-coeff (fm/sqrt (/ p 3.0))]
     ;; Apply coefficients directly to matrices for proper quantum channel
     [{:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex no-error-coeff 0) %) row)) qg/pauli-i)}
      {:matrix (mapv (fn [row] (mapv #(fc/mult (fc/complex error-coeff 0) %) row)) qg/pauli-x)}
@@ -76,8 +76,8 @@
   {:pre [(s/valid? ::damping-parameter gamma)]
    :post [(s/valid? ::quantum-channel %)]}
   [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
-   {:matrix [[(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]
+             [(fc/complex 0 0) (fc/complex (fm/sqrt (- 1.0 gamma)) 0)]]}
+   {:matrix [[(fc/complex 0 0) (fc/complex (fm/sqrt gamma) 0)]
              [(fc/complex 0 0) (fc/complex 0 0)]]}])
 
 (defn phase-damping-kraus-operators
@@ -94,9 +94,9 @@
   {:pre [(s/valid? ::damping-parameter gamma)]
    :post [(s/valid? ::quantum-channel %)]}
   [{:matrix [[(fc/complex 1.0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt (- 1.0 gamma)) 0)]]}
+             [(fc/complex 0 0) (fc/complex (fm/sqrt (- 1.0 gamma)) 0)]]}
    {:matrix [[(fc/complex 0 0) (fc/complex 0 0)]
-             [(fc/complex 0 0) (fc/complex (m/sqrt gamma) 0)]]}])
+             [(fc/complex 0 0) (fc/complex (fm/sqrt gamma) 0)]]}])
 
 (defn coherent-error-kraus-operator
   "Generate Kraus operator for coherent (systematic) errors.
@@ -110,15 +110,15 @@
   {:pre [(s/valid? ::rotation-angle angle)
          (s/valid? ::rotation-axis axis)]
    :post [(s/valid? ::kraus-operator %)]}
-  (let [cos-half (m/cos (/ angle 2.0))
-        sin-half (m/sin (/ angle 2.0))]
+  (let [cos-half (fm/cos (/ angle 2.0))
+        sin-half (fm/sin (/ angle 2.0))]
     (case axis
       :x {:matrix [[(fc/complex cos-half 0) (fc/complex (- sin-half) 0)] 
                    [(fc/complex sin-half 0) (fc/complex cos-half 0)]]}
       :y {:matrix [[(fc/complex cos-half 0) (fc/complex sin-half 0)] 
                    [(fc/complex (- sin-half) 0) (fc/complex cos-half 0)]]}
-      :z {:matrix [[(fc/complex (m/cos angle) 0) (fc/complex 0 0)] 
-                   [(fc/complex 0 0) (fc/complex (m/cos (- angle)) 0)]]})))
+      :z {:matrix [[(fc/complex (fm/cos angle) 0) (fc/complex 0 0)] 
+                   [(fc/complex 0 0) (fc/complex (fm/cos (- angle)) 0)]]})))
 
 ;;
 ;; Quantum Channel Application Functions 
@@ -259,8 +259,8 @@
   [t1 t2 gate-time]
   {:pre [(pos? t1) (pos? t2) (pos? gate-time)]}
   (let [gate-time-us (/ gate-time 1000.0) ; Convert ns to μs
-        gamma-1 (- 1.0 (m/exp (- (/ gate-time-us t1))))
-        gamma-2 (- 1.0 (m/exp (- (/ gate-time-us t2))))]
+        gamma-1 (- 1.0 (fm/exp (- (/ gate-time-us t1))))
+        gamma-2 (- 1.0 (fm/exp (- (/ gate-time-us t2))))]
     {:gamma-1 gamma-1 :gamma-2 gamma-2}))
 
 ;;

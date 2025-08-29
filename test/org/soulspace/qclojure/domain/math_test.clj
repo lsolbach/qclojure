@@ -2,8 +2,8 @@
   "Unit tests for mathematical operations in the qclojure domain"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [fastmath.core :as fc]
-            [fastmath.complex :as complex]))
+            [fastmath.core :as fm]
+            [fastmath.complex :as fc]))
 
 (defn factors-equal?
   "Compare two factorization results regardless of order"
@@ -16,9 +16,9 @@
 (deftest test-complex?
   (testing "Complex number type detection"
     ;; Test with fastmath complex numbers
-    (is (qmath/complex? (complex/complex 1.0 2.0)) "FastMath complex number should be detected")
-    (is (qmath/complex? (complex/complex 0 0)) "Zero complex number should be detected")
-    (is (qmath/complex? (complex/complex -1.5 3.7)) "Negative real complex number should be detected")
+    (is (qmath/complex? (fc/complex 1.0 2.0)) "FastMath complex number should be detected")
+    (is (qmath/complex? (fc/complex 0 0)) "Zero complex number should be detected")
+    (is (qmath/complex? (fc/complex -1.5 3.7)) "Negative real complex number should be detected")
     
     ;; Test with non-complex types
     (is (not (qmath/complex? 5)) "Regular integer should not be complex")
@@ -33,15 +33,15 @@
     
     (testing "FastMath complex numbers"
       ;; Simple cases
-      (is (= 5.0 (qmath/complex-magnitude-squared (complex/complex 1 2))) "|1+2i|² = 5")
-      (is (= 25.0 (qmath/complex-magnitude-squared (complex/complex 3 4))) "|3+4i|² = 25")
-      (is (= 0.0 (qmath/complex-magnitude-squared (complex/complex 0 0))) "|0|² = 0")
-      (is (= 1.0 (qmath/complex-magnitude-squared (complex/complex 1 0))) "|1|² = 1")
-      (is (= 1.0 (qmath/complex-magnitude-squared (complex/complex 0 1))) "|i|² = 1")
+      (is (= 5.0 (qmath/complex-magnitude-squared (fc/complex 1 2))) "|1+2i|² = 5")
+      (is (= 25.0 (qmath/complex-magnitude-squared (fc/complex 3 4))) "|3+4i|² = 25")
+      (is (= 0.0 (qmath/complex-magnitude-squared (fc/complex 0 0))) "|0|² = 0")
+      (is (= 1.0 (qmath/complex-magnitude-squared (fc/complex 1 0))) "|1|² = 1")
+      (is (= 1.0 (qmath/complex-magnitude-squared (fc/complex 0 1))) "|i|² = 1")
       
       ;; Negative components
-      (is (= 5.0 (qmath/complex-magnitude-squared (complex/complex -1 -2))) "|-1-2i|² = 5")
-      (is (= 25.0 (qmath/complex-magnitude-squared (complex/complex -3 4))) "|-3+4i|² = 25"))
+      (is (= 5.0 (qmath/complex-magnitude-squared (fc/complex -1 -2))) "|-1-2i|² = 5")
+      (is (= 25.0 (qmath/complex-magnitude-squared (fc/complex -3 4))) "|-3+4i|² = 25"))
     
     (testing "Clojure vector format [real imag]"
       (is (= 5.0 (qmath/complex-magnitude-squared [1 2])) "[1, 2] magnitude squared")
@@ -65,28 +65,28 @@
   (testing "Maximum coefficient magnitude squared from matrix"
     
     (testing "Simple 2x2 matrix"
-      (let [matrix [[(complex/complex 1 0) (complex/complex 0 1)]
-                    [(complex/complex 2 0) (complex/complex 0 2)]]]
+      (let [matrix [[(fc/complex 1 0) (fc/complex 0 1)]
+                    [(fc/complex 2 0) (fc/complex 0 2)]]]
         (is (= 4.0 (qmath/max-coeff-magnitude-squared matrix)) "Max should be |2|² = 4")))
     
     (testing "Matrix with mixed magnitudes"
-      (let [matrix [[(complex/complex 3 4) (complex/complex 1 1)]  ; |3+4i|² = 25, |1+1i|² = 2
-                    [(complex/complex 0 5) (complex/complex 2 0)]]] ; |5i|² = 25, |2|² = 4
+      (let [matrix [[(fc/complex 3 4) (fc/complex 1 1)]  ; |3+4i|² = 25, |1+1i|² = 2
+                    [(fc/complex 0 5) (fc/complex 2 0)]]] ; |5i|² = 25, |2|² = 4
         (is (= 25.0 (qmath/max-coeff-magnitude-squared matrix)) "Max should be 25")))
     
     (testing "Single element matrix"
-      (let [matrix [[(complex/complex 1.5 2.5)]]]  ; |1.5+2.5i|² = 2.25 + 6.25 = 8.5  
+      (let [matrix [[(fc/complex 1.5 2.5)]]]  ; |1.5+2.5i|² = 2.25 + 6.25 = 8.5  
         (is (= 8.5 (qmath/max-coeff-magnitude-squared matrix)))))
     
     (testing "Matrix with negative components"
-      (let [matrix [[(complex/complex -3 -4) (complex/complex 1 -1)]
-                    [(complex/complex 0 -2) (complex/complex -1 0)]]]
+      (let [matrix [[(fc/complex -3 -4) (fc/complex 1 -1)]
+                    [(fc/complex 0 -2) (fc/complex -1 0)]]]
         (is (= 25.0 (qmath/max-coeff-magnitude-squared matrix)) "|-3-4i|² = 25")))
     
     (testing "Larger matrix"
-      (let [matrix [[(complex/complex 1 0) (complex/complex 0 1) (complex/complex 2 1)]
-                    [(complex/complex 1 1) (complex/complex 3 0) (complex/complex 1 2)]
-                    [(complex/complex 0 4) (complex/complex 2 2) (complex/complex 0 0)]]]
+      (let [matrix [[(fc/complex 1 0) (fc/complex 0 1) (fc/complex 2 1)]
+                    [(fc/complex 1 1) (fc/complex 3 0) (fc/complex 1 2)]
+                    [(fc/complex 0 4) (fc/complex 2 2) (fc/complex 0 0)]]]
         (is (= 16.0 (qmath/max-coeff-magnitude-squared matrix)) "|4i|² = 16")))))
 
 (deftest test-prime?
@@ -381,7 +381,7 @@
         (let [[num den] last-conv
               approx (/ (double num) den)
               actual (/ 22.0 7)]
-          (is (< (Math/abs (- approx actual)) 0.1) "Last convergent should approximate original"))))))
+          (is (< (abs (- approx actual)) 0.1) "Last convergent should approximate original"))))))
 
 ;;
 ;; Integration tests - test functions working together for Shor's algorithm

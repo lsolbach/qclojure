@@ -199,8 +199,8 @@
         ideal-fidelity 0.95  ; Assume high fidelity target
         measured-fidelity (/ (double (get measured-counts target-state 0)) total-shots)
         corrected-fidelity (/ (double (get corrected-counts target-state 0)) total-shots)
-        error-before (Math/abs (- ideal-fidelity measured-fidelity))
-        error-after (Math/abs (- ideal-fidelity corrected-fidelity))
+        error-before (abs (- ideal-fidelity measured-fidelity))
+        error-after (abs (- ideal-fidelity corrected-fidelity))
         improvement-factor (if (> error-before 1e-10)
                             (/ error-after error-before)
                             1.0)]

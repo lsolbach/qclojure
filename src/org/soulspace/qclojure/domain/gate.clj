@@ -1,7 +1,7 @@
 (ns org.soulspace.qclojure.domain.gate
   "Quantum gate operations for quantum state manipulation"
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.math.core :as mcore]))
@@ -83,7 +83,7 @@
   
   The Hadamard gate is self-inverse: H² = I, and represents a rotation
   by π around the axis (X+Z)/√2 on the Bloch sphere."
-  (let [sqrt2-inv (/ 1 (m/sqrt 2))]
+  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
     [[(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
      [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]]))
 
@@ -114,7 +114,7 @@
   (phase-gate π/4)    ; T gate"
   [phi]
   [[(fc/complex 1 0) (fc/complex 0 0)]
-   [(fc/complex 0 0) (fc/complex (m/cos phi) (m/sin phi))]])
+   [(fc/complex 0 0) (fc/complex (fm/cos phi) (fm/sin phi))]])
 
 (def s-gate
   "S gate (phase gate with π/2 phase): S = [[1,0], [0,i]]
@@ -155,7 +155,7 @@
   The T gate is equivalent to ⁴√Z and is crucial for universal quantum
   computation. Together with Hadamard and CNOT gates, it forms a
   universal gate set capable of approximating any quantum computation."
-  (phase-gate (/ m/PI 4)))
+  (phase-gate (/ fm/PI 4)))
 
 (def t-dag-gate
   "T-dagger gate (phase gate with -π/4 phase): T† = [[1,0], [0,e^(-iπ/4)]]
@@ -168,7 +168,7 @@
   The T† gate is the Hermitian adjoint (conjugate transpose) of the T gate,
   and the inverse gate to T: T†·T = I. It's essential in fault-tolerant quantum
   computing and appears in many gate decompositions for advanced quantum circuits."
-  (phase-gate (/ m/PI -4)))
+  (phase-gate (/ fm/PI -4)))
 
 ;; Rotation gates - Parameterized gates for arbitrary rotations
 (defn rx-gate
@@ -196,8 +196,8 @@
   Example:
   (rx-gate (/ Math/PI 2))  ; 90° rotation around X-axis"
   [theta]
-  (let [cos-half (m/cos (/ theta 2))
-        sin-half (m/sin (/ theta 2))]
+  (let [cos-half (fm/cos (/ theta 2))
+        sin-half (fm/sin (/ theta 2))]
     [[(fc/complex cos-half 0) (fc/complex 0 (- sin-half))]
      [(fc/complex 0 (- sin-half)) (fc/complex cos-half 0)]]))
 
@@ -227,8 +227,8 @@
   Example:
   (ry-gate Math/PI)  ; 180° rotation around Y-axis"
   [theta]
-  (let [cos-half (m/cos (/ theta 2))
-        sin-half (m/sin (/ theta 2))]
+  (let [cos-half (fm/cos (/ theta 2))
+        sin-half (fm/sin (/ theta 2))]
     [[(fc/complex cos-half 0) (fc/complex (- sin-half) 0)]
      [(fc/complex sin-half 0) (fc/complex cos-half 0)]]))
 
@@ -258,8 +258,8 @@
   Example:
   (rz-gate (/ Math/PI 4))  ; 45° phase rotation"
   [theta]
-  (let [exp-neg (fc/complex (m/cos (/ theta -2)) (m/sin (/ theta -2)))
-        exp-pos (fc/complex (m/cos (/ theta 2)) (m/sin (/ theta 2)))]
+  (let [exp-neg (fc/complex (fm/cos (/ theta -2)) (fm/sin (/ theta -2)))
+        exp-pos (fc/complex (fm/cos (/ theta 2)) (fm/sin (/ theta 2)))]
     [[exp-neg (fc/complex 0 0)]
      [(fc/complex 0 0) exp-pos]]))
 
@@ -990,7 +990,7 @@
         state-vector (:state-vector state)
         size (int (Math/pow 2 n))
         new-vector (vec (repeat size (fc/complex 0 0)))
-        phase-factor (fc/complex (m/cos phi) (m/sin phi))]
+        phase-factor (fc/complex (fm/cos phi) (fm/sin phi))]
     ;; Transform each basis state according to controlled phase gate logic
     (loop [i 0
            result new-vector]
@@ -1037,7 +1037,7 @@
         state-vector (:state-vector state)
         size (int (Math/pow 2 n))
         new-vector (vec (repeat size (fc/complex 0 0)))
-        phase-factor (fc/complex (m/cos phi) (m/sin phi))]
+        phase-factor (fc/complex (fm/cos phi) (fm/sin phi))]
     ;; Transform each basis state according to blockade logic
     (loop [i 0
            result new-vector]
@@ -1182,7 +1182,7 @@
   (global-x-gate (qs/zero-state 3))
   ;=> Transforms |000⟩ → |111⟩"
   [state]
-  (global-rx-gate state m/PI))
+  (global-rx-gate state fm/PI))
 
 (defn global-y-gate
   "Apply Pauli-Y gate to all qubits in a quantum state.
@@ -1196,7 +1196,7 @@
   Returns:
   New quantum state with Y gate applied to all qubits"
   [state]
-  (global-ry-gate state m/PI))
+  (global-ry-gate state fm/PI))
 
 (defn global-z-gate
   "Apply Pauli-Z gate to all qubits in a quantum state.
@@ -1210,5 +1210,5 @@
   Returns:
   New quantum state with Z gate applied to all qubits"
   [state]
-  (global-rz-gate state m/PI))
+  (global-rz-gate state fm/PI))
 

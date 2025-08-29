@@ -20,7 +20,7 @@
 (defn within-tolerance? 
   "Check if two values are within given tolerance"
   [expected actual tolerance]
-  (<= (Math/abs (- expected actual)) tolerance))
+  (<= (abs (- expected actual)) tolerance))
 
 (defn phase-in-range? 
   "Check if phase is in valid range [0, 2π)"

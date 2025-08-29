@@ -283,7 +283,7 @@
       (is (= 3 (count eigenvalues)))
       (is (= 3 (count eigenvectors)))
       ;; All eigenvalues should be real for symmetric matrix (check imaginary parts are ~0)
-      (is (every? #(< (Math/abs (fc/im %)) 1e-12) eigenvalues)))
+      (is (every? #(< (abs (fc/im %)) 1e-12) eigenvalues)))
     
     ;; Test 4x4 identity matrix (may condense equal eigenvalues)
     (let [I [[1.0 0.0 0.0 0.0] [0.0 1.0 0.0 0.0] [0.0 0.0 1.0 0.0] [0.0 0.0 0.0 1.0]]
@@ -341,7 +341,7 @@
                      cond-num 1e-8))
       
       ;; All operations should complete without error
-      (is (every? #(< (Math/abs (fc/im %)) 1e-12) eigenvalues)) ; eigenvalues should be real
+      (is (every? #(< (abs (fc/im %)) 1e-12) eigenvalues)) ; eigenvalues should be real
       (is (t/approx= spec-norm spec-norm)) ; spec-norm should be a valid number/Vec2
       (is (number? cond-num))))) ; cond-num should be a valid number
 

@@ -1,6 +1,6 @@
 (ns org.soulspace.qclojure.domain.math
   "Mathematical operations and utilities for quantum algorithms."
-  (:require [fastmath.core :as m]
+  (:require [fastmath.core :as fm]
             [fastmath.complex :as fc]))
 
 ; Enable fastmath operator macros
@@ -97,7 +97,7 @@
   [n]
   (and (> n 1)
        (not-any? #(zero? (mod n %))
-                 (range 2 (inc (int (m/sqrt n)))))))
+                 (range 2 (inc (int (fm/sqrt n)))))))
 
 (defn gcd
   "Calculate greatest common divisor using Euclidean algorithm.
@@ -166,7 +166,7 @@
           depth 0]
      (cond
        ;; Stop if denominator is zero or very close to zero
-       (or (zero? d) (< (m/abs d) epsilon))
+       (or (zero? d) (< (fm/abs d) epsilon))
        cf
 
        ;; Stop if we've reached max depth to prevent infinite loops
@@ -218,7 +218,7 @@
   Number rounded to specified precision"
   [x precision]
   (if (zero? precision)
-    (double (m/round x))
+    (double (fm/round x))
     (let [bd (bigdec x)
           scale precision
           rounded (.setScale bd scale java.math.RoundingMode/HALF_UP)]
@@ -254,7 +254,7 @@
                                     (= 1 (mod-exp a period N)))]
                      {:period period
                       :fraction [num den]
-                      :error (Math/abs (- phase (/ num (Math/pow 2 precision))))})
+                      :error (abs (- phase (/ num (Math/pow 2 precision))))})
 
         ;; Sort by error (lowest first) and then by period (smallest valid first)
         sorted-candidates (sort-by (juxt :error :period) candidates)]

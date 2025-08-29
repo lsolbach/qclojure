@@ -15,21 +15,21 @@
    (cond
      ;; Both are Vec2 (complex numbers)
      (and (vec2? a) (vec2? b))
-     (and (< (Math/abs (- (fc/re a) (fc/re b))) tolerance)
-          (< (Math/abs (- (fc/im a) (fc/im b))) tolerance))
+     (and (< (abs (- (fc/re a) (fc/re b))) tolerance)
+          (< (abs (- (fc/im a) (fc/im b))) tolerance))
      
      ;; One is Vec2, other is number - compare real parts (assuming zero imaginary)
      (vec2? a)
-     (and (< (Math/abs (- (fc/re a) b)) tolerance)
-          (< (Math/abs (fc/im a)) tolerance))
+     (and (< (abs (- (fc/re a) b)) tolerance)
+          (< (abs (fc/im a)) tolerance))
      
      (vec2? b)
-     (and (< (Math/abs (- a (fc/re b))) tolerance)
-          (< (Math/abs (fc/im b)) tolerance))
+     (and (< (abs (- a (fc/re b))) tolerance)
+          (< (abs (fc/im b)) tolerance))
      
      ;; Both are regular numbers
      :else
-     (< (Math/abs (- a b)) tolerance))))
+     (< (abs (- a b)) tolerance))))
 
 (defn real-part
   "Extract real part from number or Vec2 complex."

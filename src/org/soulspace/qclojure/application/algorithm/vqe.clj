@@ -21,7 +21,7 @@
   
   This implementation targets production use with real quantum hardware."
   (:require [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
@@ -513,7 +513,7 @@
 
     {:optimal-energy optimal-energy
      :gradients gradients
-     :gradient-norm (m/sqrt (reduce + (map #(* % %) gradients)))
+     :gradient-norm (fm/sqrt (reduce + (map #(* % %) gradients)))
      :sensitivities sensitivities
      :most-sensitive-parameter (apply max-key #(nth sensitivities %) (range num-params))
      :least-sensitive-parameter (apply min-key #(nth sensitivities %) (range num-params))}))

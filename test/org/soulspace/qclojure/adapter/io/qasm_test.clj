@@ -6,7 +6,7 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.string :as str]
             [clojure.spec.alpha :as s]
-            [fastmath.core :as m]
+            [fastmath.core :as fm]
             [org.soulspace.qclojure.application.format.qasm2 :as qasm2]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
@@ -385,7 +385,7 @@ measure q -> c;"
             (doseq [i (range (count orig-angles))]
               (let [orig (nth orig-angles i)
                     conv (nth conv-angles i)]
-                (is (< (m/abs (- orig conv)) 1.0e-6)
+                (is (< (fm/abs (- orig conv)) 1.0e-6)
                     (str gate-type " angle preserved: " orig " vs " conv)))))))))
 
 (comment

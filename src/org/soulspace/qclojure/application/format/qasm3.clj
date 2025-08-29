@@ -394,3 +394,30 @@
                            lines)]
     {:circuit processed-circuit
      :result-specs result-specs}))
+
+(comment
+  ;; Example usage:
+  (def example-circuit
+  (-> (qc/create-circuit 3 "Example Circuit")
+      (qc/h-gate 0)
+      (qc/cnot-gate 0 1)
+      (qc/ry-gate 2 (/ Math/PI 2))
+      (qc/cz-gate 1 2) 
+      (qc/measure-operation [0 1 2])
+        ;
+      ))
+
+  (def result-specs
+    {:measurements {:shots 1000 :qubits [0 1]}
+     :expectation {:observables [:pauli-z] :targets [0]}
+     :variance {:observables [:pauli-x] :targets [1]}
+     :probability {:targets [0 1] :states ["00" "01" "10" "11"]}
+     :amplitude {:states ["00" "11"]}})
+
+  (def qasm-output (circuit-to-qasm example-circuit result-specs))
+  (println qasm-output)
+
+  (def parsed (qasm-to-circuit qasm-output))
+  (println (:circuit parsed))
+  (println (:result-specs parsed))
+  )

@@ -205,3 +205,22 @@
                            lines)]
     processed-circuit))
 
+(comment
+  ;; Example usage:
+  (def example-circuit
+    (-> (qc/create-circuit 3 "Example Circuit")
+        (qc/h-gate 0)
+        (qc/cnot-gate 0 1)
+        (qc/ry-gate 2 (/ Math/PI 2))
+        (qc/cz-gate 1 2)
+        ;(qc/measure-operation [0 1 2])
+        ;
+        ))
+
+  (def qasm-code (circuit-to-qasm example-circuit))
+  (println "Generated QASM:\n" qasm-code)
+  (def parsed-circuit (qasm-to-circuit qasm-code))
+  (println "Parsed Circuit:" parsed-circuit)
+  
+  ;
+  )

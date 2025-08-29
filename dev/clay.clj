@@ -1,4 +1,5 @@
-(ns dev
+(ns clay
+  "Tools for building the QClojure tutorial notebook."
   (:require [scicloj.clay.v2.api :as clay]))
 
 (comment ; Clay 

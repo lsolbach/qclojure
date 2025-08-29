@@ -13,11 +13,54 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.observables :as obs]
-            [org.soulspace.qclojure.domain.hamiltonian :as ham]))
+            [org.soulspace.qclojure.domain.hamiltonian :as ham]
+            [org.soulspace.qclojure.domain.math :as qmath]))
 
 ;;
 ;; Specs for enhanced results (QASM 3.0 / Braket compatible)
 ;;
+(s/def ::shots pos-int?)
+(s/def ::measurement-qubits (s/coll-of pos-int? :kind vector? :min-count 1))
+(s/def ::measurement-outcomes (s/coll-of string? :kind vector? :min-count 1))
+(s/def ::measurement-probabilities (s/coll-of number? :kind vector? :min-count 1))
+(s/def ::empirical-probabilities (s/map-of string? number?))
+(s/def ::frequencies (s/map-of string? pos-int?))
+(s/def ::shot-count pos-int?)
+(s/def ::observable any?) ;; Placeholder, should be a proper observable spec
+(s/def ::expectation-value number?)
+(s/def ::variance-value number?)
+(s/def ::standard-deviation number?)
+(s/def ::target-qubits (s/coll-of pos-int? :kind vector? :min-count 1))
+(s/def ::probability-outcomes (s/map-of (s/or :index pos-int? :bit-pattern (s/coll-of #{0 1} :kind vector? :min-count 1)) number?))
+(s/def ::target-states (s/coll-of (s/or :index pos-int? :bit-pattern (s/coll-of #{0 1} :kind vector? :min-count 1)) :kind vector? :min-count 1))
+(s/def ::all-probabilities (s/coll-of number? :kind vector? :min-count 1))
+(s/def ::amplitude-values (s/map-of pos-int? qmath/complex?))
+(s/def ::basis-states (s/coll-of pos-int? :kind vector? :min-count 1))
+(s/def ::state-vector (s/coll-of qmath/complex? :kind vector? :min-count 1))
+(s/def ::num-qubits pos-int?)
+(s/def ::density-matrix (s/coll-of (s/coll-of qmath/complex? :kind vector? :min-count 1) :kind vector? :min-count 1))
+(s/def ::trace-valid boolean?)
+(s/def ::fidelities (s/map-of string? number?))
+(s/def ::reference-states (s/coll-of any? :kind vector? :min-count 1)) ;; Placeholder
+(s/def ::sample-outcomes (s/coll-of string? :kind vector? :min-count 1))
+(s/def ::final-state ::qs/quantum-state)
+(s/def ::execution-metadata (s/map-of keyword? any?))
+(s/def ::result-types (s/coll-of ::result-type :kind set? :min-count 1))
+(s/def ::measurement-results (s/coll-of ::measurement-result :kind vector? :min-count 1))
+(s/def ::expectation-results (s/coll-of ::expectation-result :kind vector? :min-count 1))
+(s/def ::variance-results (s/coll-of ::variance-result :kind vector? :min-count 1))
+
+(s/def ::measurements (s/keys :opt-un [::shots ::measurement-qubits]))
+(s/def ::expectation (s/keys :req-un [::observables] :opt-un [::target-qubits]))
+(s/def ::variance (s/keys :req-un [::observables] :opt-un [::target-qubits]))
+(s/def ::hamiltonian any?) ;; Placeholder
+(s/def ::probabilities (s/keys :opt-un [::target-states ::target-qubits]))
+(s/def ::amplitudes (s/keys :req-un [::basis-states]))
+(s/def ::state-vector boolean?)
+(s/def ::density-matrix boolean?)
+(s/def ::fidelity (s/keys :req-un [::reference-states]))
+(s/def ::sample (s/keys :req-un [::observables ::shots] :opt-un [::target-qubits]))
+
 (s/def ::result-type #{:measurement :expectation :variance :probability 
                        :amplitude :state-vector :density-matrix :fidelity
                        :sample :adjoint-gradient})

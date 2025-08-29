@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.13.0
 * added unified, comprehensive result preparation/extraction, supports
   * `:measurements` (basic sampling)
   * `:observables` (observable expectations)

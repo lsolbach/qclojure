@@ -1,20 +1,45 @@
 (ns org.soulspace.qclojure.domain.state
-  "Core quantum state representation and operations"
+  "Core quantum state representation and operations.
+   
+   This namespace defines the fundamental data structures and functions
+   for representing and manipulating quantum states in QClojure.
+   It includes utilities for creating common quantum states, performing
+   state normalization, tensor products, and calculating measurement probabilities.
+   
+   The quantum state is represented as a map with keys:
+   - :state-vector: Vector of complex amplitudes (fastmath Vec2)
+   - :num-qubits: Number of qubits in the state
+   
+   The state vector follows the standard computational basis ordering.
+   
+   QClojure currently uses the fastmath library for complex number support and
+   mathematical operations.
+
+   Specs are provided for validation of quantum states and related data structures."
   (:require [clojure.string :as str]
             [clojure.spec.alpha :as s]
             [fastmath.core :as fm]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.math.core :as mcore]))
+            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math :as qmath]))
 
-;; Specs for quantum states
-(s/def ::complex-amplitude #(instance? fastmath.vector.Vec2 %))
-(s/def ::state-vector (s/coll-of ::complex-amplitude :kind vector?))
+;;;
+;;; Specs for quantum states
+;;;
+(s/def ::complex-amplitude qmath/complex?)
+(s/def ::state-vector (s/coll-of ::complex-amplitude :kind vector? :min-count 1))
 (s/def ::num-qubits pos-int?)
 (s/def ::quantum-state (s/keys :req-un [::state-vector ::num-qubits]))
+(s/def ::basis-states (s/coll-of pos-int? :kind vector? :min-count 1))
+(s/def ::basis-strings (s/coll-of string? :kind vector? :min-count 1))
+(s/def ::basis-labels (s/coll-of string? :kind vector? :min-count 1))
 
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)
 
+;;;
+;;; Computational basis state utilities
+;;;
 (defn basis-string
   "Generate a string representation of a computational basis state.
    For a given value, this function produces the corresponding binary string
@@ -54,7 +79,7 @@
   Returns:
   Vector of basis strings"
   [n-qubits]
-  (mapv basis-string
+  (mapv #(basis-string % n-qubits)
         (range (bit-shift-left 1 n-qubits))))
 
 (defn basis-label
@@ -138,6 +163,15 @@
 
 (comment
 
+  (basis-string 1 4)
+  (basis-string "001" 4)
+  (basis-string [0 0 1] 4)
+  (basis-string 4 4)
+  (basis-string "100" 4)
+  (basis-string [1 0 0] 4)
+
+  (basis-strings 3)
+
   (basis-label 4)
   (basis-label [1 0 0])
   (basis-label "100")
@@ -145,18 +179,21 @@
   (basis-label [0 0 1])
   (basis-label 15)
 
-  (basis-label 1 4)
-  (basis-label "001" 4)
-  (basis-label [0 0 1] 4)
-  (basis-label 4 4)
-  (basis-label "100" 4)
-  (basis-label [1 0 0] 4)
+  (basis-labels 3)
 
+  (bits-to-index [0 0 0])
+  (bits-to-index [0 0 1])
+  (bits-to-index [1 0 1])
+
+  (index-to-bits 0 3)
+  (index-to-bits 1 3)
+  (index-to-bits 5 3)
   ; 
   )
 
-
-;; Quantum state creation functions
+;;;
+;;; Quantum state creation functions
+;;;
 (defn single-qubit-state
   "Create a single qubit state with given amplitude for |1⟩ component.
   
@@ -426,36 +463,6 @@
                                 amplitudes)]
     (assoc state :state-vector normalized-amplitudes)))
 
-#_(defn normalize-state
-    "Normalize a quantum state vector to unit length.
-  
-  Quantum states must be normalized such that the sum of squared magnitudes
-  of all amplitudes equals 1. This ensures that the total probability of
-  all measurement outcomes is 100%.
-  
-  The normalization process:
-  1. Calculate the norm: √(Σ|αᵢ|²) where αᵢ are the amplitudes
-  2. Divide each amplitude by the norm: αᵢ' = αᵢ/norm
-  
-  Parameters:
-  - state: Quantum state map to normalize
-  
-  Returns:
-  Normalized quantum state with the same relative amplitudes but unit norm
-  
-  Example:
-  (normalize-state (multi-qubit-state [(fc/complex 3 0) (fc/complex 4 0)]))
-  ;=> Normalized state with amplitudes [0.6, 0.8] since 3²+4²=25, norm=5"
-    [state]
-    ;; Temporarily disabled spec validation to allow tests to run
-    ;; {:pre [(s/valid? ::quantum-state state)]
-    ;;  :post [(s/valid? ::quantum-state %)]}
-    (let [amplitudes (:state-vector state)
-          norm-squared (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))
-          norm (m/sqrt norm-squared)
-          normalized-amplitudes (mapv #(fc/scale % (/ 1.0 norm)) amplitudes)]
-      (assoc state :state-vector normalized-amplitudes)))
-
 (defn tensor-product
   "Compute the tensor product of two quantum states.
   
@@ -530,9 +537,55 @@
         trace-real (fc/re trace)]  ; Extract real part of complex trace
     (< (fm/abs (- trace-real 1.0)) eps)))
 
+(defn probability
+  "Calculate the probability of measuring a quantum state in a specific basis state.
+  
+  According to the Born rule, the probability of measuring a quantum state
+  in a particular computational basis state is the squared magnitude of
+  the corresponding amplitude: P(|i⟩) = |αᵢ|²
+  
+  Parameters:
+  - state: Quantum state to analyze
+  - basis-index: Integer index of the computational basis state (0-indexed)
+                 For n qubits: 0 represents |00...0⟩, 2ⁿ-1 represents |11...1⟩
+  
+  Returns:
+  Real number between 0 and 1 representing the measurement probability
+  
+  Examples:
+  (probability |+⟩ 0)
+  ;=> 0.5  ; 50% chance of measuring |0⟩
+  
+  (probability |+⟩ 1)  
+  ;=> 0.5  ; 50% chance of measuring |1⟩
+  
+  (probability |0⟩ 0)
+  ;=> 1.0  ; 100% chance of measuring |0⟩"
+  [state basis-index]
+  ;; Temporarily disabled spec validation
+  ;; {:pre [(s/valid? ::quantum-state state)
+  ;;        (< basis-index (count (:state-vector state)))]}
+  (let [amplitude (nth (:state-vector state) basis-index)]
+    (* (fc/abs amplitude) (fc/abs amplitude))))
+
 (defn probabilities
   "Calculate the probabilities from the amplitudes of a quantum state.
-   "
+   
+   According to the Born rule, the probability of measuring a quantum state
+   in a particular computational basis state is the squared magnitude of
+   the corresponding amplitude: P(|i⟩) = |αᵢ|².
+   
+   Parameters:
+   - state: Quantum state to analyze
+   
+   Returns:
+   Vector of real numbers between 0 and 1 representing the measurement probabilities
+   
+   Example:
+   (probabilities |+⟩)
+   ;=> [0.5, 0.5]  ; 50% chance of measuring |0⟩ or |1⟩
+   (probabilities |0⟩)
+   ;=> [1.0, 0.0]  ; 100% chance of measuring |0⟩"
   [state]
   (let [amps (:state-vector state)
         probs (mapv (fn [a]
@@ -581,37 +634,6 @@
                           fc/ZERO))
                       (range n)))
               (range n) probs)))))
-
-(defn probability
-  "Calculate the probability of measuring a quantum state in a specific basis state.
-  
-  According to the Born rule, the probability of measuring a quantum state
-  in a particular computational basis state is the squared magnitude of
-  the corresponding amplitude: P(|i⟩) = |αᵢ|²
-  
-  Parameters:
-  - state: Quantum state to analyze
-  - basis-index: Integer index of the computational basis state (0-indexed)
-                 For n qubits: 0 represents |00...0⟩, 2ⁿ-1 represents |11...1⟩
-  
-  Returns:
-  Real number between 0 and 1 representing the measurement probability
-  
-  Examples:
-  (probability |+⟩ 0)
-  ;=> 0.5  ; 50% chance of measuring |0⟩
-  
-  (probability |+⟩ 1)  
-  ;=> 0.5  ; 50% chance of measuring |1⟩
-  
-  (probability |0⟩ 0)
-  ;=> 1.0  ; 100% chance of measuring |0⟩"
-  [state basis-index]
-  ;; Temporarily disabled spec validation
-  ;; {:pre [(s/valid? ::quantum-state state)
-  ;;        (< basis-index (count (:state-vector state)))]}
-  (let [amplitude (nth (:state-vector state) basis-index)]
-    (* (fc/abs amplitude) (fc/abs amplitude))))
 
 ;;;
 ;;; Pre-defined common quantum states
@@ -889,6 +911,7 @@
      :num-qubits (dec n-qubits)}))
 
 ;; Measurement utility functions
+; TODO duplicate to probabilities, remove?
 (defn measurement-probabilities
   "Calculate measurement probabilities for all computational basis states.
   

@@ -2,14 +2,7 @@
   "Core visualization API - unified interface to quantum visualization tools.
   
   This namespace provides a single entry point for all quantum visualization
-  functionality. It now supports both the new unified multimethod API and
-  maintains backward compatibility with the original delegation-based API.
-  
-  New Unified API:
-  - visualize (format, data, options) - multimethod-based unified interface
-  
-  Legacy API:
-  - ascii-*, svg-*, html-* functions - maintained for backward compatibility"
+  functionality."
   )
 
 (defn visualization-format

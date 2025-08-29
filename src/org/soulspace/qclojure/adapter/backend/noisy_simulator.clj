@@ -47,7 +47,7 @@
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.channel :as channel]
-            [org.soulspace.qclojure.application.noise :as noise]))
+            [org.soulspace.qclojure.domain.noise :as noise]))
 
 ;; Noisy simulator state management
 (defonce state (atom {:job-counter 0
@@ -484,6 +484,9 @@
 
 
 (comment
+
+  (require '[org.soulspace.qclojure.application.noise :as napp])
+
   (noise-model-for :ibm-lagos)
 
   ;; Create advanced simulators with different noise characteristics
@@ -513,7 +516,7 @@
 
   ;; Compare all Amazon Braket platforms
   (def all-models (all-noise-models))
-  (def bell-comparison (noise/compare-hardware-platforms bell-circuit all-models))
+  (def bell-comparison (napp/compare-hardware-platforms bell-circuit all-models))
 
   (println "=== Amazon Braket Platform Comparison (Bell Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > bell-comparison)]
@@ -540,7 +543,7 @@
         (qc/cnot-gate 0 1) (qc/cnot-gate 1 2)
         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)))
 
-  (def grover-comparison (noise/compare-hardware-platforms grover-circuit all-models))
+  (def grover-comparison (napp/compare-hardware-platforms grover-circuit all-models))
 
   (println "\n=== Platform Comparison (Complex Grover Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > grover-comparison)]
@@ -591,7 +594,8 @@
 
   (println "\nDecoherence comparison:")
   (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)
-  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence))
+  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence)
+  )
 
 ;; Advanced noise modeling capabilities:
 ;; 1. Realistic Amazon Braket device parameters

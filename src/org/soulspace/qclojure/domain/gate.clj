@@ -1,5 +1,22 @@
 (ns org.soulspace.qclojure.domain.gate
-  "Quantum gate operations for quantum state manipulation"
+  "Quantum gate operations for quantum state manipulation.
+   
+   This namespace defines fundamental quantum gates, including single-qubit
+   gates (Pauli-X, Y, Z, Hadamard, Phase gates) and multi-qubit gates (CNOT).
+   It provides functions to apply these gates to quantum states, handling
+   both single and multi-qubit systems. The implementation uses matrix
+   representations and tensor products to ensure accurate quantum state
+   transformations.
+   
+   Key functionalities:
+   - Definition of standard quantum gates with matrix representations
+   - Functions to apply gates to quantum states, expanding for multi-qubit systems
+   - Support for controlled gates (e.g., CNOT) with arbitrary control/target qubits
+   - Parameterized rotation gates (RX, RY, RZ) for arbitrary angle rotations
+   
+   This namespace is essential for simulating quantum circuits and algorithms,
+   enabling the construction and manipulation of quantum states through gate
+   operations."
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as fm]
             [fastmath.complex :as fc]
@@ -11,6 +28,8 @@
 (s/def ::qubit-index nat-int?)
 (s/def ::control-qubit ::qubit-index)
 (s/def ::target-qubit ::qubit-index)
+
+(s/def ::single-qubit-gate (s/keys :req-un [::gate-matrix]))
 
 ; Enable fastmath operator macros
 #_(m/use-primitive-operators)

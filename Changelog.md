@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* updated the tutorial
+
 ## Version 0.13.0
 * added unified, comprehensive result preparation/extraction, supports
   * `:measurements` (basic sampling)

@@ -7,7 +7,7 @@
 ;;
 ;; ## Introduction to Quantum Computing
 ;; Quantum computing is a fascinating field that combines computer science,
-;; physics, and mathematics. It allows us to perform computations that are
+;; physics and math. It allows us to perform computations that are
 ;; not possible with classical computers. Quantum computers use quantum bits,
 ;; or [qubits](https://en.wikipedia.org/wiki/Qubit), which can be in a
 ;; superposition of states. This means that a qubit can be in a state of 0, 1,
@@ -34,13 +34,32 @@
 ;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
 ;; ## QClojure
-;; The QClojure library provides a Clojure interface to quantum computing
-;; concepts. It allows us to create and manipulate quantum states, gates, and
-;; circuits in a functional programming style.
+;; The QClojure library provides a Clojure interface to quantum computing concepts.
+;; It allows us to create and manipulate quantum states, gates, and circuits in a functional programming style.
 ;; QClojure can also be used to simulate quantum circuits and, by implementing
 ;; backends, run them on quantum hardware.
+;;
+;; QClojure is focused on the core concepts of quantum computing and provides a
+;; simple and intuitive API to work with quantum states, gates, and circuits.
+;; It also has a comprehensive library of quantum and hybrid algorithms,
+;; including Grover's search algorithm, the Quantum Approximate Optimization
+;; Algorithm (QAOA), and the Variational Quantum Eigensolver (VQE).
+;;
+;; QClojure also provides visualization functions to visualize quantum states, circuits
+;; and results, making it easier to understand and debug quantum algorithms.
+;;
+;; QClojure is designed to be extensible, allowing the implementation of backends
+;; to run quantum circuits on different quantum hardware. It can also be extended
+;; to specialized domains like quantum chemistry or quantum machine learning.
+;; Those extensions will be available as separate libraries, to keep the core
+;; library focused and lightweight.
+;;
+;; QClojure is open source and licensed under the Eclipse Public License 1.0.
+;;
 ;; This tutorial will guide you through the basics of quantum computing using
-;; QClojure.
+;; QClojure. It is written as a literate programming notebook, which means that
+;; the code and the documentation are interleaved. You can run the code
+;; snippets in a Clojure REPL or generate HTML documentation with Clay.
 ;;
 ;; ### Prerequisites
 ;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to
@@ -86,9 +105,9 @@
   (:require
    [fastmath.core :as fm]
    [scicloj.kindly.v4.kind :as kind]
-   [org.soulspace.qclojure.domain.state :as qs]
-   [org.soulspace.qclojure.domain.gate :as qg]
-   [org.soulspace.qclojure.domain.circuit :as qc]
+   [org.soulspace.qclojure.domain.state :as state]
+   [org.soulspace.qclojure.domain.gate :as gate]
+   [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]))
@@ -128,14 +147,14 @@
 ;; The *qs* namespace defines some basic quantum states.
 ;; Let's look at the quantum state |0⟩, which is the ground state of a qubit.
 
-qs/|0⟩
+state/|0⟩
 
 ;; The measured value of a quantum state is probabilistic.
 ;; We have a probability of measuring the state |0⟩ as 0, and a probability of
 ;; measuring it as 1.
 ;; We can visualize the probability distribution of the quantum state |0⟩.
 
-(kind/html (viz/visualize-quantum-state :svg qs/|0⟩))
+(kind/html (viz/visualize-quantum-state :svg state/|0⟩))
 
 ;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
 ;; which is certain.
@@ -144,25 +163,25 @@ qs/|0⟩
 ;; geometrical representation of quantum states.
 ;; We can visualize the quantum state |0⟩ as a vector on the Bloch sphere.
 
-(kind/html (viz/visualize-bloch-sphere :svg qs/|0⟩))
+(kind/html (viz/visualize-bloch-sphere :svg state/|0⟩))
 
 ;; The Bloch sphere representation shows that the state |0⟩ is at the north pole
 ;; of the sphere.
 ;;
 ;; Let's look at another quantum state, the excited state |1⟩.
 
-qs/|1⟩
+state/|1⟩
 
 ;; We can visualize the probability distribution of the quantum state |1⟩.
 
-(kind/html (viz/visualize-quantum-state :svg qs/|1⟩))
+(kind/html (viz/visualize-quantum-state :svg state/|1⟩))
 
 ;; It shows that the probability of measuring the state |1⟩ results in 1 is 1,
 ;; which is also certain.
 ;; The Bloch sphere representation shows that the state |1⟩ is at the south pole
 ;; of the sphere.
 
-(kind/html (viz/visualize-bloch-sphere :svg qs/|1⟩))
+(kind/html (viz/visualize-bloch-sphere :svg state/|1⟩))
 
 ;; ### Superposition States
 ;; Quantum states can also be in a superposition of the ground and excited
@@ -173,41 +192,41 @@ qs/|1⟩
 ;; and excited states.
 ;; The state |+⟩ is defined as (|0⟩ + |1⟩) / √2.
 
-qs/|+⟩
+state/|+⟩
 
 ;; We can visualize the probability distribution of the quantum state |+⟩.
 
-(kind/html (viz/visualize-quantum-state :svg qs/|+⟩))
+(kind/html (viz/visualize-quantum-state :svg state/|+⟩))
 
 ;; The Bloch sphere representation shows that the state |+⟩ is on the
 ;; equator of the sphere, which means, that the probabilities for
 ;; measuring 0 or 1 are the same.
 
-(kind/html (viz/visualize-bloch-sphere :svg qs/|+⟩))
+(kind/html (viz/visualize-bloch-sphere :svg state/|+⟩))
 
 ;; The quantum state |-⟩ is another superposition of the ground and
 ;; excited states. The state |-⟩ is defined as (|0⟩ - |1⟩) / √2.
 
-qs/|-⟩
+state/|-⟩
 
 ;; We can visualize the probability distribution of the quantum state |-⟩.
 
-(kind/html (viz/visualize-quantum-state :svg qs/|-⟩))
+(kind/html (viz/visualize-quantum-state :svg state/|-⟩))
 
 ;; The Bloch sphere representation shows that the state |-⟩ is also on the
 ;; equator of the sphere, but pointing in the opposite direction.
 
-(kind/html (viz/visualize-bloch-sphere :svg qs/|-⟩))
+(kind/html (viz/visualize-bloch-sphere :svg state/|-⟩))
 
 ;; ### Multi-Qubit States and Quantum Registers
 ;; Tensor products can be used to create multi-qubit states from single-qubit
 ;; states. For example, the state |00⟩ is the tensor product of two |0⟩ states.
 
-qs/|00⟩
+state/|00⟩
 
 ;; We can visualize the probability distribution of the quantum state |00⟩.
 
-(kind/html (viz/visualize-quantum-state :svg qs/|00⟩))
+(kind/html (viz/visualize-quantum-state :svg state/|00⟩))
 
 ;; ## Quantum Gates
 ;; Quantum gates are operations that can be applied to quantum states.
@@ -221,17 +240,17 @@ qs/|00⟩
 ;; The Pauli-X gate is a quantum gate that flips the state of a qubit around
 ;; the X axis which swaps the amplitudes of |0⟩ and |1⟩.
 
-qg/pauli-x
+gate/pauli-x
 
 ;; The Pauli-Y gate is a quantum gate that flips the state of a qubit around
 ;; the Y axis which swaps the amplitudes of |0⟩ and |1⟩ and also adds a phase.
 
-qg/pauli-y
+gate/pauli-y
 
 ;; The Pauli-Z gate is a quantum gate that flips the state of a qubit around
 ;; the Y axis which adds a phase to the state of a qubit.
 
-qg/pauli-z
+gate/pauli-z
 
 ;; The Pauli gates are self inverse, applying the same gate twice results
 ;; in the original value.
@@ -242,13 +261,13 @@ qg/pauli-z
 ;; It transforms the state |0⟩ into the state |+⟩ and |1⟩ into the state |-⟩.
 ;; The Hadamard gate is defined as the matrix:
 
-qg/hadamard
+gate/hadamard
 
 ;; We can apply the Hadamard gate to the state |0⟩ to create the superposition 
 ;; state |+⟩.
 
 (def hadamard-state
-  (qg/h-gate qs/|0⟩))
+  (gate/h-gate state/|0⟩))
 
 ;; We can visualize the probability distribution of the Hadamard state.
 
@@ -271,22 +290,22 @@ qg/hadamard
 ;; The [S gate](https://en.wikipedia.org/wiki/S_gate) is a phase gate that adds
 ;; a phase of π/2 to the state of a qubit.
 
-qg/s-gate
+gate/s-gate
 
 ;; The [S† gate](https://en.wikipedia.org/wiki/S_gate#S%E2%81%BF_gate) is the
 ;; inverse of the S gate and adds a phase of -π/2 to the state of a qubit.
 
-qg/s-dag-gate
+gate/s-dag-gate
 
 ;; The [T gate](https://en.wikipedia.org/wiki/T_gate) is a phase gate that adds
 ;; a phase of π/4 to the state of a qubit.
 
-qg/t-gate
+gate/t-gate
 
 ;; The [T† gate](https://en.wikipedia.org/wiki/T_gate#T%E2%81%BF_gate) is the
 ;; inverse of the T gate and adds a phase of -π/4 to the state of a qubit.
 
-qg/t-dag-gate
+gate/t-dag-gate
 
 ;; ### Rotation Gates
 ;; Rotation gates are quantum gates that rotate the state of a qubit around
@@ -296,19 +315,19 @@ qg/t-dag-gate
 ;; rotation gate that rotates the state of a qubit around the X axis of the
 ;; Bloch sphere.
 
-(qg/rx-gate fm/-QUARTER_PI)
+(gate/rx-gate fm/-QUARTER_PI)
 
 ;; The [RY gate](https://en.wikipedia.org/wiki/Rotation_gate#RY_gate) is a
 ;; rotation gate that rotates the state of a qubit around the Y axis of the
 ;; Bloch sphere.
 
-(qg/ry-gate fm/-QUARTER_PI)
+(gate/ry-gate fm/-QUARTER_PI)
 
 ;; The [RZ gate](https://en.wikipedia.org/wiki/Rotation_gate#RZ_gate) is a
 ;; rotation gate that rotates the state of a qubit around the Z axis of the
 ;; Bloch sphere.
 
-(qg/rz-gate fm/-QUARTER_PI)
+(gate/rz-gate fm/-QUARTER_PI)
 
 ;; ### Controlled Gates
 ;; Controlled gates are quantum gates that act on multiple qubits.
@@ -319,7 +338,7 @@ qg/t-dag-gate
 ;; is a controlled gate that flips the state of the target qubit  if the control
 ;; qubit is in the state |1⟩.
 
-(qg/cnot-gate)
+(gate/cnot-gate)
 
 ;; The controlled-Y gate is a controlled gate that flips the state of the target
 ;; qubit and adds a phase if the control qubit is in the state |1⟩.
@@ -337,8 +356,8 @@ qg/t-dag-gate
 ;; state |0⟩.
 
 (def simple-circuit
-  (-> (qc/create-circuit 1 "Hadamard on qubit 0")
-      (qc/h-gate 0)))
+  (-> (circuit/create-circuit 1 "Hadamard on qubit 0")
+      (circuit/h-gate 0)))
 
 ;; We can visualize the quantum circuit.
 
@@ -350,7 +369,7 @@ qg/t-dag-gate
 ;; on the state |0⟩ to create the Hadamard state.
 
 (def hadamard-circuit-result
-  (qc/execute-circuit simple-circuit qs/|0⟩))
+  (circuit/execute-circuit simple-circuit state/|0⟩))
 
 ;; We can visualize the probability distribution of the Hadamard circuit state.
 
@@ -369,7 +388,7 @@ qg/t-dag-gate
 ;; Bell state, which is a two-qubit entangled state.
 
 (def bell-circuit
-  (qc/bell-state-circuit))
+  (circuit/bell-state-circuit))
 
 ;; We can visualize the Bell circuit.
 
@@ -381,7 +400,7 @@ qg/t-dag-gate
 ;;[entangled](https://en.wikipedia.org/wiki/Entanglement).
 
 (def bell-result
-  (qc/execute-circuit bell-circuit (qs/zero-state 2)))
+  (circuit/execute-circuit bell-circuit (state/zero-state 2)))
 
 ;; We can visualize the probability distribution of the Bell state.
 
@@ -396,7 +415,7 @@ qg/t-dag-gate
 ;; state.
 
 (def ghz-circuit
-  (qc/ghz-state-circuit 3))
+  (circuit/ghz-state-circuit 3))
 
 ;; We can visualize the GHZ circuit.
 
@@ -409,7 +428,7 @@ qg/t-dag-gate
 ;; We can apply the GHZ circuit to the state |000⟩ to create the GHZ state.
 
 (def ghz-result
-  (qc/execute-circuit ghz-circuit (qs/zero-state 3)))
+  (circuit/execute-circuit ghz-circuit (state/zero-state 3)))
 
 ;; We can visualize the probability distribution of the GHZ state.
 
@@ -421,24 +440,26 @@ qg/t-dag-gate
 ;; ## Math Backends for Complex Linear Algebra
 ;; Simulating quantum circuits on a classical computer requires efficient
 ;; linear algebra operations on complex numbers. QClojure provides a
-;; domain.math.core namespace that abstracts the underlying complex linear algebra
+;; `domain.math.core` namespace that abstracts the underlying complex linear algebra
 ;; implementation. This namespace provides the public API for complex linear
 ;; algebra operations used in QClojure. It allows to switch between different
 ;; implementations of complex linear algebra without changing the QClojure code.
+;;
 ;; Protocols define the operations that need to be implemented by a
-;; specific implementation:
-;; * MatrixAlgebra, defining basic matrix operations like addition, multiplication,
+;; specific complex linear algebra backend implementation:
+;; * MatrixAlgebra - defining basic matrix operations like addition, multiplication,
 ;;   products (kronecker/tensor, outer, inner, hadamard), conjugate transpose, etc.
-;; * MatrixDecompositions, defining matrix decompositions like
+;; * MatrixDecompositions - defining matrix decompositions like
 ;;   singular value decomposition, eigenvalue decomposition, etc.
-;; * MatrixFunctions, defining matrix functions like exponentiation, logarithm, square root, etc.
-;; * MatrixAnalysis, defining matrix analysis functions like spectral norm, condition number, etc.
+;; * MatrixFunctions - defining matrix functions like exponentiation, logarithm, square root, etc.
+;; * MatrixAnalysis - defining matrix analysis functions like spectral norm, condition number, etc.
+;;
 ;; Currently, QClojure supports two backend implementations:
 ;; * Fastmath Backend (`:fastmath`), based on FastMath, a high-performance numerical computing
 ;;   library for Clojure. It provides efficient implementations of complex linear
 ;;   algebra operations based on Apache Commons Math.
 ;; * Pure Clojure Math Backend (`:pure`), based on Clojure Math, a pure Clojure implementation
-;;   of complex linear algebra operations for educational purpose.
+;;   of complex linear algebra operations for educational purpose only.
 ;; 
 ;; The Fastmath backend is the default backend used by QClojure, as it provides
 ;; better performance for large quantum states and circuits. The Clojure Math
@@ -448,21 +469,31 @@ qg/t-dag-gate
 (require '[org.soulspace.qclojure.domain.math.core :as mcore])
 
 ;; You can switch between the backends by using the `set-backend` function.
-
-(mcore/set-backend! :pure)
-
-(mcore/set-backend! :fastmath)
-
 ;; After switching the backend, all complex linear algebra operations
 ;; will use the selected backend. Backends may use a different representation
 ;; for complex numbers and matrices, but the public API handles the conversion
 ;; between the different representations.
 ;;
+;; The backend can be switched at any time, but it is recommended to set the
+;; backend at the beginning of the program, before any quantum states or
+;; circuits are created.
+;;
+;; To switch to the pure Clojure Math backend, use the following code:
+
+(mcore/set-backend! :pure)
+
+;; Now, all complex linear algebra operations will use the pure Clojure Math
+;; backend.
+;;
+;; You can switch back to the Fastmath backend by using the following code:
+
+(mcore/set-backend! :fastmath)
+
 ;; A BLAS/LAPACK (CPU) and OpenCL/CUDA (GPU) enabled backend would be desirable for simulating
 ;; larger quantum states and circuits, but is not yet available.
 ;;
 ;; ## Quantum Computing Backends
-;; QClojure can be extended with backends to run quantum circuits on quantum hardware.
+;; QClojure can be extended with backends to run quantum circuits on real quantum hardware.
 ;; The *application.backend* namespace contains the protocols to be implemented by a
 ;; specific backend. A backend can be used to execute a quantum circuit.
 
@@ -473,6 +504,11 @@ qg/t-dag-gate
 ;; * The ideal simulator backend simulates an ideal quantum computer without
 ;;   physical constraints like noise.
 ;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
+;;
+;; Additional backends to access quantum hardware will be available as separate
+;; libraries. There is already an experimental implementation for an Amazon
+;; Braket backend available in the [qclojure-braket](https://github.com/lsolbach/qclojure-braket)
+;; project.
 ;;
 ;; Simulating quantum circuits on a classical computer is computationally expensive,
 ;; as the state space of a quantum system grows exponentially with the number of qubits.
@@ -495,14 +531,14 @@ qg/t-dag-gate
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 
-(qb/execute-circuit simulator (qc/ghz-state-circuit 3))
+(qb/execute-circuit simulator (circuit/ghz-state-circuit 3))
 
 ;; When executing a circuit on a backend, it will be executed multiple times,
 ;; because of the probabilistic nature of quantum computing. One execution of the
 ;; circuit is called a *shot*. The default number of shots is 512, but it can be
 ;; configured via an options map.
 
-(qb/execute-circuit simulator (qc/ghz-state-circuit 3) {:shots 10})
+(qb/execute-circuit simulator (circuit/ghz-state-circuit 3) {:shots 10})
 
 ;; ### Noisy Simulator Backend
 ;; Real quantum hardware is subject to various kinds of noise, which can
@@ -548,7 +584,7 @@ qg/t-dag-gate
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 ;; Because we use a noisy simulator, we may measure wrong answers.
 
-(def lagos-50-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 50}))
+(def lagos-50-result (qb/execute-circuit lagos-simulator (circuit/ghz-state-circuit 3) {:shots 50}))
 
 lagos-50-result
 
@@ -560,7 +596,7 @@ lagos-50-result
 ;; could be unlucky and measure the wrong answers. The probability to measure
 ;; the wrong answers gets lower by increasing the number of shots.
 
-(def lagos-10k-result (qb/execute-circuit lagos-simulator (qc/ghz-state-circuit 3) {:shots 10000}))
+(def lagos-10k-result (qb/execute-circuit lagos-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
 
 lagos-10k-result
 
@@ -581,7 +617,7 @@ lagos-10k-result
 ;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.
 
-(def forte-10k-result (qb/execute-circuit forte-simulator (qc/ghz-state-circuit 3) {:shots 10000}))
+(def forte-10k-result (qb/execute-circuit forte-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
 
 forte-10k-result
 
@@ -1392,7 +1428,6 @@ vqe-result
 
 (kind/html (viz/visualize-circuit :svg (:circuit vqe-result)))
 
-
 ;; ### Quantum Approximation Optimization Algorithm (QAOA)
 ;; The [Quantum Approximation Optimization Algorithm (QAOA)](https://en.wikipedia.org/wiki/Quantum_approximate_optimization_algorithm)
 ;; is a hybrid quantum-classical algorithm used to solve combinatorial optimization problems.
@@ -1403,30 +1438,27 @@ vqe-result
 ;; and a classical optimization algorithm to maximize the expectation value of
 ;; the cost function with respect to the trial state.
 ;; 
-;; #### Max-Cut Problem
-;; The Max-Cut problem is a combinatorial optimization problem that can be
-;; represented as a graph. The goal is to partition the vertices of the graph
-;; into two subsets such that the number of edges between the subsets is maximized.
-;; The Max-Cut problem can be represented as a cost function, where the cost
-;; function is the number of edges between the two subsets.
-;; The QAOA algorithm can be used to find an approximate solution to the Max-Cut
+;; * Max-Cut Problem - a combinatorial optimization problem that can be
+;;   represented as a graph. The goal is to partition the vertices of the graph
+;;   into two subsets such that the number of edges between the subsets is maximized.
+;;   The Max-Cut problem can be represented as a cost function, where the cost
+;;   function is the number of edges between the two subsets.
+;;   The QAOA algorithm can be used to find an approximate solution to the Max-Cut
 ;;
-;; #### Max-SAT Problem
-;; The Max-SAT problem is a combinatorial optimization problem that can be
-;; represented as a boolean formula in conjunctive normal form (CNF). The goal
-;; is to find an assignment of truth values to the variables in the formula
-;; that maximizes the number of satisfied clauses. The Max-SAT problem can be
-;; represented as a cost function, where the cost function is the number of
-;; satisfied clauses. The QAOA algorithm can be used to find an approximate
-;; solution to the Max-SAT problem.
+;; * Max-SAT Problem - a combinatorial optimization problem that can be
+;;   represented as a boolean formula in conjunctive normal form (CNF). The goal
+;;   is to find an assignment of truth values to the variables in the formula
+;;   that maximizes the number of satisfied clauses. The Max-SAT problem can be
+;;   represented as a cost function, where the cost function is the number of
+;;   satisfied clauses. The QAOA algorithm can be used to find an approximate
+;;   solution to the Max-SAT problem.
 ;;
-;; #### Traveling Salesperson Problem
-;; The Traveling Salesperson Problem (TSP) is a combinatorial optimization
-;; problem that can be represented as a graph. The goal is to find the shortest
-;; possible route that visits each vertex exactly once and returns to the
-;; starting vertex. The TSP can be represented as a cost function, where the
-;; cost function is the total distance of the route. The QAOA algorithm can
-;; be used to find an approximate solution to the TSP.
+;; * Traveling Salesperson Problem - a combinatorial optimization
+;;   problem that can be represented as a graph. The goal is to find the shortest
+;;   possible route that visits each vertex exactly once and returns to the
+;;   starting vertex. The TSP can be represented as a cost function, where the
+;;   cost function is the total distance of the route. The QAOA algorithm can
+;;   be used to find an approximate solution to the TSP.
 ;; 
 ;; The QAOA algorithm is also used in quantum machine learning and other optimization problems,
 ;; where it can be used to find the optimal parameters for a quantum circuit
@@ -1517,7 +1549,7 @@ triangle-qaoa-result
 ;; is a superposition of the states that represent the optimal solution to
 ;; the Max-Cut problem.
 ;;
-;; # I/O Support
+;; # Data Format and I/O Support
 ;; QClojure supports various input and output formats for quantum circuits
 ;; and quantum states. This allows users to easily import and export quantum
 ;; circuits and states between different quantum computing frameworks and tools.
@@ -1535,12 +1567,12 @@ triangle-qaoa-result
 ;; We create a quantum circuit with medium complexity for import and export.
 
 (def test-circuit
-  (-> (qc/create-circuit 3 "I/O Test Circuit" "A circuit with medium complexity")
-      (qc/h-gate 0)
-      (qc/cnot-gate 0 1)
-      (qc/t-gate 1)
-      (qc/cnot-gate 1 2)
-      (qc/measure-operation [0 1 2])))
+  (-> (circuit/create-circuit 3 "I/O Test Circuit" "A circuit with medium complexity")
+      (circuit/h-gate 0)
+      (circuit/cnot-gate 0 1)
+      (circuit/t-gate 1)
+      (circuit/cnot-gate 1 2)
+      (circuit/measure-operation [0 1 2])))
 
 ;; ## EDN Support
 ;; EDN (Extensible Data Notation) is a data format that is similar to JSON
@@ -1553,7 +1585,7 @@ triangle-qaoa-result
 
 ;; Let's first write a simple quantum state to disk in EDN format.
 
-(io/export-quantum-state :edn qs/|+⟩ "plus-state.edn")
+(io/export-quantum-state :edn state/|+⟩ "plus-state.edn")
 
 ;; We can read the quantum state in EDN form back from disk.
 
@@ -1574,7 +1606,7 @@ triangle-qaoa-result
 ;; keyword `:json`.
 ;; Let's write the same quantum state to disk in JSON format.
 
-(io/export-quantum-state :json qs/|+⟩ "plus-state.json")
+(io/export-quantum-state :json state/|+⟩ "plus-state.json")
 
 ;; We can read the quantum state in JSON form back from disk.
 
@@ -1611,3 +1643,4 @@ triangle-qaoa-result
 ;; We can read the quantum circuit in QASM 3 format back from disk.
 
 (io/import-quantum-circuit :qasm3 "test-circuit-qasm3.qasm")
+

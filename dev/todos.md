@@ -3,6 +3,9 @@
 ## Next steps
 * integrate unified result types in backend workflows
 * integrate optional error mitigation in the noisy simulator workflow
+* extraxt relevant results from QAOA
+  * edges in Max-CUT and TSP
+  * boolean assignments in Max-SAT
 
 ## Backlog
 * consistently handle backend errors in all algorithms

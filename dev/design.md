@@ -21,28 +21,35 @@ This separation keeps QClojure lean and decoupled.
 The implementation architecture for QClojure is *Clean Architecture*.
 
 ### Domain Core
-The domain core is implemented stateless and purely functional.
+The domain core is implemented hardware agnostic, stateless and
+in a purely functional way. It provides the necessary data structures and
+calculations as composable building blocks for quantum applications.
 It contains the implementations of core quantum computing concepts like
-* states
-* gates (with gate registry, decompositions and optimisations) 
-* cirquits (with compositions and transformations) 
+* quantum states
+* quantum gates (with gate registry, decompositions and optimisations) 
+* quantum circuits (with compositions and transformations) 
 * observables
 * hamiltonians
 * quantum channels
+* noise modelling
 
-It also currently contains the math required for the quantum computing calculations.
+It also currently contains the math required for the quantum computing
+calculations.
 
 ### Application Layer
 The application layer contains the applications of the core quantum
 computing concepts, e.g.
 * quantum/hybrid algorithms
 * protocols for quantum computing backends
+* protocols for visualisation
 * hardware specific optimizations and transformations
-* noise modelling and error mitigation
+* hardware specific noise and error mitigation
 
 ### Adapter Layer
 The adapter layer handles all interfacing with the outside world.
 It contains
 * ideal/noisy simulator backends
+* external hardware/simulator backends (as extension libraries)
 * I/O handling (export/import of QClojure quantum states and circuits)
-* visualization (e.g. ASCII, SVG)
+* visualization (ASCII, SVG) of quantum states and circuits, results and hardware topologies
+

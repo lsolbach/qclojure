@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* improved namespace docstrings
 * updated the tutorial
 
 ## Version 0.13.0

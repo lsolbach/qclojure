@@ -1,5 +1,9 @@
 (ns org.soulspace.qclojure.domain.circuit
-  "Quantum circuit representation and execution"
+  "Quantum circuit representation and execution.
+   
+   A quantum circuit is a sequence of quantum operations (gates and measurements)
+   applied to a set of qubits. This namespace provides functions to create, manipulate,
+   and execute quantum circuits, as well as to analyze their structure and results."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [fastmath.core :as fm]

@@ -46,6 +46,10 @@ QClojure provides the core features for quantum computing.
 
    Vizualization of quantum states and quantum circuits as ASCII, SVG or HTML
 
+1. **Notebook Support**
+
+   "Namespace as a Notebook" integration in [Clay](https://github.com/scicloj/clay) ensures reproducible and transparent results and publishing to HTML, and via [Quarto](https://quarto.org/), to books, reports, and presentations.
+
 1. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
@@ -147,7 +151,7 @@ images of the circuit and the final state.
 ![Visualization of the probabilities of the Bell state](/doc/images/bv-state.svg)
 
 ## Tutorial
-To learn about quantum computing with QClojure please take a look at the [tutorial](/notebook/tutorial.clj).
+To learn about quantum computing with QClojure and to see a 'namespace as a notebook' please take a look at the [tutorial](/notebook/tutorial.clj).
 
 ## Build
 QClojure is currently build with [Leiningen](https://leiningen.org/).
@@ -163,6 +167,8 @@ Run the test suite with:
 ```
 lein test
 ```
+
+
 
 ## Known Issues
 * Error handling on backend failure missing, e.g. timeouts on Shor algorithm

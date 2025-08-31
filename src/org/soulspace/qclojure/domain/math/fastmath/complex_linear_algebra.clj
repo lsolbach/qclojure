@@ -437,59 +437,79 @@
                             (mapv (fn [j]
                                     (fc/im (get-in A [i j])))
                                   (range n)))
-                          (range n))
+                          (range n))]
 
-          ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
-          embedded-matrix (concat
-                           (mapv (fn [i]
-                                   (concat (get real-part i)
-                                           (mapv - (get imag-part i))))
-                                 (range n))
-                           (mapv (fn [i]
-                                   (concat (get imag-part i)
-                                           (get real-part i)))
-                                 (range n)))
+      (if (real-matrix? A)
+        ;; Real Hermitian matrix: use direct real eigendecomposition
+        (let [real-matrix (let [data (into-array (map double-array real-part))]
+                            (fmat/mat data))
+              eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. real-matrix)
+              eigenvals-array (.getRealEigenvalues eigen-decomp)
+              eigenvecs-matrix (.getV eigen-decomp)
+              
+              ;; Convert to complex format
+              complex-eigenvals (mapv #(fc/complex % 0.0) eigenvals-array)
+              eigenvec-data (fmat/mat->array2d eigenvecs-matrix)
+              complex-eigenvecs (mapv (fn [col-idx]
+                                        (mapv (fn [row-idx]
+                                                (fc/complex (get-in eigenvec-data [row-idx col-idx]) 0.0))
+                                              (range n)))
+                                      (range n))]
+          
+          {:eigenvalues complex-eigenvals
+           :eigenvectors complex-eigenvecs})
 
-          ;; Convert to Apache Commons Math format
-          embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
-                                 (fmat/mat data))
+        ;; Complex Hermitian matrix: use embedded matrix approach
+        (let [;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
+              embedded-matrix (concat
+                               (mapv (fn [i]
+                                       (concat (get real-part i)
+                                               (mapv - (get imag-part i))))
+                                     (range n))
+                               (mapv (fn [i]
+                                       (concat (get imag-part i)
+                                               (get real-part i)))
+                                     (range n)))
 
-          ;; Compute eigendecomposition using Apache Commons Math directly
-          eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. embedded-real-matrix)
-          real-eigenvals-array (.getRealEigenvalues eigen-decomp)
-          real-eigenvecs-matrix (.getV eigen-decomp)
+              ;; Convert to Apache Commons Math format
+              embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
+                                     (fmat/mat data))
 
-          ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
-          ;; Take only the first n eigenvalues (the rest are duplicates)
-          complex-eigenvals (mapv (fn [i]
-                                    ; Hermitian matrices have real eigenvalues
-                                    (fc/complex (get real-eigenvals-array (* 2 i)) 0.0))
-                                  (range n))
+              ;; Compute eigendecomposition using Apache Commons Math directly
+              eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. embedded-real-matrix)
+              real-eigenvals-array (.getRealEigenvalues eigen-decomp)
+              real-eigenvecs-matrix (.getV eigen-decomp)
 
-          ;; Extract complex eigenvectors
-          eigenvec-data (fmat/mat->array2d real-eigenvecs-matrix)
-          complex-eigenvecs (mapv (fn [i]
-                                    (mapv (fn [j]
-                                            (let [real-part (get-in eigenvec-data [j i])
-                                                  imag-part (get-in eigenvec-data [(+ n j) i])]
-                                              (fc/complex real-part imag-part)))
-                                          (range n)))
-                                  (range n))
+              ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
+              ;; Take only the first n eigenvalues (the rest are duplicates)
+              complex-eigenvals (mapv (fn [i]
+                                        ; Hermitian matrices have real eigenvalues
+                                        (fc/complex (get real-eigenvals-array (* 2 i)) 0.0))
+                                      (range n))
 
-          ;; Transpose to get column vectors
-          eigenvec-matrix (mapv (fn [i]
-                                  (mapv #(get % i) complex-eigenvecs))
-                                (range n))]
+              ;; Extract complex eigenvectors
+              eigenvec-data (fmat/mat->array2d real-eigenvecs-matrix)
+              complex-eigenvecs (mapv (fn [i]
+                                        (mapv (fn [j]
+                                                (let [real-part (get-in eigenvec-data [j i])
+                                                      imag-part (get-in eigenvec-data [(+ n j) i])]
+                                                  (fc/complex real-part imag-part)))
+                                              (range n)))
+                                      (range n))
 
-      {:eigenvalues complex-eigenvals
-       :eigenvectors eigenvec-matrix})))
+              ;; Transpose to get column vectors
+              eigenvec-matrix (mapv (fn [i]
+                                      (mapv #(get % i) complex-eigenvecs))
+                                    (range n))]
+
+          {:eigenvalues complex-eigenvals
+           :eigenvectors eigenvec-matrix})))))
 
 (defn positive-semidefinite?
   "Check if a complex matrix A is positive semidefinite."
   [A eps]
   (try
-
-    ;; use eigenvalue check
+    ;; Use eigenvalue check
     (let [[n m] (complex-matrix-shape A)]
       (when (not= n m)
         (throw (ex-info "Matrix must be square for positive-semidefinite check" {:shape [n m]})))

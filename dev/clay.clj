@@ -14,6 +14,18 @@
    ;:live-reload true
    :browse true})
 
+(def tutorial-quarto-config
+  {:base-source-path "notebook"
+   :source-path ["tutorial.clj"]
+   :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
+                 :branch "main"}
+   :format [:quarto]
+   :title "QClojure Tutorial"
+   :hide-ui-header true
+   :hide-info-line false
+   ;:live-reload true
+   :browse true})
+
 (defn make-tutorial-notebook
   "Render the QClojure tutorial notebook to HTML."
   ([]
@@ -25,5 +37,6 @@
 
 (comment ; Clay 
   (make-tutorial-notebook)
+  (make-tutorial-notebook tutorial-quarto-config)
   ;
   )

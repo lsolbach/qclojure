@@ -3,7 +3,9 @@
   (:require [scicloj.clay.v2.api :as clay]))
 
 (def tutorial-config
-  {:base-source-path "notebook"
+  {:base-target-path "docs"
+   :clean-up-target-dir true
+   :base-source-path "notebook"
    :source-path ["tutorial.clj"]
    :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
                  :branch "main"}
@@ -15,11 +17,14 @@
    :browse true})
 
 (def tutorial-quarto-config
-  {:base-source-path "notebook"
+  {:base-target-path "quarto"
+   :clean-up-target-dir true
+   :base-source-path "notebook"
    :source-path ["tutorial.clj"]
    :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
                  :branch "main"}
    :format [:quarto]
+   :quarto {:highlight-style :solarized}
    :title "QClojure Tutorial"
    :hide-ui-header true
    :hide-info-line false
@@ -27,7 +32,7 @@
    :browse true})
 
 (defn make-tutorial-notebook
-  "Render the QClojure tutorial notebook to HTML."
+  "Render the QClojure tutorial notebook."
   ([]
    (make-tutorial-notebook tutorial-config))
   ([config]

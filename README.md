@@ -169,7 +169,6 @@ lein test
 ```
 
 
-
 ## Known Issues
 * Error handling on backend failure missing, e.g. timeouts on Shor algorithm
 

@@ -30,6 +30,7 @@
 ;; to classical logic circuits.
 ;;
 ;; For a general introduction to quantum computing, take a look at
+
 ;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
 ;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
@@ -64,6 +65,7 @@
 ;; ### Prerequisites
 ;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to
 ;; have the following prerequisites installed on your system:
+;;
 ;; * [JDK 11 or higher](https://openjdk.org/install/)
 ;; * [Clojure](https://clojure.org/)
 ;; * [Leiningen](https://leiningen.org/) or [Clojure CLI](https://clojure.org/guides/getting_started)
@@ -447,6 +449,7 @@ gate/t-dag-gate
 ;;
 ;; Protocols define the operations that need to be implemented by a
 ;; specific complex linear algebra backend implementation:
+;;
 ;; * MatrixAlgebra - defining basic matrix operations like addition, multiplication,
 ;;   products (kronecker/tensor, outer, inner, hadamard), conjugate transpose, etc.
 ;; * MatrixDecompositions - defining matrix decompositions like
@@ -455,6 +458,7 @@ gate/t-dag-gate
 ;; * MatrixAnalysis - defining matrix analysis functions like spectral norm, condition number, etc.
 ;;
 ;; Currently, QClojure supports two backend implementations:
+;;
 ;; * Fastmath Backend (`:fastmath`), based on FastMath, a high-performance numerical computing
 ;;   library for Clojure. It provides efficient implementations of complex linear
 ;;   algebra operations based on Apache Commons Math.
@@ -501,6 +505,7 @@ gate/t-dag-gate
 
 ;; QClojure comes with two simulator backends in the *adapter.backend* that can be used to
 ;; simulate quantum circuits on a classical computer.
+;;
 ;; * The ideal simulator backend simulates an ideal quantum computer without
 ;;   physical constraints like noise.
 ;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
@@ -547,6 +552,7 @@ gate/t-dag-gate
 ;; noise on quantum circuits.
 ;;
 ;; The noisy simulator backend simulates these kinds of noise:
+;;
 ;; * depolarizing noise is a type of noise that randomly flips the state of a
 ;;   qubit with a certain probability.
 ;; * amplitude damping noise is a type of noise that causes the state of a
@@ -683,6 +689,7 @@ forte-10k-result
 ;;
 ;; #### Classical Approach
 ;; In a classical setting, we would need to evaluate the function f twice:
+;;
 ;; - If f(0) = f(1), then f is constant.
 ;; - If f(0) != f(1), then f is balanced.
 ;;
@@ -692,6 +699,7 @@ forte-10k-result
 ;;
 ;; #### Quantum Circuit
 ;; The Deutsch algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize a qubit in the state |0⟩ and an auxiliary qubit in the state |1⟩.
 ;; 2. Apply a Hadamard gate to both qubits to create superposition.
 ;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
@@ -796,6 +804,7 @@ deutsch-balanced-result
 ;; #### Quantum Circuit
 ;; The Bernstein-Vazirani algorithm can be implemented using a quantum circuit
 ;; with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition.
 ;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
@@ -872,6 +881,7 @@ bv-result
 ;;
 ;; #### Quantum Circuit
 ;; The Simon algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |0⟩ and n auxiliary qubits in the state |1⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition.
 ;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
@@ -945,6 +955,7 @@ simon-result
 ;;
 ;; #### Quantum Circuit
 ;; The Grover's search algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |0⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition, resulting in an equal superposition of all possible inputs.
 ;; 3. Apply the Grover diffusion operator, which consists of:
@@ -1011,6 +1022,7 @@ grover-result
 ;;
 ;; #### Quantum Circuit
 ;; The QFT can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |ψ⟩.
 ;; 2. Apply a series of controlled phase gates to the qubits, which introduces
 ;;    phase shifts based on the relative positions of the qubits.
@@ -1077,6 +1089,7 @@ qft-result
 ;;
 ;; #### Quantum Circuit
 ;; The Quantum Phase Estimation algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |ψ⟩.
 ;; 2. Apply a Hadamard gate to the auxiliary qubit to create superposition.
 ;; 3. Apply controlled-U gates to the auxiliary qubit, where U is the unitary operator.
@@ -1106,6 +1119,7 @@ qft-result
 ;;
 ;; #### Quantum Circuit
 ;; The Quantum Period Finding algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Initialize n qubits in the state |0⟩ and an auxiliary qubit in the state |1⟩.
 ;; 2. Apply a Hadamard gate to all n qubits to create superposition.
 ;; 3. Apply the function f as a quantum gate, which will entangle the qubits.
@@ -1147,9 +1161,10 @@ qft-result
 ;; #### Quantum Circuit
 ;; The Shor's algorithm can be implemented using a quantum circuit with
 ;; the following steps:
+;; 
 ;; 1. Choose a random integer a such that 1 < a < N.
 ;; 2. Use the quantum period-finding algorithm to find the order r of a modulo N.
-;; This involves:
+;;    This involves:
 ;;    - Initialize n qubits in the state |0⟩.
 ;;    - Apply a Hadamard gate to all n qubits to create superposition.
 ;;    - Apply the modular exponentiation function a^x mod N as a quantum gate,
@@ -1216,6 +1231,7 @@ qft-result
 ;;
 ;; #### Quantum Circuit
 ;; The HHL algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Prepare the input state |b⟩, which represents the vector of constants b.
 ;; 2. Use the quantum phase estimation algorithm to estimate the eigenvalues
 ;;    of the matrix A. This involves:
@@ -1277,7 +1293,7 @@ hhl-result
 
 ;; The result shows that the HHL algorithm correctly aproximates the solution of
 ;; the system of linear equations represented by the matrix A and the vector b.
-
+;;
 ;; The measurement outcome is the vector of unknowns x that satisfies the equations.
 
 (:result hhl-result)
@@ -1289,7 +1305,7 @@ hhl-result
 ;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
-
+;;
 ;; ### Variational Quantum Eigensolver (VQE) Algorithm
 ;; The [Variational Quantum Eigensolver (VQE)](https://en.wikipedia.org/wiki/Variational_quantum_eigensolver)
 ;; is a hybrid quantum-classical algorithm used to find the ground state energy
@@ -1326,6 +1342,7 @@ hhl-result
 ;;
 ;; #### Quantum Circuit
 ;; The VQE algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Prepare a parameterized quantum circuit that represents the trial state.
 ;;    The circuit can be represented as a series of quantum gates that depend on
 ;;    a set of parameters θ.
@@ -1487,6 +1504,7 @@ vqe-result
 ;;
 ;; #### Quantum Circuit
 ;; The QAOA algorithm can be implemented using a quantum circuit with the following steps:
+;;
 ;; 1. Prepare a parameterized quantum circuit that represents the trial state.
 ;;    The circuit can be represented as a series of quantum gates that depend on
 ;;    a set of parameters θ.
@@ -1632,6 +1650,10 @@ triangle-qaoa-result
 
 (io/export-quantum-circuit :qasm2 test-circuit "test-circuit-qasm2.qasm")
 
+;; To see how the QASM 2 output looks like, we can read the file with slurp.
+
+(slurp "test-circuit-qasm2.qasm")
+
 ;; We can read the quantum circuit in QASM 2 format back from disk.
 
 (io/import-quantum-circuit :qasm2 "test-circuit-qasm2.qasm")
@@ -1639,6 +1661,10 @@ triangle-qaoa-result
 ;; We can also export the quantum circuit to QASM 3 format.
 
 (io/export-quantum-circuit :qasm3 test-circuit "test-circuit-qasm3.qasm")
+
+;; To see how the QASM 3 output looks like, we can read the file with slurp.
+
+(slurp "test-circuit-qasm3.qasm")
 
 ;; We can read the quantum circuit in QASM 3 format back from disk.
 

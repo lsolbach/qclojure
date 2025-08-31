@@ -221,8 +221,6 @@
                            :imag [[(* -1.0 1.0) 0.0] [0.0 (* -1.0 -1.0)]]})] ; exp(i*H)
       (is (m/unitary? U)))))
 
-;; Tests for newly implemented functionality
-
 (deftest spectral-norm-test
   (testing "Spectral norm computation"
     ;; Identity matrix should have spectral norm 1
@@ -235,7 +233,7 @@
       (is (t/approx= 6.708203932499369 norm 1e-10)))
     
     ;; Zero matrix should have spectral norm 0 (TODO: implementation returns NaN)
-    ;; (is (t/approx= 0.0 (m/spectral-norm [[0.0 0.0] [0.0 0.0]]) 1e-12))
+    (is (t/approx= 0.0 (m/spectral-norm [[0.0 0.0] [0.0 0.0]]) 1e-12))
     ))
 
 (deftest condition-number-test

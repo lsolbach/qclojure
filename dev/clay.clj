@@ -2,39 +2,34 @@
   "Tools for building the QClojure tutorial notebook."
   (:require [scicloj.clay.v2.api :as clay]))
 
-(def tutorial-config
-  {:base-target-path "docs"
-   :clean-up-target-dir true
-   :base-source-path "notebook"
+(def tutorial-base-config
+  {:base-source-path "notebook"
    :source-path ["tutorial.clj"]
    :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
                  :branch "main"}
-   :format [:html]
-   :title "QClojure Tutorial"
-   :hide-ui-header true
-   :hide-info-line false
-   ;:live-reload true
-   :browse true})
+   :title "QClojure Tutorial"})
+
+(def tutorial-html-config
+  (merge tutorial-base-config
+         {:format [:html]
+          :hide-ui-header true
+          :hide-info-line false
+          ;:live-reload true
+          :browse true}))
 
 (def tutorial-quarto-config
-  {:base-target-path "quarto"
-   :clean-up-target-dir true
-   :base-source-path "notebook"
-   :source-path ["tutorial.clj"]
-   :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
-                 :branch "main"}
-   :format [:quarto]
-   :quarto {:highlight-style :solarized}
-   :title "QClojure Tutorial"
-   :hide-ui-header true
-   :hide-info-line false
-   ;:live-reload true
-   :browse true})
+  (merge tutorial-base-config
+         {:format [:quarto]
+          :quarto {:highlight-style :solarized}
+          :hide-ui-header true
+          :hide-info-line false
+          ;:live-reload true
+          :browse true}))
 
 (defn make-tutorial-notebook
   "Render the QClojure tutorial notebook."
   ([]
-   (make-tutorial-notebook tutorial-config))
+   (make-tutorial-notebook tutorial-html-config))
   ([config]
    (println "")
    (println "Rendering the tutorial...")

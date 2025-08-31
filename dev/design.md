@@ -10,15 +10,18 @@ QClojure should provide a
   * adaptable complex linear algebra backends
   * vizualizations of quantum computing concepts
 
-### Extensions
-QClojure focuses on the core capablities of quantum computing.
-Specific applications of quantum computing, e.g. quantum machine learning or quantum chemistry are added as extension libraries
-based on QClojure. The backend adapters for real QPUs are also added as extension libraries.
+### Extensibility
+QClojure focuses on the core capablities of quantum computing and on providing
+mechanisms for extension, like data specs and protocols. These can be implemented
+in extension libraries. This separation keeps QClojure lean, comprehensible and decoupled.
 
-This separation keeps QClojure lean and decoupled.
+Extension libraries will be created for backend adapters to real QPUs and
+pecific applications of quantum computing, e.g. quantum machine learning or quantum chemistry.
 
 ## Architecture
 The implementation architecture for QClojure is *Clean Architecture*.
+It decouples the domain logic from application orchestration and interfacing with other systems. It defines clear, directed dependencies from the adapter layer to
+the application layer and from the application layer to the domain core.
 
 ### Domain Core
 The domain core is implemented hardware agnostic, stateless and

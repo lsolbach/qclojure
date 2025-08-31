@@ -1,7 +1,7 @@
-(ns org.soulspace.qclojure.application.noise-test
+(ns org.soulspace.qclojure.application.noise-analysis-test
   "Comprehensive tests for quantum noise application functions."
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [org.soulspace.qclojure.application.noise :as noise]
+            [org.soulspace.qclojure.application.noise-analysis :as noise]
             [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Helper functions for testing

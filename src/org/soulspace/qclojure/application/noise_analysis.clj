@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.application.noise
+(ns org.soulspace.qclojure.application.noise-analysis
   "Quantum noise application layer providing high-level noise modeling functions.
   
    This namespace contains advanced noise application functions that bridge the 

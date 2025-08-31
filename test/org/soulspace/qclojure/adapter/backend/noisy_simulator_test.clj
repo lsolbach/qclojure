@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures run-tests]]
             [org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy]
             [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.application.noise :as noise]
+            [org.soulspace.qclojure.application.noise-analysis :as noise]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.util.test :as util]))
 

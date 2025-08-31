@@ -1,7 +1,6 @@
 (ns org.soulspace.qclojure.domain.noise
   "Specifications and utility functions for quantum noise models.
    
-
    "
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
@@ -56,7 +55,8 @@
   {:pre [(s/valid? ::qs/quantum-state state)
          (map? gate)
          (s/valid? ::noise-model noise-model)]}
-  (let [clean-state (qc/apply-operation-to-state state gate)
+  (let [;; Apply clean gate operation first (call to circuit function)
+        clean-state (qc/apply-operation-to-state state gate) 
         gate-type (:operation-type gate)
         target-qubit (get-in gate [:operation-params :target] 0)]
     (if-let [noise-config (get-in noise-model [:gate-noise gate-type])]
@@ -96,6 +96,64 @@
 ;;;
 ;;; Readout Noise Application Functions
 ;;;
+(defn- calculate-final-bitstring
+  "Helper function to calculate final bitstring after applying readout noise.
+  
+  This function processes each qubit in order, allowing correlations to influence
+  the error probabilities of subsequent qubits based on prior errors.
+  
+  Parameters:
+  - clean-bitstring: Original measurement outcome as a string
+  - num-qubits: Number of qubits in the system
+  - readout-config: Configuration for readout errors including correlations
+  
+  Returns: Final bitstring with readout noise applied"
+  [clean-bitstring num-qubits readout-config]
+  (let [{:keys [prob-0-to-1 prob-1-to-0 correlated-errors]} readout-config
+        bit-vector (vec clean-bitstring)]
+  
+    ;; Single-pass correlated error model
+    ;; Process qubits in order, allowing correlations to influence subsequent decisions
+    (loop [qubits (range num-qubits)
+           current-bits bit-vector
+           error-history #{}]
+      (if-let [qubit-idx (first qubits)]
+        (let [original-bit (nth current-bits qubit-idx)
+              base-flip-prob (case original-bit
+                               \0 prob-0-to-1
+                               \1 prob-1-to-0)
+  
+              ;; Calculate correlation adjustments from qubits that already had errors
+              correlation-factor (if (and correlated-errors (seq error-history))
+                                   (reduce (fn [factor source-qubit]
+                                             (if-let [qubit-correlations (get correlated-errors source-qubit)]
+                                               (if-let [corr-factor (get qubit-correlations qubit-idx)]
+                                                 (* factor corr-factor)
+                                                 factor)
+                                               factor))
+                                           1.0
+                                           error-history)
+                                   1.0)
+  
+              ;; Apply correlation factor with bounds checking
+              effective-prob (min 1.0 (max 0.0 (* base-flip-prob correlation-factor)))
+  
+              ;; Decide if error occurs
+              error-occurs? (< (rand) effective-prob)]
+  
+          (if error-occurs?
+            ;; Error occurred - flip bit and add to error history
+            (recur (rest qubits)
+                   (assoc current-bits qubit-idx (case original-bit \0 \1 \1 \0))
+                   (conj error-history qubit-idx))
+            ;; No error - continue
+            (recur (rest qubits)
+                   current-bits
+                   error-history)))
+  
+        ;; All qubits processed - return final bitstring
+        (apply str current-bits)))))
+
 (defn apply-readout-noise
   "Apply advanced readout noise with potential correlations.
   
@@ -130,49 +188,6 @@
 
         ;; Apply readout noise if configured
         final-bitstring (if-let [readout-config (:readout-error noise-model)]
-                          (let [{:keys [prob-0-to-1 prob-1-to-0 correlated-errors]} readout-config
-                                bit-vector (vec clean-bitstring)]
-                            
-                            ;; Single-pass correlated error model
-                            ;; Process qubits in order, allowing correlations to influence subsequent decisions
-                            (loop [qubits (range num-qubits)
-                                   current-bits bit-vector
-                                   error-history #{}]
-                              (if-let [qubit-idx (first qubits)]
-                                (let [original-bit (nth current-bits qubit-idx)
-                                      base-flip-prob (case original-bit
-                                                       \0 prob-0-to-1
-                                                       \1 prob-1-to-0)
-                                      
-                                      ;; Calculate correlation adjustments from qubits that already had errors
-                                      correlation-factor (if (and correlated-errors (seq error-history))
-                                                           (reduce (fn [factor source-qubit]
-                                                                     (if-let [qubit-correlations (get correlated-errors source-qubit)]
-                                                                       (if-let [corr-factor (get qubit-correlations qubit-idx)]
-                                                                         (* factor corr-factor)
-                                                                         factor)
-                                                                       factor))
-                                                                   1.0
-                                                                   error-history)
-                                                           1.0)
-                                      
-                                      ;; Apply correlation factor with bounds checking
-                                      effective-prob (min 1.0 (max 0.0 (* base-flip-prob correlation-factor)))
-                                      
-                                      ;; Decide if error occurs
-                                      error-occurs? (< (rand) effective-prob)]
-                                  
-                                  (if error-occurs?
-                                    ;; Error occurred - flip bit and add to error history
-                                    (recur (rest qubits)
-                                           (assoc current-bits qubit-idx (case original-bit \0 \1 \1 \0))
-                                           (conj error-history qubit-idx))
-                                    ;; No error - continue
-                                    (recur (rest qubits)
-                                           current-bits
-                                           error-history)))
-                                
-                                ;; All qubits processed - return final bitstring
-                                (apply str current-bits))))
+                          (calculate-final-bitstring clean-bitstring num-qubits readout-config)
                           clean-bitstring)]
     final-bitstring))

@@ -485,7 +485,7 @@
 
 (comment
 
-  (require '[org.soulspace.qclojure.application.noise :as napp])
+  (require '[org.soulspace.qclojure.application.noise-analysis :as napp])
 
   (noise-model-for :ibm-lagos)
 

@@ -16,9 +16,9 @@
             [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.math.core :as mcore]))
 
-;;
-;; Specs for Observables
-;;
+;;;
+;;; Specs for Observables
+;;;
 (s/def ::matrix
   (s/and vector?
          (s/coll-of (s/coll-of ::state/complex-amplitude))))
@@ -30,9 +30,9 @@
   (s/and string?
          #(every? #{\I \X \Y \Z} %)))
 
-;;
-;; Basic Single-Qubit Observables
-;;
+;;;
+;;; Basic Single-Qubit Observables
+;;;
 (def pauli-x
   "Pauli-X observable (σₓ)"
   gate/pauli-x)
@@ -49,7 +49,9 @@
   "Identity observable (I)"
   gate/pauli-i)
 
-;; Standard computational basis projectors
+;;;
+;;; Standard computational basis projectors
+;;;
 (def projector-0
   "Projector onto |0⟩ state"
   [[fc/ONE fc/ZERO]
@@ -60,9 +62,9 @@
   [[fc/ZERO fc/ZERO]
    [fc/ZERO fc/ONE]])
 
-;;
-;; Helper Functions for Matrix Operations
-;;
+;;;
+;;; Helper Functions for Matrix Operations
+;;;
 (defn zero-matrix
   "Create a zero matrix of complex numbers of given dimensions"
   [rows cols]
@@ -83,9 +85,9 @@
                            (range (count (first m1)))))
                  (range (count m1))))))
 
-;;
-;; Observable Creation Functions
-;;
+;;;
+;;; Observable Creation Functions
+;;;
 (defn linear-combination
   "Create a linear combination of observables: Σᵢ cᵢ Oᵢ
    
@@ -121,9 +123,9 @@
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
   (reduce mcore/kronecker-product observables))
 
-;;
-;; Pauli String Functions
-;;
+;;;
+;;; Pauli String Functions
+;;;
 (defn pauli-char->matrix
   "Convert a single Pauli character to its matrix representation"
   [pauli-char]
@@ -148,9 +150,9 @@
   {:pre [(s/valid? ::pauli-string pauli-str)]}
   (tensor-product (map pauli-char->matrix pauli-str)))
 
-;;
-;; Observable Measurement and Analysis
-;;
+;;;
+;;; Observable Measurement and Analysis
+;;;
 (defn expectation-value
   "Calculate expectation value ⟨ψ|O|ψ⟩ of observable O in state ψ
    
@@ -187,40 +189,38 @@
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
-;;
-;; Measurement Simulation
-;;
+;;;
+;;; Measurement Simulation
+;;;
 (defn measurement-probabilities
-  "Calculate measurement probabilities for an observable's eigenvalues
+  "Calculate measurement probabilities for an observable's eigenvalues using eigendecomposition.
    
-   For a two-level system observable, returns probabilities for +1 and -1 eigenvalues.
-   This is a simplified version - full implementation would require eigendecomposition.
+   This function computes the probability of measuring each eigenvalue of a Hermitian 
+   observable when the system is in the given quantum state. The probabilities are 
+   calculated as |⟨vᵢ|ψ⟩|² where vᵢ are the eigenvectors and ψ is the state.
    
    Parameters:
-   - observable: Hermitian matrix (currently supports Pauli observables)
-   - quantum-state: quantum state vector
+   - observable: Hermitian matrix representing the observable
+   - quantum-state: quantum state vector (normalized)
    
    Returns:
-     Map with keys representing eigenvalues and values representing probabilities"
+     Map with keys representing eigenvalues and values representing probabilities
+   
+   Example:
+     (measurement-probabilities pauli-z |+⟩) ; => {1.0 0.5, -1.0 0.5}"
   [observable quantum-state]
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
-  (let [exp-val (expectation-value observable quantum-state)]
-    (cond
-      ;; For Pauli observables (eigenvalues ±1)
-      (or (matrix-equal? observable pauli-x)
-          (matrix-equal? observable pauli-y)
-          (matrix-equal? observable pauli-z))
-      {1.0 (/ (+ 1.0 exp-val) 2.0)
-       -1.0 (/ (- 1.0 exp-val) 2.0)}
-      
-      ;; For identity (eigenvalue 1)
-      (matrix-equal? observable identity-op)
-      {1.0 1.0}
-      
-      ;; Default: return expectation value as single outcome
-      :else
-      {exp-val 1.0})))
+  (let [state-vec (:state-vector quantum-state)
+        {:keys [eigenvalues eigenvectors]} (mcore/eigen-hermitian observable)]
+    ;; Calculate |⟨vᵢ|ψ⟩|² for each eigenvector vᵢ
+    (into {}
+          (map (fn [eigenval eigenvec]
+                 (let [overlap (mcore/inner-product eigenvec state-vec)
+                       prob (fc/re (fc/mult overlap (fc/conjugate overlap)))
+                       real-eigenval (fc/re eigenval)]
+                   [real-eigenval prob]))
+               eigenvalues eigenvectors))))
 
 (comment
 

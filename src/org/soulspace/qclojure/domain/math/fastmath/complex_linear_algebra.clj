@@ -1,4 +1,12 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.complex-linear-algebra
+  "Matrix and linear algebra operations for complex numbers using FastMath.
+   
+   This namespace provides utilities for handling complex numbers represented as FastMath Vec2 objects,
+   along with a suite of matrix operations tailored for complex matrices, including addition, multiplication,
+   inversion, eigendecomposition, and more.
+   
+   The functions ensure type safety and proper handling of complex arithmetic, leveraging FastMath's capabilities
+   for performance and accuracy."
   (:require
    [fastmath.core :as fm]
    [fastmath.complex :as fc]
@@ -13,24 +21,48 @@
 ;;; Complex number utilities and predicates
 ;;;
 (defn complex?
-  "Test if x is a FastMath Vec2 complex number."
+  "Test if x is a FastMath Vec2 complex number.
+   
+   Parameters:
+   - x: any value
+   
+   Returns:
+     true if x is a Vec2 complex number, false otherwise."
   [x]
   (instance? fastmath.vector.Vec2 x))
 
 (defn complex-scalar?
-  "Test if x represents a complex scalar (Vec2 or complex map)."
+  "Test if x represents a complex scalar (Vec2 or complex map).
+   
+   Parameters:
+   - x: any value
+   
+   Returns:
+   true if x is a complex scalar representation, false otherwise."
   [x]
   (or (complex? x)
       (and (map? x) (contains? x :real) (contains? x :imag)
            (number? (:real x)) (number? (:imag x)))))
 
 (defn complex-vector?
-  "Test if v represents a complex vector."
+  "Test if v represents a complex vector.
+   
+   Parameters:
+   - v: any value
+   
+   Returns:
+   true if v is a vector of complex scalars, false otherwise."
   [v]
   (and (vector? v) (every? complex-scalar? v)))
 
 (defn complex-matrix?
-  "Test if m represents a complex matrix."
+  "Test if m represents a complex matrix.
+   
+   Parameters:
+   - m: any value
+     
+   Returns:
+   true if m is a matrix (vector of vectors) of complex scalars, false otherwise."
   [m]
   (and (vector? m) (every? complex-vector? m)))
 
@@ -38,7 +70,15 @@
 ;;; Conversion utilities between representations
 ;;;
 (defn ensure-complex
-  "Ensure input is a complex number."
+  "Ensure input is a complex number.
+   
+   Parameters:
+   - x: number, complex map, or Vec2
+     
+   Returns:
+   Vec2 complex number
+   
+   Exception is thrown if input cannot be converted."
   [x]
   (cond
     (complex? x) x
@@ -50,7 +90,13 @@
 ;;; Matrix algebra helper functions
 ;;;
 (defn real-matrix?
-  "Check if a matrix contains only real numbers (zero imaginary parts)."
+  "Check if a matrix contains only real numbers (zero imaginary parts).
+   
+   Parameters:
+   - matrix: matrix of complex numbers
+   
+   Returns:
+   true if all elements have negligible imaginary part, false otherwise."
   [matrix]
   (every? (fn [row]
             (every? (fn [element]
@@ -60,7 +106,14 @@
           matrix))
 
 (defn complex->real
-  "Extract real part of a complex number, checking it's actually real."
+  "Extract real part of a complex number, checking it's actually real.
+   Parameters:
+   - z: complex number (Vec2 or complex map)
+   
+   Returns:
+   Real part as double, throws if imaginary part is non-zero.
+   
+   Exception is thrown if imaginary part is non-zero."
   [z]
   (let [vec2-z (ensure-complex z)]
     (when-not (< (fm/abs (fc/im vec2-z)) 1e-12)
@@ -69,7 +122,13 @@
     (fc/re vec2-z)))
 
 (defn complex-matrix->real-matrix
-  "Convert complex matrix to real matrix."
+  "Convert complex matrix to real matrix.
+   
+   Parameters:
+   - matrix: matrix of complex numbers
+   
+   Returns:
+   2D array of doubles representing the real parts of the complex matrix."
   [matrix]
   (let [data (into-array (map (fn [row]
                                 (double-array (map complex->real row)))
@@ -77,7 +136,13 @@
     (fmat/mat data)))
 
 (defn complex-matrix-shape
-  "Get the shape of a matrix containing Complex elements."
+  "Get the shape of a matrix containing Complex elements.
+   
+   Parameters:
+   - matrix: matrix of complex numbers
+   
+   Returns:
+   [num-rows num-cols] of the matrix"
   [matrix]
   (if (vector? matrix)
     [(count matrix) (if (vector? (first matrix))
@@ -86,13 +151,29 @@
     [1 1]))
 
 (defn complex-scale
-  "Scale a complex number by a scalar."
+  "Scale a complex number by a scalar.
+   
+   Parameters:
+   - v: complex number (Vec2 or complex map)
+   - scalar: real or complex scalar
+     
+   Returns:
+   scaled complex number"
   [v scalar]
   (let [s (ensure-complex scalar)]
     (fc/mult v s)))
 
 (defn solve-linear
-  "Solve linear system using Gaussian elimination for complex matrices."
+  "Solve linear system using Gaussian elimination for complex matrices.
+   
+   Parameters:
+   - A: square complex matrix
+   - b: complex vector (right-hand side)
+   
+   Returns:
+   Solution vector x such that A*x = b
+   
+   Exception is thrown if A is singular or dimensions are incompatible."
   [A b]
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
@@ -160,7 +241,15 @@
                      (inc i)))))))))
 
 (defn inverse
-  "Compute matrix inverse using Gaussian elimination for complex matrices."
+  "Compute matrix inverse using Gaussian elimination for complex matrices.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Inverse of matrix A
+   
+   Exception is thrown if A is singular or not square."
   [A]
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
@@ -227,21 +316,42 @@
                      (inc i)))))))))
 
 (defn matrix-add
-  ""
+  "Add two complex matrices A + B.
+   
+   Parameters:
+   - A: complex matrix
+   - B: complex matrix
+   
+   Returns:
+   Sum of matrices A and B"
   [A B]
   (mapv (fn [row-a row-b]
           (mapv fc/add row-a row-b))
         A B))
 
 (defn matrix-subtract
-  ""
+  "Subtract two complex matrices A - B.
+   
+   Parameters:
+   - A: complex matrix
+   - B: complex matrix
+   
+   Returns:
+   Difference of matrices A and B"
   [A B]
   (mapv (fn [row-a row-b]
           (mapv fc/sub row-a row-b))
         A B))
 
 (defn matrix-scale
-  ""
+  "Scale a complex matrix by a scalar.
+   
+   Parameters:
+   - A: complex matrix
+   - alpha: real or complex scalar
+   
+   Returns:
+   Scaled matrix"
   [A alpha]
   (let [alpha (ensure-complex alpha)]
     (mapv (fn [row]
@@ -249,12 +359,27 @@
           A)))
 
 (defn matrix-negate
-  ""
+  "Negate a complex matrix -A.
+   
+   Parameters:
+   - A: complex matrix
+   
+   Returns:
+   Negated matrix -A"
   [A]
   (matrix-scale A (fc/complex -1.0 0.0)))
 
 (defn matrix-multiply
-  ""
+  "Multiply two complex matrices A * B.
+   
+   Parameters:
+   - A: complex matrix
+   - B: complex matrix
+   
+   Returns:
+   Product of matrices A and B
+   
+   Exception is thrown if dimensions are incompatible."
   [A B]
   (let [[rows-a cols-a] (complex-matrix-shape A)
         [rows-b cols-b] (complex-matrix-shape B)]
@@ -273,7 +398,16 @@
           (range rows-a))))
 
 (defn matrix-vector-product
-  ""
+  "Perform matrix-vector multiplication A * x.
+   
+   Parameters:
+   - A: complex matrix
+   - x: complex vector
+   
+   Returns:
+   Resulting complex vector
+   
+   Exception is thrown if dimensions are incompatible."
   [A x]
   (let [[rows cols] (complex-matrix-shape A)]
     (when (not= cols (count x))
@@ -289,7 +423,14 @@
           (range rows))))
 
 (defn outer-product
-  "Compute the outer product x ⊗ y†."
+  "Compute the outer product x ⊗ y†.
+   
+   Parameters:
+   - x: complex vector
+   - y: complex vector
+   
+   Returns:
+   Matrix representing the outer product"
   [x y]
   (mapv (fn [xi]
           (mapv (fn [yj]
@@ -298,14 +439,28 @@
         x))
 
 (defn hadamard-product
-  "Compute the element-wise (Hadamard) product A ⊙ B."
+  "Compute the element-wise (Hadamard) product A ⊙ B.
+   
+   Parameters:
+   - A: complex matrix
+   - B: complex matrix
+   
+   Returns:
+   Element-wise product of matrices A and B"
   [A B]
   (mapv (fn [row-a row-b]
           (mapv fc/mult row-a row-b))
         A B))
 
 (defn kronecker-product
-  "Compute the Kronecker (tensor) product A ⊗ B."
+  "Compute the Kronecker (tensor) product A ⊗ B.
+   
+   Parameters:
+   - A: complex matrix
+   - B: complex matrix
+   
+   Returns:
+   Kronecker product of matrices A and B"
   [A B]
   (let [[rows-a cols-a] (complex-matrix-shape A)
         [rows-b cols-b] (complex-matrix-shape B)]
@@ -321,7 +476,13 @@
           (range (* rows-a rows-b)))))
 
 (defn transpose
-  "Compute the transpose of a complex matrix Aᵀ."
+  "Compute the transpose of a complex matrix Aᵀ.
+   
+   Parameters:
+    - A: complex matrix
+   
+   Returns:
+   Transposed matrix Aᵀ"
   [A]
   (let [[rows cols] (complex-matrix-shape A)]
     (mapv (fn [j]
@@ -331,7 +492,13 @@
           (range cols))))
 
 (defn conjugate-transpose
-  "Compute the conjugate transpose Aᴴ (Hermitian adjoint)."
+  "Compute the conjugate transpose Aᴴ (Hermitian adjoint).
+   
+   Parameters:
+   - A: complex matrix
+   
+   Returns:
+   Conjugate transposed matrix Aᴴ"
   [A]
   (let [[rows cols] (complex-matrix-shape A)]
     (mapv (fn [j]
@@ -341,7 +508,15 @@
           (range cols))))
 
 (defn trace
-  "Compute the trace Tr(A) = Σᵢ aᵢᵢ of a complex matrix A."
+  "Compute the trace Tr(A) = Σᵢ aᵢᵢ of a complex matrix A.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Trace of matrix A
+   
+   Exception is thrown if A is not square."
   [A]
   (let [[rows cols] (complex-matrix-shape A)]
     (when (not= rows cols)
@@ -351,7 +526,16 @@
             (map #(get-in A [% %]) (range rows)))))
 
 (defn inner-product
-  "Compute the inner product ⟨x|y⟩ of two complex vectors."
+  "Compute the inner product ⟨x|y⟩ of two complex vectors.
+   
+   Parameters:
+   - x: complex vector
+   - y: complex vector
+   
+   Returns:
+   Inner product ⟨x|y⟩
+   
+   Exception is thrown if vectors have different lengths."
   [x y]
   (when (not= (count x) (count y))
     (throw (ex-info "Vectors must have same length"
@@ -363,7 +547,13 @@
                x y)))
 
 (defn norm2
-  "Compute the Euclidean (L2) norm ||x||₂ of a complex vector x."
+  "Compute the Euclidean (L2) norm ||x||₂ of a complex vector x.
+   
+   Parameters:
+   - x: complex vector
+   
+   Returns:
+   Euclidean norm ||x||₂"
   [x]
   (let [norm-squared (reduce fc/add
                              (fc/complex 0.0 0.0)
@@ -373,7 +563,14 @@
     (fm/sqrt (fc/re norm-squared))))
 
 (defn hermitian?
-  "Check if a complex matrix A is Hermitian (A ≈ Aᴴ)."
+  "Check if a complex matrix A is Hermitian (A ≈ Aᴴ).
+   
+   Parameters:
+   - A: complex matrix
+   - eps: tolerance for element-wise comparison
+   
+   Returns:
+   true if A is Hermitian within tolerance eps, false otherwise."
   [A eps]
   (let [A-conj-transpose (conjugate-transpose  A)
         diff (matrix-subtract A A-conj-transpose)]
@@ -385,7 +582,14 @@
             diff)))
 
 (defn diagonal?
-  "Check if a complex matrix A is diagonal (off-diagonal elements ≈ 0)."
+  "Check if a complex matrix A is diagonal (off-diagonal elements ≈ 0).
+   
+   Parameters:
+   - A: complex matrix
+   - eps: tolerance for off-diagonal elements
+   
+   Returns:
+   true if A is diagonal within tolerance eps, false otherwise."
   [A eps]
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
@@ -400,7 +604,14 @@
             (range n))))
 
 (defn unitary?
-  "Check if a complex matrix U is unitary (Uᴴ U ≈ I)."
+  "Check if a complex matrix U is unitary (Uᴴ U ≈ I).
+   
+   Parameters:
+   - U: complex matrix
+   - eps: tolerance for element-wise comparison
+   
+   Returns:
+   true if U is unitary within tolerance eps, false otherwise."
   [U eps]
   (let [U-conj-transpose (conjugate-transpose U)
         product (matrix-multiply U-conj-transpose U)
@@ -421,7 +632,17 @@
             diff)))
 
 (defn eigen-hermitian
-  "Compute eigenvalues and eigenvectors of a Hermitian matrix A."
+  "Compute eigenvalues and eigenvectors of a Hermitian matrix A.
+   
+   Parameters:
+   - A: square Hermitian complex matrix
+   
+   Returns:
+   Map with keys
+   - :eigenvalues (vector of complex eigenvalues) and
+   - :eigenvectors (matrix with eigenvectors as columns)
+   
+   Exception is thrown if A is not square or not Hermitian."
   [A]
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
@@ -480,33 +701,50 @@
               real-eigenvals-array (.getRealEigenvalues eigen-decomp)
               real-eigenvecs-matrix (.getV eigen-decomp)
 
-              ;; Extract complex eigenvalues (they appear in pairs for Hermitian matrices)
-              ;; Take only the first n eigenvalues (the rest are duplicates)
-              complex-eigenvals (mapv (fn [i]
-                                        ; Hermitian matrices have real eigenvalues
-                                        (fc/complex (get real-eigenvals-array (* 2 i)) 0.0))
-                                      (range n))
-
-              ;; Extract complex eigenvectors
+              ;; For complex Hermitian matrices, eigenvalues appear in the embedded matrix
+              ;; We need to identify unique eigenvalues and their corresponding eigenvectors
+              unique-eigenvals (vec (distinct real-eigenvals-array))
+              
+              ;; Find one representative eigenvector for each unique eigenvalue
               eigenvec-data (fmat/mat->array2d real-eigenvecs-matrix)
-              complex-eigenvecs (mapv (fn [i]
-                                        (mapv (fn [j]
-                                                (let [real-part (get-in eigenvec-data [j i])
-                                                      imag-part (get-in eigenvec-data [(+ n j) i])]
-                                                  (fc/complex real-part imag-part)))
-                                              (range n)))
-                                      (range n))
-
-              ;; Transpose to get column vectors
-              eigenvec-matrix (mapv (fn [i]
-                                      (mapv #(get % i) complex-eigenvecs))
-                                    (range n))]
+              
+              ;; Group eigenvector indices by their eigenvalue
+              eigenval-to-indices (group-by #(get real-eigenvals-array %) (range (* 2 n)))
+              
+              ;; Select one representative for each unique eigenvalue
+              representative-indices (mapv (fn [eigenval]
+                                             (first (get eigenval-to-indices eigenval)))
+                                           unique-eigenvals)
+              
+              ;; Extract complex eigenvalues and eigenvectors
+              complex-eigenvals (mapv #(fc/complex % 0.0) unique-eigenvals)
+              
+              complex-eigenvecs (mapv (fn [col-idx]
+                                        ;; Extract the real eigenvector [a1 a2 ... b1 b2 ...]
+                                        (let [real-eigenvec (mapv #(get-in eigenvec-data [% col-idx]) (range (* 2 n)))
+                                              ;; Split into real and imaginary parts
+                                              real-part (subvec real-eigenvec 0 n)
+                                              imag-part (subvec real-eigenvec n (* 2 n))]
+                                          ;; Construct complex eigenvector [a1+ib1, a2+ib2, ...]
+                                          (mapv (fn [re im]
+                                                  (fc/complex re im))
+                                                real-part imag-part)))
+                                      representative-indices)]
 
           {:eigenvalues complex-eigenvals
-           :eigenvectors eigenvec-matrix})))))
+           :eigenvectors complex-eigenvecs})))))
 
 (defn positive-semidefinite?
-  "Check if a complex matrix A is positive semidefinite."
+  "Check if a complex matrix A is positive semidefinite.
+   
+   Parameters:
+   - A: square complex matrix
+   - eps: tolerance for eigenvalue check
+   
+   Returns:
+   true if A is positive semidefinite within tolerance eps, false otherwise.
+   
+   Exception is thrown if A is not square or not Hermitian."
   [A eps]
   (try
     ;; Use eigenvalue check
@@ -530,7 +768,17 @@
       (throw (ex-info "Error checking positive semidefinite property" {:original-error (.getMessage e)})))))
 
 (defn eigen-general
-  "Compute eigenvalues and eigenvectors of a general matrix."
+  "Compute eigenvalues and eigenvectors of a general matrix.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Map with keys
+   - :eigenvalues (vector of complex eigenvalues) and
+   - :eigenvectors (matrix with eigenvectors as columns)
+   
+   Exception is thrown if A is not square."
   [A]
   ;; use iterative methods or embedding 
   (let [[n m] (complex-matrix-shape A)]
@@ -595,7 +843,18 @@
        :eigenvectors eigenvec-matrix})))
 
 (defn svd
-  "Compute Singular Value Decomposition A = U * S * V† for complex matrices."
+  "Compute Singular Value Decomposition A = U * S * V† for complex matrices.
+   
+   Parameters:
+   - A: complex matrix (m×n)
+   
+   Returns:
+   Map with keys
+   - :U (m×m complex matrix)
+   - :S (vector of singular values, length min(m,n))
+   - :V† (n×n complex matrix, conjugate transpose of V)
+   
+   Exception is thrown if decomposition fails."
   [A]
   ;; use eigendecomposition approach
   (let [[m n] (complex-matrix-shape A)
@@ -642,7 +901,7 @@
                            ;; Zero singular value - use zero vector
                            (mapv (fn [_] (fc/complex 0.0 0.0)) (range m)))))
                      (range (min m n)))
-
+        
         ;; If m > n, we need additional orthonormal columns for U
         U-complete (if (> m n)
                      ;; TODO: Use Gram-Schmidt to complete the basis
@@ -666,7 +925,18 @@
      :V† (conjugate-transpose V-sorted)}))
 
 (defn lu-decomposition
-  "Compute LU decomposition of a complex matrix A = P * L * U."
+  "Compute LU decomposition of a complex matrix A = P * L * U.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Map with keys
+   - :L (lower triangular complex matrix)
+   - :U (upper triangular complex matrix)
+   - :P (permutation complex matrix)
+   
+   Exception is thrown if A is not square."
   [A]
   ;; use real embedding approach
   (let [[n m] (complex-matrix-shape A)]
@@ -738,7 +1008,17 @@
        :P P-complex})))
 
 (defn qr-decomposition
-  "Compute QR decomposition of a complex matrix A = Q * R."
+  "Compute QR decomposition of a complex matrix A = Q * R.
+   
+   Parameters:
+   - A: complex matrix (m×n)
+   
+   Returns:
+   Map with keys
+   - :Q (m×m unitary complex matrix)
+   - :R (m×n upper triangular complex matrix)
+   
+   Exception is thrown if decomposition fails."
   [A]
   ;; use Modified Gram-Schmidt (stateless functional approach)
   (let [[m n] (complex-matrix-shape A)
@@ -784,7 +1064,20 @@
           (recur (inc j) Q R))))))
 
 (defn cholesky-decomposition
-  "Compute Cholesky decomposition A = L * L† for positive definite complex matrices."
+  "Compute Cholesky decomposition A = L * L† for positive definite complex matrices.
+   
+   Parameters:
+   - A: square Hermitian positive definite complex matrix
+   - eps: tolerance for checks (default 1e-10)
+   
+   Returns:
+   Map with key
+   - :L (lower triangular complex matrix)
+   
+   Exception is thrown if A is not square, not Hermitian, or not positive definite."
+  ([]
+   (cholesky-decomposition [[(fc/complex 1.0 0.0)]])
+  )
   ([A] (cholesky-decomposition A  default-tolerance))
   ([A eps]
    (let [[n m] (complex-matrix-shape A)]
@@ -836,7 +1129,15 @@
            (recur (inc i) L)))))))
 
 (defn matrix-exp
-  "Compute the matrix exponential exp(A) using eigendecomposition."
+  "Compute the matrix exponential exp(A) using eigendecomposition.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Matrix exponential exp(A)
+   
+   Exception is thrown if A is not square or if computation fails."
   [A]
   ;; use eigendecomposition approach
   (let [[n m] (complex-matrix-shape A)]
@@ -920,7 +1221,15 @@
                              :suggestion "Use smaller matrices or ensure matrix is diagonalizable"}))))))))
 
 (defn matrix-log
-  "Compute the principal matrix logarithm log(A) using eigendecomposition."
+  "Compute the principal matrix logarithm log(A) using eigendecomposition.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Principal matrix logarithm log(A)
+   
+   Exception is thrown if A is not square or if computation fails."
   [A]
   ;; implement via eigendecomposition  
   (let [[n m] (complex-matrix-shape A)]
@@ -983,7 +1292,15 @@
                            :matrix-size n})))))))
 
 (defn matrix-sqrt
-  "Compute the principal matrix square root √A using eigendecomposition."
+  "Compute the principal matrix square root √A using eigendecomposition.
+   
+   Parameters:
+   - A: square complex matrix
+   
+   Returns:
+   Principal matrix square root √A
+   
+   Exception is thrown if A is not square or not positive semidefinite."
   [A]
   ;; implement via eigendecomposition
   (let [[n m] (complex-matrix-shape A)]
@@ -1060,7 +1377,15 @@
 
 
 (defn spectral-norm
-  "Compute the spectral norm ||A||₂ (largest singular value) of a complex matrix A."
+  "Compute the spectral norm ||A||₂ (largest singular value) of a complex matrix A.
+   
+   Parameters:
+   - A: complex matrix (m×n)
+   
+   Returns:
+   Spectral norm ||A||₂
+   
+   Exception is thrown if computation fails."
   [A]
   ;; implement via eigendecomposition of A†A
   (let [A-conj-transpose (conjugate-transpose A)
@@ -1081,7 +1406,15 @@
                              eigenvals-result)))))
 
 (defn condition-number
-  "Compute the condition number κ₂(A) = ||A||₂ * ||A⁻¹||₂ for a complex matrix A."
+  "Compute the condition number κ₂(A) = ||A||₂ * ||A⁻¹||₂ for a complex matrix A.
+   
+   Parameters:
+   - A: square complex matrix (n×n)
+   
+   Returns:
+   Condition number κ₂(A)
+   
+   Exception is thrown if A is not square or singular."
   [A]
   ;; implement via eigendecomposition of A†A
   (let [A-conj-transpose (conjugate-transpose A)
@@ -1106,39 +1439,3 @@
     (if (< sigma-min 1e-14)
       Double/POSITIVE_INFINITY  ; Matrix is singular
       (/ sigma-max sigma-min))))
-
-;;;
-;;; Quantum State Operation Functions (TODO: Move to separate namespace)
-;;;
-(defn state-normalize
-  "Normalize a quantum state vector to unit norm."
-  [state]
-  (let [norm-squared (reduce fc/add
-                             (fc/complex 0.0 0.0)
-                             (map (fn [si]
-                                    (fc/mult (fc/conjugate si) si))
-                                  state))
-        norm (fm/sqrt (fc/re norm-squared))]
-    (if (< norm 1e-12)
-      state  ; Return unchanged if zero vector
-      (mapv #(fc/mult % (fc/complex (/ 1.0 norm) 0.0)) state))))
-
-(defn projector-from-state
-  "Create a projector matrix |ψ⟩⟨ψ| from a quantum state vector ψ."
-  [psi]
-  (let [normalized-psi (state-normalize psi)]
-    (mapv (fn [psi-i]
-            (mapv (fn [psi-j]
-                    (fc/mult psi-i (fc/conjugate psi-j)))
-                  normalized-psi))
-          normalized-psi)))
-
-(defn trace-one?
-  "Check if a density matrix has trace equal to one (Tr(ρ) ≈ 1)."
-  ([rho] (trace-one? rho default-tolerance))
-  ([rho eps]
-   (let [tr (trace rho)
-         trace-value (fc/re tr)]  ; Extract real part
-     (< (fm/abs (- trace-value 1.0)) eps))))
-
-

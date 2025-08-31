@@ -1,7 +1,9 @@
 # Changelog
 
 ## Version (NEXT)
-* improved namespace docstrings
+* improved measurement probabilities calculation for observables
+* fixed bug in eigen-hermitian in fastmath backend
+* added and improved docstrings
 * updated the tutorial
 
 ## Version 0.13.0

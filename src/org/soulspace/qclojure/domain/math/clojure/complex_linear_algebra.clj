@@ -400,7 +400,6 @@
 ;; For deterministic downstream processing (e.g. comparison in tests, registry
 ;; lookups) we canonicalize that phase so that the first component with
 ;; magnitude > tol has zero imaginary part and non-negative real part.
-
 (defn- normalize-complex-phase
   "Normalize global phase of complex vector v (SoA map) so the first
   non-negligible component becomes real and non-negative.
@@ -472,6 +471,20 @@
         re (double (:real ip))
         re (if (neg? re) (abs re) re)]
     (math/sqrt re)))
+
+(defn diagonal?
+  "Check if complex matrix A is diagonal within given tolerance.
+  Returns true if diagonal, false otherwise."
+  ([A] (diagonal? A default-tolerance))
+  ([A tol]
+   (let [[n m] (matrix-shape A)]
+     (if (not= n m)
+       false
+       (let [Ar (:real A) Ai (:imag A)]
+         (every? true?
+                 (for [i (range n) j (range n) :when (not= i j)]
+                   (and (< (abs (double (get-in Ar [i j]))) tol)
+                        (< (abs (double (get-in Ai [i j]))) tol)))))))))
 
 (defn unitary?
   "Check if complex matrix U is unitary (U^H U = I).
@@ -746,12 +759,18 @@
                                                                  (+ (* a a) (* b b))))))))]
        ;; Immediate fast-path: already (quasi) upper triangular? -> diagonal eigenvalues
        (if (< (offdiag-norm-complex A0) tol)
-         {:eigenvalues (mapv (fn [i] (let [ar (get-in (:real A0) [i i]) ai (get-in (:imag A0) [i i])] {:real ar :imag ai})) (range n))
-          :iterations 0}
+         (let [eigenvals (mapv (fn [i] (let [ar (get-in (:real A0) [i i]) ai (get-in (:imag A0) [i i])] {:real ar :imag ai})) (range n))
+               ;; Sort eigenvalues by real part first, then by imaginary part
+               sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)]
+           {:eigenvalues sorted-eigenvals
+            :iterations 0})
          (loop [k 0 M A0]
            (if (or (>= k max-it) (< (offdiag-norm-complex M) tol))
-             {:eigenvalues (mapv (fn [i] (let [ar (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])] {:real ar :imag ai})) (range n))
-              :iterations k}
+             (let [eigenvals (mapv (fn [i] (let [ar (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])] {:real ar :imag ai})) (range n))
+                   ;; Sort eigenvalues by real part first, then by imaginary part
+                   sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)]
+               {:eigenvalues sorted-eigenvals
+                :iterations k})
              (let [;; trailing 2x2 for shift if n>=2
                    shift (when (>= n 2)
                            (let [i (- n 2) j (- n 1)

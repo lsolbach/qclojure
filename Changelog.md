@@ -3,6 +3,8 @@
 ## Version (NEXT)
 * improved measurement probabilities calculation for observables
 * fixed bug in eigen-hermitian in fastmath backend
+* sorted eigen decompositions consistently across functions and backends 
+* added diagonal? to MatrixAlgebra protocol
 * added and improved docstrings
 * updated the tutorial
 

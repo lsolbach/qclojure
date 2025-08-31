@@ -1,13 +1,14 @@
 (ns org.soulspace.qclojure.application.backend
   "Protocol and interface for quantum computing hardware backends.
   
-  This namespace defines the protocol for connecting to and executing
+  This namespace defines the protocols for connecting to and executing
   quantum circuits on real quantum hardware or simulators. It provides
   a clean abstraction layer that allows the application to work with
   different quantum computing providers and simulators."
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.result :as result]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.domain.operation-registry :as gr]))
@@ -15,7 +16,10 @@
 ;;;
 ;;; Specs for backend protocol
 ;;;
+
+;;
 ;; Specs for general backend protocol
+;;
 (s/def ::backend-type #{:simulator :hardware :cloud})
 (s/def ::backend-name string?)
 (s/def ::backend-config map?)
@@ -26,7 +30,9 @@
 (s/def ::measurement-results (s/map-of string? nat-int?))
 (s/def ::supported-gates ::gr/operation-set)
 
+;;
 ;; Enhanced specs for cloud backends
+;;
 (s/def ::authentication-token string?)
 (s/def ::session-id string?)
 (s/def ::credentials (s/keys :req-un [::username ::password] :opt-un [::token ::api-key]))
@@ -74,14 +80,21 @@
 (s/def ::max-qubits pos-int?)
 (s/def ::cost-per-shot number?)
 
-(s/def ::execution-options
-  (s/keys :opt-un [::shots ::initial-state ::backend-info ::device-id ::priority]))
-
 (s/def ::priority #{:low :normal :high})
+
+;;
+;; Specs for job submission and results
+;;
+(s/def ::execution-options
+  (s/keys :opt-un [::shots ::initial-state ::result/result-specs ::backend-info
+                   ::device-id ::priority]))
 
 (s/def ::job-result
   (s/keys :req-un [::job-id ::job-status]
-          :opt-un [::measurement-results ::error-message ::execution-time-ms ::final-state]))
+          :opt-un [::measurement-results ::error-message
+                   ::execution-time-ms ::final-state]))
+
+
 
 ;; TODO add option to initialize backend with an initial state
 
@@ -93,10 +106,10 @@
   
   This protocol defines the interface that all quantum backends must implement,
   whether they are simulators, cloud services, or local hardware."
-  
+
   (get-backend-info [this]
     "Get information about this backend including type, capabilities, and configuration.")
-  
+
   (get-supported-gates [this]
     "Get the set of quantum gates supported by this backend.
     
@@ -106,7 +119,7 @@
 
   (is-available? [this]
     "Check if the backend is currently available for job submission.")
-  
+
   (submit-circuit [this circuit options]
     "Submit a quantum circuit for execution.
     
@@ -115,18 +128,18 @@
     - options: Execution options including shot count
     
     Returns: A job ID for tracking the execution.")
-  
+
   (get-job-status [this job-id]
     "Get the current status of a submitted job.")
-  
+
   (get-job-result [this job-id]
     "Get the results of a completed job.
     
     Returns: A map containing measurement results and statistics.")
-  
+
   (cancel-job [this job-id]
     "Cancel a queued or running job.")
-  
+
   (get-queue-status [this]
     "Get information about the current job queue."))
 
@@ -139,7 +152,7 @@
   This protocol extends the basic QuantumBackend with cloud-specific
   functionality including authentication, device topology, cost estimation,
   and batch operations."
-  
+
   (authenticate [this credentials]
     "Authenticate with the cloud quantum service.
     
@@ -148,15 +161,15 @@
       (e.g., {:username 'user' :password 'pass'} or {:api-key 'key'})
     
     Returns: Authentication token or session information")
-  
+
   (get-session-info [this]
     "Get current session information including authentication status.")
-  
+
   (list-available-devices [this]
     "List all quantum devices available on this backend.
     
     Returns: Collection of device information maps")
-  
+
   (get-device-topology [this device-id]
     "Get the topology and coupling map for a specific device.
     
@@ -164,7 +177,7 @@
     - device-id: Identifier for the quantum device
     
     Returns: Device topology information including coupling map")
-  
+
   (get-calibration-data [this device-id]
     "Get calibration data for a specific device.
     
@@ -172,7 +185,7 @@
     - device-id: Identifier for the quantum device
     
     Returns: Current calibration data including gate errors and coherence times")
-  
+
   (estimate-cost [this circuit options]
     "Estimate the cost of executing a circuit.
     
@@ -181,7 +194,7 @@
     - options: Execution options including shots and device
     
     Returns: Cost estimation information")
-  
+
   (batch-submit [this circuits options]
     "Submit multiple circuits as a batch job.
     
@@ -190,7 +203,7 @@
     - options: Execution options applied to all circuits
     
     Returns: Batch job ID for tracking all submissions")
-  
+
   (get-batch-status [this batch-job-id]
     "Get status of a batch job.
     
@@ -198,7 +211,7 @@
     - batch-job-id: Identifier for the batch job
     
     Returns: Status information for all jobs in the batch")
-  
+
   (get-batch-results [this batch-job-id]
     "Get results from a completed batch job.
     
@@ -228,11 +241,11 @@
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::qc/quantum-circuit circuit)
           (s/valid? ::execution-options options)]}
-   
+
    (if-not (is-available? backend)
      {:job-status :failed
       :error-message "Backend is not available"}
-     
+
      (let [job-id (submit-circuit backend circuit options)]
        ;(println "Waiting for job" job-id "to complete...")
        (loop [max-retries 2000
@@ -240,7 +253,7 @@
          (if (>= retry-count max-retries)
            {:job-status :failed
             :error-message "Job execution timeout"}
-           
+
            (let [status (get-job-status backend job-id)]
              (case status
                :completed (get-job-result backend job-id)
@@ -272,7 +285,7 @@
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::qc/quantum-circuit circuit)
           (s/valid? ::execution-options options)]}
-   
+
    (submit-circuit backend circuit options)))
 
 (defn wait-for-job
@@ -290,24 +303,24 @@
    {:pre [(satisfies? QuantumBackend backend)
           (string? job-id)
           (pos-int? timeout-ms)]}
-   
+
    (let [start-time (System/currentTimeMillis)
          max-time (+ start-time timeout-ms)]
-     
+
      (loop []
        (let [current-time (System/currentTimeMillis)]
          (if (> current-time max-time)
            {:job-status :failed
             :error-message "Job wait timeout"}
-           
+
            (let [status (get-job-status backend job-id)]
              (case status
                :completed (get-job-result backend job-id)
                :failed {:job-status :failed
-                       :job-id job-id
-                       :error-message "Job execution failed"}
+                        :job-id job-id
+                        :error-message "Job execution failed"}
                :cancelled {:job-status :cancelled
-                          :job-id job-id}
+                           :job-id job-id}
                ;; Still running or queued, wait and retry
                (do
                  (Thread/sleep 100)
@@ -325,21 +338,21 @@
   Returns: Map with probabilities and statistics"
   [results]
   {:pre [(map? results)]}
-  
+
   (let [total-shots (reduce + (vals results))
-        probabilities (into {} 
-                           (map (fn [[outcome count]]
-                                  [outcome (/ count total-shots)]))
-                           results)]
-    
+        probabilities (into {}
+                            (map (fn [[outcome count]]
+                                   [outcome (/ count total-shots)]))
+                            results)]
+
     {:total-shots total-shots
      :outcomes results
      :probabilities probabilities
      :num-outcomes (count results)
      :most-frequent (first (sort-by val > results))
-     :entropy (- (reduce + (map #(let [p %] 
+     :entropy (- (reduce + (map #(let [p %]
                                    (if (zero? p) 0 (* p (Math/log p))))
-                               (vals probabilities))))}))
+                                (vals probabilities))))}))
 
 ;;;
 ;;; Cloud backend utility functions
@@ -365,7 +378,7 @@
   {:pre [(cloud-backend? backend)]}
   (try
     (let [session-info (get-session-info backend)]
-      (and session-info 
+      (and session-info
            (not= (:status session-info) :unauthenticated)))
     (catch Exception _
       false)))
@@ -413,7 +426,7 @@
         devices (list-available-devices backend)
         circuit-qubits (:num-qubits circuit)
         min-qubits (or (:min-qubits opts) circuit-qubits)]
-    
+
     (->> devices
          ;; Filter by basic requirements
          (filter (fn [device]
@@ -427,7 +440,7 @@
                       calibration (get-calibration-data backend (:device-id device))
                       error-rate (get-in calibration [:gate-errors :average] 0.01)
                       connectivity-score (count (:coupling-map topology))]
-                  (assoc device 
+                  (assoc device
                          :quality-score (- connectivity-score error-rate)
                          :error-rate error-rate))))
          ;; Filter by error rate if specified
@@ -455,7 +468,7 @@
   (let [circuit-list (if (sequential? circuits) circuits [circuits])
         estimates (map #(estimate-cost backend % options) circuit-list)
         total-cost (reduce + (map :total-cost estimates))]
-    
+
     {:total-cost total-cost
      :currency (:currency (first estimates))
      :individual-estimates estimates

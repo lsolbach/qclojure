@@ -182,6 +182,9 @@
   (hermitian?
     ([backend A] (fcla/hermitian? A (tolerance* backend)))
     ([_ A eps] (fcla/hermitian? A eps)))
+  (diagonal?
+    ([backend A] (fcla/diagonal? A (tolerance* backend)))
+    ([_ A eps] (fcla/diagonal? A eps)))
   (unitary?
     ([backend U] (fcla/unitary? U (tolerance* backend)))
     ([_ U eps] (fcla/unitary? U eps)))

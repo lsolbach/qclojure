@@ -675,10 +675,17 @@
                                         (mapv (fn [row-idx]
                                                 (fc/complex (get-in eigenvec-data [row-idx col-idx]) 0.0))
                                               (range n)))
-                                      (range n))]
+                                      (range n))
+              
+              ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
+              indexed-pairs (map-indexed vector complex-eigenvals)
+              sorted-pairs (sort-by (fn [[_idx eigenval]] (fc/re eigenval)) indexed-pairs)
+              sorted-indices (mapv first sorted-pairs)
+              sorted-eigenvals (mapv second sorted-pairs)
+              sorted-eigenvecs (mapv #(get complex-eigenvecs %) sorted-indices)]
           
-          {:eigenvalues complex-eigenvals
-           :eigenvectors complex-eigenvecs})
+          {:eigenvalues sorted-eigenvals
+           :eigenvectors sorted-eigenvecs})
 
         ;; Complex Hermitian matrix: use embedded matrix approach
         (let [;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
@@ -729,10 +736,17 @@
                                           (mapv (fn [re im]
                                                   (fc/complex re im))
                                                 real-part imag-part)))
-                                      representative-indices)]
+                                      representative-indices)
+              
+              ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
+              indexed-pairs (map-indexed vector complex-eigenvals)
+              sorted-pairs (sort-by (fn [[_idx eigenval]] (fc/re eigenval)) indexed-pairs)
+              sorted-indices (mapv first sorted-pairs)
+              sorted-eigenvals (mapv second sorted-pairs)
+              sorted-eigenvecs (mapv #(get complex-eigenvecs %) sorted-indices)]
 
-          {:eigenvalues complex-eigenvals
-           :eigenvectors complex-eigenvecs})))))
+          {:eigenvalues sorted-eigenvals
+           :eigenvectors sorted-eigenvecs})))))
 
 (defn positive-semidefinite?
   "Check if a complex matrix A is positive semidefinite.
@@ -837,10 +851,20 @@
           ;; Transpose to get column vectors
           eigenvec-matrix (mapv (fn [i]
                                   (mapv #(get % i) complex-eigenvecs))
-                                (range n))]
+                                (range n))
+          
+          ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
+          ;; Sort by real part first, then by imaginary part for complex eigenvalues
+          indexed-pairs (map-indexed vector complex-eigenvals)
+          sorted-pairs (sort-by (fn [[_idx eigenval]] 
+                                  [(fc/re eigenval) (fc/im eigenval)]) 
+                                indexed-pairs)
+          sorted-indices (mapv first sorted-pairs)
+          sorted-eigenvals (mapv second sorted-pairs)
+          sorted-eigenvecs (mapv #(get eigenvec-matrix %) sorted-indices)]
 
-      {:eigenvalues complex-eigenvals
-       :eigenvectors eigenvec-matrix})))
+      {:eigenvalues sorted-eigenvals
+       :eigenvectors sorted-eigenvecs})))
 
 (defn svd
   "Compute Singular Value Decomposition A = U * S * V† for complex matrices.

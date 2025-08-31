@@ -237,8 +237,7 @@
                           {:input-scalar s :error (.getMessage e)}))))
 
       ;; Real scalar
-      (number? s)
-      (fc/complex (double s) 0.0)
+      (number? s) s ; return real numbers as-is
 
       ;; Already Vec2 format
       (instance? fastmath.vector.Vec2 s)
@@ -262,7 +261,7 @@
   (add [_ A B] (ccla/matrix-add A B))
   (subtract [_ A B] (ccla/matrix-subtract A B))
   (scale [_ A alpha] (ccla/matrix-scale A alpha))
-  (negate [A] (ccla/matrix-scale  A -1.0))
+  (negate [_ A] (ccla/matrix-scale  A -1.0))
   (matrix-multiply [_ A B] (ccla/matrix-multiply A B))
   (matrix-vector-product [_ A x] (ccla/matrix-vector-product A x))
   (inner-product [_ x y] (ccla/inner-product x y))
@@ -278,6 +277,9 @@
   (hermitian?
     ([b A] (ccla/hermitian? A (tolerance* b)))
     ([_ A eps] (ccla/hermitian? A eps)))
+  (diagonal?
+    ([b A] (ccla/diagonal? A (tolerance* b)))
+    ([_ A eps] (ccla/diagonal? A eps)))
   (unitary?
     ([b U] (ccla/unitary? U (tolerance* b)))
     ([_ U eps] (ccla/unitary? U eps)))

@@ -314,6 +314,17 @@
     Returns:
     Boolean indicating whether A is Hermitian (or real symmetric)")
 
+  (diagonal? [backend A] [backend A eps]
+    "Test if a matrix is diagonal (Aᵢⱼ ≈ 0 for i≠j).
+    
+    Parameters:
+    - backend: Backend instance
+    - A: Square matrix (real or complex)
+    - eps: Optional tolerance for approximate zero (uses backend default if not provided)
+    
+    Returns:
+    Boolean indicating whether A is diagonal")
+
   (unitary? [backend U] [backend U eps]
     "Test if a matrix is unitary (Uᴴ U ≈ I).
     

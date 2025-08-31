@@ -9,16 +9,49 @@
    - Leverage existing functions from state, observables, and hamiltonian namespaces
    - Support QASM 3.0 and Amazon Braket result type specifications
    - Provide both simulation-only and hardware-compatible result types
-   - Enable systematic extraction without code duplication"
+   - Enable systematic extraction without code duplication
+   
+   Result Types Supported:
+   - Measurement results (sample outcomes and probabilities)
+   - Expectation values for observables
+   - Variance values for observables
+   - Hamiltonian energy measurements
+   - Probability distributions for specific basis states
+   - Amplitude extraction for basis states
+   - Complete state vector (simulation only)
+   - Density matrix representation (simulation only)
+   - Fidelity measurements against reference states
+   - Sample results for observables (hardware measurement simulation)
+
+    Future Extensions:
+   - Adjoint gradient computations (for parameterized circuits) (TODO)
+
+   The result specification format is flexible, allowing users to request
+   multiple result types in a single execution. Each result type is extracted
+   using dedicated functions that utilize existing domain logic, ensuring
+   consistency and maintainability.
+
+   Example Result Spec:
+   {:measurements {:shots 1000 :qubits [0 1]}
+    :expectation {:observables [obs/pauli-z obs/pauli-x] :targets [0]}
+    :variance {:observables [obs/pauli-z] :targets [0]}  
+    :hamiltonian my-hamiltonian
+    :probabilities {:targets [[1 0] [0 1]] :qubits [0 1]}
+    :amplitudes {:basis-states [0 1 2 3]}
+    :state-vector true
+    :density-matrix true
+    :fidelity {:references [|0⟩ |1⟩]}
+    :sample {:observables [obs/pauli-z] :shots 1000 :targets [0]}
+   "
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
-;;
-;; Specs for enhanced results (QASM 3.0 / Braket compatible)
-;;
+;;;
+;;; Specs for result specs and results (QASM 3.0 / Braket compatible)
+;;;
 (s/def ::shots pos-int?)
 (s/def ::measurement-qubits (s/coll-of pos-int? :kind vector? :min-count 1))
 (s/def ::measurement-outcomes (s/coll-of string? :kind vector? :min-count 1))
@@ -101,9 +134,9 @@
                    ::variance-results ::sample-results
                    ::execution-metadata]))
 
-;;
-;; Result type extractors - systematic use of existing functions
-;;
+;;;
+;;; Result type extractors - systematic use of existing functions
+;;;
 (defn extract-measurement-results
   "Extract measurement results from circuit execution using existing state functions.
    
@@ -482,9 +515,9 @@
                 (or (:shots specs) 1000)
                 :target-qubits (:targets specs)))))))
 
-;;
-;; Result analysis and post-processing
-;;
+;;;
+;;; Result analysis and post-processing
+;;;
 (defn summarize-results
   "Create a human-readable summary of execution results."
   [results]

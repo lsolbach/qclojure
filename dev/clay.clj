@@ -24,13 +24,11 @@
          {:format [:quarto]
           :base-target-path "quarto"
           :clean-up-target-dir true
-          :quarto {:highlight-style :solarized
-                   :pdf {:document-class "article"
-                         :geometry "margin=1in"}}
+          :quarto {:highlight-style :solarized}
           :hide-ui-header true
           :hide-info-line false
-          ;:live-reload true
-          ;:browse true
+          :live-reload false
+          :browse false
           }))
 
 (defn make-tutorial-notebook

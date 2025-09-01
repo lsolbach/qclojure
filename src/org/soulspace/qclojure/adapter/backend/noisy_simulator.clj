@@ -50,7 +50,7 @@
             [org.soulspace.qclojure.domain.noise :as noise]))
 
 ;; Noisy simulator state management
-(defonce state (atom {:job-counter 0
+(defonce simulator-state (atom {:job-counter 0
                       :active-jobs {}}))
 
 ;; Job record for noisy simulations
@@ -59,93 +59,23 @@
 
 ;; Helper functions for job management
 (defn- generate-noisy-job-id []
-  (let [new-counter (:job-counter (swap! state update :job-counter inc))]
+  (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
     (str "noisy_job_" new-counter "_" (System/currentTimeMillis))))
 
 ;; Advanced noise model specifications (defined in application.noise namespace)
-;; Using specs from org.soulspace.qclojure.application.noise
+;; Using specs from org.soulspace.qclojure.domain.noise
 
-;; Quantum channel functions are now directly called from domain.channel namespace
-;; This provides clean separation without unnecessary delegation layer
+(defn- gate-with-noise-applicator
+  "Takes a noise model and returns a function that applies gate noise.
+   
+   Parameters:
+   - noise-model: Noise model configuration map
 
-#_(defn- execute-single-noisy-shot
-    "Execute a single shot of a noisy quantum circuit.
-  
-  Parameters:
-  - circuit: Quantum circuit to simulate
-  - noise-model: Noise model configuration
-  - num-qubits: Number of qubits in the circuit
-  
-  Returns: Single measurement outcome as a basis string"
-    [circuit noise-model num-qubits]
-    (loop [current-state (qs/zero-state num-qubits)
-           remaining-gates (:operations circuit)]
-
-      (if (empty? remaining-gates)
-        ;; Final measurement with readout noise  
-        (let [clean-outcome (:outcome (qs/measure-state current-state))
-              clean-bitstring (qs/basis-string clean-outcome num-qubits)
-
-              ;; Apply readout noise if configured
-              final-bitstring (if-let [readout-config (:readout-error noise-model)]
-                                (let [{:keys [prob-0-to-1 prob-1-to-0]} readout-config]
-                                  (apply str
-                                         (map-indexed
-                                          (fn [_qubit-idx bit]
-                                            (let [flip-prob (case bit
-                                                              \0 prob-0-to-1
-                                                              \1 prob-1-to-0)]
-                                              (if (< (rand) flip-prob)
-                                                (case bit \0 "1" \1 "0" bit)
-                                                bit)))
-                                          clean-bitstring)))
-                                clean-bitstring)]
-          final-bitstring)
-
-        ;; Apply gate with noise
-        (let [gate (first remaining-gates)
-              gate-type (:operation-type gate)
-              target-qubit (get-in gate [:operation-params :target] 0)
-
-              ;; Apply clean gate operation first
-              post-gate-state (qc/apply-operation-to-state current-state gate)
-
-              ;; Apply noise based on gate-specific configuration
-              final-gate-state (if-let [gate-noise-config (get-in noise-model [:gate-noise gate-type])]
-                                 ;; Apply noise after the gate operation
-                                 (let [{:keys [noise-type noise-strength t1-time t2-time gate-time]} gate-noise-config]
-                                   (case noise-type
-                                     :depolarizing
-                                     (let [kraus-ops (channel/depolarizing-kraus-operators noise-strength)]
-                                       (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
-
-                                     :amplitude-damping
-                                     (let [decoherence (if (and t1-time gate-time)
-                                                         (channel/calculate-decoherence-params t1-time (or t2-time (* t1-time 2)) gate-time)
-                                                         {:gamma-1 noise-strength :gamma-2 0})
-                                           kraus-ops (channel/amplitude-damping-kraus-operators (:gamma-1 decoherence))]
-                                       (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
-
-                                     :phase-damping
-                                     (let [decoherence (if (and t2-time gate-time)
-                                                         (channel/calculate-decoherence-params (or t1-time (* t2-time 2)) t2-time gate-time)
-                                                         {:gamma-1 0 :gamma-2 noise-strength})
-                                           kraus-ops (channel/phase-damping-kraus-operators (:gamma-2 decoherence))]
-                                       (channel/apply-quantum-channel post-gate-state kraus-ops target-qubit))
-
-                                     :coherent
-                                     (let [coherent-config (get gate-noise-config :coherent-error {:rotation-angle 0.01 :rotation-axis :z})
-                                           kraus-op (channel/coherent-error-kraus-operator
-                                                     (:rotation-angle coherent-config)
-                                                     (:rotation-axis coherent-config))]
-                                       (channel/apply-single-qubit-kraus-operator post-gate-state kraus-op target-qubit))
-
-                                     ;; Default: no noise
-                                     post-gate-state))
-                                 ;; No noise configuration for this gate type
-                                 post-gate-state)]
-
-          (recur final-gate-state (rest remaining-gates))))))
+   Returns: Function that applies a gate with noise to a quantum state"
+  [noise-model]
+  (fn [state gate]
+    (let [clean-state (qc/apply-operation-to-state state gate)]
+      (noise/apply-gate-noise clean-state gate noise-model))))
 
 (defn- execute-single-noisy-shot
   "Execute a single shot of a noisy quantum circuit.
@@ -156,18 +86,16 @@
   - num-qubits: Number of qubits in the circuit
   
   Returns: Single measurement outcome as a basis string"
-  [circuit noise-model num-qubits]
-  (loop [current-state (qs/zero-state num-qubits)
-         remaining-gates (:operations circuit)]
-
-    (if (empty? remaining-gates)
-      ;; Final measurement with readout noise  
-      (noise/apply-readout-noise current-state num-qubits noise-model)
-
-      ;; Apply gate with noise
-      (let [gate (first remaining-gates)
-            final-gate-state (noise/apply-gate-noise current-state gate noise-model)]
-        (recur final-gate-state (rest remaining-gates))))))
+  ([circuit noise-model]
+   (execute-single-noisy-shot circuit (qs/zero-state (:num-qubits circuit)) noise-model))
+  ([circuit initial-state noise-model]
+   (let [num-qubits (:num-qubits circuit)
+         ;; Apply all gates with noise
+         final-state (reduce (gate-with-noise-applicator noise-model)
+                             initial-state
+                             (:operations circuit))]
+     ; Final measurement with readout noise
+     (noise/apply-readout-noise final-state num-qubits noise-model))))
 
 (defn- execute-noisy-circuit-simulation
   "Execute a noisy quantum circuit simulation with proper noise independence per shot.
@@ -198,7 +126,7 @@
            :execution-time-ms (- (System/currentTimeMillis) start-time)}
 
           ;; Execute single shot with fresh noise
-          (let [outcome-bitstring (execute-single-noisy-shot circuit noise-model num-qubits)
+          (let [outcome-bitstring (execute-single-noisy-shot circuit noise-model)
                 ;; For the final state, we'll capture it from one of the shots
                 ;; (Note: this is somewhat artificial since each shot has different noise)
                 updated-results (update accumulated-results outcome-bitstring (fnil inc 0))]
@@ -216,6 +144,7 @@
                      last-final-state))))))
 
     (catch Exception e
+      (.printStackTrace e)
       {:job-status :failed
        :error-message (.getMessage e)
        :exception-type (.getName (class e))})))
@@ -270,7 +199,7 @@
                                    (System/currentTimeMillis) nil)]
 
       ;; Store job and start execution in background
-      (swap! state assoc-in [:active-jobs job-id] job)
+      (swap! simulator-state assoc-in [:active-jobs job-id] job)
 
       ;; Execute immediately in future (async execution)
       (future
@@ -279,17 +208,17 @@
                                    :status (:job-status result)
                                    :result result
                                    :completed-at (System/currentTimeMillis))]
-          (swap! state assoc-in [:active-jobs job-id] completed-job)))
+          (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
 
       job-id))
 
   (get-job-status [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (:status job)
       :not-found))
 
   (get-job-result [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
         {:job-id job-id
@@ -300,10 +229,10 @@
        :error-message "Job not found"}))
 
   (cancel-job [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! state assoc-in [:active-jobs job-id]
+          (swap! simulator-state assoc-in [:active-jobs job-id]
                  (assoc job :status :cancelled
                         :completed-at (System/currentTimeMillis)))
           :cancelled)
@@ -311,7 +240,7 @@
       :not-found))
 
   (get-queue-status [_this]
-    (let [jobs (vals (:active-jobs @state))
+    (let [jobs (vals (:active-jobs @simulator-state))
           active-count (count (filter #(#{:queued :running} (:status %)) jobs))
           completed-count (count (filter #(= :completed (:status %)) jobs))]
       {:total-jobs (count jobs)
@@ -367,7 +296,7 @@
   (batch-submit [this circuits options]
     (let [batch-id (str "noisy_batch_" (System/currentTimeMillis))
           job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! state assoc-in [:active-jobs batch-id]
+      (swap! simulator-state assoc-in [:active-jobs batch-id]
              {:batch-id batch-id
               :job-ids job-ids
               :status :queued
@@ -375,7 +304,7 @@
       batch-id))
 
   (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             statuses (map #(qb/get-job-status this %) job-ids)
             status-counts (frequencies statuses)]
@@ -390,7 +319,7 @@
       {:batch-id batch-job-id :status :not-found}))
 
   (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             results (into {} (map (fn [job-id]
                                     [job-id (qb/get-job-result this job-id)])
@@ -422,14 +351,14 @@
   
   Returns: Updated state"
   []
-  (reset! state {:job-counter 0 :active-jobs {}}))
+  (reset! simulator-state {:job-counter 0 :active-jobs {}}))
 
 (defn get-simulator-stats
   "Get statistics about the noisy simulator state.
   
   Returns: Map with job counts and statistics"
   []
-  (let [current-state @state
+  (let [current-state @simulator-state
         jobs (vals (:active-jobs current-state))
         completed-jobs (filter #(= (:status %) :completed) jobs)
         execution-times (keep #(let [start (:created-at %)
@@ -471,7 +400,7 @@
   ([max-age-ms]
    (let [current-time (System/currentTimeMillis)
          cutoff-time (- current-time max-age-ms)
-         current-jobs (:active-jobs @state)
+         current-jobs (:active-jobs @simulator-state)
          jobs-to-keep (into {}
                             (filter
                              (fn [[_job-id job]]
@@ -479,34 +408,34 @@
                                    (> (:completed-at job 0) cutoff-time)))
                              current-jobs))
          removed-count (- (count current-jobs) (count jobs-to-keep))]
-     (swap! state assoc :active-jobs jobs-to-keep)
+     (swap! simulator-state assoc :active-jobs jobs-to-keep)
      removed-count)))
 
 
 (comment
 
-  (require '[org.soulspace.qclojure.application.noise-analysis :as napp])
+  (require '[org.soulspace.qclojure.application.noise-analysis :as analysis])
 
   (noise-model-for :ibm-lagos)
 
   ;; Create advanced simulators with different noise characteristics
-  (def ibm-sim (create-noisy-simulator (noise-model-for :ibm-lagos-noise)))
-  (def rigetti-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-noise)))
+  (def ibm-sim (create-noisy-simulator (noise-model-for :ibm-lagos)))
+  (def rigetti-sim (create-noisy-simulator (noise-model-for :rigetti-aspen)))
   (def ideal-sim (create-noisy-simulator {}))
 
   ;; === Amazon Braket Hardware Models ===
 
   ;; IonQ trapped ion systems (high fidelity, slow gates)
-  (def ionq-harmony-sim (create-noisy-simulator (noise-model-for :ionq-harmony-noise)))
-  (def ionq-aria-sim (create-noisy-simulator (noise-model-for :ionq-aria-noise)))
-  (def ionq-forte-sim (create-noisy-simulator (noise-model-for :ionq-forte-noise)))
+  (def ionq-harmony-sim (create-noisy-simulator (noise-model-for :ionq-harmony)))
+  (def ionq-aria-sim (create-noisy-simulator (noise-model-for :ionq-aria)))
+  (def ionq-forte-sim (create-noisy-simulator (noise-model-for :ionq-forte)))
 
   ;; Rigetti superconducting systems (fast gates, moderate fidelity)
-  (def rigetti-m3-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-m3-noise)))
+  (def rigetti-m3-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-m3)))
 
   ;; Photonic and neutral atom systems (unique characteristics)
-  (def xanadu-sim (create-noisy-simulator (noise-model-for :xanadu-x-series-noise)))
-  (def quera-sim (create-noisy-simulator (noise-model-for :quera-aquila-noise)))
+  (def xanadu-sim (create-noisy-simulator (noise-model-for :xanadu-x-series)))
+  (def quera-sim (create-noisy-simulator (noise-model-for :quera-aquila)))
 
   ;; Test Bell circuit across all platforms
   (def bell-circuit
@@ -514,9 +443,12 @@
         (qc/h-gate 0)
         (qc/cnot-gate 0 1)))
 
+  (execute-single-noisy-shot bell-circuit (noise-model-for :ibm-lagos))
+  (execute-noisy-circuit-simulation bell-circuit {:shots 1000} (noise-model-for :ibm-lagos))
+
   ;; Compare all Amazon Braket platforms
   (def all-models (all-noise-models))
-  (def bell-comparison (napp/compare-hardware-platforms bell-circuit all-models))
+  (def bell-comparison (analysis/compare-hardware-platforms bell-circuit all-models))
 
   (println "=== Amazon Braket Platform Comparison (Bell Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > bell-comparison)]
@@ -543,7 +475,7 @@
         (qc/cnot-gate 0 1) (qc/cnot-gate 1 2)
         (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)))
 
-  (def grover-comparison (napp/compare-hardware-platforms grover-circuit all-models))
+  (def grover-comparison (analysis/compare-hardware-platforms grover-circuit all-models))
 
   (println "\n=== Platform Comparison (Complex Grover Circuit) ===")
   (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > grover-comparison)]
@@ -552,36 +484,13 @@
                      (:estimated-fidelity data)
                      (* 100 (:total-estimated-error data)))))
 
-  ;; Platform-specific insights
-  (println "\n=== Platform Characteristics ===")
-  (println "Trapped Ion (IonQ):")
-  (println "  - Highest fidelity for complex circuits")
-  (println "  - Slower gate times (μs scale)")
-  (println "  - All-to-all connectivity")
-  (println "  - Best for: Deep circuits, high-fidelity algorithms")
-
-  (println "\nSuperconducting (Rigetti, IBM):")
-  (println "  - Fast gate times (ns scale)")
-  (println "  - Limited connectivity")
-  (println "  - Good for: NISQ algorithms, near-term applications")
-
-  (println "\nPhotonic (Xanadu):")
-  (println "  - Continuous variable operations")
-  (println "  - High optical losses")
-  (println "  - Good for: Specific algorithms like Gaussian boson sampling")
-
-  (println "\nNeutral Atom (QuEra):")
-  (println "  - Programmable connectivity")
-  (println "  - Unique Rydberg interactions")
-  (println "  - Good for: Optimization, many-body physics")
-
   ;; Individual noise channel testing
   (def test-state (qs/plus-state))
 
   ;; Depolarizing noise
   (def depol-ops (channel/depolarizing-kraus-operators 0.1))
-  (def state (channel/apply-quantum-channel test-state depol-ops 0))
-  (println "\nDepolarizing noise result:" (:state-vector state))
+  (def simulator-state (channel/apply-quantum-channel test-state depol-ops 0))
+  (println "\nDepolarizing noise result:" (:state-vector simulator-state))
 
   ;; Amplitude damping
   (def amp-ops (channel/amplitude-damping-kraus-operators 0.1))
@@ -596,15 +505,3 @@
   (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)
   (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence)
   )
-
-;; Advanced noise modeling capabilities:
-;; 1. Realistic Amazon Braket device parameters
-;; 2. Platform-specific noise characteristics
-;; 3. Gate-specific noise strengths and timings
-;; 4. Multiple noise channels (depolarizing, amplitude/phase damping, coherent errors)
-;; 5. Readout errors with platform-specific rates
-;; 6. Circuit fidelity estimation and platform comparison
-;; 7. Real device calibration data integration
-;; 8. Cross-platform benchmarking capabilities
-  
-

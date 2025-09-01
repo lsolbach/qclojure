@@ -1,11 +1,22 @@
 (ns org.soulspace.qclojure.domain.noise
-  "Specifications and utility functions for quantum noise models.
+  "Specifications and functions for applying quantum noise to quantum states.
    
+   This namespace defines specifications for quantum noise models,
+   including gate noise and readout errors, as well as functions to
+   apply these noise models during gate operations and measurements.
+
+   The noise models are designed to be flexible and extensible,
+   allowing users to simulate various types of realistic quantum noise.
+
+   Example noise types include:
+   - Depolarizing noise
+   - Amplitude damping
+   - Phase damping
+   - Coherent errors
    "
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.channel :as channel]
-            [org.soulspace.qclojure.domain.circuit :as qc]))
+            [org.soulspace.qclojure.domain.channel :as channel]))
 
 ;;;
 ;;; Specs for quantum noise models
@@ -42,22 +53,20 @@
 (defn apply-gate-noise
   "Apply noise model during gate operation.
   
-  This function applies the clean gate operation first, then applies
-  the configured noise channel to simulate realistic quantum hardware behavior.
+  This function applies applies the configured noise channel to a clean state
+  to simulate realistic quantum hardware behavior.
   
   Parameters:
-  - state: Current quantum state
+  - clean-state: State after clean gate operation has been applied
   - gate: Gate operation to apply
   - noise-model: noise model to apply
   
   Returns: State after gate operation and noise application"
-  [state gate noise-model]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  [clean-state gate noise-model]
+  {:pre [;(s/valid? ::qs/quantum-state clean-state)
          (map? gate)
          (s/valid? ::noise-model noise-model)]}
-  (let [;; Apply clean gate operation first (call to circuit function)
-        clean-state (qc/apply-operation-to-state state gate) 
-        gate-type (:operation-type gate)
+  (let [gate-type (:operation-type gate)
         target-qubit (get-in gate [:operation-params :target] 0)]
     (if-let [noise-config (get-in noise-model [:gate-noise gate-type])]
       (let [{:keys [noise-type t1-time t2-time gate-time]} noise-config

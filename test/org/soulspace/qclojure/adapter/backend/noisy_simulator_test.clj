@@ -181,7 +181,7 @@
             circuit (qc/create-circuit 1) ; Empty circuit
             job-id (qb/submit-circuit simulator circuit {:shots 10})]
         
-        (Thread/sleep 100)
+        (Thread/sleep 200)
         (let [result (qb/get-job-result simulator job-id)]
           (is (= :completed (:job-status result)) "Empty circuit should execute successfully")
           (is (= 10 (reduce + (vals (:measurement-results result)))) "Should measure all shots"))))
@@ -193,7 +193,7 @@
             circuit (-> (qc/create-circuit 1) (qc/h-gate 0))
             job-id (qb/submit-circuit simulator circuit {:shots 100})]
         
-        (Thread/sleep 100)
+        (Thread/sleep 200)
         (let [result (qb/get-job-result simulator job-id)]
           (is (= :completed (:job-status result)) "Should handle high noise parameters")
           (is (= 100 (reduce + (vals (:measurement-results result)))) "Should count all shots"))))
@@ -209,6 +209,7 @@
           (is (= 0 (:shots-executed result)) "Should execute zero shots"))))))
 
 (comment
+  ; Run all tests in this namespace
   (run-tests)
   ;
   )

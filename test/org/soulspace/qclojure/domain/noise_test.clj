@@ -32,7 +32,8 @@
       (let [initial-state (qs/zero-state 1)
             h-gate {:operation-type :h :operation-params {:target 0}}
             noise-config {:noise-type :depolarizing :noise-strength 0.1}
-            result-state (noise/apply-gate-noise initial-state h-gate noise-config)]
+            clean-state (qc/apply-operation-to-state initial-state h-gate)
+            result-state (noise/apply-gate-noise clean-state h-gate noise-config)]
 
         (is (= (:num-qubits result-state) 1) "Should preserve qubit count")
         (is (vector? (:state-vector result-state)) "Should have valid state vector")
@@ -45,7 +46,8 @@
                           :noise-strength 0.1
                           :t1-time 100.0
                           :gate-time 20.0}
-            result-state (noise/apply-gate-noise initial-state x-gate noise-config)]
+            clean-state (qc/apply-operation-to-state initial-state x-gate)
+            result-state (noise/apply-gate-noise clean-state x-gate noise-config)]
 
         (is (= (:num-qubits result-state) 1) "Should preserve qubit count")
         (is (util/approx= (state-norm result-state) 1.0 1e-10) "Should maintain normalization")))
@@ -57,7 +59,8 @@
                           :noise-strength 0.1
                           :t2-time 50.0
                           :gate-time 20.0}
-            result-state (noise/apply-gate-noise initial-state z-gate noise-config)]
+            clean-state (qc/apply-operation-to-state initial-state z-gate)
+            result-state (noise/apply-gate-noise clean-state z-gate noise-config)]
 
         (is (= (:num-qubits result-state) 1) "Should preserve qubit count")
         (is (util/approx= (state-norm result-state) 1.0 1e-10) "Should maintain normalization")))
@@ -67,7 +70,8 @@
             h-gate {:operation-type :h :operation-params {:target 0}}
             noise-config {:noise-type :coherent
                           :coherent-error {:rotation-angle 0.01 :rotation-axis :z}}
-            result-state (noise/apply-gate-noise initial-state h-gate noise-config)]
+            clean-state (qc/apply-operation-to-state initial-state h-gate)
+            result-state (noise/apply-gate-noise clean-state h-gate noise-config)]
 
         (is (= (:num-qubits result-state) 1) "Should preserve qubit count")
         (is (util/approx= (state-norm result-state) 1.0 1e-10) "Should maintain normalization")))
@@ -76,10 +80,10 @@
       (let [initial-state (qs/zero-state 1)
             h-gate {:operation-type :h :operation-params {:target 0}}
             noise-config {:noise-type :unknown :noise-strength 0.1}
-            result-state (noise/apply-gate-noise initial-state h-gate noise-config)
-            expected-state (qc/apply-operation-to-state initial-state h-gate)]
+            clean-state (qc/apply-operation-to-state initial-state h-gate)
+            result-state (noise/apply-gate-noise clean-state h-gate noise-config)]
 
-        (is (states-approximately-equal? result-state expected-state 1e-10)
+        (is (states-approximately-equal? result-state clean-state 1e-10)
             "Unknown noise type should apply no noise")))))
 
 ;; Tests for readout noise application
@@ -216,17 +220,18 @@
       (let [initial-state (qs/zero-state 1)
             h-gate {:operation-type :h :operation-params {:target 0}}
             noise-config {:noise-type :depolarizing :noise-strength 0.0}
-            result-state (noise/apply-gate-noise initial-state h-gate noise-config)
-            expected-state (qc/apply-operation-to-state initial-state h-gate)]
+            clean-state (qc/apply-operation-to-state initial-state h-gate)
+            result-state (noise/apply-gate-noise clean-state h-gate noise-config)]
 
-        (is (states-approximately-equal? result-state expected-state 1e-10)
+        (is (states-approximately-equal? result-state clean-state 1e-10)
             "Zero noise should be equivalent to no noise")))
 
     (testing "maximum valid noise strength"
       (let [initial-state (qs/zero-state 1)
             h-gate {:operation-type :h :operation-params {:target 0}}
             noise-config {:noise-type :depolarizing :noise-strength 0.75} ; Max for depolarizing
-            result-state (noise/apply-gate-noise initial-state h-gate noise-config)]
+            clean-state (qc/apply-operation-to-state initial-state h-gate)
+            result-state (noise/apply-gate-noise clean-state h-gate noise-config)]
 
         (is (= (:num-qubits result-state) 1) "Should handle maximum noise strength")
         (is (util/approx= (state-norm result-state) 1.0 1e-10) "Should maintain normalization")))))

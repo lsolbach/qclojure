@@ -46,7 +46,7 @@
 ;;;
 ;;; Matrix algebra helper functions
 ;;;
-(defn- identity-matrix [n]
+(defn identity-matrix [n]
   (vec (for [i (range n)] (vec (for [j (range n)] (double (if (= i j) 1.0 0.0)))))))
 
 (defn matrix-shape [A]
@@ -68,25 +68,25 @@
 ;;
 ;; Real matrix operations
 ;;
-(defn- real-add [A B]
+(defn real-add [A B]
   (mapv (fn [ra rb] (mapv #(+ (double %1) (double %2)) ra rb)) A B))
 
-(defn- real-sub [A B]
+(defn real-sub [A B]
   (mapv (fn [ra rb] (mapv #(- (double %1) (double %2)) ra rb)) A B))
 
-(defn- real-scale [A a]
+(defn real-scale [A a]
   (let [a (double a)] (mapv (fn [row] (mapv #(* a (double %)) row)) A)))
 
-(defn- real-mul [A B]
+(defn real-mul [A B]
   (let [m (count A) n (count (first B))
         bt (apply map vector B)]
     (vec (for [i (range m)]
            (vec (for [j (range n)]
                   (reduce + (map * (nth A i) (nth bt j)))))))))
 
-(defn- real-transpose [A] (vec (apply mapv vector A)))
+(defn real-transpose [A] (vec (apply mapv vector A)))
 
-(defn- real-kronecker [A B]
+(defn real-kronecker [A B]
   (let [[ar ac] (matrix-shape A) [br bc] (matrix-shape B)]
     (vec (for [i (range ar)
                bi (range br)]
@@ -185,7 +185,7 @@
 ;; They are intentionally straightforward (no blocking / BLAS) and target
 ;; small to medium matrix sizes.
 
-(defn- forward-elimination
+(defn forward-elimination
   "Forward elimination (partial pivot) for complex A x = b.
   Ar/Ai: matrix parts, br/bi: RHS parts. Returns [Ar Ai br bi] in row echelon form."
   [Ar Ai br bi]
@@ -225,7 +225,7 @@
                                         (recur (inc i) Ar Ai br bi))))))]
             (recur (inc k) Ar Ai br bi)))))))
 
-(defn- back-substitution
+(defn back-substitution
   "Back substitution on upper-triangular complex system."
   [Ar Ai br bi]
   (let [n (count Ar) xr (double-array n) xi (double-array n)]
@@ -322,7 +322,7 @@
 ;; algorithmic construction and test cases. Heavy-duty performance should be
 ;; delegated to a native/optimized backend.
 
-(defn- jacobi-symmetric
+(defn jacobi-symmetric
   "Compute eigen-decomposition of a real symmetric matrix via classical
   Jacobi rotations.
 
@@ -400,7 +400,7 @@
 ;; For deterministic downstream processing (e.g. comparison in tests, registry
 ;; lookups) we canonicalize that phase so that the first component with
 ;; magnitude > tol has zero imaginary part and non-negative real part.
-(defn- normalize-complex-phase
+(defn normalize-complex-phase
   "Normalize global phase of complex vector v (SoA map) so the first
   non-negligible component becomes real and non-negative.
 
@@ -723,6 +723,150 @@
               Q (conj Q qj)]
           (recur (inc j) Q Rr Ri))))))
 
+(defn wilkinson-shift
+  "Compute Wilkinson shift for a 2x2 complex matrix.
+  The shift is chosen to accelerate convergence of the QR algorithm."
+  [A n]
+  (let [a11 {:real (get-in (:real A) [(- n 2) (- n 2)]) :imag (get-in (:imag A) [(- n 2) (- n 2)])}
+        a12 {:real (get-in (:real A) [(- n 2) (- n 1)]) :imag (get-in (:imag A) [(- n 2) (- n 1)])}
+        a21 {:real (get-in (:real A) [(- n 1) (- n 2)]) :imag (get-in (:imag A) [(- n 1) (- n 2)])}
+        a22 {:real (get-in (:real A) [(- n 1) (- n 1)]) :imag (get-in (:imag A) [(- n 1) (- n 1)])}
+        ;; Trace = a11 + a22
+        trace-real (+ (:real a11) (:real a22))
+        trace-imag (+ (:imag a11) (:imag a22))
+        ;; Determinant = a11*a22 - a12*a21
+        det-real (- (- (* (:real a11) (:real a22)) (* (:imag a11) (:imag a22)))
+                    (- (* (:real a12) (:real a21)) (* (:imag a12) (:imag a21))))
+        det-imag (- (+ (* (:real a11) (:imag a22)) (* (:imag a11) (:real a22)))
+                    (+ (* (:real a12) (:imag a21)) (* (:imag a12) (:real a21))))
+        ;; Discriminant = trace^2 - 4*det
+        trace2-real (- (* trace-real trace-real) (* trace-imag trace-imag))
+        trace2-imag (* 2 trace-real trace-imag)
+        disc-real (- trace2-real (* 4 det-real))
+        disc-imag (- trace2-imag (* 4 det-imag))
+        ;; Square root of discriminant
+        disc-mag (Math/sqrt (+ (* disc-real disc-real) (* disc-imag disc-imag)))
+        sqrt-real (Math/sqrt (/ (+ disc-mag disc-real) 2))
+        sqrt-imag (if (>= disc-imag 0)
+                    (Math/sqrt (/ (- disc-mag disc-real) 2))
+                    (- (Math/sqrt (/ (- disc-mag disc-real) 2))))
+        ;; Choose eigenvalue closer to a22
+        lambda1-real (/ (+ trace-real sqrt-real) 2)
+        lambda1-imag (/ (+ trace-imag sqrt-imag) 2)
+        lambda2-real (/ (- trace-real sqrt-real) 2)
+        lambda2-imag (/ (- trace-imag sqrt-imag) 2)
+        ;; Distance to a22
+        dist1 (+ (* (- lambda1-real (:real a22)) (- lambda1-real (:real a22)))
+                 (* (- lambda1-imag (:imag a22)) (- lambda1-imag (:imag a22))))
+        dist2 (+ (* (- lambda2-real (:real a22)) (- lambda2-real (:real a22)))
+                 (* (- lambda2-imag (:imag a22)) (- lambda2-imag (:imag a22))))]
+    (if (< dist1 dist2)
+      {:real lambda1-real :imag lambda1-imag}
+      {:real lambda2-real :imag lambda2-imag})))
+
+(defn matrix-subtract-scalar
+  "Subtract a scalar from the diagonal of a matrix A - sI."
+  [A s]
+  (let [[n m] (matrix-shape A)]
+    {:real (mapv (fn [i]
+                   (mapv (fn [j]
+                           (if (= i j)
+                             (- (get-in (:real A) [i j]) (:real s))
+                             (get-in (:real A) [i j])))
+                         (range m)))
+                 (range n))
+     :imag (mapv (fn [i]
+                   (mapv (fn [j]
+                           (if (= i j)
+                             (- (get-in (:imag A) [i j]) (:imag s))
+                             (get-in (:imag A) [i j])))
+                         (range m)))
+                 (range n))}))
+
+(defn qr-eigenvalues
+  "Compute eigenvalues of a matrix using QR algorithm with Wilkinson shifts."
+  [A max-iterations tolerance]
+  (let [[n m] (matrix-shape A)]
+    (when (not= n m) (throw (ex-info "qr-eigenvalues requires square matrix" {:shape [n m]})))
+    ;; For 2x2 matrices, use direct closed-form solution
+    (if (= n 2)
+      (let [a11-real (get-in (:real A) [0 0])
+            a11-imag (get-in (:imag A) [0 0])
+            a12-real (get-in (:real A) [0 1])
+            a12-imag (get-in (:imag A) [0 1])
+            a21-real (get-in (:real A) [1 0])
+            a21-imag (get-in (:imag A) [1 0])
+            a22-real (get-in (:real A) [1 1])
+            a22-imag (get-in (:imag A) [1 1])
+            ;; Trace = a11 + a22
+            trace-real (+ a11-real a22-real)
+            trace-imag (+ a11-imag a22-imag)
+            ;; Determinant = a11*a22 - a12*a21
+            det-real (- (- (* a11-real a22-real) (* a11-imag a22-imag))
+                        (- (* a12-real a21-real) (* a12-imag a21-imag)))
+            det-imag (- (+ (* a11-real a22-imag) (* a11-imag a22-real))
+                        (+ (* a12-real a21-imag) (* a12-imag a21-real)))
+            ;; Discriminant = trace² - 4*det
+            trace2-real (- (* trace-real trace-real) (* trace-imag trace-imag))
+            trace2-imag (* 2 trace-real trace-imag)
+            disc-real (- trace2-real (* 4 det-real))
+            disc-imag (- trace2-imag (* 4 det-imag))
+            ;; Square root of discriminant
+            disc-mag (Math/sqrt (+ (* disc-real disc-real) (* disc-imag disc-imag)))
+            sqrt-real (Math/sqrt (/ (+ disc-mag disc-real) 2))
+            sqrt-imag (if (>= disc-imag 0)
+                        (Math/sqrt (/ (- disc-mag disc-real) 2))
+                        (- (Math/sqrt (/ (- disc-mag disc-real) 2))))
+            ;; Two eigenvalues: (trace ± sqrt(discriminant)) / 2
+            lambda1-real (/ (+ trace-real sqrt-real) 2)
+            lambda1-imag (/ (+ trace-imag sqrt-imag) 2)
+            lambda2-real (/ (- trace-real sqrt-real) 2)
+            lambda2-imag (/ (- trace-imag sqrt-imag) 2)]
+        [{:real lambda1-real :imag lambda1-imag}
+         {:real lambda2-real :imag lambda2-imag}])
+      ;; For larger matrices, use iterative QR algorithm
+      (loop [Ak A
+             iteration 0
+             active-size n
+             eigenvals []]
+        (if (or (>= iteration max-iterations) (<= active-size 1))
+          ;; Base case: extract remaining eigenvalues
+          (let [final-eigenvals (if (= active-size 1)
+                                  (conj eigenvals {:real (get-in (:real Ak) [0 0])
+                                                   :imag (get-in (:imag Ak) [0 0])})
+                                  eigenvals)]
+            final-eigenvals)
+          ;; Check for deflation: look for small off-diagonal elements
+          (let [can-deflate? (and (> active-size 1)
+                                  (let [off-diag-real (get-in (:real Ak) [(dec active-size) (- active-size 2)])
+                                        off-diag-imag (get-in (:imag Ak) [(dec active-size) (- active-size 2)])]
+                                    (< (+ (* off-diag-real off-diag-real) (* off-diag-imag off-diag-imag))
+                                       (* tolerance tolerance))))
+                next-eigenval (when can-deflate?
+                                {:real (get-in (:real Ak) [(dec active-size) (dec active-size)])
+                                 :imag (get-in (:imag Ak) [(dec active-size) (dec active-size)])})
+                new-active-size (if can-deflate? (dec active-size) active-size)
+                new-eigenvals (if can-deflate? (conj eigenvals next-eigenval) eigenvals)]
+            (if can-deflate?
+              ;; Continue with deflated matrix
+              (recur Ak iteration new-active-size new-eigenvals)
+              ;; Apply QR step with shift
+              (let [shift (if (>= active-size 2)
+                            (wilkinson-shift Ak active-size)
+                            {:real 0.0 :imag 0.0})
+                    shifted-A (matrix-subtract-scalar Ak shift)
+                    {:keys [Q R]} (qr-decomposition shifted-A)
+                    RQ (matrix-multiply R Q)
+                    ;; Add shift back: RQ + sI
+                    shift-matrix {:real (mapv (fn [i] (mapv (fn [j] (if (= i j) (:real shift) 0.0)) 
+                                                            (range (count (:real Ak)))))
+                                              (range (count (:real Ak))))
+                                  :imag (mapv (fn [i] (mapv (fn [j] (if (= i j) (:imag shift) 0.0)) 
+                                                            (range (count (:real Ak)))))
+                                              (range (count (:real Ak))))}
+                    restored-A (matrix-add RQ shift-matrix)]
+                (recur restored-A (inc iteration) active-size new-eigenvals)))))))))
+
 (defn eigen-general
   "Compute eigen-decomposition of a complex square matrix A.
   Returns a map with eigenvalues and eigenvectors in SoA form.
@@ -734,37 +878,18 @@
      (if (hermitian? A eps)
        ;; If the matrix is Hermitian, use the specialized Hermitian method
        (eigen-hermitian A eps)
-       ;; For general complex matrices, use real embedding approach
-       (let [X (:real A) Y (:imag A)
-             ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
-             top (vec (for [i (range n)] (vec (concat (nth X i) (map #(- %) (nth Y i))))))
-             bottom (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
-             M (vec (concat top bottom))
-             N (* 2 n)
-             tol (* eps (inc N))
-             max-it (* 10 N N)
-             {:keys [eigenvalues vectors]} (jacobi-symmetric M tol max-it)
-             ;; Extract complex eigenvalues and eigenvectors from 2n×2n real result
-             ;; For general matrices, eigenvalues come in conjugate pairs
-             ;; Sort by real part first, then imaginary part
-             indexed-pairs (map-indexed vector eigenvalues)
-             sorted-pairs (sort-by second indexed-pairs)
-             build-complex (fn [col-idx]
-                             (let [w (nth vectors col-idx) ; length 2n
-                                   x (subvec w 0 n)
-                                   y (subvec w n N)
-                                   nrm (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
-                                   nrm (if (pos? nrm) nrm 1.0)
-                                   x' (mapv #(/ % nrm) x)
-                                   y' (mapv #(/ % nrm) y)
-                                   v {:real x' :imag y'}]
-                               (normalize-complex-phase v 1e-14)))
-             ;; Extract n eigenvalues and eigenvectors
-             ;; For general matrices, take first n eigenvalues from sorted pairs
-             unique-pairs (take n sorted-pairs)
-             evals (mapv (fn [[_ λ]] λ) unique-pairs)
-             evects (mapv (fn [[idx _]] (build-complex idx)) unique-pairs)]
-         {:eigenvalues (mapv double evals) :eigenvectors (vec evects)})))))
+       ;; For general complex matrices, use QR algorithm
+       (let [eigenvals (qr-eigenvalues A 1000 eps)
+             ;; Sort eigenvalues by real part, then imaginary part
+             sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)
+             ;; For now, return identity eigenvectors as placeholder
+             ;; TODO: Implement proper eigenvector computation via inverse iteration
+             identity-vecs (mapv (fn [i] 
+                                   {:real (mapv #(if (= % i) 1.0 0.0) (range n))
+                                    :imag (mapv #(if (= % i) 0.0 0.0) (range n))})
+                                 (range n))]
+         {:eigenvalues sorted-eigenvals
+          :eigenvectors identity-vecs})))))
 
 (defn cholesky-decomposition
   "Compute Cholesky decomposition of a complex Hermitian positive definite matrix A.

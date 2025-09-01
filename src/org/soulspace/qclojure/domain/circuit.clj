@@ -6,8 +6,6 @@
    and execute quantum circuits, as well as to analyze their structure and results."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [fastmath.core :as fm]
-            [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.gate :as qg]
             [org.soulspace.qclojure.domain.observables :as obs]
@@ -936,7 +934,11 @@
   (let [gate-type (gr/resolve-gate-alias (:operation-type gate))
         params (:operation-params gate)
         target (:target params)
+        target1 (:target params)
+        target2 (:target params)
         control (:control params)
+        control1 (:control1 params)
+        control2 (:control2 params)
         angle (:angle params)
         qubit1 (:qubit1 params)
         qubit2 (:qubit2 params)]
@@ -981,32 +983,22 @@
              (qg/controlled-ry state control target angle)
              (throw (ex-info "CRY requires control, target qubits and angle"
                              {:gate gate})))
-      :swap (let [qubit1 (:qubit1 params)
-                  qubit2 (:qubit2 params)]
-              (if (and qubit1 qubit2)
-                (qg/swap-gate state qubit1 qubit2)
-                (throw (ex-info "SWAP requires both qubit1 and qubit2 parameters"
-                                {:gate gate}))))
-      :iswap (let [qubit1 (:qubit1 params)
-                   qubit2 (:qubit2 params)]
-               (if (and qubit1 qubit2)
-                 (qg/iswap-gate state qubit1 qubit2)
-                 (throw (ex-info "iSWAP requires both qubit1 and qubit2 parameters"
-                                 {:gate gate}))))
-      :toffoli (let [control1 (:control1 params)
-                     control2 (:control2 params)
-                     target (:target params)]
-                 (if (and control1 control2 target)
-                   (qg/toffoli-gate state control1 control2 target)
-                   (throw (ex-info "Toffoli requires control1, control2, and target parameters"
-                                   {:gate gate}))))
-      :fredkin (let [control (:control params)
-                     target1 (:target1 params)
-                     target2 (:target2 params)]
-                 (if (and control target1 target2)
-                   (qg/fredkin-gate state control target1 target2)
-                   (throw (ex-info "Fredkin requires control, target1, and target2 parameters"
-                                   {:gate gate}))))
+      :swap (if (and qubit1 qubit2)
+              (qg/swap-gate state qubit1 qubit2)
+              (throw (ex-info "SWAP requires both qubit1 and qubit2 parameters"
+                              {:gate gate})))
+      :iswap (if (and qubit1 qubit2)
+               (qg/iswap-gate state qubit1 qubit2)
+               (throw (ex-info "iSWAP requires both qubit1 and qubit2 parameters"
+                               {:gate gate})))
+      :toffoli (if (and control1 control2 target)
+                 (qg/toffoli-gate state control1 control2 target)
+                 (throw (ex-info "Toffoli requires control1, control2, and target parameters"
+                                 {:gate gate})))
+      :fredkin (if (and control target1 target2)
+                 (qg/fredkin-gate state control target1 target2)
+                 (throw (ex-info "Fredkin requires control, target1, and target2 parameters"
+                                 {:gate gate})))
 
       ;; Rydberg gates - Specific to neutral atom quantum processors
       :rydberg-cz (if (and control target)
@@ -1028,23 +1020,20 @@
                                             {:gate gate}))))
 
       ;; Global gates - Applied to all qubits simultaneously
-      :global-rx (let [theta (:angle params)]
-                   (if theta
-                     (qg/global-rx-gate state theta)
-                     (throw (ex-info "Global RX requires rotation angle"
-                                     {:gate gate}))))
+      :global-rx (if-let [theta angle]
+                   (qg/global-rx-gate state theta)
+                   (throw (ex-info "Global RX requires rotation angle"
+                                   {:gate gate})))
 
-      :global-ry (let [theta (:angle params)]
-                   (if theta
-                     (qg/global-ry-gate state theta)
-                     (throw (ex-info "Global RY requires rotation angle"
-                                     {:gate gate}))))
+      :global-ry (if-let [theta angle]
+                   (qg/global-ry-gate state theta)
+                   (throw (ex-info "Global RY requires rotation angle"
+                                   {:gate gate})))
 
-      :global-rz (let [theta (:angle params)]
-                   (if theta
-                     (qg/global-rz-gate state theta)
-                     (throw (ex-info "Global RZ requires rotation angle"
-                                     {:gate gate}))))
+      :global-rz (if-let [theta angle]
+                   (qg/global-rz-gate state theta)
+                   (throw (ex-info "Global RZ requires rotation angle"
+                                   {:gate gate})))
 
       :global-h (qg/global-hadamard-gate state)
 

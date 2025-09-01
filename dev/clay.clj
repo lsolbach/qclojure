@@ -12,6 +12,8 @@
 (def tutorial-html-config
   (merge tutorial-base-config
          {:format [:html]
+          :base-target-path "docs"
+          :clean-up-target-dir true
           :hide-ui-header true
           :hide-info-line false
           ;:live-reload true
@@ -20,11 +22,16 @@
 (def tutorial-quarto-config
   (merge tutorial-base-config
          {:format [:quarto]
-          :quarto {:highlight-style :solarized}
+          :base-target-path "quarto"
+          :clean-up-target-dir true
+          :quarto {:highlight-style :solarized
+                   :pdf {:document-class "article"
+                         :geometry "margin=1in"}}
           :hide-ui-header true
           :hide-info-line false
           ;:live-reload true
-          :browse true}))
+          ;:browse true
+          }))
 
 (defn make-tutorial-notebook
   "Render the QClojure tutorial notebook."

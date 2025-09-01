@@ -31,7 +31,7 @@
 ;;
 ;; For a general introduction to quantum computing, take a look at
 
-;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing).
+;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing)
 ;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
 ;; ## QClojure
@@ -82,13 +82,13 @@
 ;; `project.clj` file:
 ;;
 ;; ```clojure
-;; [org.soulspace/qclojure "0.11.1"]
+;; [org.soulspace/qclojure "0.13.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
 ;;
 ;; ```clojure
-;; {:deps {org.soulspace/qclojure {:mvn/version "0.11.1"}}}
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.13.0"}}}
 ;; ```
 ;;
 ;; ### Imports

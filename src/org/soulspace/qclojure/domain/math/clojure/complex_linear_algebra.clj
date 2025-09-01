@@ -1083,37 +1083,34 @@
         (* normA normInv))
       Double/POSITIVE_INFINITY)))
 
-;;;
-;;; Quantum State Operation Functions (TODO: Move to separate namespace)
-;;;
-(defn state-normalize
-  "Normalize a quantum state vector psi.
-  Returns a new state vector with unit norm."
-  [state]
-  (let [nrm (norm2 state)
-        s (if (pos? nrm) (/ 1.0 nrm) 1.0)]
-    {:real (mapv #(* s %) (:real state))
-     :imag (mapv #(* s %) (:imag state))}))
+(comment
+  (eigen-hermitian {:real [[1.0 2.0]
+                           [2.0 -1.0]]
+                    :imag  [[0.0 0.0]
+                            [0.0 0.0]]})
+  (eigen-general {:real [[1.0 2.0]
+                         [2.0 -1.0]]
+                  :imag  [[0.0 0.0]
+                          [0.0 0.0]]})
 
-(defn projector-from-state
-  "Compute the projector |psi><psi| from a quantum state vector psi.
-  Returns a density matrix in SoA form."
-  [psi]
-  (outer-product psi psi))
+  (eigen-hermitian {:real [[3.0 1.0]
+                           [1.0 3.0]]
+                    :imag  [[0.0 0.0]
+                            [0.0 0.0]]})
+  (eigen-general {:real [[3.0 1.0]
+                         [1.0 3.0]]
+                  :imag  [[0.0 0.0]
+                          [0.0 0.0]]})
+  
+  (eigen-hermitian {:real [[2.0 0.0]
+                           [0.0 2.0]]
+                    :imag  [[0.0 0.0]
+                            [0.0 0.0]]})
+  (eigen-general {:real [[2.0 0.0]
+                         [0.0 2.0]]
+                  :imag  [[0.0 0.0]
+                          [0.0 0.0]]})
 
-(defn density-matrix
-  "Compute the density matrix from a pure state vector psi.
-  Returns a density matrix in SoA form."
-  [psi]
-  (projector-from-state psi))
 
-(defn trace-one?
-  "Check if a density matrix rho has trace one.
-  Optionally accepts a tolerance for numerical stability."
-  ([rho] (trace-one? rho default-tolerance))
-  ([rho eps]
-   (let [tr (trace rho)
-         eps (double (or eps default-tolerance))]
-     (and (< (abs (- (:real tr) 1.0)) eps)
-          (< (abs (:imag tr)) eps)))))
-
+  ;
+  )

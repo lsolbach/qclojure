@@ -131,9 +131,9 @@
 (deftest eigen-hermitian-2x2-tests
   (testing "2x2 symmetric matrix eigendecomposition"
     (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[3.0 1.0] [1.0 3.0]])]
-      ;; Eigenvalues should be [4, 2] (FastMath returns in descending order)
-      (is (t/approx= 4.0 (fc/re (first eigenvalues)) 1e-10))
-      (is (t/approx= 2.0 (fc/re (second eigenvalues)) 1e-10))
+      ;; Eigenvalues should be [2, 4] We return in ascending order
+      (is (t/approx= 2.0 (fc/re (first eigenvalues)) 1e-10))
+      (is (t/approx= 4.0 (fc/re (second eigenvalues)) 1e-10))
       ;; Eigenvectors should be normalized
       (let [v1 (first eigenvectors)
             v2 (second eigenvectors)
@@ -144,8 +144,9 @@
 
   (testing "2x2 diagonal matrix eigendecomposition"
     (let [{:keys [eigenvalues]} (m/eigen-hermitian [[5.0 0.0] [0.0 7.0]])]
-      (is (t/approx= 7.0 (fc/re (first eigenvalues)) 1e-10))  ; Descending order: 7 first
-      (is (t/approx= 5.0 (fc/re (second eigenvalues)) 1e-10))))
+      ;; Eigenvalues should be [2, 4] We return in ascending order
+      (is (t/approx= 5.0 (fc/re (first eigenvalues)) 1e-10))
+      (is (t/approx= 7.0 (fc/re (second eigenvalues)) 1e-10))))
 
   (testing "1x1 matrix eigendecomposition"
     (let [{:keys [eigenvalues eigenvectors]} (m/eigen-hermitian [[42.0]])]
@@ -181,6 +182,25 @@
         (is (t/approx= (- expected-sin) (fc/im (get-in result [0 0])) 1e-10))
         (is (t/approx= expected-cos (fc/re (get-in result [1 1])) 1e-10))
         (is (t/approx= expected-sin (fc/im (get-in result [1 1])) 1e-10))))))
+
+(deftest matrix-logarithm-test
+  (testing "Matrix logarithm for Hermitian matrices"
+    ;; Test identity matrix: log(I) should be zero matrix
+    (let [I [[1.0 0.0] [0.0 1.0]]
+          log-I (m/matrix-log I)]
+      (is (every? #(every? (fn [x] (t/approx= 0.0 (fc/re x) 1e-12)) %) log-I)))
+
+    ;; Test with simple diagonal matrix
+    (let [A [[2.0 0.0] [0.0 3.0]]
+          log-A (m/matrix-log A)]
+      ;; log(2) ≈ 0.693, log(3) ≈ 1.099
+      (is (t/approx= (Math/log 2) (fc/re (get-in log-A [0 0])) 1e-10))
+      (is (t/approx= (Math/log 3) (fc/re (get-in log-A [1 1])) 1e-10))
+      (is (t/approx= 0.0 (fc/re (get-in log-A [0 1])) 1e-12))
+      (is (t/approx= 0.0 (fc/re (get-in log-A [1 0])) 1e-12)))
+
+    ;; Test error for negative eigenvalues
+    (is (thrown? Exception (m/matrix-log [[1.0 2.0] [2.0 -1.0]])))))
 
 (deftest matrix-sqrt-tests
   (testing "Matrix square root of diagonal matrix"
@@ -289,25 +309,6 @@
       (is (>= (count eigenvalues) 1))
       ;; All eigenvalues of identity should be 1
       (is (every? #(t/approx= 1.0 (fc/re %) 1e-10) eigenvalues)))))
-
-(deftest matrix-logarithm-test
-  (testing "Matrix logarithm for Hermitian matrices"
-    ;; Test identity matrix: log(I) should be zero matrix
-    (let [I [[1.0 0.0] [0.0 1.0]]
-          log-I (m/matrix-log I)]
-      (is (every? #(every? (fn [x] (t/approx= 0.0 (fc/re x) 1e-12)) %) log-I)))
-    
-    ;; Test with simple diagonal matrix
-    (let [A [[2.0 0.0] [0.0 3.0]]
-          log-A (m/matrix-log A)]
-      ;; log(2) ≈ 0.693, log(3) ≈ 1.099
-      (is (t/approx= (Math/log 2) (fc/re (get-in log-A [0 0])) 1e-10))
-      (is (t/approx= (Math/log 3) (fc/re (get-in log-A [1 1])) 1e-10))
-      (is (t/approx= 0.0 (fc/re (get-in log-A [0 1])) 1e-12))
-      (is (t/approx= 0.0 (fc/re (get-in log-A [1 0])) 1e-12)))
-    
-    ;; Test error for negative eigenvalues
-    (is (thrown? Exception (m/matrix-log [[1.0 2.0] [2.0 -1.0]])))))
 
 (deftest matrix-reconstruction-test
   (testing "Matrix reconstruction from eigendecomposition"

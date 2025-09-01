@@ -639,7 +639,7 @@
    
    Returns:
    Map with keys
-   - :eigenvalues (vector of complex eigenvalues) and
+   - :eigenvalues (vector of all complex eigenvalues)
    - :eigenvectors (matrix with eigenvectors as columns)
    
    Exception is thrown if A is not square or not Hermitian."
@@ -647,7 +647,6 @@
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
       (throw (ex-info "Matrix must be square for eigendecomposition" {:shape [n m]})))
-
     ;; Extract real and imaginary parts
     (let [real-part (mapv (fn [i]
                             (mapv (fn [j]
@@ -667,7 +666,7 @@
               eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. real-matrix)
               eigenvals-array (.getRealEigenvalues eigen-decomp)
               eigenvecs-matrix (.getV eigen-decomp)
-              
+
               ;; Convert to complex format
               complex-eigenvals (mapv #(fc/complex % 0.0) eigenvals-array)
               eigenvec-data (fmat/mat->array2d eigenvecs-matrix)
@@ -676,14 +675,14 @@
                                                 (fc/complex (get-in eigenvec-data [row-idx col-idx]) 0.0))
                                               (range n)))
                                       (range n))
-              
+
               ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
               indexed-pairs (map-indexed vector complex-eigenvals)
               sorted-pairs (sort-by (fn [[_idx eigenval]] (fc/re eigenval)) indexed-pairs)
               sorted-indices (mapv first sorted-pairs)
               sorted-eigenvals (mapv second sorted-pairs)
               sorted-eigenvecs (mapv #(get complex-eigenvecs %) sorted-indices)]
-          
+
           {:eigenvalues sorted-eigenvals
            :eigenvectors sorted-eigenvecs})
 
@@ -711,21 +710,21 @@
               ;; For complex Hermitian matrices, eigenvalues appear in the embedded matrix
               ;; We need to identify unique eigenvalues and their corresponding eigenvectors
               unique-eigenvals (vec (distinct real-eigenvals-array))
-              
+
               ;; Find one representative eigenvector for each unique eigenvalue
               eigenvec-data (fmat/mat->array2d real-eigenvecs-matrix)
-              
+
               ;; Group eigenvector indices by their eigenvalue
               eigenval-to-indices (group-by #(get real-eigenvals-array %) (range (* 2 n)))
-              
+
               ;; Select one representative for each unique eigenvalue
               representative-indices (mapv (fn [eigenval]
                                              (first (get eigenval-to-indices eigenval)))
                                            unique-eigenvals)
-              
+
               ;; Extract complex eigenvalues and eigenvectors
               complex-eigenvals (mapv #(fc/complex % 0.0) unique-eigenvals)
-              
+
               complex-eigenvecs (mapv (fn [col-idx]
                                         ;; Extract the real eigenvector [a1 a2 ... b1 b2 ...]
                                         (let [real-eigenvec (mapv #(get-in eigenvec-data [% col-idx]) (range (* 2 n)))
@@ -737,7 +736,7 @@
                                                   (fc/complex re im))
                                                 real-part imag-part)))
                                       representative-indices)
-              
+
               ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
               indexed-pairs (map-indexed vector complex-eigenvals)
               sorted-pairs (sort-by (fn [[_idx eigenval]] (fc/re eigenval)) indexed-pairs)
@@ -781,6 +780,7 @@
     (catch Exception e
       (throw (ex-info "Error checking positive semidefinite property" {:original-error (.getMessage e)})))))
 
+; TODO Returns the same eigenvalues/eigenvectors twice
 (defn eigen-general
   "Compute eigenvalues and eigenvectors of a general matrix.
    
@@ -852,12 +852,12 @@
           eigenvec-matrix (mapv (fn [i]
                                   (mapv #(get % i) complex-eigenvecs))
                                 (range n))
-          
+
           ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
           ;; Sort by real part first, then by imaginary part for complex eigenvalues
           indexed-pairs (map-indexed vector complex-eigenvals)
-          sorted-pairs (sort-by (fn [[_idx eigenval]] 
-                                  [(fc/re eigenval) (fc/im eigenval)]) 
+          sorted-pairs (sort-by (fn [[_idx eigenval]]
+                                  [(fc/re eigenval) (fc/im eigenval)])
                                 indexed-pairs)
           sorted-indices (mapv first sorted-pairs)
           sorted-eigenvals (mapv second sorted-pairs)
@@ -925,7 +925,7 @@
                            ;; Zero singular value - use zero vector
                            (mapv (fn [_] (fc/complex 0.0 0.0)) (range m)))))
                      (range (min m n)))
-        
+
         ;; If m > n, we need additional orthonormal columns for U
         U-complete (if (> m n)
                      ;; TODO: Use Gram-Schmidt to complete the basis
@@ -1100,8 +1100,7 @@
    
    Exception is thrown if A is not square, not Hermitian, or not positive definite."
   ([]
-   (cholesky-decomposition [[(fc/complex 1.0 0.0)]])
-  )
+   (cholesky-decomposition [[(fc/complex 1.0 0.0)]]))
   ([A] (cholesky-decomposition A  default-tolerance))
   ([A eps]
    (let [[n m] (complex-matrix-shape A)]
@@ -1284,32 +1283,32 @@
               eigenvals (:eigenvalues eigen-result)
               eigenvecs (:eigenvectors eigen-result)
 
-            ;; Compute log of eigenvalues - handle domain restrictions
-            log-eigenvals (mapv (fn [lambda]
-                                  (let [r (fc/abs lambda)
-                                        theta (fc/arg lambda)]
-                                    (when (< r 1e-14)
-                                      (throw (ex-info "Cannot compute log of zero eigenvalue"
-                                                      {:eigenvalue lambda})))
-                                    ;; Principal branch: log(r*e^(iθ)) = log(r) + iθ
-                                    (fc/complex (fm/log r) theta)))
-                                eigenvals)
+              ;; Compute log of eigenvalues - handle domain restrictions
+              log-eigenvals (mapv (fn [lambda]
+                                    (let [r (fc/abs lambda)
+                                          theta (fc/arg lambda)]
+                                      (when (< r 1e-14)
+                                        (throw (ex-info "Cannot compute log of zero eigenvalue"
+                                                        {:eigenvalue lambda})))
+                                      ;; Principal branch: log(r*e^(iθ)) = log(r) + iθ
+                                      (fc/complex (fm/log r) theta)))
+                                  eigenvals)
 
-            ;; Create diagonal matrix of log eigenvalues
-            log-diag (mapv (fn [i]
-                             (mapv (fn [j]
-                                     (if (= i j)
-                                       (get log-eigenvals i)
-                                       (fc/complex 0.0 0.0)))
-                                   (range n)))
-                           (range n))
+              ;; Create diagonal matrix of log eigenvalues
+              log-diag (mapv (fn [i]
+                               (mapv (fn [j]
+                                       (if (= i j)
+                                         (get log-eigenvals i)
+                                         (fc/complex 0.0 0.0)))
+                                     (range n)))
+                             (range n))
 
-            ;; Compute V^(-1)
-            V-inv (inverse eigenvecs)
+              ;; Compute V^(-1)
+              V-inv (inverse eigenvecs)
 
-            ;; Result: V * log(Λ) * V^(-1)
-            temp (matrix-multiply eigenvecs log-diag)]
-        (matrix-multiply temp V-inv))
+              ;; Result: V * log(Λ) * V^(-1)
+              temp (matrix-multiply eigenvecs log-diag)]
+          (matrix-multiply temp V-inv))
         (catch Exception e
           (throw (ex-info "Complex matrix logarithm failed"
                           {:original-error (.getMessage e)
@@ -1339,7 +1338,7 @@
         (when (some (fn [elem] (< (fc/re elem) 0.0)) diagonal-elements)
           (throw (ex-info "Matrix square root requires positive semidefinite matrix"
                           {:diagonal-elements diagonal-elements})))
-        
+
         ;; All diagonal elements are non-negative, compute sqrt
         (mapv (fn [i]
                 (mapv (fn [j]
@@ -1358,7 +1357,7 @@
                           (fc/complex 0.0 0.0)))
                       (range n)))
               (range n)))
-      
+
       ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
       (try
         (let [eigen-result (eigen-general A)
@@ -1463,3 +1462,21 @@
     (if (< sigma-min 1e-14)
       Double/POSITIVE_INFINITY  ; Matrix is singular
       (/ sigma-max sigma-min))))
+
+(comment
+
+  ;; TODO: the results are not the same
+  (eigen-hermitian [[(fc/complex 1.0) (fc/complex 2.0)]
+                    [(fc/complex 2.0) (fc/complex -1.0)]])
+  (eigen-general [[(fc/complex 1.0) (fc/complex 2.0)]
+                  [(fc/complex 2.0) (fc/complex -1.0)]])
+
+  (eigen-hermitian [[(fc/complex 3.0) (fc/complex 1.0)]
+                    [(fc/complex 1.0) (fc/complex 3.0)]])
+  (eigen-general [[(fc/complex 3.0) (fc/complex 1.0)]
+                  [(fc/complex 1.0) (fc/complex 3.0)]])
+
+  (eigen-hermitian [[(fc/complex 2.0) (fc/complex 0.0)]
+                    [(fc/complex 0.0) (fc/complex 2.0)]])
+  (eigen-general [[(fc/complex 2.0) (fc/complex 0.0)]
+                  [(fc/complex 0.0) (fc/complex 2.0)]]))

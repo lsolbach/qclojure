@@ -380,7 +380,9 @@
     - A: Square matrix (real or complex)
     
     Returns:
-    Map containing eigenvalue information (backend-specific format)
+    Map containing:
+    - :eigenvalues - Vector of eigenvalues in ascending order [λ₀≤...≤λₙ₋₁]
+    - :eigenvectors - Vector of corresponding eigenvector columns [v₀ ...]
     
     Note:
     May throw if the backend doesn't support general eigenvalue computation")

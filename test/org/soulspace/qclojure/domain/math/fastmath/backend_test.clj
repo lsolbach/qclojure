@@ -178,7 +178,13 @@
           expected [[1.0 1.0] [0.0 1.0]]]  ; exp([[0 1] [0 0]]) = I + A = [[1 1] [0 1]]
       (is (util/approx-matrix= expected result-converted 1e-10)
           "Matrix exponential of nilpotent matrix should be correct")))
-  
+  (testing "matrix logarithm"
+    (let [A (proto/matrix->backend backend [[2.0 0.0] [0.0 3.0]])  ; positive diagonal
+          result (proto/matrix-log backend A)
+          result-converted (vec2-matrix->real-matrix (proto/backend->matrix backend result))
+          expected [[(Math/log 2.0) 0.0] [0.0 (Math/log 3.0)]]]  ; log([[2 0] [0 3]]) = [[log(2) 0] [0 log(3)]]
+      (is (util/approx-matrix= expected result-converted 1e-10)
+          "Matrix logarithm of diagonal matrix should be correct")))
   (testing "matrix square root"
     (let [A (proto/matrix->backend backend [[4.0 0.0] [0.0 9.0]])  ; positive diagonal
           result (proto/matrix-sqrt backend A)

@@ -1336,33 +1336,26 @@
     (when (not= n m)
       (throw (ex-info "Matrix square root requires square matrix" {:shape [n m]})))
 
-    ;; Check if matrix is diagonal - use direct approach
+    ;; Check if matrix is diagonal - use direct approach but allow negative elements
     (if (diagonal? A 1e-10)
-      ;; For diagonal matrices, check positive semidefinite first
-      (let [diagonal-elements (mapv #(get-in A [% %]) (range n))]
-        ;; Check if all diagonal elements have non-negative real parts  
-        (when (some (fn [elem] (< (fc/re elem) 0.0)) diagonal-elements)
-          (throw (ex-info "Matrix square root requires positive semidefinite matrix"
-                          {:diagonal-elements diagonal-elements})))
-
-        ;; All diagonal elements are non-negative, compute sqrt
-        (mapv (fn [i]
-                (mapv (fn [j]
-                        (if (= i j)
-                          (let [diag-elem (get-in A [i j])
-                                r (fc/abs diag-elem)
-                                theta (fc/arg diag-elem)]
-                            (when (< r 1e-14)
-                              (throw (ex-info "Cannot compute sqrt of zero diagonal element"
-                                              {:element diag-elem :position [i j]})))
-                            ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
-                            (let [sqrt-r (fm/sqrt r)
-                                  half-theta (/ theta 2.0)]
-                              (fc/complex (* sqrt-r (fm/cos half-theta))
-                                          (* sqrt-r (fm/sin half-theta)))))
-                          (fc/complex 0.0 0.0)))
-                      (range n)))
-              (range n)))
+      ;; For diagonal matrices, compute complex square root directly
+      (mapv (fn [i]
+              (mapv (fn [j]
+                      (if (= i j)
+                        (let [diag-elem (get-in A [i j])
+                              r (fc/abs diag-elem)
+                              theta (fc/arg diag-elem)]
+                          (when (< r 1e-14)
+                            (throw (ex-info "Cannot compute sqrt of zero diagonal element"
+                                            {:element diag-elem :position [i j]})))
+                          ;; Principal branch: √(r*e^(iθ)) = √r * e^(iθ/2)
+                          (let [sqrt-r (fm/sqrt r)
+                                half-theta (/ theta 2.0)]
+                            (fc/complex (* sqrt-r (fm/cos half-theta))
+                                        (* sqrt-r (fm/sin half-theta)))))
+                        (fc/complex 0.0 0.0)))
+                    (range n)))
+            (range n))
 
       ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
       (try

@@ -199,8 +199,17 @@
       (is (t/approx= 0.0 (fc/re (get-in log-A [0 1])) 1e-12))
       (is (t/approx= 0.0 (fc/re (get-in log-A [1 0])) 1e-12)))
 
-    ;; Test error for negative eigenvalues
-    (is (thrown? Exception (m/matrix-log [[1.0 2.0] [2.0 -1.0]])))))
+    ;; Test matrix with negative eigenvalues - should compute complex logarithm
+    (let [A [[1.0 2.0] [2.0 -1.0]]
+          log-A (m/matrix-log A)]
+      ;; The matrix has eigenvalues approximately [-2.236, 2.236]
+      ;; The result should be a complex matrix
+      (is (not (nil? log-A)))
+      ;; Verify that the result is a complex matrix with non-zero imaginary parts
+      (is (some (fn [row]
+                  (some (fn [elem] 
+                          (> (Math/abs (fc/im elem)) 1e-10)) row)) log-A)
+          "Matrix logarithm of matrix with negative eigenvalues should have complex entries"))))
 
 (deftest matrix-sqrt-tests
   (testing "Matrix square root of diagonal matrix"
@@ -215,10 +224,15 @@
     (let [result (m/matrix-sqrt [[1 0] [0 1]])]
       (is (t/approx-matrix= [[1.0 0.0] [0.0 1.0]] result 1e-10))))
 
-  (testing "Matrix square root requires positive semidefinite"
-    (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                          #"Matrix square root requires positive semidefinite matrix"
-                          (m/matrix-sqrt [[1 0] [0 -1]])))))
+  (testing "Matrix square root of matrix with negative eigenvalues"
+    (let [result (m/matrix-sqrt [[1 0] [0 -1]])]
+      ;; Should compute complex square root: sqrt(-1) = i
+      (is (t/approx= 1.0 (fc/re (get-in result [0 0])) 1e-10))
+      (is (t/approx= 0.0 (fc/im (get-in result [0 0])) 1e-10))
+      (is (t/approx= 0.0 (fc/re (get-in result [1 1])) 1e-10))
+      (is (t/approx= 1.0 (fc/im (get-in result [1 1])) 1e-10))
+      (is (t/approx= 0.0 (fc/re (get-in result [0 1])) 1e-10))
+      (is (t/approx= 0.0 (fc/re (get-in result [1 0])) 1e-10)))))
 
 (deftest decomposition-properties
   (testing "Eigendecomposition preserves determinant"

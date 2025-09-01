@@ -858,10 +858,10 @@
                     {:keys [Q R]} (qr-decomposition shifted-A)
                     RQ (matrix-multiply R Q)
                     ;; Add shift back: RQ + sI
-                    shift-matrix {:real (mapv (fn [i] (mapv (fn [j] (if (= i j) (:real shift) 0.0)) 
+                    shift-matrix {:real (mapv (fn [i] (mapv (fn [j] (if (= i j) (:real shift) 0.0))
                                                             (range (count (:real Ak)))))
                                               (range (count (:real Ak))))
-                                  :imag (mapv (fn [i] (mapv (fn [j] (if (= i j) (:imag shift) 0.0)) 
+                                  :imag (mapv (fn [i] (mapv (fn [j] (if (= i j) (:imag shift) 0.0))
                                                             (range (count (:real Ak)))))
                                               (range (count (:real Ak))))}
                     restored-A (matrix-add RQ shift-matrix)]
@@ -884,7 +884,7 @@
              sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)
              ;; For now, return identity eigenvectors as placeholder
              ;; TODO: Implement proper eigenvector computation via inverse iteration
-             identity-vecs (mapv (fn [i] 
+             identity-vecs (mapv (fn [i]
                                    {:real (mapv #(if (= % i) 1.0 0.0) (range n))
                                     :imag (mapv #(if (= % i) 0.0 0.0) (range n))})
                                  (range n))]
@@ -924,28 +924,32 @@
           (recur (inc i) Lr Li))))))
 
 ;; Helper functions for real matrix operations
-(defn- matrix-add-real [A B]
+(defn- matrix-add-real
   "Add two real matrices"
+  [A B]
   (vec (for [i (range (count A))]
          (vec (for [j (range (count (first A)))]
                 (+ (get-in A [i j]) (get-in B [i j])))))))
 
-(defn- matrix-scale-real [A s]
+(defn- matrix-scale-real
   "Scale a real matrix by scalar s"
+  [A s]
   (vec (for [i (range (count A))]
          (vec (for [j (range (count (first A)))]
                 (* s (get-in A [i j])))))))
 
-(defn- matrix-multiply-real [A B]
+(defn- matrix-multiply-real
   "Multiply two real matrices"
+  [A B]
   (let [n (count A) m (count (first B)) p (count B)]
     (vec (for [i (range n)]
            (vec (for [j (range m)]
                   (reduce + (for [k (range p)]
                               (* (get-in A [i k]) (get-in B [k j]))))))))))
 
-(defn- matrix-inverse-real [A]
+(defn- matrix-inverse-real
   "Compute inverse of a real matrix using Gaussian elimination"
+  [A]
   (let [n (count A)
         ;; Create augmented matrix [A | I]
         aug (vec (for [i (range n)]
@@ -1099,20 +1103,35 @@
     (when (not (hermitian? A 1e-10)) (throw (ex-info "matrix-log implemented only for Hermitian positive definite complex matrices" {:matrix A})))
     ;; Use eigen-decomposition A = V Λ V^H, then log(A) = V log(Λ) V^H
     (let [{:keys [eigenvalues eigenvectors]} (eigen-hermitian A)]
-      (doseq [l eigenvalues]
-        (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
-      (let [log-L (map #(Math/log %) eigenvalues)
+      ;; Compute complex logarithm for each eigenvalue
+      (let [log-L (map (fn [l]
+                         (cond
+                           (> l 0.0) (Math/log l)
+                           (= l 0.0) (throw (ex-info "matrix-log cannot handle zero eigenvalues" {:lambda l}))
+                           (< l 0.0) {:real (Math/log (Math/abs l)) :imag Math/PI}))
+                       eigenvalues)
             ;; Build log(A) = sum_i (log λ_i) v_i v_i^H
-            {:keys [real imag] :as acc}
+            {:keys [real imag]}
             (reduce (fn [{:keys [real imag]} [lv v]]
                       (let [vr (:real v) vi (:imag v)
-                            ;; outer hermitian rank-1: v v^H
+                            ;; Get real and imaginary parts of log eigenvalue
+                            [lv-real lv-imag] (if (number? lv)
+                                                [lv 0.0]
+                                                [(:real lv) (:imag lv)])
+                            ;; outer hermitian rank-1: lv * v v^H
+                            ;; (a + bi)(c + di) = (ac - bd) + (ad + bc)i
+                            ;; So real part: lv-real * (vr_i * vr_j + vi_i * vi_j) - lv-imag * (vi_i * vr_j - vr_i * vi_j)
+                            ;; And imag part: lv-real * (vi_i * vr_j - vr_i * vi_j) + lv-imag * (vr_i * vr_j + vi_i * vi_j)
                             add-r (vec (for [i (range n)]
                                          (vec (for [j (range n)]
-                                                (* lv (+ (* (vr i) (vr j)) (* (vi i) (vi j))))))))
+                                                (let [vv-real (+ (* (vr i) (vr j)) (* (vi i) (vi j)))
+                                                      vv-imag (- (* (vi i) (vr j)) (* (vr i) (vi j)))]
+                                                  (- (* lv-real vv-real) (* lv-imag vv-imag)))))))
                             add-i (vec (for [i (range n)]
                                          (vec (for [j (range n)]
-                                                (* lv (- (* (vi i) (vr j)) (* (vr i) (vi j))))))))]
+                                                (let [vv-real (+ (* (vr i) (vr j)) (* (vi i) (vi j)))
+                                                      vv-imag (- (* (vi i) (vr j)) (* (vr i) (vi j)))]
+                                                  (+ (* lv-real vv-imag) (* lv-imag vv-real)))))))]
                         {:real (real-add real add-r)
                          :imag (real-add imag add-i)}))
                     {:real (vec (repeat n (vec (repeat n 0.0))))
@@ -1124,31 +1143,46 @@
   "Compute matrix square root of a complex matrix A.
   Returns a complex matrix in SoA form."
   [A]
-  ;; Matrix square root.
-  ;; Hermitian positive semidefinite complex matrix via complex Denman–Beavers.
+  ;; Matrix square root via eigendecomposition for general matrices.
   (let [[n n2] (matrix-shape A)]
     (when (not= n n2) (throw (ex-info "matrix-sqrt requires square" {:shape [n n2]})))
-    (when (not (hermitian? A 1e-10)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-hermitian})))
-    (when (not (positive-semidefinite? A)) (throw (ex-info "Matrix square root requires positive semidefinite matrix" {:matrix A :reason :not-psd})))
-    (let [I {:real (identity-matrix n)
-             :imag (vec (repeat n (vec (repeat n 0.0))))}
-          tol 1e-10
-          max-it 60]
-      (loop [k 0 Y A Z I]
-        (let [Zinv (inverse Z)
-              Yinv (inverse Y)
-              Ynext (matrix-scale (matrix-add Y Zinv) 0.5)
-              Znext (matrix-scale (matrix-add Z Yinv) 0.5)
-              diff (let [YY (matrix-multiply Ynext Ynext)
-                         D (matrix-subtract YY A)
-                         nr (Math/sqrt (reduce + (for [i (range n) j (range n)]
-                                                   (let [dr (get-in (:real D) [i j])
-                                                         di (get-in (:imag D) [i j])]
-                                                     (+ (* dr dr) (* di di))))))]
-                     nr)]
-          (if (or (< diff tol) (>= k max-it))
-            Ynext
-            (recur (inc k) Ynext Znext)))))))
+    (when (not (hermitian? A 1e-10)) (throw (ex-info "Matrix square root requires Hermitian matrix" {:matrix A :reason :not-hermitian})))
+
+    ;; Use eigendecomposition: √A = V * √Λ * V^(-1)
+    (let [{:keys [eigenvalues eigenvectors]} (eigen-hermitian A)
+          ;; Compute square root of eigenvalues (allowing complex results)
+          sqrt-eigenvals (mapv (fn [l]
+                                 (cond
+                                   (> l 0.0) (Math/sqrt l)
+                                   (= l 0.0) 0.0
+                                   (< l 0.0) {:real 0.0 :imag (Math/sqrt (Math/abs l))}))
+                               eigenvalues)
+
+          ;; Build sqrt(A) = sum_i (sqrt λ_i) v_i v_i^H
+          {:keys [real imag]}
+          (reduce (fn [{:keys [real imag]} [sqrt-lv v]]
+                    (let [vr (:real v) vi (:imag v)
+                          ;; Get real and imaginary parts of sqrt eigenvalue
+                          [sqrt-lv-real sqrt-lv-imag] (if (number? sqrt-lv)
+                                                        [sqrt-lv 0.0]
+                                                        [(:real sqrt-lv) (:imag sqrt-lv)])
+                          ;; Compute sqrt-lv * v v^H
+                          add-r (vec (for [i (range n)]
+                                       (vec (for [j (range n)]
+                                              (let [vv-real (+ (* (vr i) (vr j)) (* (vi i) (vi j)))
+                                                    vv-imag (- (* (vi i) (vr j)) (* (vr i) (vi j)))]
+                                                (- (* sqrt-lv-real vv-real) (* sqrt-lv-imag vv-imag)))))))
+                          add-i (vec (for [i (range n)]
+                                       (vec (for [j (range n)]
+                                              (let [vv-real (+ (* (vr i) (vr j)) (* (vi i) (vi j)))
+                                                    vv-imag (- (* (vi i) (vr j)) (* (vr i) (vi j)))]
+                                                (+ (* sqrt-lv-real vv-imag) (* sqrt-lv-imag vv-real)))))))]
+                      {:real (real-add real add-r)
+                       :imag (real-add imag add-i)}))
+                  {:real (vec (repeat n (vec (repeat n 0.0))))
+                   :imag (vec (repeat n (vec (repeat n 0.0))))}
+                  (map vector sqrt-eigenvals eigenvectors))]
+      {:real real :imag imag})))
 
 (defn condition-number
   "Compute condition number of a complex matrix A.

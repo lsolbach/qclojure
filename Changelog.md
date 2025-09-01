@@ -5,6 +5,7 @@
 * improved noise application in noisy simulator
 * fixed bug in eigen-hermitian in fastmath backend
 * sorted eigen decompositions consistently across functions and backends
+* fixed matrix-log to compute the complex logarithm in the case of negative eigenvalues too
 * added diagonal? to MatrixAlgebra protocol
 * added and improved docstrings
 * updated the tutorial

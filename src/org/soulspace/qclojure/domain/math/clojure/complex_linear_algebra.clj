@@ -519,9 +519,6 @@
          tol (* eps (inc N))
          max-it (* 10 N N)
          {:keys [eigenvalues vectors]} (jacobi-symmetric M tol max-it)
-         ;; Sort embedding eigenpairs ascending
-         sorted (sort-by second (map-indexed vector eigenvalues))
-         collapse-tol (* 20.0 eps (inc n))
          build-complex (fn [col-idx]
                          (let [w (nth vectors col-idx) ; length 2n
                                x (subvec w 0 n)
@@ -532,14 +529,19 @@
                                y' (mapv #(/ % nrm) y)
                                v {:real x' :imag y'}]
                            (normalize-complex-phase v 1e-14)))
-         [evals evects] (loop [pairs sorted acc-e [] acc-v []]
-                          (if (empty? pairs)
-                            [acc-e acc-v]
-                            (let [[[idx λ] & more] pairs
-                                  add? (or (empty? acc-e) (> (abs (- λ (last acc-e))) collapse-tol))]
-                              (if add?
-                                (recur more (conj acc-e λ) (conj acc-v (build-complex idx)))
-                                (recur more acc-e acc-v)))))]
+         ;; For Hermitian matrix real embedding, eigenvalues appear in pairs
+         ;; Sort and take unique values by removing duplicates  
+         unique-eigenvals (vec (distinct eigenvalues))
+         sorted-unique (sort unique-eigenvals)
+         ;; For each unique eigenvalue, find its first occurrence in the original list
+         evals (vec (take n sorted-unique))
+         evect-indices (mapv (fn [eval-val]
+                               (first (keep-indexed (fn [idx val]
+                                                      (when (< (abs (- val eval-val)) 1e-12)
+                                                        idx))
+                                                    eigenvalues)))
+                             evals)
+         evects (mapv (fn [idx] (build-complex idx)) evect-indices)]
      {:eigenvalues (mapv double evals) :eigenvectors (vec evects)})))
 
 (defn positive-semidefinite?
@@ -729,88 +731,40 @@
   ([A eps]
    (let [[n m] (matrix-shape A)]
      (when (not= n m) (throw (ex-info "eigen-general requires square matrix" {:shape [n m]})))
-     (let [tol (* eps (inc n))
-           ;; Increase iteration cap; unshifted QR can be slow for clustered spectra
-           max-it (* 800 n n)
-           ;; Simple balancing (single pass): scale rows & cols by sqrt(row_norm/col_norm)
-           balance-complex (fn [M]
-                             (let [R (:real M) I (:imag M)
-                                   row-norms (mapv (fn [i]
-                                                     (math/sqrt (reduce + (for [j (range n)]
-                                                                            (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))
-                                   col-norms (mapv (fn [j]
-                                                     (math/sqrt (reduce + (for [i (range n)]
-                                                                            (let [a (get-in R [i j]) b (get-in I [i j])] (+ (* a a) (* b b))))))) (range n))]
-                               {:real (vec (for [i (range n)]
-                                             (vec (for [j (range n)]
-                                                    (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                          scale (/ 1.0 (math/sqrt (/ ri cj)))]
-                                                      (* scale (get-in R [i j])))))))
-                                :imag (vec (for [i (range n)]
-                                             (vec (for [j (range n)]
-                                                    (let [ri (max eps (row-norms i)) cj (max eps (col-norms j))
-                                                          scale (/ 1.0 (math/sqrt (/ ri cj)))]
-                                                      (* scale (get-in I [i j])))))))}))
-           A0 (balance-complex A)
-           offdiag-norm-complex (fn [M]
-                                  (let [R (:real M) I (:imag M)]
-                                    (math/sqrt (reduce + 0.0 (for [i (range n) j (range n) :when (> i j)]
-                                                               (let [a (double (get-in R [i j])) b (double (get-in I [i j]))]
-                                                                 (+ (* a a) (* b b))))))))]
-       ;; Immediate fast-path: already (quasi) upper triangular? -> diagonal eigenvalues
-       (if (< (offdiag-norm-complex A0) tol)
-         (let [eigenvals (mapv (fn [i] (let [ar (get-in (:real A0) [i i]) ai (get-in (:imag A0) [i i])] {:real ar :imag ai})) (range n))
-               ;; Sort eigenvalues by real part first, then by imaginary part
-               sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)]
-           {:eigenvalues sorted-eigenvals
-            :iterations 0})
-         (loop [k 0 M A0]
-           (if (or (>= k max-it) (< (offdiag-norm-complex M) tol))
-             (let [eigenvals (mapv (fn [i] (let [ar (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])] {:real ar :imag ai})) (range n))
-                   ;; Sort eigenvalues by real part first, then by imaginary part
-                   sorted-eigenvals (sort-by (fn [ev] [(:real ev) (:imag ev)]) eigenvals)]
-               {:eigenvalues sorted-eigenvals
-                :iterations k})
-             (let [;; trailing 2x2 for shift if n>=2
-                   shift (when (>= n 2)
-                           (let [i (- n 2) j (- n 1)
-                                 a (get-in (:real M) [i i]) ai (get-in (:imag M) [i i])
-                                 b (get-in (:real M) [i j]) bi (get-in (:imag M) [i j])
-                                 c (get-in (:real M) [j i]) ci (get-in (:imag M) [j i])
-                                 d (get-in (:real M) [j j]) di (get-in (:imag M) [j j])
-                                 ;; eigenvalues of 2x2 complex are roots of λ^2 - (a+d)λ + (ad-bc)=0
-                                 tr-r (+ a d) tr-i (+ ai di)
-                                 ad-r (- (* a d) (* ai di) (* (- ai di) 0.0)) ; real(ad)
-                                 ad-i (+ (* a di) (* ai d)) ; imag(ad)
-                                 bc-r (- (* b c) (* bi ci))
-                                 bc-i (+ (* b ci) (* bi c))
-                                 det-r (- ad-r bc-r)
-                                 det-i (- ad-i bc-i)
-                                 ;; Compute discriminant Δ = (tr)^2 - 4 det (complex) -> approximate using real parts only for shift heuristic
-                                 tr2 (+ (* tr-r tr-r) (* tr-i tr-i))
-                                 det-mag (+ (* det-r det-r) (* det-i det-i))
-                                 disc (math/sqrt (max 0.0 (- tr2 (* 4.0 det-mag))))
-                                 μ (/ (- (+ tr-r) disc) 2.0)] ; choose smaller magnitude root approx (heuristic)
-                             μ))
-                   ;; Apply real shift μ (imag ignored for stability heuristic) by subtracting μ I, perform QR, add back
-                   μ (double (or shift 0.0))
-                   M-shift (if (zero? μ) M
-                               {:real (vec (for [i (range n)]
-                                             (vec (for [j (range n)]
-                                                    (let [val (get-in (:real M) [i j])]
-                                                      (if (= i j) (- val μ) val))))))
-                                :imag (:imag M)})
-                   {:keys [Q R]} (qr-decomposition M-shift)
-                   M-next (let [RQ (matrix-multiply R Q)]
-                            (if (zero? μ) RQ
-                                ;; add shift back: RQ + μ I
-                                (let [Rr (:real RQ) Ri (:imag RQ)]
-                                  {:real (vec (for [i (range n)]
-                                                (vec (for [j (range n)]
-                                                       (let [val (get-in Rr [i j])]
-                                                         (if (= i j) (+ val μ) val))))))
-                                   :imag Ri})))]
-               (recur (inc k) M-next)))))))))
+     (if (hermitian? A eps)
+       ;; If the matrix is Hermitian, use the specialized Hermitian method
+       (eigen-hermitian A eps)
+       ;; For general complex matrices, use real embedding approach
+       (let [X (:real A) Y (:imag A)
+             ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
+             top (vec (for [i (range n)] (vec (concat (nth X i) (map #(- %) (nth Y i))))))
+             bottom (vec (for [i (range n)] (vec (concat (nth Y i) (nth X i)))))
+             M (vec (concat top bottom))
+             N (* 2 n)
+             tol (* eps (inc N))
+             max-it (* 10 N N)
+             {:keys [eigenvalues vectors]} (jacobi-symmetric M tol max-it)
+             ;; Extract complex eigenvalues and eigenvectors from 2n×2n real result
+             ;; For general matrices, eigenvalues come in conjugate pairs
+             ;; Sort by real part first, then imaginary part
+             indexed-pairs (map-indexed vector eigenvalues)
+             sorted-pairs (sort-by second indexed-pairs)
+             build-complex (fn [col-idx]
+                             (let [w (nth vectors col-idx) ; length 2n
+                                   x (subvec w 0 n)
+                                   y (subvec w n N)
+                                   nrm (math/sqrt (reduce + (map (fn [a b] (+ (* a a) (* b b))) x y)))
+                                   nrm (if (pos? nrm) nrm 1.0)
+                                   x' (mapv #(/ % nrm) x)
+                                   y' (mapv #(/ % nrm) y)
+                                   v {:real x' :imag y'}]
+                               (normalize-complex-phase v 1e-14)))
+             ;; Extract n eigenvalues and eigenvectors
+             ;; For general matrices, take first n eigenvalues from sorted pairs
+             unique-pairs (take n sorted-pairs)
+             evals (mapv (fn [[_ λ]] λ) unique-pairs)
+             evects (mapv (fn [[idx _]] (build-complex idx)) unique-pairs)]
+         {:eigenvalues (mapv double evals) :eigenvectors (vec evects)})))))
 
 (defn cholesky-decomposition
   "Compute Cholesky decomposition of a complex Hermitian positive definite matrix A.
@@ -870,8 +824,8 @@
   (let [n (count A)
         ;; Create augmented matrix [A | I]
         aug (vec (for [i (range n)]
-                   (vec (concat (nth A i) 
-                               (for [j (range n)] (if (= i j) 1.0 0.0))))))]
+                   (vec (concat (nth A i)
+                                (for [j (range n)] (if (= i j) 1.0 0.0))))))]
     ;; Gaussian elimination with partial pivoting
     (loop [k 0 aug aug]
       (if (>= k n)
@@ -892,8 +846,8 @@
                         (if (>= i n) aug
                             (if (= i k) (recur (inc i) aug)
                                 (let [factor (get-in aug [i k])
-                                      new-row (vec (map - (nth aug i) 
-                                                       (map #(* factor %) (nth aug k))))]
+                                      new-row (vec (map - (nth aug i)
+                                                        (map #(* factor %) (nth aug k))))]
                                   (recur (inc i) (assoc aug i new-row))))))]
               (recur (inc k) aug))))))))
 
@@ -907,7 +861,7 @@
       ;; 1x1 case
       (= n 1)
       [[(math/exp (get-in A [0 0]))]]
-      
+
       ;; Small matrices: use Taylor series
       (<= n 2)
       (let [max-norm (apply max (for [i (range n) j (range n)] (abs (get-in A [i j]))))]
@@ -916,11 +870,11 @@
           (let [I (vec (for [i (range n)] (vec (for [j (range n)] (if (= i j) 1.0 0.0)))))
                 A2 (matrix-multiply-real A A)
                 A3 (matrix-multiply-real A2 A)]
-            (matrix-add-real 
-              (matrix-add-real 
-                (matrix-add-real I A)
-                (matrix-scale-real A2 0.5))
-              (matrix-scale-real A3 (/ 1.0 6.0))))
+            (matrix-add-real
+             (matrix-add-real
+              (matrix-add-real I A)
+              (matrix-scale-real A2 0.5))
+             (matrix-scale-real A3 (/ 1.0 6.0))))
           ;; Scale down, compute exp, then square back up
           (let [s (math/ceil (/ (math/log (/ max-norm 0.1)) (math/log 2)))
                 A-scaled (matrix-scale-real A (/ 1.0 (math/pow 2 s)))
@@ -929,7 +883,7 @@
             (loop [k 0 result exp-scaled]
               (if (>= k s) result
                   (recur (inc k) (matrix-multiply-real result result)))))))
-      
+
       ;; Larger matrices: use scaling and squaring
       :else
       (let [max-norm (apply max (for [i (range n) j (range n)] (abs (get-in A [i j]))))
@@ -944,20 +898,20 @@
             A6 (matrix-multiply-real A3 A3)
             ;; Numerator: I + A + A²/2 + A³/6 + A⁴/24 + A⁵/120 + A⁶/720
             num (matrix-add-real I
-                  (matrix-add-real A-scaled
-                    (matrix-add-real (matrix-scale-real A2 0.5)
-                      (matrix-add-real (matrix-scale-real A3 (/ 1.0 6.0))
-                        (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
-                          (matrix-add-real (matrix-scale-real A5 (/ 1.0 120.0))
-                            (matrix-scale-real A6 (/ 1.0 720.0))))))))
+                                 (matrix-add-real A-scaled
+                                                  (matrix-add-real (matrix-scale-real A2 0.5)
+                                                                   (matrix-add-real (matrix-scale-real A3 (/ 1.0 6.0))
+                                                                                    (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
+                                                                                                     (matrix-add-real (matrix-scale-real A5 (/ 1.0 120.0))
+                                                                                                                      (matrix-scale-real A6 (/ 1.0 720.0))))))))
             ;; Denominator: I - A + A²/2 - A³/6 + A⁴/24 - A⁵/120 + A⁶/720
             den (matrix-add-real I
-                  (matrix-add-real (matrix-scale-real A-scaled -1.0)
-                    (matrix-add-real (matrix-scale-real A2 0.5)
-                      (matrix-add-real (matrix-scale-real A3 (/ -1.0 6.0))
-                        (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
-                          (matrix-add-real (matrix-scale-real A5 (/ -1.0 120.0))
-                            (matrix-scale-real A6 (/ 1.0 720.0))))))))
+                                 (matrix-add-real (matrix-scale-real A-scaled -1.0)
+                                                  (matrix-add-real (matrix-scale-real A2 0.5)
+                                                                   (matrix-add-real (matrix-scale-real A3 (/ -1.0 6.0))
+                                                                                    (matrix-add-real (matrix-scale-real A4 (/ 1.0 24.0))
+                                                                                                     (matrix-add-real (matrix-scale-real A5 (/ -1.0 120.0))
+                                                                                                                      (matrix-scale-real A6 (/ 1.0 720.0))))))))
             ;; Solve den * X = num for X (i.e., X = den^(-1) * num)
             exp-scaled (try
                          (let [den-inv (matrix-inverse-real den)]
@@ -1013,33 +967,33 @@
   "Compute matrix logarithm of a complex matrix A.
   Returns a complex matrix in SoA form."
   [A]
-      ;; Matrix logarithm implementation.
-    ;; supports Hermitian positive definite complex matrix.
-    (let [[n _] (matrix-shape A)]
-      (when (zero? n) {:real [] :imag []})
-      (when (not (hermitian? A 1e-10)) (throw (ex-info "matrix-log implemented only for Hermitian positive definite complex matrices" {:matrix A})))
-      ;; Use eigen-decomposition A = V Λ V^H, then log(A) = V log(Λ) V^H
-      (let [{:keys [eigenvalues eigenvectors]} (eigen-hermitian A)]
-        (doseq [l eigenvalues]
-          (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
-        (let [log-L (map #(Math/log %) eigenvalues)
-              ;; Build log(A) = sum_i (log λ_i) v_i v_i^H
-              {:keys [real imag] :as acc}
-              (reduce (fn [{:keys [real imag]} [lv v]]
-                        (let [vr (:real v) vi (:imag v)
-                              ;; outer hermitian rank-1: v v^H
-                              add-r (vec (for [i (range n)]
-                                           (vec (for [j (range n)]
-                                                  (* lv (+ (* (vr i) (vr j)) (* (vi i) (vi j))))))))
-                              add-i (vec (for [i (range n)]
-                                           (vec (for [j (range n)]
-                                                  (* lv (- (* (vi i) (vr j)) (* (vr i) (vi j))))))))]
-                          {:real (real-add real add-r)
-                           :imag (real-add imag add-i)}))
-                      {:real (vec (repeat n (vec (repeat n 0.0))))
-                       :imag (vec (repeat n (vec (repeat n 0.0))))}
-                      (map vector log-L eigenvectors))]
-          {:real real :imag imag}))))
+  ;; Matrix logarithm implementation.
+  ;; supports Hermitian positive definite complex matrix.
+  (let [[n _] (matrix-shape A)]
+    (when (zero? n) {:real [] :imag []})
+    (when (not (hermitian? A 1e-10)) (throw (ex-info "matrix-log implemented only for Hermitian positive definite complex matrices" {:matrix A})))
+    ;; Use eigen-decomposition A = V Λ V^H, then log(A) = V log(Λ) V^H
+    (let [{:keys [eigenvalues eigenvectors]} (eigen-hermitian A)]
+      (doseq [l eigenvalues]
+        (when (<= l 0.0) (throw (ex-info "matrix-log requires positive eigenvalues" {:lambda l}))))
+      (let [log-L (map #(Math/log %) eigenvalues)
+            ;; Build log(A) = sum_i (log λ_i) v_i v_i^H
+            {:keys [real imag] :as acc}
+            (reduce (fn [{:keys [real imag]} [lv v]]
+                      (let [vr (:real v) vi (:imag v)
+                            ;; outer hermitian rank-1: v v^H
+                            add-r (vec (for [i (range n)]
+                                         (vec (for [j (range n)]
+                                                (* lv (+ (* (vr i) (vr j)) (* (vi i) (vi j))))))))
+                            add-i (vec (for [i (range n)]
+                                         (vec (for [j (range n)]
+                                                (* lv (- (* (vi i) (vr j)) (* (vr i) (vi j))))))))]
+                        {:real (real-add real add-r)
+                         :imag (real-add imag add-i)}))
+                    {:real (vec (repeat n (vec (repeat n 0.0))))
+                     :imag (vec (repeat n (vec (repeat n 0.0))))}
+                    (map vector log-L eigenvectors))]
+        {:real real :imag imag}))))
 
 (defn matrix-sqrt
   "Compute matrix square root of a complex matrix A.
@@ -1101,7 +1055,7 @@
                          [1.0 3.0]]
                   :imag  [[0.0 0.0]
                           [0.0 0.0]]})
-  
+
   (eigen-hermitian {:real [[2.0 0.0]
                            [0.0 2.0]]
                     :imag  [[0.0 0.0]

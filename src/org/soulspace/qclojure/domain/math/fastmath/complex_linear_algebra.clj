@@ -794,77 +794,83 @@
    
    Exception is thrown if A is not square."
   [A]
-  ;; use iterative methods or embedding 
   (let [[n m] (complex-matrix-shape A)]
     (when (not= n m)
       (throw (ex-info "Matrix must be square for eigendecomposition" {:shape [n m]})))
 
-    ;; For general complex matrices, we'll use the real embedding approach
-    ;; This embeds the complex matrix A into a 2n×2n real matrix
-    (let [real-part (mapv (fn [i]
-                            (mapv (fn [j]
-                                    (fc/re (get-in A [i j])))
-                                  (range n)))
-                          (range n))
-          imag-part (mapv (fn [i]
-                            (mapv (fn [j]
-                                    (fc/im (get-in A [i j])))
-                                  (range n)))
-                          (range n))
+    ;; If the matrix is Hermitian, use the specialized Hermitian method
+    (if (hermitian? A 1e-10)
+      (eigen-hermitian A)
+      ;; For general complex matrices, use the real embedding approach
+      (let [real-part (mapv (fn [i]
+                              (mapv (fn [j]
+                                      (fc/re (get-in A [i j])))
+                                    (range n)))
+                            (range n))
+            imag-part (mapv (fn [i]
+                              (mapv (fn [j]
+                                      (fc/im (get-in A [i j])))
+                                    (range n)))
+                            (range n))
 
-          ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
-          embedded-matrix (concat
-                           (mapv (fn [i]
-                                   (concat (get real-part i)
-                                           (mapv - (get imag-part i))))
-                                 (range n))
-                           (mapv (fn [i]
-                                   (concat (get imag-part i)
-                                           (get real-part i)))
-                                 (range n)))
+            ;; Create 2n×2n real matrix: [[Re(A) -Im(A)] [Im(A) Re(A)]]
+            embedded-matrix (concat
+                             (mapv (fn [i]
+                                     (concat (get real-part i)
+                                             (mapv - (get imag-part i))))
+                                   (range n))
+                             (mapv (fn [i]
+                                     (concat (get imag-part i)
+                                             (get real-part i)))
+                                   (range n)))
 
-          ;; Convert to Apache Commons Math format and compute eigendecomposition
-          embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
-                                 (fmat/mat data))
-          eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. embedded-real-matrix)
-          real-eigenvals (vec (.getRealEigenvalues eigen-decomp))
-          imag-eigenvals (vec (.getImagEigenvalues eigen-decomp))
-          eigenvecs-matrix (.getV eigen-decomp)
+            ;; Convert to Apache Commons Math format and compute eigendecomposition
+            embedded-real-matrix (let [data (into-array (map double-array embedded-matrix))]
+                                   (fmat/mat data))
+            eigen-decomp (org.apache.commons.math3.linear.EigenDecomposition. embedded-real-matrix)
+            real-eigenvals (vec (.getRealEigenvalues eigen-decomp))
+            imag-eigenvals (vec (.getImagEigenvalues eigen-decomp))
+            eigenvecs-matrix (.getV eigen-decomp)
+            
+            ;; For the 2n×2n embedding of an n×n complex matrix, eigenvalues appear in a specific pattern
+            ;; We need to extract n unique eigenvalues that correspond to the original complex matrix
+            all-eigenvals (mapv (fn [i]
+                                  (fc/complex (get real-eigenvals i)
+                                              (get imag-eigenvals i)))
+                                (range (* 2 n)))
 
-          ;; Extract the complex eigenvalues - they come in conjugate pairs
-          ;; Take the first n eigenvalues and combine real/imaginary parts
-          complex-eigenvals (mapv (fn [i]
-                                    (fc/complex (get real-eigenvals i)
-                                                (get imag-eigenvals i)))
-                                  (range n))
+            ;; Sort all eigenvalues and take n unique ones
+            ;; For most cases, we can take the first n after sorting by real part
+            sorted-all (sort-by (fn [ev] [(fc/re ev) (fc/im ev)]) all-eigenvals)
+            complex-eigenvals (take n sorted-all)
 
-          ;; Extract complex eigenvectors 
-          eigenvec-data (fmat/mat->array2d eigenvecs-matrix)
-          complex-eigenvecs (mapv (fn [i]
-                                    (mapv (fn [j]
-                                            (let [real-part (get-in eigenvec-data [j i])
-                                                  imag-part (get-in eigenvec-data [(+ n j) i])]
-                                              (fc/complex real-part imag-part)))
-                                          (range n)))
-                                  (range n))
+            ;; Extract complex eigenvectors for the selected eigenvalues
+            eigenvec-data (fmat/mat->array2d eigenvecs-matrix)
+            ;; Find indices of the selected eigenvalues in the original list
+            selected-indices (mapv (fn [selected-ev]
+                                     (first (keep-indexed
+                                             (fn [idx ev]
+                                               (when (and (< (fm/abs (- (fc/re ev) (fc/re selected-ev))) 1e-10)
+                                                          (< (fm/abs (- (fc/im ev) (fc/im selected-ev))) 1e-10))
+                                                 idx))
+                                             all-eigenvals)))
+                                   complex-eigenvals)
 
-          ;; Transpose to get column vectors
-          eigenvec-matrix (mapv (fn [i]
-                                  (mapv #(get % i) complex-eigenvecs))
-                                (range n))
+            complex-eigenvecs (mapv (fn [col-idx]
+                                      (mapv (fn [j]
+                                              (let [real-part (get-in eigenvec-data [j col-idx])
+                                                    imag-part (get-in eigenvec-data [(+ n j) col-idx])]
+                                                (fc/complex real-part imag-part)))
+                                            (range n)))
+                                    selected-indices)
 
-          ;; Sort eigenvalue-eigenvector pairs by eigenvalue in ascending order
-          ;; Sort by real part first, then by imaginary part for complex eigenvalues
-          indexed-pairs (map-indexed vector complex-eigenvals)
-          sorted-pairs (sort-by (fn [[_idx eigenval]]
-                                  [(fc/re eigenval) (fc/im eigenval)])
-                                indexed-pairs)
-          sorted-indices (mapv first sorted-pairs)
-          sorted-eigenvals (mapv second sorted-pairs)
-          sorted-eigenvecs (mapv #(get eigenvec-matrix %) sorted-indices)]
+            ;; Transpose to get column vectors
+            eigenvec-matrix (mapv (fn [i]
+                                    (mapv #(get % i) complex-eigenvecs))
+                                  (range n))]
 
-      {:eigenvalues sorted-eigenvals
-       :eigenvectors sorted-eigenvecs})))
+        {:eigenvalues (vec complex-eigenvals)
+         :eigenvectors eigenvec-matrix}))))
 
 (defn svd
   "Compute Singular Value Decomposition A = U * S * V† for complex matrices.

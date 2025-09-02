@@ -33,30 +33,6 @@
   See also: `org.soulspace.qclojure.domain.operation-registry` for gate definitions."
   (:require [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
-;; TODO remove, in domain, only gate sets should be used
-(defn resolve-supported-operations
-  "Resolve supported operations - converts keyword targets to gate sets or returns the set as-is.
-  
-  Parameters:
-  - supported-operations: Either a keyword (hardware target) or a set of operation types
-  
-  Returns:
-  Set of supported operation types"
-  [supported-operations]
-  (if (keyword? supported-operations)
-    ;; If it's a keyword, get the corresponding gate set
-    (case supported-operations
-      :braket-ionq gr/braket-ionq-gates
-      :braket-rigetti gr/braket-rigetti-gates
-      :braket-simulator gr/braket-simulator-gates
-      :superconducting gr/superconducting-hardware-gates
-      :trapped-ion gr/trapped-ion-hardware-gates
-      :neutral-atom gr/neutral-atom-hardware-gates
-      :universal gr/universal-gate-set
-      #{})
-    ;; If it's already a set, return as-is
-    supported-operations))
-
 (defn decompose-swap-if-needed
   "Decompose a SWAP gate if it's not natively supported.
    
@@ -88,13 +64,10 @@
   if no decomposition is available or if it cannot be fully decomposed to supported operations"
   [operation supported-operations]
   (let [operation-type (:operation-type operation)
-        operation-params (:operation-params operation)
-
-        ;; Resolve the supported operations if it's a keyword
-        resolved-supported-ops (resolve-supported-operations supported-operations)]
+        operation-params (:operation-params operation)]
 
     ;; If the operation is already supported, no need to decompose
-    (if (contains? resolved-supported-ops operation-type)
+    (if (contains? supported-operations operation-type)
       [operation]
 
       ;; Try to get decomposition from the operation catalog
@@ -106,28 +79,28 @@
           (cond
             ;; T gate to RZ(π/4) when RZ is supported but T is not
             (and (= operation-type :t)
-                 (contains? resolved-supported-ops :rz)
-                 (not (contains? resolved-supported-ops :t)))
+                 (contains? supported-operations :rz)
+                 (not (contains? supported-operations :t)))
             [{:operation-type :rz
               :operation-params (assoc operation-params :angle (/ Math/PI 4))}]
 
             ;; Rydberg CZ to standard CZ when supported
             (and (= operation-type :rydberg-cz)
-                 (contains? resolved-supported-ops :cz)
-                 (not (contains? resolved-supported-ops :rydberg-cz)))
+                 (contains? supported-operations :cz)
+                 (not (contains? supported-operations :rydberg-cz)))
             [{:operation-type :cz
               :operation-params operation-params}]
 
             ;; Rydberg CPhase to CRZ when supported  
             (and (= operation-type :rydberg-cphase)
-                 (contains? resolved-supported-ops :crz)
-                 (not (contains? resolved-supported-ops :rydberg-cphase)))
+                 (contains? supported-operations :crz)
+                 (not (contains? supported-operations :rydberg-cphase)))
             [{:operation-type :crz
               :operation-params operation-params}]
 
             ;; Global gates decomposition to individual gates when circuit context available
             (and (contains? #{:global-x :global-y :global-z :global-h} operation-type)
-                 (not (contains? resolved-supported-ops operation-type))
+                 (not (contains? supported-operations operation-type))
                  (:circuit-qubits operation-params))
             (let [n-qubits (:circuit-qubits operation-params)
                   base-gate (case operation-type
@@ -141,7 +114,7 @@
 
             ;; Global rotation gates decomposition when circuit context available
             (and (contains? #{:global-rx :global-ry :global-rz} operation-type)
-                 (not (contains? resolved-supported-ops operation-type))
+                 (not (contains? supported-operations operation-type))
                  (:circuit-qubits operation-params))
             (let [n-qubits (:circuit-qubits operation-params)
                   angle (:angle operation-params)
@@ -166,7 +139,7 @@
                                    ;; Try parametric function decomposition for fixed-angle gates (T, S, etc.)
                                    (and (:parametric-fn decompositions)
                                         (not (:angle operation-params))
-                                        (contains? resolved-supported-ops :rz))
+                                        (contains? supported-operations :rz))
                                    ;; Use parametric decomposition with the gate's standard angle
                                    ((:parametric-fn decompositions) nil)
 
@@ -177,16 +150,16 @@
                                    ;; Try specific target decomposition (e.g., :cnot-t for Toffoli)
                                    (keyword? supported-operations)
                                    (let [target-key (keyword (str (name supported-operations) "-"
-                                                                  (str (first (sort resolved-supported-ops)))))]
+                                                                  (str (first (sort supported-operations)))))]
                                      (or (get decompositions target-key)
                                          (get decompositions supported-operations)
                                          (:universal decompositions)))
 
                                    ;; Try to find a decomposition that uses only supported operations
-                                   (set? resolved-supported-ops)
+                                   (set? supported-operations)
                                    (or
                                     ;; Check if we have a specific decomposition for common gate sets
-                                    (when (contains? resolved-supported-ops :cnot)
+                                    (when (contains? supported-operations :cnot)
                                       (or (get decompositions :cnot)
                                           (get decompositions :cnot-h)
                                           (get decompositions :cnot-t)
@@ -270,53 +243,52 @@
 
   Parameters:
   - operations: Original vector of operation maps
-  - supported-operations: Set of operation types supported or keyword for hardware target
+  - supported-operations: Set of operation types supported
   - max-iterations: Maximum decomposition iterations to prevent infinite loops
   
   Returns:
   A vector of transformed operations that are all supported or
   operations that couldn't be further decomposed"
   [operations supported-operations max-iterations]
-  (let [resolved-supported-ops (resolve-supported-operations supported-operations)]
-    (loop [current-operations operations
-           iteration 0
-           processed-operations #{}]  ;; Track operations we've already tried to decompose
-      (if (>= iteration max-iterations)
-        ;; Safety check to prevent infinite loops
-        (throw (ex-info "Maximum iterations reached during circuit transformation"
-                        {:operations current-operations
-                         :iteration iteration}))
+  (loop [current-operations operations
+         iteration 0
+         processed-operations #{}]  ;; Track operations we've already tried to decompose
+    (if (>= iteration max-iterations)
+      ;; Safety check to prevent infinite loops
+      (throw (ex-info "Maximum iterations reached during circuit transformation"
+                      {:operations current-operations
+                       :iteration iteration}))
 
-        (let [;; Find any operations that need decomposition
-              needs-decomposition? (fn [operation]
-                                     (and (not (contains? processed-operations (:operation-type operation)))
-                                          (not (contains? resolved-supported-ops (:operation-type operation)))))
-              unsupported (filterv needs-decomposition? current-operations)]
+      (let [;; Find any operations that need decomposition
+            needs-decomposition? (fn [operation]
+                                   (and (not (contains? processed-operations (:operation-type operation)))
+                                        (not (contains? supported-operations (:operation-type operation)))))
+            unsupported (filterv needs-decomposition? current-operations)]
 
-          (if (empty? unsupported)
-            ;; All operations are either supported or can't be decomposed further
-            current-operations
+        (if (empty? unsupported)
+          ;; All operations are either supported or can't be decomposed further
+          current-operations
 
-            ;; Replace the first unsupported operation with its decomposition
-            (let [unsupported-operation (first unsupported)
-                  operation-type (:operation-type unsupported-operation)
-                  unsupported-index (.indexOf current-operations unsupported-operation)
-                  decomposed-operations (decompose-operation unsupported-operation supported-operations)
+          ;; Replace the first unsupported operation with its decomposition
+          (let [unsupported-operation (first unsupported)
+                operation-type (:operation-type unsupported-operation)
+                unsupported-index (.indexOf current-operations unsupported-operation)
+                decomposed-operations (decompose-operation unsupported-operation supported-operations)
 
-                  ;; Check if the operation was actually decomposed
-                  was-decomposed? (not= [unsupported-operation] decomposed-operations)
+                ;; Check if the operation was actually decomposed
+                was-decomposed? (not= [unsupported-operation] decomposed-operations)
 
-                  ;; If the operation wasn't decomposed, mark it as processed so we don't try again
-                  new-processed-operations (if was-decomposed?
-                                             processed-operations
-                                             (conj processed-operations operation-type))
+                ;; If the operation wasn't decomposed, mark it as processed so we don't try again
+                new-processed-operations (if was-decomposed?
+                                           processed-operations
+                                           (conj processed-operations operation-type))
 
-                  ;; Create new operations vector with decomposition replacing original operation
-                  new-operations (into []
-                                       (concat
-                                        (subvec current-operations 0 unsupported-index)
-                                        decomposed-operations
-                                        (subvec current-operations (inc unsupported-index))))]
+                ;; Create new operations vector with decomposition replacing original operation
+                new-operations (into []
+                                     (concat
+                                      (subvec current-operations 0 unsupported-index)
+                                      decomposed-operations
+                                      (subvec current-operations (inc unsupported-index))))]
 
-              (recur new-operations (inc iteration) new-processed-operations))))))))
+            (recur new-operations (inc iteration) new-processed-operations)))))))
 

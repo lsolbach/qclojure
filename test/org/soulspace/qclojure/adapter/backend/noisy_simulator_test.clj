@@ -30,7 +30,7 @@
     (testing "backend info"
       (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
             info (qb/get-backend-info simulator)]
-        (is (= :advanced-noisy-simulator (:backend-type info)) "Should have correct backend type")
+        (is (= :quantum-hardware-simulator (:backend-type info)) "Should have correct backend type")
         (is (= (noisy/noise-model-for :ibm-lagos) (:noise-model info)) "Should contain noise model")
         (is (contains? (:capabilities info) :depolarizing-noise) "Should support depolarizing noise")
         (is (contains? (:capabilities info) :readout-errors) "Should support readout errors")))))
@@ -177,7 +177,7 @@
 (deftest test-edge-cases
   (testing "Edge cases and error handling"
     (testing "empty circuit"
-      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
+      (let [simulator (noisy/create-noisy-simulator (:ibm-lagos qb/devices))
             circuit (qc/create-circuit 1) ; Empty circuit
             job-id (qb/submit-circuit simulator circuit {:shots 10})]
         
@@ -188,8 +188,8 @@
     
     (testing "invalid noise parameters"
       ; Test that very high noise parameters don't break the simulator
-      (let [simulator (noisy/create-noisy-simulator 
-                        {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.7}}}) ; High but valid
+      (let [simulator (noisy/create-noisy-simulator
+                       {:noise-model {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.7}}}}) ; High but valid
             circuit (-> (qc/create-circuit 1) (qc/h-gate 0))
             job-id (qb/submit-circuit simulator circuit {:shots 100})]
         

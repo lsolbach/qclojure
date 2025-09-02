@@ -121,4 +121,8 @@
             (is (map? result) "Result should be a map")
             (is (contains? result :measurement-results) "Should contain measurement results")))))))
   
-
+(comment 
+  ;; Run all tests in namespace
+  (run-tests)
+  ;
+  )

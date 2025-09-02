@@ -2,11 +2,16 @@
 
 ## Version (NEXT)
 * improved measurement probabilities calculation for observables
+* transformed noisy simulator in a quantum hardware simulator (WIP)
+  * uses device profiles for max qubits, native gates, topology and noise model
+  * optimizes circuits for native gate set and topology
+* removed native hardware gate sets from operation-registry
+  * device profiles provide the information about native gates
 * improved noise application in noisy simulator
 * fixed bug in eigen-hermitian in fastmath backend
 * sorted eigen decompositions consistently across functions and backends
 * fixed matrix-log to compute the complex logarithm in the case of negative eigenvalues too
-* added diagonal? to MatrixAlgebra protocol
+* added diagonal? to MatrixAlgebra protocol and implementations
 * added and improved docstrings
 * updated the tutorial
 

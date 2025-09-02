@@ -1,5 +1,5 @@
 (ns org.soulspace.qclojure.adapter.backend.noisy-simulator
-  "Advanced noisy quantum simulator backend implementing realistic
+  "Noisy quantum simulator backend implementing realistic
   quantum computing device simulation with comprehensive noise modeling.
 
   This backend provides local simulation of quantum devices with noise
@@ -7,6 +7,12 @@
   It serves as both a reference implementation and testing backend for
   quantum algorithms under realistic noise conditions.
  
+  The simulator can be initialized with a device map or with max-qubits
+  - max-qubits
+  - native-gates
+  - topology
+  - noise-model
+
   This simulator models various types of quantum noise including:
   - Depolarizing noise using Kraus operators
   - Amplitude damping (T1 decay) modeling energy dissipation  
@@ -43,19 +49,21 @@
   It also implements the CloudQuantumBackend protocol for mock cloud
   backend functionality, allowing it to be used in a cloud-like
   environment for testing purposes."
-  (:require [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.circuit :as qc]
+  (:require [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.operation-registry :as opreg]
             [org.soulspace.qclojure.domain.channel :as channel]
-            [org.soulspace.qclojure.domain.noise :as noise]))
+            [org.soulspace.qclojure.domain.noise :as noise]
+            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.application.hardware-optimization :as hwopt]))
 
 ;; Noisy simulator state management
 (defonce simulator-state (atom {:job-counter 0
-                      :active-jobs {}}))
+                                :active-jobs {}}))
 
 ;; Job record for noisy simulations
 (defrecord NoisySimulatorJob
-           [job-id circuit options noise-model status result created-at completed-at])
+           [job-id circuit options status result created-at completed-at])
 
 ;; Helper functions for job management
 (defn- generate-noisy-job-id []
@@ -173,29 +181,84 @@
   ([devices]
    (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
 
+;;;
+;;; Accessor functions
+;;;
+(defn max-qubits
+  "Get the maximum number of qubits supported by the backend.
+  
+   Parameters:
+   - backend: Backend instance
+   
+   Returns: Maximum qubit count (default: 16)"
+  [backend]
+  (or (get-in backend [:device :max-qubits]) 16))
 
-;;
-;; Noisy Simulator Implementation
-;;
-(deftype LocalNoisyQuantumSimulator [noise-model config]
+(defn native-gates
+  "Get the set of native gates supported by the backend.
+  
+   Parameters:
+   - backend: Backend instance
+   
+   Returns: Set of native gate keywords (default: all QClojure gates)"
+  [backend]
+  (or (get-in backend [:device :native-gates]) opreg/native-simulator-gate-set))
+
+(defn topology
+  "Get the qubit topology of the backend.
+  
+   Parameters:
+   - backend: Backend instance
+   
+   Returns: Topology map or default fully connected for 16 qubits"
+  [backend]
+  (get-in backend [:device :topology]))
+
+(defn noise-model
+  "Get the noise model of the backend.
+  
+   Parameters:
+   - backend: Backend instance
+   
+   Returns: Noise model map or empty map if none defined"
+  [backend]
+  (or (get-in backend [:device :noise-model]) {}))
+
+;;;
+;;; Hardware Simulator Implementation
+;;;
+(defrecord QuantumHardwareSimulator [device config]
   qb/QuantumBackend
 
-  (get-backend-info [_this]
-    {:backend-type :advanced-noisy-simulator
-     :backend-name "Advanced Noisy Quantum Simulator"
+  (get-backend-info [this]
+    {:backend-type :quantum-hardware-simulator
+     :backend-name "Noisy QPU Simulator"
      :description "Realistic quantum simulator with comprehensive noise modeling"
-     :noise-model noise-model
+     :max-qubits (max-qubits this)
+     :native-gates (native-gates this)
+     :topology (topology this)
+     :noise-model (noise-model this)
      :config config
-     :capabilities #{:depolarizing-noise :amplitude-damping :phase-damping
+     :capabilities #{:topology-optimization :gate-cancellation
+                     :gate-decomposition :circuit-transformation
+                     :depolarizing-noise :amplitude-damping :phase-damping
                      :coherent-errors :readout-errors :decoherence-modeling}
      :version "1.0.0"})
 
-  (get-supported-gates [_this] #{:x :y :z :h :cnot :rx :ry :rz})
+  (get-supported-gates [this] (native-gates this))
   (is-available? [_this] true)
 
-  (submit-circuit [_this circuit options]
+  (submit-circuit [this circuit options]
     (let [job-id (generate-noisy-job-id)
-          job (->NoisySimulatorJob job-id circuit options noise-model :queued nil
+          max-qubits (max-qubits this)
+          native-gates (native-gates this)
+          topology (topology this)
+          noise-model (noise-model this)
+;;          ;; Optimize circuit for hardware
+;;          optimized-circuit (hwopt/optimize circuit
+;;                                            native-gates
+;;                                            topology)
+          job (->NoisySimulatorJob job-id circuit options :queued nil
                                    (System/currentTimeMillis) nil)]
 
       ;; Store job and start execution in background
@@ -252,39 +315,39 @@
 
   (authenticate [_this _credentials]
     {:status :authenticated
-     :session-id (str "noisy_sim_session_" (System/currentTimeMillis))
+     :session-id (str "hardware_sim_session_" (System/currentTimeMillis))
      :expires-at (+ (System/currentTimeMillis) (* 24 60 60 1000))})
 
   (get-session-info [_this]
     {:status :authenticated
-     :backend-type :advanced-noisy-simulator
-     :session-id "noisy_sim_session_mock"
+     :backend-type :quantum-hardware-simulator
+     :session-id "hardware_sim_session_mock"
      :authenticated-at (System/currentTimeMillis)})
 
-  (list-available-devices [_this]
-    [{:device-id "noisy-simulator-1"
-      :device-name "Advanced Noisy Quantum Simulator"
+  (list-available-devices [this]
+    [{:device-id "hardware-simulator-1"
+      :device-name "Quantum Hardware Simulator"
       :device-status :online
-      :max-qubits (get config :max-qubits 20)
-      :backend-type :advanced-noisy-simulator
-      :noise-model noise-model}])
+      :backend-type :quantum-hardware-simulator
+      :max-qubits (max-qubits this)
+      :noise-model (noise-model this)}])
 
-  (get-device-topology [_this device-id]
-    (let [max-qubits (get config :max-qubits 20)
+  (get-device-topology [this device-id]
+    (let [max-qubits (max-qubits this)
           coupling-map (for [i (range max-qubits)
                              j (range max-qubits)
                              :when (not= i j)]
                          [i j])]
       {:device-id device-id
-       :device-name "Advanced Noisy Quantum Simulator"
+       :device-name "Quantum Hardware Simulator"
        :coupling-map coupling-map
-       :max-qubits max-qubits
-       :noise-model noise-model}))
+       :max-qubits (max-qubits this)
+       :noise-model (noise-model this)}))
 
-  (get-calibration-data [_this device-id]
+  (get-calibration-data [this device-id]
     {:device-id device-id
      :timestamp (java.time.Instant/now)
-     :noise-model noise-model
+     :noise-model (noise-model this)
      :coherence-times (vec (repeat (get config :max-qubits 20) 100000))})
 
   (estimate-cost [_this _circuit _options]
@@ -331,30 +394,50 @@
          :total-jobs (count job-ids)})
       {:batch-id batch-job-id :error-message "Batch not found"})))
 
-;; Factory functions for advanced simulators
+;;;
+;;; Factory functions for hardware simulators
+;;;
 (defn create-noisy-simulator
   "Create a local noisy quantum simulator with comprehensive noise modeling.
   
-  Parameters:
-  - noise-model: Advanced noise model configuration
-  - config: Optional simulator configuration
+   Parameters:
+   - noise-model: noise model configuration
+   - config: Optional simulator configuration
   
-  Returns: LocalNoisyQuantumSimulator instance"
+   Returns: QuantumHardwareSimulator instance with noise model, full gate set
+   and fully connected qubits"
   ([noise-model]
    (create-noisy-simulator noise-model {}))
   ([noise-model config]
-   (->LocalNoisyQuantumSimulator noise-model config)))
+   (->QuantumHardwareSimulator {:name "Noisy Simulator"
+                                :noise-model noise-model}
+                               config)))
 
-;; Utility functions for noisy simulator state management
+(defn create-hardware-simulator
+  "Create a hardware simulator for a specific device.
+  
+   Parameters:
+   - device: Device map with max-qubits, native-gates, topology, noise-model
+   - config: Optional simulator configuration
+  
+   Returns: QuantumHardwareSimulator instance"
+  ([device]
+   (create-hardware-simulator device {}))
+  ([device config]
+   (->QuantumHardwareSimulator device config)))
+
+;;;
+;;; Utility functions for hardware simulator state management
+;;;
 (defn reset-simulator-state!
-  "Reset the noisy simulator state, clearing all jobs and counters.
+  "Reset the hardware simulator state, clearing all jobs and counters.
   
   Returns: Updated state"
   []
   (reset! simulator-state {:job-counter 0 :active-jobs {}}))
 
 (defn get-simulator-stats
-  "Get statistics about the noisy simulator state.
+  "Get statistics about the hardware simulator state.
   
   Returns: Map with job counts and statistics"
   []
@@ -420,6 +503,10 @@
 
   ;; Create advanced simulators with different noise characteristics
   (def ibm-sim (create-noisy-simulator (noise-model-for :ibm-lagos)))
+  (keys ibm-sim)
+  (:device ibm-sim)
+  (max-qubits ibm-sim)
+  (noise-model ibm-sim)
   (def rigetti-sim (create-noisy-simulator (noise-model-for :rigetti-aspen)))
   (def ideal-sim (create-noisy-simulator {}))
 
@@ -503,5 +590,4 @@
 
   (println "\nDecoherence comparison:")
   (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)
-  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence)
-  )
+  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence))

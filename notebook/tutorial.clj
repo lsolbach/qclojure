@@ -112,7 +112,8 @@
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.adapter.visualization.html :as html]))
+   [org.soulspace.qclojure.adapter.visualization.html :as html]
+   [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -574,7 +575,7 @@ gate/t-dag-gate
 (require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])
 
 ;; We can instantiate the noisy simulator with the `create-noisy-simulator` function
-;; and provide a noise profile. The noise profile we use is derived from the
+;; and provide a provide a device map. The noise profile we use is derived from the
 ;; IBM Lagos Quantum Computer.
 
 (noisy/noise-model-for :ibm-lagos)
@@ -585,7 +586,7 @@ gate/t-dag-gate
 ;;
 ;; Let's instantiate the noisy simulator with the IBM Lagos profile.
 
-(def lagos-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos)))
+(def lagos-simulator (noisy/create-noisy-simulator (qb/devices :ibm-lagos)))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 ;; Because we use a noisy simulator, we may measure wrong answers.
@@ -618,7 +619,7 @@ lagos-10k-result
 
 ;; Let's instantiate the noisy simulator with the IonQ Forte profile.
 
-(def forte-simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ionq-forte)))
+(def forte-simulator (noisy/create-noisy-simulator (qb/devices :ionq-forte)))
 
 ;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.
@@ -1603,11 +1604,11 @@ triangle-qaoa-result
 
 ;; Let's first write a simple quantum state to disk in EDN format.
 
-(io/export-quantum-state :edn state/|+⟩ "plus-state.edn")
+(io/export-quantum-state :edn state/|+⟩ "export/plus-state.edn")
 
 ;; We can read the quantum state in EDN form back from disk.
 
-(io/import-quantum-state :edn "plus-state.edn")
+(io/import-quantum-state :edn "export/plus-state.edn")
 
 ;; ## JSON Support
 ;; JSON (JavaScript Object Notation) is a lightweight data interchange format
@@ -1624,11 +1625,11 @@ triangle-qaoa-result
 ;; keyword `:json`.
 ;; Let's write the same quantum state to disk in JSON format.
 
-(io/export-quantum-state :json state/|+⟩ "plus-state.json")
+(io/export-quantum-state :json state/|+⟩ "export/plus-state.json")
 
 ;; We can read the quantum state in JSON form back from disk.
 
-(io/import-quantum-state :json "plus-state.json")
+(io/import-quantum-state :json "export/plus-state.json")
 
 ;; ### QASM Support
 ;; QASM (Quantum Assembly Language) is a low-level programming language
@@ -1648,25 +1649,24 @@ triangle-qaoa-result
 
 ;; We can export the quantum circuit to QASM 2 format.
 
-(io/export-quantum-circuit :qasm2 test-circuit "test-circuit-qasm2.qasm")
+(io/export-quantum-circuit :qasm2 test-circuit "export/test-circuit-qasm2.qasm")
 
 ;; To see how the QASM 2 output looks like, we can read the file with slurp.
 
-(slurp "test-circuit-qasm2.qasm")
+(slurp "export/test-circuit-qasm2.qasm")
 
 ;; We can read the quantum circuit in QASM 2 format back from disk.
 
-(io/import-quantum-circuit :qasm2 "test-circuit-qasm2.qasm")
+(io/import-quantum-circuit :qasm2 "export/test-circuit-qasm2.qasm")
 
 ;; We can also export the quantum circuit to QASM 3 format.
 
-(io/export-quantum-circuit :qasm3 test-circuit "test-circuit-qasm3.qasm")
+(io/export-quantum-circuit :qasm3 test-circuit "export/test-circuit-qasm3.qasm")
 
 ;; To see how the QASM 3 output looks like, we can read the file with slurp.
 
-(slurp "test-circuit-qasm3.qasm")
+(slurp "export/test-circuit-qasm3.qasm")
 
 ;; We can read the quantum circuit in QASM 3 format back from disk.
 
-(io/import-quantum-circuit :qasm3 "test-circuit-qasm3.qasm")
-
+(io/import-quantum-circuit :qasm3 "export/test-circuit-qasm3.qasm")

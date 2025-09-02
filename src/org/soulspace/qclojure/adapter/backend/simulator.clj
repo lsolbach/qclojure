@@ -137,12 +137,12 @@
      :backend-config config
      :max-qubits (get config :max-qubits 20)
      :capabilities #{:simulation :measurement :statevector :batch-execution}
-     :supported-gates gr/native-simulator-gates
+     :supported-gates gr/native-simulator-gate-set
      :version "1.0.0"})
   
   (get-supported-gates [_this]
     ;; Return the supported gates from config or default to all simulator gates
-    (get config :supported-gates gr/native-simulator-gates))
+    (get config :supported-gates gr/native-simulator-gate-set))
   
   (is-available? [_this]
     true) ; Simulator is always available

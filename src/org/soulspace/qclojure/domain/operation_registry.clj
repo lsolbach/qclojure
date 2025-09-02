@@ -377,46 +377,11 @@
   "Gate set with parametric rotations."
   #{:rx :ry :rz :cnot :phase})
 
-(def native-simulator-gates
+; TODO move to sim backends?
+(def native-simulator-gate-set
   "Gates typically supported natively by quantum simulators."
   #{:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase
     :cnot :cx :cz :cy :swap :crx :cry :crz :toffoli :fredkin})
-
-(def superconducting-hardware-gates
-  "Typical gate set for superconducting quantum processors."
-  #{:x :z :h :s :t :rx :ry :rz :cnot})
-
-(def trapped-ion-hardware-gates
-  "Typical gate set for trapped ion quantum processors."
-  #{:x :y :z :h :rx :ry :rz :cnot :swap})
-
-(def neutral-atom-hardware-gates
-  "Typical gate set for neutral atom quantum processors."
-  #{:x :y :z :h :rx :ry :rz :rydberg-cz :rydberg-cphase :rydberg-blockade
-    :global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz})
-
-(def neutral-atom-global-gates
-  "Global gate subset for neutral atom quantum processors."
-  #{:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz})
-
-(def neutral-atom-rydberg-gates
-  "Rydberg-specific gate subset for neutral atom quantum processors."
-  #{:rydberg-cz :rydberg-cphase :rydberg-blockade})
-
-;; Hardware-specific gate sets (Amazon Braket examples)
-(def braket-ionq-gates
-  "Native gates for IonQ devices on Amazon Braket"
-  #{:rx :ry :rz :cnot})
-
-(def braket-rigetti-gates  
-  "Native gates for Rigetti devices on Amazon Braket"
-  #{:i :rx :ry :rz :cz :h})
-
-(def braket-simulator-gates
-  "Gates supported by Braket simulators"
-  #{:i :x :y :z :h :s :s-dag :t :t-dag 
-    :rx :ry :rz :cnot :cx :cz :cy :swap
-    :iswap :crx :cry :crz :toffoli :fredkin})
 
 ;; Utility functions
 ;; Gate alias system
@@ -521,31 +486,6 @@
        (map key)
        (into #{})))
 
-;;; Hardware-specific utility functions
-
-(defn get-native-gates-for-hardware
-  "Get native gates for a specific hardware platform.
-  
-  Parameters:
-  - hardware-key: Keyword identifying the hardware platform
-  
-  Returns: Set of gate names native to that hardware, or nil if unknown
-  
-  Example:
-  (get-native-gates-for-hardware :braket-ionq) ;=> #{:rx :ry :rz :cnot}"
-  [hardware-key]
-  (case hardware-key
-    :braket-ionq braket-ionq-gates
-    :braket-rigetti braket-rigetti-gates
-    :braket-simulator braket-simulator-gates
-    :superconducting superconducting-hardware-gates
-    :trapped-ion trapped-ion-hardware-gates
-    :universal universal-gate-set
-    :basic basic-gate-set
-    :parametric parametric-gate-set
-    :native-simulator native-simulator-gates
-    nil))
-
 (defn get-gate-dependencies
   "Get the decomposition dependencies for a gate.
   
@@ -575,83 +515,6 @@
       ;; Otherwise empty
       :else [])))
 
-;; Enhanced decomposition functions
-#_(defn get-decomposition-for-target
-  "Get decomposition for a specific target gate set.
-  
-  Parameters:
-  - gate-name: Gate to decompose
-  - target-set: Target hardware gate set keyword or set of gates
-  - params: Optional parameters for parametric gates
-  
-  Returns: Vector of decomposed gates or nil if not possible"
-  [gate-name target-set & [params]]
-  (let [gate-info (get operation-catalog gate-name)
-        decompositions (:decomposition gate-info)
-        target-gates (if (keyword? target-set)
-                       (case target-set
-                         :braket-ionq braket-ionq-gates
-                         :braket-rigetti braket-rigetti-gates
-                         :braket-simulator braket-simulator-gates
-                         :superconducting superconducting-hardware-gates
-                         :trapped-ion trapped-ion-hardware-gates
-                         :universal universal-gate-set
-                         #{})
-                       target-set)]
-    (cond
-      ;; Gate is already in target set
-      (contains? target-gates gate-name) 
-      [[gate-name params]]
-      
-      ;; No decomposition available
-      (nil? decompositions)
-      nil
-      
-      ;; Try target-specific function decomposition
-      (and params (keyword? target-set) (get decompositions (keyword (str (name target-set) "-fn"))))
-      ((get decompositions (keyword (str (name target-set) "-fn"))) (first params))
-      
-      ;; Try parametric function decomposition
-      (and params (:parametric-fn decompositions))
-      ((:parametric-fn decompositions) (first params))
-      
-      ;; Try universal function decomposition  
-      (and params (:universal-fn decompositions))
-      ((:universal-fn decompositions) (first params))
-      
-      ;; Try specific target decomposition
-      (and (keyword? target-set) (get decompositions target-set))
-      (get decompositions target-set)
-      
-      ;; Try universal decomposition
-      (:universal decompositions)
-      (:universal decompositions)
-      
-      ;; If decomposition is just a vector, return it
-      (vector? decompositions)
-      decompositions
-      
-      ;; No decomposition available
-      :else nil)))
-
-#_(defn decompose-circuit-for-hardware
-  "Decompose a quantum circuit for specific hardware.
-  
-  Parameters:
-  - circuit: Vector of [gate-name & params] operations
-  - target-gates: Set of native gates for target hardware or keyword
-  
-  Returns: Decomposed circuit or throws if decomposition impossible"
-  [circuit target-gates]
-  (mapcat (fn [[gate-name & params]]
-            (let [decomp (get-decomposition-for-target gate-name target-gates params)]
-              (if decomp
-                decomp
-                (throw (ex-info "Cannot decompose gate for target hardware"
-                               {:gate gate-name
-                                :target-gates target-gates})))))
-          circuit))
-
 (defn expand-gate-set
   "Expand a gate set to include all decomposition dependencies.
   
@@ -674,67 +537,7 @@
         (recur (set/union expanded new-deps)
                (concat remaining new-deps))))))
 
-(defn minimal-native-set-for-hardware
-  "Find the minimal set of native gates needed to implement a gate set on specific hardware.
-  
-  Parameters:
-  - gate-set: Set of gate keywords  
-  - hardware-key: Keyword identifying the target hardware platform
-  
-  Returns: Minimal set of native gates needed for that hardware, or empty set if hardware unknown
-  
-  Example:
-  (minimal-native-set-for-hardware #{:x :y :z} :braket-ionq) ;=> #{:rx :ry :rz}"
-  [gate-set hardware-key]
-  (let [expanded (expand-gate-set gate-set)
-        native-gates (get-native-gates-for-hardware hardware-key)]
-    (if native-gates
-      (set/intersection expanded native-gates)
-      #{})))
-
-;; Specs for validation
-(s/fdef get-gate-info
-  :args (s/cat :operation-id ::operation-id)
-  :ret (s/nilable ::operation-definition))
-
-(s/fdef get-gates-by-type
-  :args (s/cat :operation-type ::operation-type)
-  :ret ::operation-set)
-
-(s/fdef validate-gate-set
-  :args (s/cat :operation-set ::operation-set)
-  :ret boolean?)
-
-(s/fdef expand-gate-set
-  :args (s/cat :operation-set ::operation-set)
-  :ret ::operation-set)
-
-(s/fdef get-native-gates-for-hardware
-  :args (s/cat :hardware-key keyword?)
-  :ret (s/nilable ::operation-set))
-
-(s/fdef minimal-native-set-for-hardware
-  :args (s/cat :operation-set ::operation-set :hardware-key keyword?)
-  :ret ::operation-set)
-
 (comment
-  ;; Check what gates are native on specific hardware:
-  (get-native-gates-for-hardware :braket-ionq)
-  ;=> #{:rx :ry :rz :cnot}
-  
-  (get-native-gates-for-hardware :braket-rigetti)  
-  ;=> #{:i :rx :ry :rz :cz :h}
-  
-  ;; Find minimal native gates needed for a circuit on specific hardware:
-  (minimal-native-set-for-hardware #{:x :y :z :h} :braket-ionq)
-  ;=> #{:ry}  ; X,Y,Z can be decomposed to RY rotations
-  
-  (minimal-native-set-for-hardware #{:x :y :z :h} :braket-rigetti)
-  ;=> #{:h :ry}  ; H is native on Rigetti, need RY for Pauli gates
-  
-  ;; Check gate support correctly:
-  (contains? (get-native-gates-for-hardware :braket-ionq) :h)     ;=> false
-  (contains? (get-native-gates-for-hardware :braket-rigetti) :h)  ;=> true
   
   ;
   )

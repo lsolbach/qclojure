@@ -3,6 +3,7 @@
   (:require [scicloj.clay.v2.api :as clay]))
 
 (def tutorial-base-config
+  "Base configuration for building the tutorial."
   {:base-source-path "notebook"
    :source-path ["tutorial.clj"]
    :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
@@ -10,6 +11,7 @@
    :title "QClojure Tutorial"})
 
 (def tutorial-html-config
+  "HTML configuration for building the tutorial."
   (merge tutorial-base-config
          {:format [:html]
           :base-target-path "docs"
@@ -20,16 +22,27 @@
           :browse true}))
 
 (def tutorial-quarto-config
+  "Quarto configuration for building the tutorial."
   (merge tutorial-base-config
          {:format [:quarto]
-          :base-target-path "quarto"
+          :base-target-path "generated/quarto"
           :clean-up-target-dir true
           :quarto {:highlight-style :solarized}
           :hide-ui-header true
           :hide-info-line false
           :live-reload false
-          :browse false
-          }))
+          :browse false }))
+
+(def tutorial-gfm-config
+  "Github flavoured markdown configuration for building the tutorial."
+  (merge tutorial-base-config
+         {:format [:gfm]
+          :base-target-path "generated/gfm"
+          :clean-up-target-dir true
+          :hide-ui-header true
+          :hide-info-line false
+          :live-reload false
+          :browse false}))
 
 (defn make-tutorial-notebook
   "Render the QClojure tutorial notebook."
@@ -43,5 +56,6 @@
 (comment ; Clay 
   (make-tutorial-notebook)
   (make-tutorial-notebook tutorial-quarto-config)
+  (make-tutorial-notebook tutorial-gfm-config)
   ;
   )

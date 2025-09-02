@@ -1,8 +1,13 @@
 # TODOs
 
 ## Next steps
-* integrate unified result types in backend workflows
-* integrate optional error mitigation in the noisy simulator workflow
+* extend noisy simulator to hardware simulator
+  * take device maps with max-qubits, native-gates, topology/coupling-map, noise-model
+  * add result-spec to submit-circuit
+  * integrate hardware optimization on submit-circuit
+  * apply noise in circuit execution
+  * integrate optional error mitigation in the noisy simulator workflow
+* integrate unified result types in backend workflows and algorithms
 * extraxt relevant results from QAOA
   * edges in Max-CUT and TSP
   * boolean assignments in Max-SAT

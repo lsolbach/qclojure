@@ -24,7 +24,7 @@
 (def tutorial-quarto-config
   "Quarto configuration for building the tutorial."
   (merge tutorial-base-config
-         {:format [:quarto]
+         {:format [:quarto :html]
           :base-target-path "generated/quarto"
           :clean-up-target-dir true
           :quarto {:highlight-style :solarized}
@@ -36,7 +36,7 @@
 (def tutorial-gfm-config
   "Github flavoured markdown configuration for building the tutorial."
   (merge tutorial-base-config
-         {:format [:gfm]
+         {:format [:quarto :gfm]
           :base-target-path "generated/gfm"
           :clean-up-target-dir true
           :hide-ui-header true

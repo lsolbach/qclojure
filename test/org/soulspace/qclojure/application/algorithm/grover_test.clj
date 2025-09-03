@@ -154,7 +154,7 @@
           stats (:measurement-statistics result)]
 
       (is (not (nil? stats)) "Should return measurement statistics")
-      (is (contains? stats :outcome-counts) "Should contain outcome counts")
+      (is (contains? stats :frequencies) "Should contain measurement frequencies")
       (is (contains? stats :target-counts) "Should contain target counts")
       (is (contains? stats :total-shots) "Should contain total shots")
       (is (contains? stats :success-probability) "Should contain success probability")

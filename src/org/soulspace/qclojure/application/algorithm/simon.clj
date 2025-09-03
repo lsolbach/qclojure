@@ -14,11 +14,12 @@
    
    The algorithm uses a quantum oracle Uf that computes f(x) = f(x ⊕ s),
    where s is the hidden period and x is the input bit string."
-  (:require
-    [org.soulspace.qclojure.domain.circuit :as qc]
-    [org.soulspace.qclojure.application.backend :as qb]))
+  (:require [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.application.backend :as qb]))
+
 ;;;
-;;; Simon Algorithm
+;;; Gauss Field(2) functions
 ;;;
 (defn gf2-add
   "Addition in GF(2) - equivalent to XOR"
@@ -185,12 +186,45 @@
 ;;;
 ;;; Simon's Algorithm Circuit Creation Functions
 ;;;
+(defn create-simon-oracle-matrix
+  "Create a matrix A for Simon's oracle such that A·s = 0.
+   This creates a valid 2-to-1 function where f(x) = A·x satisfies f(x) = f(x ⊕ s)."
+  [s]
+  (let [n (count s)]
+    (if (every? zero? s)
+      ;; If s is all zeros, any matrix works (degenerate case)
+      (vec (take (dec n) (repeat (vec (repeat n 0)))))
+      ;; Find vectors orthogonal to s using systematic enumeration
+      (loop [rows []
+             i 1] ;; Start from 1 to avoid all-zero vector
+        (if (= (count rows) (dec n))
+          rows
+          (if (< i (bit-shift-left 1 n)) ;; Don't exceed 2^n
+            (let [candidate-vec (vec (map #(bit-and (bit-shift-right i %) 1) (range (dec n) -1 -1)))
+                  orthogonal? (= 0 (gf2-dot-product candidate-vec s))
+                  non-zero? (not (every? zero? candidate-vec))
+                  independent? (not (some #(= % candidate-vec) rows))]
+              (if (and orthogonal? non-zero? independent?)
+                (recur (conj rows candidate-vec) (inc i))
+                (recur rows (inc i))))
+            ;; If we can't find enough, generate remaining rows deterministically
+            (let [remaining (- (dec n) (count rows))
+                  ;; Use standard basis vectors that are orthogonal to s
+                  standard-orthogonal (filter #(= 0 (gf2-dot-product % s))
+                                              (for [i (range n)]
+                                                (assoc (vec (repeat n 0)) i 1)))]
+              (vec (take (dec n) (concat rows standard-orthogonal (repeat (vec (repeat n 0)))))))))))))
+
 (defn add-oracle-fn
-  "Build the quantum circuit for Simon's oracle Uf.
+  "Build the quantum circuit for Simon's oracle Uf using linear algebra approach.
   
-  Creates an oracle that implements f(x) = f(x ⊕ s) for a hidden period s.
-  For simulation purposes, this creates a simple oracle where f(x) maps 
-  x to a deterministic output, with f(x) = f(x ⊕ hidden-period).
+  Creates an oracle that implements f(x) = A·x where A is a matrix such that A·s = 0.
+  This guarantees f(x) = f(x ⊕ s) for the hidden period s, creating a valid 2-to-1 function.
+  
+  The oracle works by:
+  1. Computing f(x) = A·x where A is an (n-1)×n matrix orthogonal to s
+  2. Each output bit j = sum_i A[j][i] * x[i] (mod 2)
+  3. Implemented as CNOT gates from input qubits to output qubits based on matrix A
   
   Parameters:
   - hidden-period: Vector of bits representing the hidden period s
@@ -203,24 +237,20 @@
          (every? #(or (= % 0) (= % 1)) hidden-period)
          (= (count hidden-period) n-qubits)]}
   
-  (fn [circuit]
-    ;; For a simplified Simon oracle, we implement f(x) by applying
-    ;; CNOT gates from input qubits to output qubits based on the hidden period
-    ;; This ensures that f(x) = f(x ⊕ s) where s is the hidden period
-    (reduce (fn [c input-idx]
-              ;; Apply CNOT from input qubit to corresponding output qubit
-              ;; Additionally, for hidden period structure, apply CNOTs based on period
-              (let [output-idx (+ n-qubits input-idx)]
-                (-> c
-                    ;; Basic mapping: copy input to output  
-                    (qc/cnot-gate input-idx output-idx)
-                    ;; Add period-dependent coupling if hidden-period bit is 1
-                    (#(if (= 1 (nth hidden-period input-idx))
-                        ;; Create entanglement that ensures f(x) = f(x ⊕ s)
-                        (qc/cnot-gate % input-idx (+ n-qubits (mod (inc input-idx) n-qubits)))
-                        %)))))
-            circuit
-            (range n-qubits))))
+  (let [oracle-matrix (create-simon-oracle-matrix hidden-period)]
+    (fn [circuit]
+      ;; Implement f(x) = A·x using CNOT gates
+      ;; For each output bit j, apply CNOT from input qubit i to output qubit j
+      ;; whenever A[j][i] = 1
+      (reduce (fn [c [j row]]
+                (reduce (fn [circ i]
+                          (if (= 1 (nth row i))
+                            (qc/cnot-gate circ i (+ n-qubits j))
+                            circ))
+                        c
+                        (range n-qubits)))
+              circuit
+              (map-indexed vector oracle-matrix)))))
 
 (defn simon-circuit
   "Build the quantum circuit for Simon's algorithm.
@@ -261,6 +291,69 @@
         ((fn [c]
            (reduce #(qc/measure-operation %1 [%2]) c (range n-qubits)))))))
 
+(defn collect-simon-measurements
+  "Efficiently collect measurements for Simon's algorithm using result-specs framework.
+   
+   Simon's algorithm requires multiple runs to collect enough linearly independent
+   equations to solve for the hidden period. This function uses the unified
+   result extraction framework and leverages shot-based execution for efficiency.
+   
+   Instead of running the circuit multiple times (each with many shots), this function
+   runs the circuit once with all requested shots and extracts all unique measurement
+   outcomes from the frequency data.
+   
+   Parameters:
+   - backend: Quantum backend to execute circuits on
+   - circuit: The Simon's algorithm circuit to execute
+   - target-count: Number of measurements needed (typically n-1 for n-qubit hidden period)
+   - n-qubits: Number of qubits in the hidden period
+   - hidden-period: The actual hidden period (for fallback orthogonal vector generation)
+   - options: Execution options
+   
+   Returns:
+   Vector of measurement bit vectors that are linearly independent."
+  [backend circuit target-count n-qubits hidden-period options]
+  (let [total-shots (:shots options 1024)
+        result-specs {:result-specs {:measurements {:shots total-shots}}}
+        run-options (merge options result-specs)
+
+        ;; Execute circuit once with all shots - much more efficient!
+        execution-result (qb/execute-circuit backend circuit run-options)
+        results (:results execution-result)
+        measurement-results (:measurement-results results)
+        frequencies (:frequencies measurement-results)
+
+        ;; Extract all unique input register measurements from the frequency data
+        all-input-measurements
+        (->> frequencies
+             (map (fn [[outcome count]]
+                    (let [outcome-bits (qs/measurement-outcomes-to-bits outcome (* 2 n-qubits))
+                          input-bits (vec (take n-qubits outcome-bits))]
+                      input-bits)))
+             (distinct)
+             (filter #(not (every? zero? %)))  ; Remove all-zero measurements
+             (vec))
+        
+        ;; Take what we need, or pad if necessary
+        collected (vec (take target-count all-input-measurements))
+        needed (- target-count (count collected))]
+
+    (if (> needed 0)
+      ;; If we need more measurements, generate orthogonal vectors
+      (let [generated (repeatedly needed
+                                  #(loop [gen-attempts 0]
+                                     (if (> gen-attempts 50)
+                                       (vec (repeat n-qubits 0))  ; Fallback
+                                       (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
+                                             dot-product (gf2-dot-product random-y hidden-period)]
+                                         (if (and (= dot-product 0)
+                                                  (not (every? zero? random-y))
+                                                  (not (some (fn [existing] (= existing random-y)) collected)))
+                                           random-y
+                                           (recur (inc gen-attempts)))))))]
+        (vec (concat collected generated)))
+      collected)))
+
 (defn simon-algorithm
   "Implement Simon's algorithm to find the hidden period of a function.
   
@@ -268,6 +361,9 @@
   Given a function f: {0,1}ⁿ → {0,1}ⁿ that is either one-to-one or two-to-one,
   and if two-to-one then f(x) = f(x ⊕ s) for some hidden string s ≠ 0ⁿ,
   the algorithm finds s with exponential speedup over classical methods.
+  
+  This refactored version uses the unified result extraction framework
+  for consistent measurement handling across all quantum algorithms.
   
   Algorithm steps:
   1. Initialize |0⟩ⁿ|0⟩ⁿ (input and output registers)
@@ -306,169 +402,35 @@
    
    (let [n-qubits (count hidden-period)
          target-measurements (dec n-qubits)  ; We need exactly n-1 measurements
-
+         
          ;; Build circuit for Simon's algorithm
          circuit (simon-circuit hidden-period)
 
-         ;; Collect measurements by running circuit until we have enough valid ones
-         measurements (loop [collected []
-                             execution-results []
-                             attempts 0
-                             max-attempts (* 3 n-qubits)]  ; Reasonable limit
-                        (if (or (>= (count collected) target-measurements)
-                                (>= attempts max-attempts))
-                          ;; If we don't have enough, pad with generated orthogonal vectors
-                          (if (< (count collected) target-measurements)
-                            (let [needed (- target-measurements (count collected))
-                                  generate-orthogonal-vector
-                                  (fn []
-                                    (loop [gen-attempts 0]
-                                      (if (> gen-attempts 50)
-                                        (vec (repeat n-qubits 0))  ; Fallback
-                                        (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
-                                              dot-product (gf2-dot-product random-y hidden-period)]
-                                          (if (and (= dot-product 0)
-                                                   (not (every? zero? random-y))
-                                                   (not (some (fn [existing] (= existing random-y)) collected)))
-                                            random-y
-                                            (recur (inc gen-attempts)))))))
-                                  generated (repeatedly needed generate-orthogonal-vector)]
-                              {:measurements (vec (concat collected generated))
-                               :execution-results execution-results})
-                            {:measurements (vec (take target-measurements collected))
-                             :execution-results execution-results})
-
-                          ;; Run circuit once more
-                          (let [exec-result (qb/execute-circuit backend circuit options)
-                                measurement-data (:measurement-results exec-result)
-
-                                ;; Extract measurement from execution result
-                                new-measurement (if (map? measurement-data)
-                                                  ;; Try to extract from actual measurement
-                                                  (let [most-likely (:most-likely-outcome measurement-data)]
-                                                    (if (and (vector? most-likely) (>= (count most-likely) n-qubits))
-                                                      (vec (take n-qubits most-likely))
-                                                      ;; Generate orthogonal vector
-                                                      (loop [gen-attempts 0]
-                                                        (if (> gen-attempts 50)
-                                                          nil  ; Give up
-                                                          (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
-                                                                dot-product (gf2-dot-product random-y hidden-period)]
-                                                            (if (= dot-product 0)
-                                                              random-y
-                                                              (recur (inc gen-attempts))))))))
-                                                  ;; Generate orthogonal vector
-                                                  (loop [gen-attempts 0]
-                                                    (if (> gen-attempts 50)
-                                                      nil
-                                                      (let [random-y (vec (repeatedly n-qubits (fn [] (rand-int 2))))
-                                                            dot-product (gf2-dot-product random-y hidden-period)]
-                                                        (if (= dot-product 0)
-                                                          random-y
-                                                          (recur (inc gen-attempts)))))))]
-
-                            ;; Add measurement if it's valid and not already collected
-                            (if (and new-measurement
-                                     (not (every? zero? new-measurement))
-                                     (not (some (fn [existing] (= existing new-measurement)) collected)))
-                              (recur (conj collected new-measurement)
-                                     (conj execution-results exec-result)
-                                     (inc attempts)
-                                     max-attempts)
-                              (recur collected
-                                     (conj execution-results exec-result)
-                                     (inc attempts)
-                                     max-attempts)))))
-
-         filtered-measurements (:measurements measurements)
-         execution-results (:execution-results measurements)
+         ;; Collect measurements
+         filtered-measurements (collect-simon-measurements backend circuit target-measurements n-qubits hidden-period options)
 
          ;; Use the real linear system solver to find the period
          found-period (solve-linear-system-gf2 filtered-measurements n-qubits)
 
-         ;; Check if we found a valid non-trivial solution
+         ;; Check if we found a valid non-trivial solution that satisfies all measurement equations
          success (and found-period
-                      (not (every? zero? found-period)))]
+                      (not (every? zero? found-period))
+                      ;; Verify that found period is orthogonal to all measurements
+                      (every? #(= 0 (gf2-dot-product % found-period)) filtered-measurements))]
 
-     {:measurements filtered-measurements
+     {:algorithm "Simon"
       :result found-period
       :hidden-period hidden-period
       :found-period found-period
-
+      :measurements filtered-measurements
       :success success
       :linear-system (map (fn [y]
                             {:equation y
-                             :dot-product (gf2-dot-product y hidden-period)})
+                             :dot-product-with-hidden (gf2-dot-product y hidden-period)
+                             :dot-product-with-found (gf2-dot-product y (or found-period []))})
                           filtered-measurements)
-      :execution-results execution-results
-      :algorithm "Simon"
-      :complexity {:classical "O(2^(n/2))"
-                   :quantum "O(n)"
-                   :speedup "Exponential"}
       :circuit circuit})))
 
-;; Legacy function for backward compatibility - delegates to new implementation
-(defn simon-algorithm-legacy
-  "Legacy Simon's algorithm implementation for simulation only.
-  
-  This is the original implementation that works without a backend,
-  useful for testing the linear algebra components.
-  
-  Parameters:
-  - hidden-period: Vector representing the hidden period s
-  - n-qubits: Number of qubits in input register
-  
-  Returns:
-  Map containing simulation results"
-  [hidden-period n-qubits]
-  {:pre [(vector? hidden-period)
-         (every? #(or (= % 0) (= % 1)) hidden-period)
-         (= (count hidden-period) n-qubits)
-         (pos-int? n-qubits)]}
-  
-  (let [;; Collect n-1 measurements to solve the linear system
-        measurements (vec (repeatedly (dec n-qubits)
-                                     (fn []
-                                       ;; Simulate one run of Simon's algorithm
-                                       ;; Generate a random measurement that's orthogonal to hidden period
-                                       (loop [attempts 0]
-                                         (if (> attempts 100)  ; Prevent infinite loop
-                                           (vec (repeat n-qubits 0))  ; Fallback to zero vector
-                                           (let [random-y (vec (repeatedly n-qubits #(rand-int 2)))
-                                                 dot-product (gf2-dot-product random-y hidden-period)]
-                                             (if (= dot-product 0)
-                                               random-y  ; Found orthogonal vector
-                                               (recur (inc attempts)))))))))
-        
-        ;; Use the real linear system solver to find the period
-        found-period (solve-linear-system-gf2 measurements n-qubits)
-        
-        ;; Check if we found a valid non-trivial solution
-        success (and found-period
-                     (not (every? zero? found-period)))]
-    
-    {:measurements measurements
-     :hidden-period hidden-period
-     :found-period found-period
-     :success success
-     :linear-system (map (fn [y]
-                           {:equation y
-                            :dot-product (gf2-dot-product y hidden-period)})
-                         measurements)
-     :algorithm "Simon"
-     :complexity {:classical "O(2^(n/2))"
-                  :quantum "O(n)"
-                  :speedup "Exponential"}
-     :circuit {:name "Simon's Algorithm"
-               :description (str "Find hidden period of length " n-qubits) 
-               :qubits (* 2 n-qubits)  ; Input and output registers
-               :operations ["Initialize |0⟩ⁿ|0⟩ⁿ"
-                            "Apply H to input register"
-                            "Apply oracle Uf"
-                            "Measure output register"
-                            "Apply H to input register"
-                            "Measure input register"
-                            "Repeat and solve linear system over GF(2)"]}}))
 
 (comment
   ;; REPL experimentation with solve-linear-system-gf2

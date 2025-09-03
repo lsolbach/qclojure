@@ -108,8 +108,9 @@
   
   Returns:
   Map containing:
+  - :algorithm 
   - :result - :constant or :balanced  
-  - :measurement-outcome - measurement outcome from backend
+  - :probability-zero - the probability of the first qubit being |0⟩
   - :circuit - The quantum circuit used
   - :execution-result - Full backend execution result
   
@@ -121,39 +122,49 @@
   ([backend oracle-fn options]
    {:pre [(fn? oracle-fn)
           (satisfies? qb/QuantumBackend backend)]}
-   
+
    (let [;; Build the complete quantum circuit
          circuit (deutsch-circuit oracle-fn)
 
+         ;; Result specifications for the Deutsch algorithm
+         result-specs {:result-specs {:measurements {:shots (:shots options)}
+                                      :probabilities {:qubits [0]}}}
+         options (merge options result-specs)
+
          ;; Execute circuit on backend
          execution-result (qb/execute-circuit backend circuit options)
+         results (:results execution-result)
 
-         ;; Extract measurement results and determine outcome
-         measurements (:measurement-results execution-result)
+         ;; Extract algorithm-specific results
+         prob-results (:probability-results results)
+         prob-outcomes (:probability-outcomes prob-results)
 
-         ;; For Deutsch algorithm, we only care about the measurement of qubit 0
-         ;; Parse measurement outcomes to determine if qubit 0 was measured as 0 or 1
-         outcome-0-count (+ (get measurements "00" 0) (get measurements "01" 0))
-         outcome-1-count (+ (get measurements "10" 0) (get measurements "11" 0))
-         total-shots (+ outcome-0-count outcome-1-count)
+         ;; Deutsch algorithm decision logic:
+         ;; Probability of |0⟩ on first qubit indicates constant vs balanced
+         ;; Sum probabilities where first qubit is 0: states 0 (00) and 1 (01)
+         prob-zero (+ (get prob-outcomes 0)  ; state |00⟩
+                      (get prob-outcomes 1)) ; state |01⟩
 
-         ;; Determine most likely outcome based on measurement statistics
-         measurement-outcome (if (> outcome-0-count outcome-1-count) 0 1)
-         result (if (= measurement-outcome 0) :constant :balanced)]
-
-     {:result result
-      :measurement-outcome measurement-outcome
+         ;; Use threshold for noisy systems
+         result (if (> prob-zero 0.75) :constant :balanced)]
+     {:algorithm "Deutsch"
+      :result result
+      :probability-zero prob-zero
       :circuit circuit
-      :execution-result execution-result
-      :measurement-statistics {:outcome-0-count outcome-0-count
-                               :outcome-1-count outcome-1-count
-                               :total-shots total-shots}})))
+      :execution-result execution-result})))
 
-(s/fdef deutsch-algorithm
-  :args (s/cat :oracle-fn ::deutsch-oracle
-               :backend ::qb/quantum-backend
-               :options (s/? map?))
-  :ret (s/keys :req-un [:org.soulspace.qclojure.application.algorithms/result
-                        :org.soulspace.qclojure.application.algorithms/measurement-outcome
-                        :org.soulspace.qclojure.application.algorithms/circuit
-                        :org.soulspace.qclojure.application.algorithms/execution-result]))
+(comment
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
+  
+  
+  (def constant-true (constantly true))
+  (def constant-false (constantly false))
+  (def identity-fn identity)
+  (def not-fn (comp not boolean))
+
+  (deutsch-algorithm (sim/create-simulator) constant-true {:shots 100})
+  (deutsch-algorithm (sim/create-simulator) constant-false {:shots 100})
+  (deutsch-algorithm (sim/create-simulator) identity-fn {:shots 100})
+  (deutsch-algorithm (sim/create-simulator) not-fn {:shots 100})
+  ;
+  )

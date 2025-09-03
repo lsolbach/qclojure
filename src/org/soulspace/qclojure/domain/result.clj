@@ -73,7 +73,8 @@
 (s/def ::num-qubits pos-int?)
 (s/def ::density-matrix (s/coll-of (s/coll-of qmath/complex? :kind vector? :min-count 1) :kind vector? :min-count 1))
 (s/def ::trace-valid boolean?)
-(s/def ::fidelities (s/map-of string? number?))
+(s/def ::fidelity number?)
+(s/def ::fidelities (s/map-of string? ::fidelity))
 (s/def ::reference-states (s/coll-of any? :kind vector? :min-count 1)) ;; Placeholder
 (s/def ::sample-outcomes (s/coll-of string? :kind vector? :min-count 1))
 (s/def ::final-state ::qs/quantum-state)
@@ -125,6 +126,9 @@
 (s/def ::sample-result
   (s/keys :req-un [::sample-outcomes ::observable ::shot-count]
           :opt-un [::target-qubits]))
+
+(s/def ::fidelity-result
+  (s/keys :req-un [::fidelities]))
 
 (s/def ::enhanced-circuit-result
   (s/keys :req-un [::final-state ::result-types]

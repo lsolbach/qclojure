@@ -34,8 +34,7 @@
 (deftest test-simulator-creation
   (testing "Basic simulator creation"
     (let [sim1 (sim/create-simulator)]
-      (is (satisfies? qb/QuantumBackend sim1))
-      (is (instance? org.soulspace.qclojure.adapter.backend.simulator.LocalQuantumSimulator sim1))))
+      (is (satisfies? qb/QuantumBackend sim1))))
   
   (testing "Simulator creation with config"
     (let [config {:max-qubits 10 :seed 42}

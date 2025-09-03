@@ -22,3 +22,4 @@
   * a gate is an operation, so is a measurement
 * extract formatting/styling information for SVG to edn
 * remove hardware references from gate-decomposition (domain layer)
+* add real linear algebra backends

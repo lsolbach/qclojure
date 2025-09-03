@@ -18,10 +18,13 @@
    string."
   (:require
    [org.soulspace.qclojure.domain.circuit :as qc]
+   [org.soulspace.qclojure.domain.state :as qs]
    [org.soulspace.qclojure.application.backend :as qb]))
+
 ;;;
 ;;; Bernstein-Vazirani Algorithm
 ;;;
+
 (defn add-oracle-fn
   "Build the quantum circuit for Bernstein-Vazirani oracle Uf.
   
@@ -99,7 +102,6 @@
   - :result - Measured bit string (should match hidden-string)
   - :hidden-string - The original hidden string
   - :success - Boolean indicating if measurement matched hidden string
-  - :final-state - Final quantum state before measurement
   - :circuit - Description of the quantum circuit used
   - :execution-result - Backend execution results
   
@@ -111,24 +113,38 @@
   {:pre [(vector? hidden-string)
          (every? #(or (= % 0) (= % 1)) hidden-string)]}
   
-  (let [;; Build circuit for Bernstein-Vazirani algorithm
+  (let [;; Build circuit for the Bernstein-Vazirani algorithm
         circuit (bernstein-vazirani-circuit hidden-string)
+        n-input-qubits (count hidden-string)
+        n-total-qubits (inc n-input-qubits)
+
+        ;; Result specifications for the Bernstein-Vazirani algorithm
+        ;; Include both measurements and probabilities for validation
+        result-specs {:result-specs {:measurements {:shots (:shots options)}
+                                     :probabilities {:qubits (range n-input-qubits)}}}
+
+        options (merge options result-specs)
         
         ;; Execute circuit on backend
         execution-result (qb/execute-circuit backend circuit options)
-        
+        results (:results execution-result)
+
         ;; Extract measurement results
-        measurements (:measurement-results execution-result)
-        
-        ;; Convert measurements to result bit string
-        ;; For BV algorithm, we expect the hidden string to be measured
-        measured-bits (or (:most-likely-outcome measurements) hidden-string)
-        
+        measurement-results (:measurement-results results)
+        frequencies (:frequencies measurement-results)
+
+        ;; Convert the most frequent measurement outcome to bit string and extract input qubits
+        ;; BV algorithm should consistently measure the hidden string on input qubits
+        most-frequent-outcome (key (apply max-key val frequencies))
+        outcome-bits (qs/measurement-outcomes-to-bits most-frequent-outcome n-total-qubits)
+        measured-bits (vec (take n-input-qubits outcome-bits))
+
         success (= measured-bits hidden-string)]
-    
-    {:result measured-bits
+
+    {:algorithm "Bernstein-Vazirani"
+     :result measured-bits
      :success success
      :hidden-string hidden-string
-     :execution-result execution-result
-     :circuit circuit})))
+     :circuit circuit
+     :execution-result execution-result})))
 

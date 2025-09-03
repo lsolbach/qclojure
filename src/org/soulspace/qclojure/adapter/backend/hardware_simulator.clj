@@ -103,9 +103,11 @@
          ;; Apply all gates with noise
          final-state (reduce (gate-with-noise-applicator noise-model)
                              initial-state
-                             (:operations circuit))]
-     ; Final measurement with readout noise
-     (noise/apply-readout-noise final-state num-qubits noise-model))))
+                             (:operations circuit))
+         ; Final measurement with readout noise
+         measurement (noise/apply-readout-noise final-state num-qubits noise-model)
+         ]
+     measurement)))
 
 (defn- execute-noisy-circuit-simulation
   "Execute a noisy quantum circuit simulation with proper noise independence per shot.
@@ -134,6 +136,8 @@
            :noise-applied true
            :shots-executed shots
            :execution-time-ms (- (System/currentTimeMillis) start-time)}
+
+          ;; TODO incorporate result spec, return state and measured bitstring from single shot
 
           ;; Execute single shot with fresh noise
           (let [outcome-bitstring (execute-single-noisy-shot circuit noise-model)

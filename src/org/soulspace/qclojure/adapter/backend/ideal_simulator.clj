@@ -30,19 +30,23 @@
   (s/keys :opt-un [::max-qubits ::seed]))
 
 ;; Simulator state management
-(defonce ^:private state (atom {:job-counter 0
+(defonce ^:private simulator-state (atom {:job-counter 0
                                 :active-jobs {}}))
 
 ;; Job state record
 (defrecord SimulatorJob
   [job-id circuit options status result created-at completed-at])
 
-;; Helper functions
+;;;
+;;; Helper functions
+;;;
 (defn- generate-job-id []
-  (let [new-counter (:job-counter (swap! state update :job-counter inc))]
+  (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
     (str "sim_job_" new-counter "_" (System/currentTimeMillis))))
 
-;; Helper functions for measurement simulation
+;;;
+;;; Helper functions for measurement simulation
+;;;
 (defn- get-measurement-probabilities
   "Get measurement probabilities for all basis states.
   
@@ -95,39 +99,36 @@
   
   Parameters:
   - circuit: Quantum circuit to simulate
-  - options: Execution options including shot count
+  - options: Execution options including shot count and result specification
   
-  Returns: Simulation results"
+  Returns: A map with the results of the simulation."
   [circuit options]
   (try
     (let [start-time (System/currentTimeMillis)
           num-qubits (:num-qubits circuit)
           shots (get options :shots 1024)
+          result-specs (:result-specs options)
 
           ;; Create initial state and execute the circuit
           initial-state (if (:initial-state options)
                           (:initial-state options)
                           (qs/zero-state num-qubits))
-          final-state (:final-state (qc/execute-circuit circuit initial-state))
+          results (qc/execute-circuit circuit initial-state result-specs)]
 
-          ;; Perform measurements
-          measurement-results (measure-quantum-state
-                               final-state
-                               shots
-                               num-qubits)]
-      
       {:job-status :completed
-       :measurement-results measurement-results
-       :final-state final-state
+       :results results
+       ;:measurement-results measurement-results
+       ;:final-state final-state
        :execution-time-ms (- (System/currentTimeMillis) start-time)})
 
     (catch Exception e
       {:job-status :failed
        :error-message (.getMessage e)
        :exception-type (.getName (class e))})))
-
-;; Simulator backend implementation
-(deftype LocalQuantumSimulator [config]
+;;;
+;;; Simulator backend implementation
+;;;
+(defrecord LocalQuantumSimulator [config]
   qb/QuantumBackend
   
   (get-backend-info [_this]
@@ -153,7 +154,7 @@
                              (System/currentTimeMillis) nil)]
       
       ;; Store job and start execution in background
-      (swap! state assoc-in [:active-jobs job-id] job)
+      (swap! simulator-state assoc-in [:active-jobs job-id] job)
       
       ;; Execute immediately (could be made async with future)
       (future
@@ -162,17 +163,17 @@
                                   :status (:job-status result)
                                   :result result
                                   :completed-at (System/currentTimeMillis))]
-          (swap! state assoc-in [:active-jobs job-id] completed-job)))
+          (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
       
       job-id))
   
   (get-job-status [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (:status job)
       :not-found))
   
   (get-job-result [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
         {:job-id job-id
@@ -183,10 +184,10 @@
        :error-message "Job not found"}))
   
   (cancel-job [_this job-id]
-    (if-let [job (get (:active-jobs @state) job-id)]
+    (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! state assoc-in [:active-jobs job-id] 
+          (swap! simulator-state assoc-in [:active-jobs job-id] 
                 (assoc job :status :cancelled 
                           :completed-at (System/currentTimeMillis)))
           :cancelled)
@@ -194,7 +195,7 @@
       :not-found))
   
   (get-queue-status [_this]
-    (let [jobs (vals (:active-jobs @state))
+    (let [jobs (vals (:active-jobs @simulator-state))
           queued (count (filter #(= (:status %) :queued) jobs))
           running (count (filter #(= (:status %) :running) jobs))
           completed (count (filter #(= (:status %) :completed) jobs))]
@@ -266,7 +267,7 @@
     ;; Submit each circuit individually and track as batch
     (let [batch-id (str "batch_" (System/currentTimeMillis))
           job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! state assoc-in [:active-jobs batch-id]
+      (swap! simulator-state assoc-in [:active-jobs batch-id]
              {:batch-id batch-id
               :job-ids job-ids
               :status :queued
@@ -274,7 +275,7 @@
       batch-id))
   
   (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             statuses (map #(qb/get-job-status this %) job-ids)
             status-counts (frequencies statuses)]
@@ -290,7 +291,7 @@
        :status :not-found}))
   
   (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @state) batch-job-id)]
+    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
       (let [job-ids (:job-ids batch-info)
             results (into {} (map (fn [job-id]
                                    [job-id (qb/get-job-result this job-id)])
@@ -303,7 +304,9 @@
       {:batch-id batch-job-id
        :error-message "Batch not found"})))
 
-;; Factory functions
+;;;
+;;; Factory functions
+;;;
 (defn create-simulator
   "Create a new local quantum simulator backend.
   
@@ -320,13 +323,15 @@
    {:pre [(map? config)]}
    (->LocalQuantumSimulator config)))
 
-;; Utility functions for testing and debugging
+;;;
+;;; Utility functions for testing and debugging
+;;;
 (defn reset-simulator-state!
   "Reset the simulator state, clearing all jobs.
   
   This is useful for testing and development."
   []
-  (reset! state {:job-counter 0
+  (reset! simulator-state {:job-counter 0
                  :active-jobs {}}))
 
 (defn get-simulator-stats
@@ -334,7 +339,7 @@
   
   Returns: Map with job statistics and performance metrics"
   []
-  (let [current-state @state
+  (let [current-state @simulator-state
       jobs (vals (:active-jobs current-state))
       completed-jobs (filter #(= (:status %) :completed) jobs)
       execution-times (keep #(let [start (:created-at %)
@@ -363,6 +368,30 @@
    :active-jobs-count active-jobs-count
    :oldest-job oldest-job
    :newest-job newest-job}))
+
+(defn cleanup-completed-jobs!
+  "Remove completed jobs older than specified time (in milliseconds).
+  
+  Parameters:
+  - max-age-ms: Maximum age for completed jobs (default: 1 hour)
+  
+  Returns: Number of jobs cleaned up"
+  ([]
+   (cleanup-completed-jobs! (* 60 60 1000))) ; 1 hour default
+  ([max-age-ms]
+   (let [current-time (System/currentTimeMillis)
+         cutoff-time (- current-time max-age-ms)
+         current-jobs (:active-jobs @simulator-state)
+         jobs-to-keep (into {}
+                            (filter
+                             (fn [[_job-id job]]
+                               (or (not= (:status job) :completed)
+                                   (> (:completed-at job 0) cutoff-time)))
+                             current-jobs))
+         removed-count (- (count current-jobs) (count jobs-to-keep))]
+     (swap! simulator-state assoc :active-jobs jobs-to-keep)
+     removed-count)))
+
 
 (comment  
   ;; Create a simulator

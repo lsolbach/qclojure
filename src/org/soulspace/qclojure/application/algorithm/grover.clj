@@ -2,8 +2,9 @@
   "Grover's Search Algorithm
    
    Grover's algorithm provides a quadratic speedup for searching unsorted databases.
-   For N items, classical search requires O(N) queries, while Grover's requires O(√N).
-   The number of Grover iterations is approximately π√N/4, where N is the size
+   For N items, classical search requires O(N) queries, while Grover's requires O(√N)         ;; Step 3: Complete circuit without explicit measurements
+         ;; (measurements will be handled by result-specs framework)
+         )))))The number of Grover iterations is approximately π√N/4, where N is the size
    of the search space.
 
    This implementation builds the quantum circuit for Grover's algorithm and executes it
@@ -341,33 +342,38 @@
          n-iterations (optimal-grover-iterations search-space-size n-targets)]
 
      (if (> n-iterations 0)
-       (let [;; Build the complete quantum circuit with measurements
-             circuit (grover-circuit n-qubits oracle-fn n-iterations {:add-measurements? true})
+       (let [;; Build the complete quantum circuit without explicit measurements
+             ;; (measurements will be handled by result-specs framework)
+             circuit (grover-circuit n-qubits oracle-fn n-iterations)
+
+             ;; Result specifications for Grover's algorithm
+             ;; Include both measurements and probabilities for target analysis
+             result-specs {:result-specs {:measurements {:shots (:shots options)}
+                                          :probabilities {:qubits (range n-qubits)}}}
+             
+             options (merge options result-specs)
 
              ;; Execute circuit on backend
              execution-result (qb/execute-circuit backend circuit options)
+             results (:results execution-result)
 
-             ;; Extract measurement results and determine outcome
-             measurements (:measurement-results execution-result)
+             ;; Extract measurement results using the result extraction framework
+             measurement-results (:measurement-results results)
+             frequencies (:frequencies measurement-results)
 
-             ;; Use pre-calculated target indices for analysis
-
-             ;; Analyze measurement outcomes to find most likely result
-             ;; Convert measurement strings to integers and find most frequent
-             outcome-counts (into {}
-                                  (map (fn [[outcome-str count]]
-                                         [(Integer/parseInt outcome-str 2) count])
-                                       measurements))
-
-             total-shots (reduce + (vals outcome-counts))
-
-             ;; Find the most likely measurement outcome
-             most-likely-outcome (first (apply max-key second outcome-counts))
-
+             ;; Convert the most frequent measurement outcome to bit string
+             most-frequent-outcome (key (apply max-key val frequencies))
+             outcome-bits (qs/measurement-outcomes-to-bits most-frequent-outcome n-qubits)
+             
+             ;; Convert outcome bits to integer for target comparison
+             most-likely-outcome (qs/bits-to-index outcome-bits)
+             
              ;; Calculate success probability (probability of measuring a target state)
-             target-counts (reduce + (map #(get outcome-counts % 0) target-indices))
+             total-shots (reduce + (vals frequencies))
+             target-counts (reduce + (map #(get frequencies % 0) target-indices))
              success-probability (/ target-counts total-shots)]
-         {:success true
+         {:algorithm "Grover"
+          :success true
           :result most-likely-outcome
           :probability success-probability
           :iterations n-iterations
@@ -375,17 +381,18 @@
           :execution-result execution-result
           :target-indices target-indices
           :search-space-size search-space-size
-          :measurement-statistics {:outcome-counts outcome-counts
+          :measurement-statistics {:frequencies frequencies
                                    :target-counts target-counts
                                    :total-shots total-shots
                                    :success-probability success-probability}})
-       {:success true
+       {:algorithm "Grover"
+        :success true
         :result []
         :probability 0.0
         :iterations 0
         :target-indices []
         :search-space-size search-space-size
-        :measurement-statistics {:outcome-counts {}
+        :measurement-statistics {:frequencies {}
                                  :target-counts 0
                                  :total-shots 0
                                  :success-probability 0.0}}))))

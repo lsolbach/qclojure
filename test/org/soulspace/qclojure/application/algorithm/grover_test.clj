@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.pprint]
             [org.soulspace.qclojure.application.algorithm.grover :as grover]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;; Test circuit construction functions
 (deftest test-grover-circuit

@@ -404,7 +404,7 @@
 
 (comment
   ;; Create a simulator
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
   (def simulator (sim/create-simulator {:max-qubits 10}))
   
   ;; Test period finding for known cases

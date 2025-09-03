@@ -509,7 +509,8 @@ gate/t-dag-gate
 ;;
 ;; * The ideal simulator backend simulates an ideal quantum computer without
 ;;   physical constraints like noise.
-;; * The noisy simulator backend simulates a real quantum computer with various kinds of noise.
+;; * The hardware simulator backend simulates a real quantum computer with
+;;   a native gate set, a topology of coupled qubits and various kinds of noise.
 ;;
 ;; Additional backends to access quantum hardware will be available as separate
 ;; libraries. There is already an experimental implementation for an Amazon
@@ -527,9 +528,9 @@ gate/t-dag-gate
 ;; circuit can take a long time.
 ;;
 ;; ### Ideal Simulator Backend
-;; Let's try the ideal simulator first by requiring the `simulator` namespace.
+;; Let's try the ideal simulator first by requiring the `ideal-simulator` namespace.
 
-(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+(require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 
 ;; We create the simulator backend with the `create-simulator` function.
 
@@ -546,13 +547,33 @@ gate/t-dag-gate
 
 (qb/execute-circuit simulator (circuit/ghz-state-circuit 3) {:shots 10})
 
-;; ### Noisy Simulator Backend
-;; Real quantum hardware is subject to various kinds of noise, which can
-;; affect the results of quantum computations. The noisy simulator backend
-;; simulates a quantum computer with noise, allowing us to study the effects of
-;; noise on quantum circuits.
+;; ### Hardware Simulator Backend
+;; Currently existing real quantum hardware has a set of limitations compared
+;; to what our ideal simulator supports:
 ;;
-;; The noisy simulator backend simulates these kinds of noise:
+;; * supports only a limited set of native quantum gates
+;; * may have a limited topology of coupled qubits
+;; * is subject to various kinds of noise
+;;
+;; This has some consequences for running quantum circuits on real quantum
+;; hardware, also known as Quantum Processing Units (QPUs).
+;;
+;; The limited native gate set means that our circuit has to be transformed to
+;; only use those native gates. This is done by decomposing unsupported gates
+;; to supported gates.
+;;
+;; The limited topology means that not all qubits can be used freely in 
+;; a multi-qubit gate, e.g. a CNOT gate. If a CNOT gate should be applied to
+;; qubits which are not coupled in the topology, represente by a coupling map,
+;; Swap gates have to be introduced to 'move' the information to qubits that
+;; are coupled, so that the CNOT gate can be applied. 
+;;
+;; The various kinds of noise can affect the results of quantum computations.
+;; 
+;; The hardware simulator backend simulates a quantum computer with noise,
+;; allowing us to study the effects of noise on quantum circuits.
+;;
+;; The hardware simulator backend simulates these kinds of noise:
 ;;
 ;; * depolarizing noise is a type of noise that randomly flips the state of a
 ;;   qubit with a certain probability.
@@ -566,15 +587,15 @@ gate/t-dag-gate
 ;;   state of a qubit, causing the measured value to be incorrect with a
 ;;   certain probability.
 ;;
-;; The noisy simulator backend applies the noise to the quantum states
+;; The hardware simulator backend applies the noise to the quantum states
 ;; and gates in the circuit, simulating the effects of noise on the quantum
 ;; computation.
 ;;
-;; Let's try the noisy simulator first by requiring the `noisy-similator` namespace.
+;; Let's try the hardware simulator first by requiring the `hardware-similator` namespace.
 
-(require '[org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy])
+(require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as noisy])
 
-;; We can instantiate the noisy simulator with the `create-noisy-simulator` function
+;; We can instantiate the hardware simulator with the `create-noisy-simulator` function
 ;; and provide a provide a device map. The noise profile we use is derived from the
 ;; IBM Lagos Quantum Computer.
 

@@ -8,7 +8,7 @@
             [org.soulspace.qclojure.util.test :refer [approx= approx-vector= approx-matrix= vec2? real-part]]
             [org.soulspace.qclojure.domain.math.core :as mcore]
             [org.soulspace.qclojure.application.algorithm.hhl :as hhl]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;;
 ;; Test Matrix Validation

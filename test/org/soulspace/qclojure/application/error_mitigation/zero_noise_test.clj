@@ -2,8 +2,8 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]
-            [org.soulspace.qclojure.adapter.backend.noisy-simulator :as noisy]
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
+            [org.soulspace.qclojure.adapter.backend.hardware-simulator :as noisy]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.util.test :as util]))
 

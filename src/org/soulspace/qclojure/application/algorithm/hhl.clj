@@ -557,7 +557,7 @@
 
 (comment
   ;; Create a simulator for testing
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
   (def sim (sim/create-simulator {:max-qubits 10}))
   
   ;; Test with a simple 2x2 Hermitian matrix

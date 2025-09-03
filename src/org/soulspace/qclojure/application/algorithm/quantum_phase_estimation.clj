@@ -226,7 +226,7 @@
   ;; Example usage and testing of the quantum phase estimation algorithm
   
   ;; Create a simulator
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
   (def simulator (sim/create-simulator {:max-qubits 10}))
   
   ;; Basic usage - estimate phase π/4

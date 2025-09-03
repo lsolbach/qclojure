@@ -11,7 +11,7 @@
   (:require [clojure.test :refer :all]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
             [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; Test fixtures and utilities

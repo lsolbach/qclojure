@@ -882,7 +882,7 @@
     nil))  ; Cannot estimate without knowing the problem structure
 
 (comment
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 
   ;; Example 1: MaxCut on triangle graph
   (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])

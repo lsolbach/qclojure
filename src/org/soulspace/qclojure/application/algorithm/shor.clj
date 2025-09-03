@@ -266,7 +266,7 @@
 
 (comment
   
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
   (shor-algorithm (sim/create-simulator) 5 {:shots 1})
 
   ;

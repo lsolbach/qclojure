@@ -3,7 +3,7 @@
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.application.algorithm.qaoa :as qaoa]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;;
 ;; Test data

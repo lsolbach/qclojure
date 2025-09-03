@@ -1,13 +1,17 @@
 # Changelog
 
 ## Version (NEXT)
-* improved measurement probabilities calculation for observables
-* transformed noisy simulator in a quantum hardware simulator (WIP)
-  * uses device profiles for max qubits, native gates, topology and noise model
-  * optimizes circuits for native gate set and topology
+* simulator enhancements
+  * renamed `simulator` namespace to `ideal-simulator`
+    * transports the role of the simulator 
+  * renamed `noisy-simulator` namespace to `hardware-simulator`
+    * transforming noisy simulator in a full quantum hardware simulator
+    * use device profiles for max qubits, native gates, topology and noise model
+    * optimize circuits for native gate set and topology
 * removed native hardware gate sets from operation-registry
   * device profiles provide the information about native gates
 * improved noise application in noisy simulator
+* improved measurement probabilities calculation for observables
 * fixed bug in eigen-hermitian in fastmath backend
 * sorted eigen decompositions consistently across functions and backends
 * fixed matrix-log to compute the complex logarithm in the case of negative eigenvalues too

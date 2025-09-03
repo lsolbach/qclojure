@@ -6,7 +6,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;; Test fixtures
 (defn reset-simulator-fixture

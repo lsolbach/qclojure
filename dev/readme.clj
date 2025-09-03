@@ -19,7 +19,7 @@ qs/|+⟩
 (comment
 (require '[org.soulspace.qclojure.domain.circuit :as qc])
 (require '[org.soulspace.qclojure.application.backend :as qb])
-(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+(require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 (require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
@@ -42,8 +42,7 @@ qs/|+⟩
 
 (comment
 (require '[org.soulspace.qclojure.application.algorithm.bernstein-vazirani :as bv])
-(require '[org.soulspace.qclojure.application.backend :as qb])
-(require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+(require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 (require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 

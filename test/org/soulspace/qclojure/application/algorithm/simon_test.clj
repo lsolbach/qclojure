@@ -2,7 +2,7 @@
   "Tests for the Simon's algorithm implementation"
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.application.algorithm.simon :as simon]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
             [clojure.test.check.properties :as prop]
             [clojure.test.check.generators :as gen]
             [clojure.test.check :as tc]))

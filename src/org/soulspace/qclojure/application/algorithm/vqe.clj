@@ -542,7 +542,7 @@
                                     (partition 2 1 energies))})))
 
 (comment
-  (require '[org.soulspace.qclojure.adapter.backend.simulator :as sim])
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 
   ;; Example 1: UCCSD-inspired ansatz for H₂ molecule
   ;; This example uses the UCCSD ansatz with a 4-qubit representation of H₂.

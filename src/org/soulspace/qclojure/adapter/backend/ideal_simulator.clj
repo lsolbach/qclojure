@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.backend.simulator
+(ns org.soulspace.qclojure.adapter.backend.ideal-simulator
   "Local quantum simulator implementing the QuantumBackend protocol.
   
   This adapter provides a local simulation of quantum circuits using

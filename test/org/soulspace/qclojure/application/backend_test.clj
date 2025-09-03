@@ -5,7 +5,7 @@
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.domain.operation-registry :as gr]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 (deftest test-operation-registry
   (testing "Operation catalog validation"

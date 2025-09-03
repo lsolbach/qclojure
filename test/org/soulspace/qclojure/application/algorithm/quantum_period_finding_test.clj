@@ -3,7 +3,7 @@
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;; Test data and helper functions
 (def test-backend (sim/create-simulator))

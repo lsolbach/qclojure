@@ -11,7 +11,7 @@
             [org.soulspace.qclojure.application.algorithm.vqe :as vqe]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.ansatz :as ansatz]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
             [org.soulspace.qclojure.domain.state :as qs]))
 
 ;;

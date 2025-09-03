@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.backend.noisy-simulator
+(ns org.soulspace.qclojure.adapter.backend.hardware-simulator
   "Noisy quantum simulator backend implementing realistic
   quantum computing device simulation with comprehensive noise modeling.
 

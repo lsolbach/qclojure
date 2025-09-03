@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.domain.math :as qmath]
             [org.soulspace.qclojure.application.algorithm.shor :as shor]
-            [org.soulspace.qclojure.adapter.backend.simulator :as sim]))
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;; Test Shor's Algorithm with small composite numbers
 (deftest test-shors-algorithm

@@ -65,14 +65,16 @@
 (defrecord NoisySimulatorJob
            [job-id circuit options status result created-at completed-at])
 
-;; Helper functions for job management
+;;;
+;;; Helper functions for job management
+;;;
 (defn- generate-noisy-job-id []
   (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
     (str "noisy_job_" new-counter "_" (System/currentTimeMillis))))
 
-;; Advanced noise model specifications (defined in application.noise namespace)
-;; Using specs from org.soulspace.qclojure.domain.noise
-
+;;;
+;;; Circuit execution 
+;;;
 (defn- gate-with-noise-applicator
   "Takes a noise model and returns a function that applies gate noise.
    
@@ -157,9 +159,9 @@
        :error-message (.getMessage e)
        :exception-type (.getName (class e))})))
 
-;;
-;; Noise Model Management
-;;
+;;;
+;;; Noise Model Management
+;;;
 (defn noise-model-for
   "Get the noise model for a specific platform.
   
@@ -182,7 +184,7 @@
    (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
 
 ;;;
-;;; Accessor functions
+;;; Accessor functions for device properties
 ;;;
 (defn max-qubits
   "Get the maximum number of qubits supported by the backend.

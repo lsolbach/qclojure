@@ -557,18 +557,19 @@ gate/t-dag-gate
 ;;
 ;; This has some consequences for running quantum circuits on real quantum
 ;; hardware, also known as Quantum Processing Units (QPUs).
-;;
 ;; The limited native gate set means that our circuit has to be transformed to
 ;; only use those native gates. This is done by decomposing unsupported gates
 ;; to supported gates.
-;;
 ;; The limited topology means that not all qubits can be used freely in 
 ;; a multi-qubit gate, e.g. a CNOT gate. If a CNOT gate should be applied to
 ;; qubits which are not coupled in the topology, represente by a coupling map,
 ;; Swap gates have to be introduced to 'move' the information to qubits that
 ;; are coupled, so that the CNOT gate can be applied. 
-;;
-;; The various kinds of noise can affect the results of quantum computations.
+;; The various kinds of noise affect the results of quantum computations.
+;; They can be addressed by error correction, which uses a number of
+;; physical qubits to form a logical qubit. On current QPUs with limited
+;; qubit counts this is not always an option. Error mitigation strategies try 
+;; to address the problem mathematically or with more executions.
 ;; 
 ;; The hardware simulator backend simulates a quantum computer with noise,
 ;; allowing us to study the effects of noise on quantum circuits.

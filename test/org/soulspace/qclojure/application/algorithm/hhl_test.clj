@@ -477,6 +477,7 @@
       (is (approx-vector= solution vector 0.2) ; 20% tolerance for quantum sampling
           (str "Identity matrix solution " solution " should be close to input " vector))))
   
+  ; TODO: add again after raising algorithm accuracy or relaxing accuracy requirements
   #_(testing "Solve function handles positive definite matrices"
     (let [simulator (sim/create-simulator {:max-qubits 8})
           matrix [[3 1] [1 2]]  ; Positive definite from tutorial

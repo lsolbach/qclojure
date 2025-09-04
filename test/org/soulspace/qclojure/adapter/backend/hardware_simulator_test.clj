@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.backend.noisy-simulator-test
+(ns org.soulspace.qclojure.adapter.backend.hardware-simulator-test
   "Comprehensive tests for the local noisy simulator backend."
   (:require [clojure.test :refer [deftest is testing use-fixtures run-tests]]
             [org.soulspace.qclojure.adapter.backend.hardware-simulator :as noisy]

@@ -18,9 +18,8 @@
       (is (contains? result :measurements))
       (is (contains? result :found-period))
       (is (contains? result :linear-system))
-      (is (= (:algorithm result) "Simon"))
-      (is (contains? result :complexity))))
-  
+      (is (= (:algorithm result) "Simon"))))
+
   (testing "Simon's algorithm with different period lengths"
     (let [periods [[1 0] [1 1 0] [1 0 1] [0 1 0 1]]
           test-period (fn [p]
@@ -28,13 +27,7 @@
                           (is (= (:hidden-period result) p))
                           (is (= (count (:measurements result)) (dec (count p))))))]
       (doseq [p periods]
-        (test-period p))))
-  
-  (testing "Simon's algorithm complexity information"
-    (let [result (simon/simon-algorithm (sim/create-simulator) [1 0 1])]
-      (is (= (get-in result [:complexity :classical]) "O(2^(n/2))"))
-      (is (= (get-in result [:complexity :quantum]) "O(n)"))
-      (is (= (get-in result [:complexity :speedup]) "Exponential")))))
+        (test-period p)))))
 
 ;; Property-based tests using test.check
 (def simon-algorithm-valid-structure

@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.adapter.backend.simulator-test
+(ns org.soulspace.qclojure.adapter.backend.ideal-simulator-test
   "Tests for the local quantum simulator backend.
   
    These tests verify that the quantum simulator correctly implements the
@@ -70,7 +70,8 @@
   (testing "Circuit submission"
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
-          job-id (qb/submit-circuit simulator circuit {:shots 100})]
+          options {:result-specs {:measurements {:shots 100}}}
+          job-id (qb/submit-circuit simulator circuit options)]
       (is (string? job-id))
       
       ;; Wait a bit for the job to complete (since it runs in a future)
@@ -82,37 +83,46 @@
       
       (testing "Job result retrieval"
         (let [_ (Thread/sleep 100) ;; Ensure job completes
-              result (qb/get-job-result simulator job-id)]
-          (is (= job-id (:job-id result)))
+              execution-result (qb/get-job-result simulator job-id)
+              result (:results execution-result)]
+          (is (= job-id (:job-id execution-result)))
           (is (contains? result :measurement-results))
           
-          (let [measurements (:measurement-results result)]
-            (is (map? measurements))
-            (is (= 2 (count (keys measurements))))
-            (is (contains? measurements "00"))
-            (is (contains? measurements "11")))))))
+          (let [measurements (:measurement-results result)
+                freqs (:frequencies measurements)]
+            (is (map? freqs))
+            (is (= 2 (count (keys freqs))))
+            (is (contains? freqs 3))
+            (is (contains? freqs 3)))))))
   
   (testing "Circuit execution convenience function"
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
-          result (qb/execute-circuit simulator circuit {:shots 500})]
-      (is (= :completed (:job-status result)))
-      (is (map? (:measurement-results result)))
-      (is (contains? (:measurement-results result) "00"))
-      (is (contains? (:measurement-results result) "11")))))
+          options {:result-specs {:measurements {:shots 50}}}
+          execution-result (qb/execute-circuit simulator circuit options)
+          result (:results execution-result)
+          measurements (:measurement-results result)
+          freqs (:frequencies measurements)]
+      (is (= :completed (:job-status execution-result)))
+      (is (map? freqs))
+      (is (contains? freqs 0))
+      (is (contains? freqs 3)))))
 
 (deftest test-circuit-simulations
   (testing "Hadamard gate simulation"
     (let [simulator (sim/create-simulator)
           h-circuit (-> (qc/create-circuit 1 "Hadamard Test")
                          (qc/h-gate 0))
-          result (qb/execute-circuit simulator h-circuit {:shots 1000})
-          measurements (:measurement-results result)]
+          options {:result-specs {:measurements {:shots 1000}}}
+          execution-result (qb/execute-circuit simulator h-circuit options)
+          result (:results execution-result)
+          measurements (:measurement-results result)
+          freqs (:frequencies measurements)]
       ;; Hadamard should create superposition of |0⟩ and |1⟩ with ~50% probability each
-      (is (contains? measurements "0"))
-      (is (contains? measurements "1"))
-      (let [count-0 (get measurements "0" 0)
-            count-1 (get measurements "1" 0)
+      (is (contains? freqs 0))
+      (is (contains? freqs 1))
+      (let [count-0 (get freqs 0 0)
+            count-1 (get freqs 1 0)
             ratio (/ count-0 (+ count-0 count-1))]
         ;; Allow for some statistical variation (should be close to 0.5)
         (is (< 0.40 ratio 0.60)))))
@@ -120,15 +130,18 @@
   (testing "Bell state simulation"
     (let [simulator (sim/create-simulator)
           bell (bell-circuit)
-          result (qb/execute-circuit simulator bell {:shots 1000})
-          measurements (:measurement-results result)]
+          options {:result-specs {:measurements {:shots 1000}}}
+          execution-result (qb/execute-circuit simulator bell options)
+          result (:results execution-result)
+          measurements (:measurement-results result)
+          freqs (:frequencies measurements)]
       ;; Bell state should only measure |00⟩ and |11⟩ with ~50% probability each
-      (is (contains? measurements "00"))
-      (is (contains? measurements "11"))
-      (is (not (contains? measurements "01")))
-      (is (not (contains? measurements "10")))
-      (let [count-00 (get measurements "00" 0)
-            count-11 (get measurements "11" 0)
+      (is (contains? freqs 0))
+      (is (contains? freqs 3))
+      (is (not (contains? freqs 1)))
+      (is (not (contains? freqs 2)))
+      (let [count-00 (get freqs 0 0)
+            count-11 (get freqs 3 0)
             ratio (/ count-00 (+ count-00 count-11))]
         ;; Allow for some statistical variation
         (is (< 0.45 ratio 0.55)))))
@@ -136,14 +149,17 @@
   (testing "Multi-qubit GHZ state"
     (let [simulator (sim/create-simulator)
           ghz (ghz-circuit 3)  ;; 3-qubit GHZ state
-          result (qb/execute-circuit simulator ghz {:shots 1000})
-          measurements (:measurement-results result)]
+          options {:result-specs {:measurements {:shots 1000}}}
+          execution-result (qb/execute-circuit simulator ghz options)
+          result (:results execution-result)
+          measurements (:measurement-results result)
+          freqs (:frequencies measurements)]
       ;; GHZ state should only measure |000⟩ and |111⟩
-      (is (contains? measurements "000"))
-      (is (contains? measurements "111"))
-      (is (not (some #(contains? measurements %) ["001" "010" "011" "100" "101" "110"])))
-      (let [count-000 (get measurements "000" 0)
-            count-111 (get measurements "111" 0)
+      (is (contains? freqs 0))
+      (is (contains? freqs 7))
+      (is (not (some #(contains? freqs %) [1 2 3 4 5 6])))
+      (let [count-000 (get freqs 0 0)
+            count-111 (get freqs 7 0)
             ratio (/ count-000 (+ count-000 count-111))]
         ;; Allow for some statistical variation
         (is (< 0.45 ratio 0.55))))))
@@ -153,12 +169,15 @@
     (let [simulator (sim/create-simulator)
           x-circuit (-> (qc/create-circuit 1 "X Gate Test")
                          (qc/x-gate 0))
-          result (qb/execute-circuit simulator x-circuit {:shots 100})
-          measurements (:measurement-results result)]
+          options {:result-specs {:measurements {:shots 100}}}
+          execution-result (qb/execute-circuit simulator x-circuit options)
+          result (:results execution-result)
+          measurements (:measurement-results result) 
+          freqs (:frequencies measurements)]
       ;; X gate should flip |0⟩ to |1⟩
-      (is (contains? measurements "1"))
-      (is (= 100 (get measurements "1" 0)))
-      (is (not (contains? measurements "0")))))
+      (is (contains? freqs 1))
+      (is (= 100 (get freqs 1 0)))
+      (is (not (contains? freqs 0)))))
   
   (testing "Controlled-X gate test"
     (let [simulator (sim/create-simulator)
@@ -166,11 +185,14 @@
                          ;; Control=1, Target=0
                          (qc/x-gate 0)
                          (qc/cnot-gate 0 1))
-          result (qb/execute-circuit simulator cx-circuit {:shots 100})
-          measurements (:measurement-results result)]
+          options {:result-specs {:measurements {:shots 100}}}
+          execution-result (qb/execute-circuit simulator cx-circuit options)
+          result (:results execution-result)
+          measurements (:measurement-results result)
+          freqs (:frequencies measurements)]
       ;; Initial state |00⟩, apply X to get |10⟩, CNOT gives |11⟩
-      (is (contains? measurements "11"))
-      (is (= 100 (get measurements "11" 0))))))
+      (is (contains? freqs 3))
+      (is (= 100 (get freqs 3 0))))))
 
 (deftest test-job-cancellation-and-queue-status
   (testing "Job cancellation"

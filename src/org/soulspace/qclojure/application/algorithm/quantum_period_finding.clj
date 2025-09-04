@@ -8,20 +8,12 @@
    algorithm and adapts it for period finding by:
    1. Setting up the appropriate unitary operator (modular exponentiation)
    2. Using QPE to estimate the phase
-   3. Converting phase estimates to period estimates using continued fractions
-   
-   This follows the DRY principle and maintains a clean separation of concerns.
-   
-   Version 2.0: Now uses the comprehensive quantum arithmetic module for
-   production-ready modular exponentiation circuits."
+   3. Converting phase estimates to period estimates using continued fractions"
   (:require
    [clojure.spec.alpha :as s]
    [org.soulspace.qclojure.domain.math :as qmath]
    [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.domain.circuit-composition :as cc]
-   [org.soulspace.qclojure.application.algorithm.quantum-fourier-transform :as qft]
    [org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe]
-   [org.soulspace.qclojure.application.algorithm.quantum-arithmetic :as qarith]
    [org.soulspace.qclojure.application.backend :as qb]))
 
 ;;
@@ -31,10 +23,7 @@
   "Controlled modular exponentiation that uses actual quantum arithmetic.
    
    Performs: |control⟩|y⟩ → |control⟩|(a^power * y) mod N⟩ if control=1
-   
-   This is a stepping stone towards full quantum arithmetic. While not complete,
-   it demonstrates the proper structure and is more realistic than phase gates.
-   
+      
    Parameters:
    - circuit: quantum circuit
    - control: control qubit
@@ -162,111 +151,6 @@
       
       (first valid-periods)))) ; Return the first (and likely best) valid period
 
-(defn quantum-phase-estimation-circuit
-  "Create a quantum circuit for phase estimation with specified precision and eigenstate qubits.
-   
-   This function builds the quantum circuit for phase estimation, including:
-   1. Preparing the eigenstate qubits
-   2. Initializing precision qubits in superposition
-   3. Applying controlled unitary operations
-   4. Applying inverse quantum Fourier transform (QFT)
-   
-   Parameters:
-   - precision-qubits: Number of qubits for phase precision
-   - eigenstate-qubits: Number of qubits for eigenstate preparation
-   
-   Returns:
-   Quantum circuit ready for execution"
-  [precision-qubits eigenstate-qubits eigenstate-prep-fn controlled-unitary-fn]
-  {:pre [(pos-int? precision-qubits)
-         (pos-int? eigenstate-qubits)
-         (fn? eigenstate-prep-fn)
-         (fn? controlled-unitary-fn)]}
-  (let [total-qubits (+ precision-qubits eigenstate-qubits)
-        eigenstate-qubit-range (range precision-qubits (+ precision-qubits eigenstate-qubits))
-        ]
-   (-> (qc/create-circuit total-qubits "Generalized Quantum Phase Estimation")
-
-      ;; Step 1: Prepare eigenstate qubits
-      (eigenstate-prep-fn eigenstate-qubit-range)
-
-      ;; Step 2: Initialize precision qubits in superposition
-      (as-> c
-            (reduce (fn [circuit qubit]
-                      (qc/h-gate circuit qubit))
-                    c
-                    (range precision-qubits)))
-
-      ;; Step 3: Apply controlled-U^(2^k) operations
-      (as-> c
-            (reduce (fn [circuit k]
-                      (controlled-unitary-fn circuit k (int (Math/pow 2 k)) eigenstate-qubit-range))
-                    c
-                    (range precision-qubits)))
-
-      ;; Step 4: Apply inverse QFT to precision qubits
-      (as-> c
-            (let [iqft-circuit (qft/inverse-quantum-fourier-transform-circuit precision-qubits)]
-              (cc/compose-circuits c iqft-circuit {:control-qubits-only true}))))))
-
-(defn quantum-phase-estimation-with-custom-unitary
-  "Perform generalized quantum phase estimation with custom unitary operations.
-   
-   This function implements a generalized version of quantum phase estimation that
-   allows for custom controlled unitary operations, enabling it to work with any
-   unitary operator, not just phase rotations.
-   
-   Parameters:
-   - backend: Quantum backend implementing the QuantumBackend protocol
-   - precision-qubits: Number of qubits for phase precision (affects accuracy)
-   - eigenstate-qubits: Number of qubits for eigenstate preparation
-   - eigenstate-prep-fn: Function to prepare the eigenstate (receives circuit and eigenstate qubit range)
-   - controlled-unitary-fn: Function to apply controlled U^(2^k) operations
-                            (receives circuit, control qubit, power, and eigenstate qubit range)
-   - options: Map containing additional backend options (e.g., :shots, :n-measurements)
-   
-   Returns:
-   Map containing:
-   - :measurements - Combined measurement results from all executions
-   - :circuit - The quantum circuit used for QPE
-   - :execution-results - Results from all circuit executions
-   - :precision-qubits - Number of precision qubits used
-   - :eigenstate-qubits - Number of eigenstate qubits used
-   - :n-measurements - Number of measurements performed"
-  [backend precision-qubits eigenstate-qubits eigenstate-prep-fn controlled-unitary-fn options]
-  {:pre [(satisfies? qb/QuantumBackend backend)
-         (pos-int? precision-qubits)
-         (pos-int? eigenstate-qubits)
-         (fn? eigenstate-prep-fn)
-         (fn? controlled-unitary-fn)]}
-  
-  (let [n-measurements (get options :n-measurements 1)
-        
-        ;; Build the generalized QPE circuit once
-        circuit (quantum-phase-estimation-circuit
-                  precision-qubits
-                  eigenstate-qubits
-                  eigenstate-prep-fn
-                  controlled-unitary-fn)
-        
-        ;; Execute the circuit n-measurements times
-        execution-results (repeatedly n-measurements
-                                     #(qb/execute-circuit backend circuit options))
-        
-        ;; Combine all measurement results
-        all-measurements (reduce (fn [combined-measurements execution-result]
-                                  (let [measurements (:measurement-results execution-result)]
-                                    (merge-with + combined-measurements measurements)))
-                                {}
-                                execution-results)]
-    
-    {:measurements all-measurements
-     :circuit circuit
-     :execution-results execution-results
-     :precision-qubits precision-qubits
-     :eigenstate-qubits eigenstate-qubits
-     :n-measurements n-measurements}))
-
 (defn quantum-period-finding
   "Find the period of f(x) = a^x mod N using quantum phase estimation.
    
@@ -318,20 +202,20 @@
          
          ;; Add n-measurements to options and perform QPE once
          qpe-options (assoc options :n-measurements n-measurements)
-         qpe-result (quantum-phase-estimation-with-custom-unitary
+         qpe-result (qpe/quantum-phase-estimation-with-custom-unitary
                      backend 
                      precision-qubits
                      eigenstate-qubits
                      eigenstate-prep-fn
                      controlled-unitary-fn
                      qpe-options)
-         
+         num-qubits (get-in qpe-result [:circuit :num-qubits])
          ;; Extract and analyze measurement results
          all-measurements (:measurements qpe-result)
          
          ;; Convert measurements to phase estimates and then to period estimates
          period-candidates (for [measurement (keys all-measurements)
-                                :let [phase-result (qpe/parse-measurement-to-phase measurement precision-qubits)
+                                :let [phase-result (qpe/index-to-phase measurement num-qubits precision-qubits)
                                       phase (:estimated-phase phase-result)
                                       period-result (phase-to-period phase precision-qubits N a)]
                                 :when period-result]

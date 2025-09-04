@@ -55,8 +55,8 @@
   
   High-precision coefficients from Kandala et al. Nature (2017) ensure:
   - Hartree-Fock energy: EXACTLY -1.117 Ha (μHa precision)
-  - VQE ground state target: ~-1.137 Ha  
-  - Production-ready accuracy for quantum hardware implementations
+  - VQE ground state target: ~-1.137 Ha
+  - Accuracy for quantum hardware implementations
   
   Parameters:
   - bond-distance: H-H bond distance in Angstroms (coefficient set is optimized for 0.735 Å)
@@ -238,7 +238,9 @@
   Function that takes parameters and returns energy expectation value"
   [hamiltonian ansatz-fn backend options]
   {:pre [(ham/validate-hamiltonian hamiltonian) (fn? ansatz-fn)]}
-  (fn objective [parameters]
+  (let [options (merge options {:result-specs {:measurments {:shots (:shots options 1)}
+                                               :hamiltonian hamiltonian}})]
+  (fn objective [parameters] 
     (try
       (let [;; Ensure parameters is a vector (fastmath optimizers may pass ArraySeq)
             params-vec (if (vector? parameters) parameters (vec parameters))
@@ -246,13 +248,10 @@
             circuit (ansatz-fn params-vec)
 
             ;; Step 2: Execute circuit to get final quantum state
-            final-state (let [execution-result (qb/execute-circuit backend circuit options)]
-                          (if (= (:job-status execution-result) :completed)
-                            (:final-state execution-result)
-                            ;; Fallback to simulation if backend execution fails
-                            ;; TODO: no fallback, handle backend failures appropriately
-                            (qc/execute-circuit circuit (qs/zero-state (:num-qubits circuit)))))
-                          
+            execution-result (qb/execute-circuit backend circuit options)
+            results (:results execution-result)
+            final-state (:final-state results)
+
             ;; Step 3: Calculate Hamiltonian expectation value (energy)
             energy (ham/hamiltonian-expectation hamiltonian final-state)]
 
@@ -263,7 +262,7 @@
         ;; Return large positive value if any step fails
         (println "VQE objective evaluation failed:" (.getMessage e))
         (.printStackTrace e)
-        1000.0))))
+        1000.0)))))
 
 (defn vqe-optimization
   "Run VQE optimization using the specified method.

@@ -96,8 +96,65 @@
                    (let [coeff (:coefficient term)
                          pauli-str (:pauli-string term)]
                      (* coeff (pauli-string-expectation pauli-str quantum-state))))
+                 
                  hamiltonian)))
 
+(defn hamiltonian-expectation-density-matrix
+  "Calculate expectation value of a Hamiltonian for density matrix ρ.
+  
+  For density matrices (mixed states), the expectation value is calculated as:
+  ⟨H⟩ = Σᵢ cᵢ Tr(ρPᵢ) where cᵢ are coefficients and Pᵢ are Pauli strings.
+  
+  This function supports both single density matrices and collections of density 
+  matrices with optional weights for ensemble averaging.
+  
+  Parameters:
+  - hamiltonian: Collection of Pauli terms
+  - density-matrix-or-collection: Either a single density matrix or collection of matrices
+  - weights: (optional) Collection of weights for weighted averaging. If not provided,
+             uniform weighting is used for collections.
+  
+  Returns:
+     For single matrix: Real number representing the expectation value (energy)
+     For collection: Map with :mean, :std-dev, :variance, :weights, :individual-values
+  
+  Examples:
+     (hamiltonian-expectation-density-matrix h2-hamiltonian single-density-matrix)
+     (hamiltonian-expectation-density-matrix h2-hamiltonian [dm1 dm2 dm3])
+     (hamiltonian-expectation-density-matrix h2-hamiltonian [dm1 dm2] [0.3 0.7])"
+  ([hamiltonian density-matrix]
+   {:pre [(validate-hamiltonian hamiltonian)]}
+   (if (and (coll? density-matrix) (not (vector? (first density-matrix))))
+     ;; Collection of density matrices - uniform weighting
+     (hamiltonian-expectation-density-matrix hamiltonian density-matrix nil)
+     ;; Single density matrix
+     (reduce + (map (fn [term]
+                      (let [coeff (:coefficient term)
+                            pauli-str (:pauli-string term)
+                            observable (obs/pauli-string->observable pauli-str)]
+                        (* coeff (obs/expectation-value-density-matrix observable density-matrix))))
+                    hamiltonian))))
+  ([hamiltonian density-matrices weights]
+   {:pre [(validate-hamiltonian hamiltonian)
+          (coll? density-matrices)
+          (or (nil? weights) (and (coll? weights) (= (count weights) (count density-matrices))))]}
+   (let [num-matrices (count density-matrices)
+         actual-weights (or weights (repeat num-matrices (/ 1.0 num-matrices)))
+         individual-values (mapv (fn [dm] (hamiltonian-expectation-density-matrix hamiltonian dm)) density-matrices)
+         weighted-mean (reduce + (map * actual-weights individual-values))
+         variance (if (> num-matrices 1)
+                    (let [diff-squares (map #(* %1 (Math/pow (- %2 weighted-mean) 2))
+                                            actual-weights individual-values)]
+                      (/ (reduce + diff-squares) (- 1.0 (reduce + (map #(* % %) actual-weights)))))
+                    0.0)
+         std-dev (Math/sqrt variance)]
+     {:mean weighted-mean
+      :std-dev std-dev
+      :variance variance
+      :weights (vec actual-weights)
+      :individual-values individual-values
+      :count num-matrices})))
+      
 (defn group-commuting-terms
   "Group Hamiltonian terms that can be measured simultaneously.
   

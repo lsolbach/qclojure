@@ -37,7 +37,7 @@
   "Pauli-X observable (σₓ)"
   gate/pauli-x)
 
-(def pauli-y  
+(def pauli-y
   "Pauli-Y observable (σᵧ)"
   gate/pauli-y)
 
@@ -58,7 +58,7 @@
    [fc/ZERO fc/ZERO]])
 
 (def projector-1
-  "Projector onto |1⟩ state"  
+  "Projector onto |1⟩ state"
   [[fc/ZERO fc/ZERO]
    [fc/ZERO fc/ONE]])
 
@@ -101,12 +101,12 @@
      (linear-combination [[0.5 pauli-x] [0.5 pauli-z]])"
   [coeffs-observables]
   {:pre [(s/valid? (s/coll-of (s/tuple number? ::observable)) coeffs-observables)]}
-  (reduce 
-    (fn [result [coeff obs]]
-      (mcore/add result (mcore/scale obs coeff)))
-    (zero-matrix (count (first (second (first coeffs-observables))))
-                 (count (second (first coeffs-observables))))
-    coeffs-observables))
+  (reduce
+   (fn [result [coeff obs]]
+     (mcore/add result (mcore/scale obs coeff)))
+   (zero-matrix (count (first (second (first coeffs-observables))))
+                (count (second (first coeffs-observables))))
+   coeffs-observables))
 
 (defn tensor-product
   "Create tensor product of observables: O₁ ⊗ O₂ ⊗ ... ⊗ Oₙ
@@ -171,6 +171,58 @@
   (let [state-vec (:state-vector quantum-state)
         obs-psi (mcore/matrix-vector-product observable state-vec)]
     (fc/re (mcore/inner-product state-vec obs-psi))))
+
+(defn expectation-value-density-matrix
+  "Calculate expectation value Tr(ρO) of observable O for density matrix ρ.
+   
+   For density matrices (mixed states), the expectation value is calculated as
+   the trace of the product of the density matrix and the observable: Tr(ρO).
+   
+   This function supports both single density matrices and collections of density 
+   matrices with optional weights for ensemble averaging.
+   
+   Parameters:
+   - observable: Hermitian matrix representing the observable
+   - density-matrix-or-collection: Either a single density matrix or collection of matrices
+   - weights: (optional) Collection of weights for weighted averaging. If not provided,
+             uniform weighting is used for collections.
+   
+   Returns:
+     For single matrix: Real number representing the expectation value
+     For collection: Map with :mean, :std-dev, :variance, :weights, :individual-values
+   
+   Examples:
+     (expectation-value-density-matrix pauli-z single-density-matrix)
+     (expectation-value-density-matrix pauli-z [dm1 dm2 dm3])
+     (expectation-value-density-matrix pauli-z [dm1 dm2] [0.3 0.7])"
+  ([observable density-matrix]
+   {:pre [(s/valid? ::observable observable)]}
+   (if (and (coll? density-matrix) (not (vector? (first density-matrix))))
+     ;; Collection of density matrices - uniform weighting
+     (expectation-value-density-matrix observable density-matrix nil)
+     ;; Single density matrix
+     (fc/re (mcore/trace (mcore/matrix-multiply density-matrix observable)))))
+  ([observable density-matrices weights]
+   {:pre [(s/valid? ::observable observable)
+          (coll? density-matrices)
+          (or (nil? weights) (and (coll? weights) (= (count weights) (count density-matrices))))]}
+   (let [num-matrices (count density-matrices)
+         actual-weights (or weights (repeat num-matrices (/ 1.0 num-matrices)))
+         individual-values (mapv #(fc/re (mcore/trace (mcore/matrix-multiply % observable)))
+                                 density-matrices)
+         weighted-mean (reduce + (map * actual-weights individual-values))
+         variance (if (> num-matrices 1)
+                    (let [diff-squares (map #(* %1 (Math/pow (- %2 weighted-mean) 2))
+                                            actual-weights individual-values)]
+                      (/ (reduce + diff-squares) (- 1.0 (reduce + (map #(* % %) actual-weights)))))
+                    0.0)
+         std-dev (Math/sqrt variance)]
+     {:mean weighted-mean
+      :std-dev std-dev
+      :variance variance
+      :weights (vec actual-weights)
+      :individual-values individual-values
+      :count num-matrices})))
 
 (defn variance
   "Calculate variance of observable: ⟨O²⟩ - ⟨O⟩²
@@ -275,5 +327,4 @@
 
   ;; Performance testing
   (time (pauli-string->observable "XYZIXYZIXYZ"))  ; Large multi-qubit observable
-
   )

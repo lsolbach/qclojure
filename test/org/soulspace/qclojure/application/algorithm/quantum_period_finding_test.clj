@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing run-tests]]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.application.algorithm.quantum-phase-estimation :as qpe]
             [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]
             [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
@@ -50,77 +51,6 @@
     
     ;; Invalid parameters
     (is (nil? (qpf/phase-to-period 1.0 3 2 5)) "Should return nil for a >= N")))
-
-;;
-;; Test quantum phase estimation circuit creation
-;;
-(deftest test-quantum-phase-estimation-circuit
-  (testing "Circuit creation with valid parameters"
-    (let [eigenstate-prep-fn (fn [circuit eigenstate-range] 
-                               (qc/x-gate circuit (first eigenstate-range)))
-          controlled-unitary-fn (fn [circuit control-qubit power eigenstate-range]
-                                  (qc/crz-gate circuit control-qubit 
-                                              (first eigenstate-range) 
-                                              (* 2 Math/PI (/ power 8))))
-          circuit (qpf/quantum-phase-estimation-circuit 3 3 eigenstate-prep-fn controlled-unitary-fn)]
-      
-      (is (map? circuit) "Should return a circuit map")
-      (is (= 6 (:num-qubits circuit)) "Should have correct total qubits")
-      (is (string? (:name circuit)) "Should have a name")
-      (is (vector? (:operations circuit)) "Should have operations vector")))
-  
-  (testing "Circuit structure validation"
-    (let [eigenstate-prep-fn (fn [circuit eigenstate-range] 
-                               (qc/x-gate circuit (first eigenstate-range)))
-          controlled-unitary-fn (fn [circuit control-qubit power eigenstate-range]
-                                  (qc/crz-gate circuit control-qubit 
-                                               (first eigenstate-range) 
-                                               (* 2 Math/PI (/ power 8))))
-          circuit (qpf/quantum-phase-estimation-circuit 4 3 eigenstate-prep-fn controlled-unitary-fn)
-          operations (:operations circuit)
-          
-          ;; Check for expected gate types
-          gate-types (map :operation-type operations)]
-      (is (some #(= :x %) gate-types) "Should contain X gates for eigenstate prep")
-      (is (some #(= :h %) gate-types) "Should contain Hadamard gates for superposition")
-      (is (some #(= :crz %) gate-types) "Should contain controlled rotations"))))
-
-;;
-;; Test quantum phase estimation with custom unitary
-;;
-(deftest test-quantum-phase-estimation-with-custom-unitary
-  (testing "QPE execution with simple unitary"
-    (let [eigenstate-prep-fn (fn [circuit eigenstate-range] 
-                               (qc/x-gate circuit (first eigenstate-range)))
-          controlled-unitary-fn (fn [circuit control-qubit power eigenstate-range]
-                                  (qc/crz-gate circuit control-qubit 
-                                              (first eigenstate-range) 
-                                              (* 2 Math/PI (/ power 8))))
-          result (qpf/quantum-phase-estimation-with-custom-unitary
-                   test-backend 3 3 eigenstate-prep-fn controlled-unitary-fn 
-                   {:shots 100 :n-measurements 2})]
-      
-      (is (map? result) "Should return a result map")
-      (is (contains? result :measurements) "Should contain measurements")
-      (is (contains? result :circuit) "Should contain circuit")
-      (is (contains? result :precision-qubits) "Should contain precision qubits")
-      (is (contains? result :eigenstate-qubits) "Should contain eigenstate qubits")
-      (is (= 2 (:n-measurements result)) "Should record n-measurements")
-      (is (map? (:measurements result)) "Measurements should be a map")))
-  
-  (testing "QPE with different measurement counts"
-    (let [eigenstate-prep-fn (fn [circuit eigenstate-range] 
-                               (qc/x-gate circuit (first eigenstate-range)))
-          controlled-unitary-fn (fn [circuit control-qubit power eigenstate-range]
-                                  (qc/crz-gate circuit control-qubit 
-                                              (first eigenstate-range) 
-                                              (* 2 Math/PI (/ power 8))))
-          result (qpf/quantum-phase-estimation-with-custom-unitary
-                   test-backend 3 3 eigenstate-prep-fn controlled-unitary-fn 
-                   {:shots 50 :n-measurements 5})]
-      
-      (is (= 5 (:n-measurements result)) "Should handle multiple measurements")
-      (is (= 5 (count (:execution-results result))) "Should have correct execution count"))))
 
 ;;
 ;; Test quantum period finding main function
@@ -272,7 +202,6 @@
   
   ;; Individual test examples
   (test-phase-to-period)
-  (test-quantum-phase-estimation-circuit)
   (test-quantum-period-finding)
   (test-classical-verification)
   

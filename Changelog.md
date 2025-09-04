@@ -8,14 +8,23 @@
     * transforming noisy simulator in a full quantum hardware simulator
     * use device profiles for max qubits, native gates, topology and noise model
     * optimize circuits for native gate set and topology
+  * integrating result extraction in simulators (work in progress)
+    done for ideal simulator
 * removed native hardware gate sets from operation-registry
   * device profiles provide the information about native gates
 * improved noise application in noisy simulator
+* added density matrix functions in state, obervables and hamiltonian namespaces
 * improved measurement probabilities calculation for observables
-* fixed bug in eigen-hermitian in fastmath backend
-* sorted eigen decompositions consistently across functions and backends
-* fixed matrix-log to compute the complex logarithm in the case of negative eigenvalues too
-* added diagonal? to MatrixAlgebra protocol and implementations
+* improved vector encoding and accuracy assesment in HHL algorithm
+* improved Simon's algorithm
+* integrating result extraction in algorithms (work in progress)
+  * done for Deutsch, BV, Simon, Grover and QPE
+* moved QPE related functions from quantum-period-finging to quantum-phase-estimation
+* improved complex linear algebra backends
+  * fixed bug in eigen-hermitian in fastmath backend
+  * sorted eigen decompositions consistently across functions and backends
+  * fixed matrix-log to compute the complex logarithm in the case of negative eigenvalues too
+  * added diagonal? to MatrixAlgebra protocol and implementations
 * added and improved docstrings
 * updated the tutorial
 

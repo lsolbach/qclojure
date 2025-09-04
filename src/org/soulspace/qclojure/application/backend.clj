@@ -221,28 +221,6 @@
     Returns: Map of individual job results"))
 
 ;;;
-;;; Protocol for simulator backends 
-;;;
-;    TODO check if needed
-(defprotocol SimulatorBackend
-  "Extended protocol for simulator backends.
-  
-   This protocol extends the basic QuantumBackend with simulator-specific
-   functionality for circuit execution, result type specification and result
-   extraction."
-
-  (execute-circuit [this circuit options] [this circuit initial-state options]
-    "Execute a quantum circuit on the simulator directly without job submission.
-    
-    Parameters:
-    - circuit: A quantum circuit from qclojure.domain.quantum-circuit
-    - initial-state: Optional initial quantum state (defaults to zero state)
-    - options: Execution options including shot count and result specs
-    
-    Returns: A map containing measurement results and statistics.")
-  )
-
-;;;
 ;;; High-level execution functions
 ;;;
 (defn execute-circuit

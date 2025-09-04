@@ -212,9 +212,9 @@
     :mixed (throw (ex-info "Mixed Pauli terms require separate measurement circuits"
                            {:pauli-terms pauli-terms}))))
 
-;;
-;; VQE Core Algorithm
-;;
+;;;
+;;; VQE Core Algorithm
+;;;
 (defn create-vqe-objective
   "Create the objective function for VQE optimization.
   
@@ -474,9 +474,9 @@
                 :convergence-achieved (:success opt-result)}
      :optimization opt-result}))
 
-;;
-;; Analysis and Utilities
-;;
+;;;
+;;; Analysis and Utilities
+;;;
 (defn analyze-vqe-landscape
   "Analyze the VQE energy landscape around optimal parameters.
   

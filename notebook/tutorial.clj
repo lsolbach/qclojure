@@ -760,7 +760,7 @@ forte-10k-result
 ;; We use the simulator backend to execute the circuit.
 
 (def deutsch-constant-result
-  (deutsch/deutsch-algorithm (sim/create-simulator) constant-fn))
+  (deutsch/deutsch-algorithm (sim/create-simulator) constant-fn {:shots 1}))
 
 ;; The result of the Deutsch algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -786,7 +786,7 @@ deutsch-constant-result
 
 ;; Execute the Deutsch algorithm with the balanced function.
 (def deutsch-balanced-result
-  (deutsch/deutsch-algorithm (sim/create-simulator) balanced-fn))
+  (deutsch/deutsch-algorithm (sim/create-simulator) balanced-fn {:shots 1}))
 
 ;; The result of the Deutsch algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -858,7 +858,7 @@ deutsch-balanced-result
 ;; Now we can execute the Bernstein-Vazirani algorithm with the hidden binary string.
 
 (def bv-result
-  (bv/bernstein-vazirani-algorithm (sim/create-simulator) hidden-string))
+  (bv/bernstein-vazirani-algorithm (sim/create-simulator) hidden-string {:shots 1}))
 
 ;; The result of the Bernstein-Vazirani algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -936,7 +936,7 @@ bv-result
 ;; Now we can execute Simon's algorithm with the hidden binary string.
 
 (def simon-result
-  (simon/simon-algorithm (sim/create-simulator) hidden-string-simon))
+  (simon/simon-algorithm (sim/create-simulator) hidden-string-simon {:shots 1}))
 
 ;; The result of Simon's algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
@@ -1010,7 +1010,7 @@ simon-result
 ;; Now we can execute Grover's search algorithm with the defined oracle.
 
 (def grover-result
-  (grover/grover-algorithm (sim/create-simulator) 8 grover-oracle))
+  (grover/grover-algorithm (sim/create-simulator) 8 grover-oracle {:shots 1}))
 
 ;; Like the previous algorithms, the result of Grover's search algorithm
 ;; is a map that contains the result of the algorithm, the measurement outcome,
@@ -1072,7 +1072,7 @@ grover-result
 ;; frequency domain representation.
 
 (def qft-result
-  (qb/execute-circuit (sim/create-simulator) qft-circuit))
+  (qb/execute-circuit (sim/create-simulator) qft-circuit {:shots 1}))
 
 qft-result
 
@@ -1456,7 +1456,8 @@ h2-hamiltonian
     :max-iterations        200
     :tolerance             1e-5
     :learning-rate         0.1
-    :optimization-method   :adam}))
+    :optimization-method   :adam
+    :shots 1}))
 
 vqe-result
 
@@ -1565,7 +1566,7 @@ vqe-result
     :optimization-method :adam
     :max-iterations 100
     :tolerance 1e-6
-    :shots 10000}))
+    :shots 1000}))
 
 ;; The result of the QAOA algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.

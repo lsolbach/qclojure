@@ -16,6 +16,7 @@
 * added density matrix functions in state, obervables and hamiltonian namespaces
 * improved measurement probabilities calculation for observables
 * improved vector encoding and accuracy assesment in HHL algorithm
+* improved Simon's algorithm
 * integrating result extraction in algorithms (work in progress)
   * done for Deutsch, BV, Simon, Grover and QPE
 * moved QPE related functions from quantum-period-finging to quantum-phase-estimation

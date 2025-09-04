@@ -773,7 +773,7 @@ deutsch-constant-result
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the constant function. It is contained in the execution result of the algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :final-state])))
+(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :results :final-state])))
 
 ;; For the balanced function, we can create the circuit for the Deutsch algorithm.
 
@@ -797,7 +797,7 @@ deutsch-balanced-result
 
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the balanced function.
-(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :final-state])))
+(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :results :final-state])))
 
 ;; ### Bernstein-Vazirani Algorithm
 ;; The [Bernstein-Vazirani algorithm](https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm)
@@ -873,7 +873,7 @@ bv-result
 ;; The measurement outcome is the hidden binary string, which is 110.
 ;; Let's visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :final-state])))
+(kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :results :final-state])))
 
 ;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly
 ;; identifies the hidden binary string. The final quantum state is a superposition
@@ -1323,7 +1323,7 @@ hhl-result
 
 ;; Let's visualize the final quantum state after executing the HHL algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :final-state])))
+(kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state])))
 
 ;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition

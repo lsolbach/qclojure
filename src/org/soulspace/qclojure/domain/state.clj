@@ -635,6 +635,31 @@
                       (range n)))
               (range n) probs)))))
 
+
+
+(defn trajectory-to-density-matrix
+  "Convert a collection of quantum state trajectories to a normalized density matrix.
+  Accepts a collection of quantum state maps (with :state-vector and :num-qubits).
+  Optionally accepts weights for weighted averaging.
+  Returns a map {:density-matrix ... :num-qubits ... :trace ...}"
+  ([trajectories]
+   (trajectory-to-density-matrix trajectories nil))
+  ([trajectories weights]
+   (let [n (count trajectories)
+         weights (or weights (repeat n (/ 1.0 n)))
+         num-qubits (:num-qubits (first trajectories))
+         projectors (map (fn [state weight]
+                          (mcore/scale (mcore/outer-product (:state-vector state)
+                                                            (:state-vector state))
+                                       weight))
+                        trajectories weights)
+         sum-matrix (reduce mcore/add (first projectors) (rest projectors))
+         trace (mcore/trace sum-matrix)
+         normalized-matrix (mcore/scale sum-matrix (/ 1.0 trace))]
+     {:density-matrix normalized-matrix
+      :num-qubits num-qubits
+      :trace trace})))
+
 ;;;
 ;;; Pre-defined common quantum states
 ;;;

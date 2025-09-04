@@ -643,8 +643,9 @@
     (try
       (let [circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian parameters num-qubits)
             ;; Execute on quantum backend
-            result (qb/execute-circuit backend circuit options)
-            final-state (:final-state result)]
+            execution-result (qb/execute-circuit backend circuit options)
+            results (:results execution-result)
+            final-state (:final-state results)]
         (ham/hamiltonian-expectation problem-hamiltonian final-state))
       (catch Exception e
         (println "Error in QAOA objective function:" (.getMessage e))

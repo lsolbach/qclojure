@@ -19,7 +19,8 @@
    :readout-error {:prob-0-to-1 0.1 :prob-1-to-0 0.05}})
 
 (def clean-backend (sim/create-simulator))
-(def noisy-backend (noisy/create-noisy-simulator test-noise-model))
+(def noisy-backend (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                     :noise-model test-noise-model}))
 
 (deftest test-error-mitigation-protocol-integration
   (testing "Error mitigation with protocol-compliant backends"

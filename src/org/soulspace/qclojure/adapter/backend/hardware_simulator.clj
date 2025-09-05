@@ -308,14 +308,24 @@
   (or (get-in backend [:device :native-gates]) opreg/native-simulator-gate-set))
 
 (defn topology
-  "Get the qubit topology of the backend.
+  "Get the topology of the backend.
   
    Parameters:
    - backend: Backend instance
    
-   Returns: Topology map or default fully connected for 16 qubits"
+   Returns: The topology key"
   [backend]
   (get-in backend [:device :topology]))
+
+(defn coupling
+  "Get the qubit coupling of the backend.
+  
+   Parameters:
+   - backend: Backend instance
+   
+   Returns: Qubit coupling as vector of vectors"
+  [backend]
+  (get-in backend [:device :coupling]))
 
 (defn noise-model
   "Get the noise model of the backend.
@@ -529,27 +539,11 @@
 ;;;
 ;;; Factory functions for hardware simulators
 ;;;
-(defn create-noisy-simulator
-  "Create a local noisy quantum simulator with comprehensive noise modeling.
-  
-   Parameters:
-   - noise-model: noise model configuration
-   - config: Optional simulator configuration
-  
-   Returns: QuantumHardwareSimulator instance with noise model, full gate set
-   and fully connected qubits"
-  ([noise-model]
-   (create-noisy-simulator noise-model {}))
-  ([noise-model config]
-   (->QuantumHardwareSimulator {:name "Noisy Simulator"
-                                :noise-model noise-model}
-                               config)))
-
 (defn create-hardware-simulator
   "Create a hardware simulator for a specific device.
   
    Parameters:
-   - device: Device map with max-qubits, native-gates, topology, noise-model
+   - device: Device map with max-qubits, native-gates, topology and/or coupling and noise-model
    - config: Optional simulator configuration
   
    Returns: QuantumHardwareSimulator instance"
@@ -634,27 +628,27 @@
   (noise-model-for :ibm-lagos)
 
   ;; Create advanced simulators with different noise characteristics
-  (def ibm-sim (create-noisy-simulator (noise-model-for :ibm-lagos)))
+  (def ibm-sim (create-hardware-simulator (noise-model-for :ibm-lagos)))
   (keys ibm-sim)
   (:device ibm-sim)
   (max-qubits ibm-sim)
   (noise-model ibm-sim)
-  (def rigetti-sim (create-noisy-simulator (noise-model-for :rigetti-aspen)))
-  (def ideal-sim (create-noisy-simulator {}))
+  (def rigetti-sim (create-hardware-simulator (noise-model-for :rigetti-aspen)))
+  (def ideal-sim (create-hardware-simulator {}))
 
   ;; === Amazon Braket Hardware Models ===
 
   ;; IonQ trapped ion systems (high fidelity, slow gates)
-  (def ionq-harmony-sim (create-noisy-simulator (noise-model-for :ionq-harmony)))
-  (def ionq-aria-sim (create-noisy-simulator (noise-model-for :ionq-aria)))
-  (def ionq-forte-sim (create-noisy-simulator (noise-model-for :ionq-forte)))
+  (def ionq-harmony-sim (create-hardware-simulator (noise-model-for :ionq-harmony)))
+  (def ionq-aria-sim (create-hardware-simulator (noise-model-for :ionq-aria)))
+  (def ionq-forte-sim (create-hardware-simulator (noise-model-for :ionq-forte)))
 
   ;; Rigetti superconducting systems (fast gates, moderate fidelity)
-  (def rigetti-m3-sim (create-noisy-simulator (noise-model-for :rigetti-aspen-m3)))
+  (def rigetti-m3-sim (create-hardware-simulator (noise-model-for :rigetti-aspen-m3)))
 
   ;; Photonic and neutral atom systems (unique characteristics)
-  (def xanadu-sim (create-noisy-simulator (noise-model-for :xanadu-x-series)))
-  (def quera-sim (create-noisy-simulator (noise-model-for :quera-aquila)))
+  (def xanadu-sim (create-hardware-simulator (noise-model-for :xanadu-x-series)))
+  (def quera-sim (create-hardware-simulator (noise-model-for :quera-aquila)))
 
   ;; Test Bell circuit across all platforms
   (def bell-circuit

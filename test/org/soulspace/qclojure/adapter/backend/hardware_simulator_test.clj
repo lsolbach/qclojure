@@ -21,14 +21,16 @@
 (deftest test-create-noisy-simulator
   (testing "Simulator creation"
     (testing "with noise model"
-      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))]
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model (noisy/noise-model-for :ibm-lagos)})]
         (is (satisfies? qb/QuantumBackend simulator) "Should implement QuantumBackend protocol")
         (is (qb/is-available? simulator) "Should be available")
         (is (contains? (qb/get-supported-gates simulator) :h) "Should support H gate")
         (is (contains? (qb/get-supported-gates simulator) :cnot) "Should support CNOT gate")))
     
     (testing "backend info"
-      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model (noisy/noise-model-for :ibm-lagos)})
             info (qb/get-backend-info simulator)]
         (is (= :quantum-hardware-simulator (:backend-type info)) "Should have correct backend type")
         (is (= (noisy/noise-model-for :ibm-lagos) (:noise-model info)) "Should contain noise model")
@@ -39,7 +41,8 @@
 (deftest test-circuit-execution
   (testing "Circuit execution with noise"
     (testing "single qubit circuit"
-      (let [simulator (noisy/create-noisy-simulator {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.01}}})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.01}}}})
             circuit (-> (qc/create-circuit 1) (qc/h-gate 0))
             job-id (qb/submit-circuit simulator circuit {:shots 100})]
         (is (string? job-id) "Should return job ID")
@@ -56,7 +59,8 @@
           (is (= 100 (reduce + (vals (:measurement-results result)))) "Shot counts should sum to total"))))
 
     (testing "GHZ circuit with realistic noise"
-      (let [simulator (noisy/create-noisy-simulator (noisy/noise-model-for :ibm-lagos))
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model (noisy/noise-model-for :ibm-lagos)})
             circuit (qc/ghz-state-circuit 3)
             job-id (qb/submit-circuit simulator circuit {:shots 1000})]
 
@@ -78,7 +82,8 @@
 (deftest test-job-management
   (testing "Job management functionality"
     (testing "job status tracking"
-      (let [simulator (noisy/create-noisy-simulator {})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})
             circuit (qc/ghz-state-circuit 2)
             job-id (qb/submit-circuit simulator circuit {:shots 10})]
         
@@ -90,7 +95,8 @@
         (is (= :completed (qb/get-job-status simulator job-id)) "Job should complete")))
     
     (testing "queue status"
-      (let [simulator (noisy/create-noisy-simulator {})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})
             queue-status (qb/get-queue-status simulator)]
         (is (map? queue-status) "Should return queue status map")
         (is (contains? queue-status :total-jobs) "Should contain total jobs")
@@ -98,7 +104,8 @@
         (is (contains? queue-status :completed-jobs) "Should contain completed jobs")))
     
     (testing "nonexistent job"
-      (let [simulator (noisy/create-noisy-simulator {})]
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})]
         (is (= :not-found (qb/get-job-status simulator "fake-job-id")) "Should return not-found")
         (is (= :not-found (:job-status (qb/get-job-result simulator "fake-job-id")))
             "Should return not-found for result")))))
@@ -107,7 +114,8 @@
 (deftest test-utility-functions
   (testing "Simulator state management"
     (testing "reset state"
-      (let [simulator (noisy/create-noisy-simulator {})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})
             circuit (qc/ghz-state-circuit 2)
             _ (qb/submit-circuit simulator circuit {:shots 10})
             initial-stats (noisy/get-simulator-stats)
@@ -118,7 +126,8 @@
         (is (= 0 (:total-jobs reset-stats)) "Should have no jobs after reset")))
     
     (testing "cleanup completed jobs"
-      (let [simulator (noisy/create-noisy-simulator {})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})
             circuit (qc/ghz-state-circuit 2)
             job-id (qb/submit-circuit simulator circuit {:shots 5})]
         
@@ -177,7 +186,8 @@
 (deftest test-edge-cases
   (testing "Edge cases and error handling"
     (testing "empty circuit"
-      (let [simulator (noisy/create-noisy-simulator (:ibm-lagos qb/devices))
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model (:ibm-lagos qb/devices)})
             circuit (qc/create-circuit 1) ; Empty circuit
             job-id (qb/submit-circuit simulator circuit {:shots 10})]
 
@@ -187,8 +197,9 @@
     
     (testing "invalid noise parameters"
       ; Test that very high noise parameters don't break the simulator
-      (let [simulator (noisy/create-noisy-simulator
-                       {:noise-model {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.7}}}}) ; High but valid
+      (let [simulator (noisy/create-hardware-simulator
+                       {:name "Noisy Simulator"
+                        :noise-model {:gate-noise {:h {:noise-type :depolarizing :noise-strength 0.7}}}}) ; High but valid
             circuit (-> (qc/create-circuit 1) (qc/h-gate 0))
             job-id (qb/submit-circuit simulator circuit {:shots 100})]
 
@@ -198,7 +209,8 @@
           (is (= 100 (reduce + (vals (:measurement-results result)))) "Should count all shots"))))
 
     (testing "zero shots"
-      (let [simulator (noisy/create-noisy-simulator {})
+      (let [simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                        :noise-model {}})
             circuit (qc/ghz-state-circuit 2)
             job-id (qb/submit-circuit simulator circuit {:shots 0})]
 

@@ -608,7 +608,8 @@ gate/t-dag-gate
 ;;
 ;; Let's instantiate the noisy simulator with the IBM Lagos profile.
 
-(def lagos-simulator (noisy/create-noisy-simulator (qb/devices :ibm-lagos)))
+(def lagos-simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                       :noise-model (qb/devices :ibm-lagos)}))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 ;; Because we use a noisy simulator, we may measure wrong answers.
@@ -641,7 +642,8 @@ lagos-10k-result
 
 ;; Let's instantiate the noisy simulator with the IonQ Forte profile.
 
-(def forte-simulator (noisy/create-noisy-simulator (qb/devices :ionq-forte)))
+(def forte-simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                       :noise-model (qb/devices :ionq-forte)}))
 
 ;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.

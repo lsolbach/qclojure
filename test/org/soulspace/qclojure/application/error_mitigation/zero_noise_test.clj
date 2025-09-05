@@ -22,7 +22,8 @@
 
 ;; Protocol-compliant backends for testing
 (def clean-backend (sim/create-simulator))
-(def noisy-backend (noisy/create-noisy-simulator test-noise-model))
+(def noisy-backend (noisy/create-hardware-simulator {:name "Noisy Simulator"
+                                                     :noise-model test-noise-model}))
 
 ;; Tests for Zero Noise Extrapolation with Backend Protocol Integration
 (deftest test-zero-noise-extrapolation-protocol-compliance

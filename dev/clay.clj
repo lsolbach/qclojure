@@ -21,8 +21,8 @@
           ;:live-reload true
           :browse true}))
 
-(def tutorial-quarto-config
-  "Quarto configuration for building the tutorial."
+(def tutorial-quarto-html-config
+  "Quarto HTML configuration for building the tutorial."
   (merge tutorial-base-config
          {:format [:quarto :html]
           :base-target-path "generated/quarto"
@@ -33,11 +33,22 @@
           :live-reload false
           :browse false }))
 
-(def tutorial-gfm-config
-  "Github flavoured markdown configuration for building the tutorial."
+(def tutorial-quarto-gfm-config
+  "Quarto Github flavoured markdown configuration for building the tutorial."
   (merge tutorial-base-config
          {:format [:quarto :gfm]
           :base-target-path "generated/gfm"
+          :clean-up-target-dir true
+          :hide-ui-header true
+          :hide-info-line false
+          :live-reload false
+          :browse false}))
+
+(def tutorial-quarto-pdf-config
+  "Quarto PDF configuration for building the tutorial."
+  (merge tutorial-base-config
+         {:format [:quarto :pdf]
+          :base-target-path "generated/pdf"
           :clean-up-target-dir true
           :hide-ui-header true
           :hide-info-line false
@@ -55,7 +66,8 @@
 
 (comment ; Clay 
   (make-tutorial-notebook)
-  (make-tutorial-notebook tutorial-quarto-config)
-  (make-tutorial-notebook tutorial-gfm-config)
+  (make-tutorial-notebook tutorial-quarto-html-config)
+  (make-tutorial-notebook tutorial-quarto-gfm-config)
+  (make-tutorial-notebook tutorial-quarto-pdf-config)
   ;
   )

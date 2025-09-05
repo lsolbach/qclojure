@@ -33,7 +33,7 @@ QClojure provides the core features for quantum computing.
 
 1. **Local Quantum Simulator Backend**
 
-   Local ideal/noisy simulators with job submission, status tracking, statistical measurement results with configurable shot counts and realistic noise profiles. Pluggable complex linear algebra backends for the simulators
+   Local ideal/hardware simulators with job submission, status tracking, configurable result extraction, shot counts and realistic native gates, topologies and noise profiles. Pluggable complex linear algebra backends for the simulators
 
 1. **Error Mitigation**
    
@@ -54,6 +54,7 @@ QClojure provides the core features for quantum computing.
 1. **Comprehensive Testing & Validation**
 
    Extensive test suite with statistical validation of quantum circuit behavior and measurement outcomes
+
 
 ### Extensions of QClojure
 Additional features, like specific backend implementations or algorithms for specific domains, will be provided as separate libraries, e.g.

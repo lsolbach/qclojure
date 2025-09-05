@@ -1,7 +1,14 @@
 # Changelog
 
 ## Version (NEXT)
-* 
+* shortened some spec names by removing the quantum prefix
+* extracted `topology` namespace from `hardware-optimization`
+  * differenciated between coupling and topology
+* activated first hardware optimizations in hardware simulator
+* integrated trajectory-state pipeline with result extraction to hardware simulator
+* renamed `math.core` namespace to `math.complex-linear-algebra`
+* registered project with `zenodo.org` for DOI generation
+  * makes qclojure releases citeable in papers
 
 ## Version (0.14.0)
 * simulator enhancements

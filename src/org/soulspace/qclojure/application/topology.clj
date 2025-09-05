@@ -131,54 +131,65 @@
    - Used in all IBM quantum processors since 2021
    
    Parameters:
-   - processor-type: Keyword identifying the IBM processor type
-                    :basic or 7 - Single hex ring (7 qubits)
-                    :falcon or 27 - Falcon-style pattern (27 qubits)  
-                    :hummingbird or 65 - Hummingbird-style pattern (65 qubits)
-                    :eagle or 127 - Eagle-style pattern (127 qubits)
-   
+   - num-qubits: Number of qubits in the topology (currently only 7 supported)
+
    Returns:
    Vector of vectors representing adjacency list for heavy-hex topology
    
    Example:
-   (heavy-hex-topology :basic)    ; 7-qubit hex ring, all degree 2
-   (heavy-hex-topology :falcon)   ; 27-qubit IBM Falcon pattern  
-   (heavy-hex-topology 7)         ; Same as :basic
-   (heavy-hex-topology 27)        ; Same as :falcon"
-  [processor-type]
-  {:pre [(or (keyword? processor-type) (pos-int? processor-type))]}
-  (let [proc-key (cond
-                   (#{:basic 1} processor-type) :basic
-                     ; (#{:falcon 27} processor-type) :falcon
-                     ; (#{:hummingbird 65} processor-type) :hummingbird
-                     ; (#{:eagle 127} processor-type) :eagle
-                   :else (throw (ex-info "Unsupported heavy-hex processor type"
-                                         {:processor-type processor-type
-                                          :supported [:basic 7]
-;                                            :supported [:basic :falcon :hummingbird :eagle 7 27 65 127]
-                                          })))]
+   (heavy-hex-coupling 7)"
+  [num-qubits]
+  {:pre [(pos-int? num-qubits)
+         (#{7} num-qubits)]}  ; Currently only support 7 and 27 qubit versions
+  
+  (case num-qubits 
+    7
+    ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
+    ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
+    ;; Layout:
+    ;;          0 
+    ;;           \
+    ;;            1---2
+    ;;           /     \
+    ;;          6       3
+    ;;           \     /
+    ;;            5---4
+    ;;
+    (let [coupling [[1]                ; 0: edge qubit, degree 1
+                    [0 2 6]            ; 1: Connection qubit, degree 3  
+                    [1 3]              ; 2: corner qubit, degree 2
+                    [2 4]              ; 3: corner qubit, degree 2
+                    [3 5]              ; 4: corner qubit, degree 2
+                    [4 6]              ; 5: corner qubit, degree 2
+                    [5 1]]]            ; 6: corner qubit, degree 2
+      (ensure-symmetric-coupling coupling))))
 
-    (case proc-key
-      :basic
-      ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
-      ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
-      ;; Layout:
-      ;;          0 
-      ;;           \
-      ;;            1---2
-      ;;           /     \
-      ;;          6       3
-      ;;           \     /
-      ;;            5---4
-      ;;
-      (let [coupling [[1]                ; 0: edge qubit, degree 1
-                      [0 2 6]            ; 1: Connection qubit, degree 3  
-                      [1 3]              ; 2: corner qubit, degree 2
-                      [2 4]              ; 3: corner qubit, degree 2
-                      [3 5]              ; 4: corner qubit, degree 2
-                      [4 6]              ; 5: corner qubit, degree 2
-                      [5 1]]]            ; 6: corner qubit, degree 2
-        (ensure-symmetric-coupling coupling)))))
+(defn coupling-for-topology
+  "Get the coupling for a given topology type and number of qubits.
+  
+   Parameters:
+   - topology: Keyword identifying the topology type
+               :all-to-all, :linear, :ring, :star, :grid, :heavy-hex
+   - num-qubits: Number of qubits in the topology (ignored for heavy-hex)
+  
+   Returns:
+   Vector of vectors representing adjacency list for the specified topology"
+  [topology num-qubits]
+  {:pre [(keyword? topology)
+         (nat-int? num-qubits)]}
+    (case topology
+        :all-to-all (all-to-all-coupling num-qubits)
+        :linear (linear-coupling num-qubits)
+        :ring (ring-coupling num-qubits)
+        :star (star-coupling num-qubits)
+        :grid (let [side (int (Math/sqrt num-qubits))
+                    rows side
+                    cols (if (zero? side) 0 (int (Math/ceil (/ num-qubits side))))]
+                (grid-coupling rows cols))
+        :heavy-hex (heavy-hex-coupling num-qubits)
+        (throw (ex-info "Unsupported topology type"
+                        {:topology topology
+                         :supported [:all-to-all :linear :ring :star :grid :heavy-hex]}))))
 
 ;;;
 ;;; Hardware Topology Optimization Functions

@@ -187,14 +187,14 @@
         ;; For |0⟩ state, Z measurements should always give +1
         (is (every? #(= % 1.0) (:sample-outcomes first-result)))))))
 
-(deftest test-compute-results-basic
-  (testing "Basic compute-results functionality"
+(deftest test-extract-results-basic
+  (testing "Basic extract-results functionality"
     (let [zero-state (qs/zero-state 1)
           test-result (create-test-result zero-state)
           specs {:measurements {:shots 10}
                  :expectation {:observables [obs/pauli-z]}
                  :state-vector true}
-          result (result/compute-results test-result specs)]
+          result (result/extract-results test-result specs)]
       
       (is (contains? result :final-state))
       (is (contains? result :measurement-results))
@@ -205,7 +205,7 @@
       (is (= (count (:expectation-results result)) 1))
       (is (util/approx= (:expectation-value (first (:expectation-results result))) 1.0)))))
 
-(deftest test-compute-results-comprehensive
+(deftest test-extract-results-comprehensive
   (testing "Compute results with Bell state and multiple result types"
     (let [bell-state (:final-state (qc/execute-circuit (qc/bell-state-circuit) (qs/zero-state 2)))
           test-result (create-test-result bell-state)
@@ -216,7 +216,7 @@
                  :amplitudes {:basis-states [0 3]}  ; |00⟩ and |11⟩
                  :state-vector true
                  :density-matrix true}
-          result (result/compute-results test-result specs)]
+          result (result/extract-results test-result specs)]
       
       (is (contains? result :measurement-results))
       (is (contains? result :expectation-results))
@@ -233,23 +233,23 @@
         (is (util/approx= (get (:probability-outcomes prob-results) [1 1]) 0.5 0.1))
         (is (= (:basis-states amp-results) [0 3]))))))
 
-(deftest test-compute-results-hamiltonian
+(deftest test-extract-results-hamiltonian
   (testing "Hamiltonian energy computation"
     (let [plus-state (qs/plus-state)
           test-result (create-test-result plus-state)
           hamiltonian [(ham/pauli-term 1.0 "X")]
           specs {:hamiltonian hamiltonian}
-          result (result/compute-results test-result specs)]
+          result (result/extract-results test-result specs)]
       
       (is (contains? result :hamiltonian-result))
       (let [ham-result (:hamiltonian-result result)]
         (is (util/approx= (:energy-expectation ham-result) 1.0))))))
 
-(deftest test-compute-results-empty-specs
+(deftest test-extract-results-empty-specs
   (testing "Empty result specs"
     (let [zero-state (qs/zero-state 1)
           test-result (create-test-result zero-state)
-          result (result/compute-results test-result {})]
+          result (result/extract-results test-result {})]
       
       (is (contains? result :final-state))
       (is (= (count (keys result)) 1)))))
@@ -261,7 +261,7 @@
           specs {:measurements {:shots 100}
                  :expectation {:observables [obs/pauli-z]}
                  :variance {:observables [obs/pauli-z]}}
-          computed-result (result/compute-results test-result specs)
+          computed-result (result/extract-results test-result specs)
           summary (result/summarize-results computed-result)]
       
       (is (contains? summary :measurement-summary))
@@ -289,7 +289,7 @@
                  :expectation {:observables [obs/pauli-z obs/pauli-x] :targets [0 1]}
                  :probabilities {:targets [[0 0] [0 1] [1 0] [1 1]]}
                  :state-vector true}
-          result (result/compute-results test-result specs)]
+          result (result/extract-results test-result specs)]
       
       (is (contains? result :measurement-results))
       (is (contains? result :expectation-results))
@@ -308,7 +308,7 @@
           specs {:measurements {:shots 500}
                  :probabilities {:targets [[0 0 0] [1 1 1]]}
                  :state-vector true}
-          result (result/compute-results test-result specs)]
+          result (result/extract-results test-result specs)]
       
       ;; GHZ state should have equal probability for |000⟩ and |111⟩
       (is (util/approx= (get (:probability-outcomes (:probability-results result)) [0 0 0]) 0.5 0.1))
@@ -320,6 +320,6 @@
   
   ;; Run specific test
   (test-extract-measurement-results)
-  (test-compute-results-comprehensive)
+  (test-extract-results-comprehensive)
   (test-real-circuit-integration)
   )

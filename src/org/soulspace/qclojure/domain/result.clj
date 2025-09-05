@@ -414,8 +414,11 @@
              :frequencies (frequencies sample-outcomes)}))
         observables))
 
-(defn compute-results
-  "Compute specified results from the final quantum state after circuit execution.
+;;;
+;;; Result extraction and processing
+;;;
+(defn extract-results
+  "Extract specified results from the final quantum state after circuit execution.
    
    Parameters:
    - result: Result map containing :final-state (the final quantum state after executinga circuit)
@@ -518,6 +521,125 @@
                 (:observables specs)
                 (or (:shots specs) 1000)
                 :target-qubits (:targets specs)))))))
+
+(defn extract-noisy-results
+  "Extract comprehensive results from noisy simulation data.
+  
+  This function processes the raw simulation results and extracts various
+  result types based on the result specifications, similar to the ideal
+  simulator but adapted for noisy hardware simulation with trajectories.
+  
+  Parameters:
+  - base-result: Raw simulation result from hardware simulator
+  - result-specs: Map specifying what types of results to extract
+  - circuit: Original circuit for context
+  
+  Returns:
+  Map of extracted results based on requested types"
+  [base-result result-specs circuit]
+  ; TODO job-status check/handling should be done in caller (e.g. hardware simulator)
+  (if (not= (:job-status base-result) :completed)
+    base-result  ; Return error results as-is
+    (let [final-state (:final-state base-result)
+          density-matrix (:density-matrix base-result)
+;          measurement-results (:measurement-results base-result)
+          shots (:shots-executed base-result)
+          enhanced-result (assoc base-result :result-types (set (keys result-specs)))]
+
+      (reduce-kv
+       (fn [acc-result result-type spec]
+         (try
+           (case result-type
+             :measurement
+             (let [measurement-data (extract-measurement-results
+                                     final-state
+                                     :measurement-qubits (:measurement-qubits spec)
+                                     :shots (or (:shots spec) shots))]
+               (assoc acc-result :measurement-results measurement-data))
+
+             :expectation
+             (let [observables (:observables spec)
+                   target-qubits (:target-qubits spec)
+                   expectations (if density-matrix
+                                  ;; Use density matrix for expectation values if available
+                                  (mapv #(obs/expectation-value-density-matrix % density-matrix) observables)
+                                  ;; Fall back to state-based calculation
+                                  (extract-expectation-results final-state observables
+                                                                      :target-qubits target-qubits))]
+               (assoc acc-result :expectation-results expectations))
+
+             :variance
+             (let [observables (:observables spec)
+                   target-qubits (:target-qubits spec)
+                   variances (extract-variance-results final-state observables
+                                                              :target-qubits target-qubits)]
+               (assoc acc-result :variance-results variances))
+
+             :hamiltonian
+             (let [hamiltonian (:hamiltonian spec)
+                   energy-result (if density-matrix
+                                   ;; Use density matrix for Hamiltonian expectation if available
+                                   (ham/hamiltonian-expectation-density-matrix hamiltonian density-matrix)
+                                   ;; Fall back to state-based calculation
+                                   (extract-hamiltonian-expectation final-state hamiltonian))]
+               (assoc acc-result :hamiltonian-expectation energy-result))
+
+             :probability
+             (let [target-qubits (:target-qubits spec)
+                   target-states (:target-states spec)
+                   probs (extract-probability-results final-state
+                                                      :target-qubits target-qubits
+                                                      :target-states target-states)]
+               (assoc acc-result :probability-results probs))
+
+             :amplitude
+             (let [basis-states (:basis-states spec)
+                   amps (extract-amplitude-results final-state basis-states)]
+               (assoc acc-result :amplitude-results amps))
+
+             :state-vector
+             (if (true? spec)  ; Simple boolean flag for state vector
+               (let [state-data (extract-state-vector-result final-state)]
+                 (assoc acc-result :state-vector-result state-data))
+               acc-result)
+
+             :density-matrix
+             (if (true? spec)  ; Simple boolean flag for density matrix
+               (let [dm-data (if density-matrix
+                               {:density-matrix density-matrix
+                                :num-qubits (:num-qubits circuit)
+                                :trace (:density-matrix-trace base-result)
+                                :from-trajectories true
+                                :trajectory-count (:trajectory-count base-result)}
+                               ;; Generate from final state if no trajectory-based DM
+                               (extract-density-matrix-result final-state))]
+                 (assoc acc-result :density-matrix-result dm-data))
+               acc-result)
+
+             :fidelity
+             (let [reference-states (:reference-states spec)
+                   fidelities (extract-fidelity-result final-state reference-states)]
+               (assoc acc-result :fidelity-results fidelities))
+
+             :sample
+             (let [observables (:observables spec)
+                   sample-shots (:shots spec)
+                   target-qubits (:target-qubits spec)
+                   samples (extract-sample-results final-state observables sample-shots
+                                                          :target-qubits target-qubits)]
+               (assoc acc-result :sample-results samples))
+
+             ;; Default case - unknown result type
+             (do
+               (println (str "Warning: Unknown result type " result-type " in hardware simulator"))
+               acc-result))
+
+           (catch Exception e
+             (println (str "Error extracting " result-type " results: " (.getMessage e)))
+             (assoc acc-result (keyword (str (name result-type) "-error")) (.getMessage e)))))
+
+       enhanced-result
+       result-specs))))
 
 ;;;
 ;;; Result analysis and post-processing

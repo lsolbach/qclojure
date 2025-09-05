@@ -51,6 +51,7 @@
   environment for testing purposes."
   (:require [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.result :as result]
             [org.soulspace.qclojure.domain.operation-registry :as opreg]
             [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.domain.noise :as noise]
@@ -87,7 +88,29 @@
     (let [clean-state (qc/apply-operation-to-state state gate)]
       (noise/apply-gate-noise clean-state gate noise-model))))
 
-(defn- execute-single-noisy-shot
+(defn execute-single-noisy-shot-with-trajectory
+  "Execute a single shot of a noisy quantum circuit, returning both outcome and final state.
+  
+  Parameters:
+  - circuit: Quantum circuit to simulate
+  - initial-state: Initial quantum state (optional, defaults to |00...0⟩)
+  - noise-model: Noise model configuration
+  
+  Returns: Map containing :outcome (measurement bitstring) and :final-state (quantum state)"
+  ([circuit noise-model]
+   (execute-single-noisy-shot-with-trajectory circuit (qs/zero-state (:num-qubits circuit)) noise-model))
+  ([circuit initial-state noise-model]
+   (let [num-qubits (:num-qubits circuit)
+         ;; Apply all gates with noise
+         final-state (reduce (gate-with-noise-applicator noise-model)
+                             initial-state
+                             (:operations circuit))
+         ;; Final measurement with readout noise
+         measurement (noise/apply-readout-noise final-state num-qubits noise-model)]
+     {:outcome measurement
+      :final-state final-state})))
+
+(defn execute-single-noisy-shot
   "Execute a single shot of a noisy quantum circuit.
   
   Parameters:
@@ -99,15 +122,131 @@
   ([circuit noise-model]
    (execute-single-noisy-shot circuit (qs/zero-state (:num-qubits circuit)) noise-model))
   ([circuit initial-state noise-model]
-   (let [num-qubits (:num-qubits circuit)
-         ;; Apply all gates with noise
-         final-state (reduce (gate-with-noise-applicator noise-model)
-                             initial-state
-                             (:operations circuit))
-         ; Final measurement with readout noise
-         measurement (noise/apply-readout-noise final-state num-qubits noise-model)
-         ]
-     measurement)))
+   (:outcome (execute-single-noisy-shot-with-trajectory circuit initial-state noise-model))))
+
+(defn execute-noisy-circuit-simulation-with-trajectories
+  "Execute a noisy quantum circuit simulation collecting state trajectories.
+  
+  This enhanced version supports comprehensive result extraction similar to 
+  the ideal simulator, including expectation values, variances, probabilities,
+  and other quantum mechanical observables computed from the noisy simulation.
+  
+  Parameters:
+  - circuit: Quantum circuit to simulate
+  - initial-state: Initial quantum state for simulation
+  - options: Execution options including shot count, trajectory collection settings, and result specs
+  - noise-model: Noise model configuration
+  
+  Returns: Simulation results including trajectory-based density matrix and extracted results"
+  [circuit initial-state options noise-model]
+  (try
+    (let [start-time (System/currentTimeMillis)
+          shots (get options :shots 1024)
+          collect-trajectories? (get options :collect-trajectories false)
+          max-trajectories (get options :max-trajectories 100)
+          result-specs (:result-specs options)] ; Extract result specifications
+
+      ;; Execute each shot independently with fresh noise
+      (loop [shot-count 0
+             accumulated-results {}
+             trajectories []
+             last-final-state nil]
+
+        (if (>= shot-count shots)
+          (let [base-result {:job-status :completed
+                             :measurement-results accumulated-results
+                             :final-state last-final-state
+                             :noise-applied true
+                             :shots-executed shots
+                             :execution-time-ms (- (System/currentTimeMillis) start-time)}
+                ;; Add trajectory-based results if collected and apply result extraction
+                enhanced-result (if (and collect-trajectories? (seq trajectories))
+                                  (let [density-matrix-result (qs/trajectory-to-density-matrix trajectories)
+                                        density-matrix (:density-matrix density-matrix-result)]
+                                    (assoc base-result
+                                           :trajectories trajectories
+                                           :trajectory-count (count trajectories)
+                                           :density-matrix density-matrix
+                                           :density-matrix-trace (:trace density-matrix-result)
+                                           :trajectory-weights (:weights density-matrix-result)))
+                                  base-result)]
+
+            ;; Apply result extraction if result specs are provided
+            (if result-specs
+              (result/extract-noisy-results enhanced-result result-specs circuit)
+              enhanced-result))
+
+          ;; Execute single shot with fresh noise
+          (let [shot-result (execute-single-noisy-shot-with-trajectory circuit initial-state noise-model)
+                outcome-bitstring (:outcome shot-result)
+                final-state (:final-state shot-result)
+                updated-results (update accumulated-results outcome-bitstring (fnil inc 0))
+
+                ;; Collect trajectory if enabled and under limit
+                updated-trajectories (if (and collect-trajectories?
+                                              (< (count trajectories) max-trajectories))
+                                       (conj trajectories final-state)
+                                       trajectories)]
+
+            (recur (inc shot-count)
+                   updated-results
+                   updated-trajectories
+                   final-state)))))
+
+    (catch Exception e
+      (.printStackTrace e)
+      {:job-status :failed
+       :error-message (.getMessage e)
+       :exception-type (.getName (class e))})))
+
+(defn execute-noisy-circuit-with-results
+  "Execute a noisy quantum circuit with comprehensive result extraction.
+  
+  This function provides a high-level interface similar to the ideal simulator
+  but with realistic noise modeling. It automatically enables trajectory 
+  collection when density matrix-based calculations are needed.
+  
+  Parameters:
+  - circuit: Quantum circuit to simulate
+  - initial-state: Initial quantum state (optional, defaults to |00...0⟩)
+  - options: Execution options including:
+    - :shots - Number of measurement shots (default: 1024)
+    - :result-specs - Map specifying what results to extract
+    - :noise-model - Noise model configuration (optional)
+    - :collect-trajectories - Enable trajectory collection (auto-detected from result specs)
+    - :max-trajectories - Maximum trajectories to collect (default: 100)
+  
+  Returns: Comprehensive results with both raw simulation data and extracted observables
+  
+  Examples:
+    (execute-noisy-circuit-with-results bell-circuit
+      {:shots 1000
+       :result-specs {:measurement {:shots 1000}
+                      :expectation {:observables [obs/pauli-z obs/pauli-x]}
+                      :density-matrix true}})
+    
+    (execute-noisy-circuit-with-results vqe-circuit qs/|00⟩ 
+      {:shots 2000
+       :result-specs {:hamiltonian {:hamiltonian h2-hamiltonian}
+                      :state-vector true}
+       :noise-model {:depolarizing-rate 0.01}})"
+  ([circuit options]
+   (execute-noisy-circuit-with-results circuit (qs/zero-state (:num-qubits circuit)) options))
+  ([circuit initial-state options]
+   (let [result-specs (:result-specs options)
+         noise-model (or (:noise-model options) {:depolarizing-rate 0.01})
+         
+         ;; Auto-enable trajectory collection if density matrix operations are needed
+         needs-trajectories? (or (:collect-trajectories options)
+                                (:density-matrix result-specs)
+                                (:hamiltonian result-specs)
+                                (:expectation result-specs))
+         
+         enhanced-options (cond-> options
+                                 needs-trajectories? (assoc :collect-trajectories true)
+                                 (not (:max-trajectories options)) (assoc :max-trajectories 100))]
+     
+     (execute-noisy-circuit-simulation-with-trajectories circuit initial-state enhanced-options noise-model))))
 
 (defn- execute-noisy-circuit-simulation
   "Execute a noisy quantum circuit simulation with proper noise independence per shot.
@@ -119,49 +258,7 @@
   
   Returns: Noisy simulation results"
   [circuit options noise-model]
-  (try
-    (let [start-time (System/currentTimeMillis)
-          shots (get options :shots 1024)
-          num-qubits (:num-qubits circuit)]
-
-      ;; Execute each shot independently with fresh noise
-      (loop [shot-count 0
-             accumulated-results {}
-             last-final-state nil]
-
-        (if (>= shot-count shots)
-          {:job-status :completed
-           :measurement-results accumulated-results
-           :final-state last-final-state  ; Return the final state from the last shot
-           :noise-applied true
-           :shots-executed shots
-           :execution-time-ms (- (System/currentTimeMillis) start-time)}
-
-          ;; TODO incorporate result spec, return state and measured bitstring from single shot
-
-          ;; Execute single shot with fresh noise
-          (let [outcome-bitstring (execute-single-noisy-shot circuit noise-model)
-                ;; For the final state, we'll capture it from one of the shots
-                ;; (Note: this is somewhat artificial since each shot has different noise)
-                updated-results (update accumulated-results outcome-bitstring (fnil inc 0))]
-
-            (recur (inc shot-count)
-                   updated-results
-                   (if (= shot-count (dec shots))
-                     ;; Capture final state from last shot for compatibility
-                     (loop [state (qs/zero-state num-qubits)
-                            gates (:operations circuit)]
-                       (if (empty? gates)
-                         state
-                         (recur (qc/apply-operation-to-state state (first gates))
-                                (rest gates))))
-                     last-final-state))))))
-
-    (catch Exception e
-      (.printStackTrace e)
-      {:job-status :failed
-       :error-message (.getMessage e)
-       :exception-type (.getName (class e))})))
+  (execute-noisy-circuit-simulation-with-trajectories circuit (qs/zero-state (:num-qubits circuit)) options noise-model))
 
 ;;;
 ;;; Noise Model Management
@@ -260,6 +357,8 @@
           native-gates (native-gates this)
           topology (topology this)
           noise-model (noise-model this)
+
+;; TODO topology/coupling map calculation
 ;;          ;; Optimize circuit for hardware
 ;;          optimized-circuit (hwopt/optimize circuit
 ;;                                            native-gates
@@ -272,7 +371,11 @@
 
       ;; Execute immediately in future (async execution)
       (future
-        (let [result (execute-noisy-circuit-simulation circuit options noise-model)
+        (let [result (if (:result-specs options)
+                      ;; Use enhanced execution with result extraction
+                      (execute-noisy-circuit-with-results circuit options)
+                      ;; Fall back to basic execution
+                      (execute-noisy-circuit-simulation circuit options noise-model))
               completed-job (assoc job
                                    :status (:job-status result)
                                    :result result

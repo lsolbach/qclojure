@@ -149,14 +149,16 @@
       (case proc-key
         :basic
         ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
-        ;; Based on IBM's actual heavy-hex topology where qubits have degree 2 or 3
-        ;; Layout:  0 
-        ;;          |
-        ;;          1---2
-        ;;         /     \
-        ;;        6       3
-        ;;         \     /
-        ;;          5---4
+        ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
+        ;; Layout:
+        ;;          0 
+        ;;           \
+        ;;            1---2
+        ;;           /     \
+        ;;          6       3
+        ;;           \     /
+        ;;            5---4
+        ;;
         (let [topology [[1]                ; 0: edge qubit, degree 1
                         [0 2 6]            ; 1: Connection qubit, degree 3  
                         [1 3]              ; 2: corner qubit, degree 2
@@ -764,7 +766,7 @@
         gate-optimization-result (if optimize-gates?
                                    (let [optimized-circuit (go/optimize-gate-cancellations circuit)
                                          gates-removed (- (count (:operations circuit))
-                                                         (count (:operations optimized-circuit)))]
+                                                          (count (:operations optimized-circuit)))]
                                      {:quantum-circuit optimized-circuit
                                       :gates-removed gates-removed
                                       :original-gate-count (count (:operations circuit))
@@ -775,7 +777,7 @@
                                     :optimized-gate-count (count (:operations circuit))})
 
         step1-circuit (:quantum-circuit gate-optimization-result)
-
+        
         ;; STEP 2: Qubit optimization FIRST (before topology constraints)
         qubit-result (if optimize-qubits?
                        (qo/optimize-qubit-usage step1-circuit)
@@ -808,7 +810,7 @@
         final-gate-types (map :operation-type (:operations final-circuit))
         unsupported-final (remove #(contains? supported-operations %) final-gate-types)
         all-supported? (empty? unsupported-final)]
-    
+
     ;; Return comprehensive result
     {:quantum-circuit final-circuit
      :pipeline-order [:gate-cancellation :qubit-optimization :topology-optimization :gate-decomposition :validation]

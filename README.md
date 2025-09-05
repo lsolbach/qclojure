@@ -6,6 +6,7 @@ The QClojure library provides a Clojure interface to quantum computing concepts.
 [![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
 [![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure)
 ![GitHub](https://img.shields.io/github/license/lsolbach/QClojure)
+[![DOI](https://zenodo.org/badge/993970268.svg)](https://doi.org/10.5281/zenodo.17059552)
 
 ## Main Features of QClojure
 QClojure provides the core features for quantum computing.

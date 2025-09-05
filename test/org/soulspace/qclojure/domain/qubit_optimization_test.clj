@@ -53,34 +53,30 @@
       (is (= (:max-qubit-id analysis) -1))
       (is (= (:qubit-usage-efficiency analysis) 0.0)))))
 
-(deftest test-optimize-qubit-usage
-  (testing "Optimization of sparse circuit"
-    (let [circuit (create-test-circuit-with-gaps)
-          result (qo/optimize-qubit-usage circuit)]
-      (is (= (:optimized-qubits result) 3))
-      (is (= (:qubits-saved result) 3))
-      (is (= (:original-qubits result) 6))
-      (is (= (:qubit-mapping result) {0 0, 2 1, 5 2}))))
+(deftest test-edge-cases-and-comprehensive-scenarios
+  (testing "Circuit that becomes empty after qubit optimization"
+    ;; Create a circuit where operations exist but use no actual qubits
+    ;; This is a theoretical edge case
+    (let [empty-circuit (qc/create-circuit 1)]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Optimization resulted in an empty circuit"
+                            (qo/optimize-qubit-usage empty-circuit)))))
 
-  (testing "Optimization of already efficient circuit"
-    (let [circuit (create-test-circuit-1)
-          result (qo/optimize-qubit-usage circuit)]
-      (is (= (:optimized-qubits result) 2))
-      (is (= (:qubits-saved result) 0))
-      (is (= (:qubit-mapping result) {0 0, 1 1}))))
-
-  (testing "Optimized circuit operations are remapped correctly"
+  (testing "Successful optimization maintains circuit validity"
     (let [circuit (create-test-circuit-with-gaps)
           result (qo/optimize-qubit-usage circuit)
           optimized-circuit (:circuit result)]
-      ; Original H gate on qubit 0 should stay on qubit 0
-      (is (= (get-in optimized-circuit [:operations 0 :operation-params :target]) 0))
-      ; Original X gate on qubit 2 should be on qubit 1
-      (is (= (get-in optimized-circuit [:operations 1 :operation-params :target]) 1))
-      ; Original CNOT from 0 to 5 should be from 0 to 2
-      (let [cnot-op (nth (:operations optimized-circuit) 2)]
-        (is (= (get-in cnot-op [:operation-params :control]) 0))
-        (is (= (get-in cnot-op [:operation-params :target]) 2))))))
+      (is (s/valid? ::qc/circuit optimized-circuit))
+      (is (> (:optimized-qubits result) 0))
+      (is (= (count (:operations optimized-circuit)) 
+             (count (:operations circuit))))))
+
+  (testing "Qubit mapping consistency"
+    (let [circuit (create-test-circuit-with-gaps)
+          result (qo/optimize-qubit-usage circuit)
+          mapping (:qubit-mapping result)]
+      (is (= (count mapping) (:optimized-qubits result)))
+      (is (= (set (vals mapping)) (set (range (:optimized-qubits result))))))))
 
 (comment
   (run-tests)

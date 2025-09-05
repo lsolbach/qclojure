@@ -270,7 +270,7 @@
                       (qc/h-gate 0)
                       (qc/cnot-gate 0 2))  ; Non-adjacent
           topology (topo/coupling-for-linear-topology 3)
-          result (topo/optimize-for-topology circuit topology)]
+          result (topo/optimize-for-coupling circuit topology)]
       (is (s/valid? ::qc/circuit (:circuit result)))
       (is (map? (:logical-to-physical result)))
       (is (map? (:physical-to-logical result)))
@@ -282,13 +282,13 @@
                       (qc/cnot-gate 1 2)
                       (qc/cnot-gate 2 3))
           topology (topo/coupling-for-star-topology 4)
-          result (topo/optimize-for-topology circuit topology)]
+          result (topo/optimize-for-coupling circuit topology)]
       (is (s/valid? ::qc/circuit (:circuit result)))))
 
   (testing "Optimize with options"
     (let [circuit (create-test-circuit-1)
           topology (topo/coupling-for-linear-topology 2)
-          result (topo/optimize-for-topology circuit topology {:insert-swaps? false})]
+          result (topo/optimize-for-coupling circuit topology {:insert-swaps? false})]
       (is (s/valid? ::qc/circuit (:circuit result))))))
 
 ;;

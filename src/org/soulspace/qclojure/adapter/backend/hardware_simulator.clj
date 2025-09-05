@@ -356,38 +356,50 @@
           max-qubits (max-qubits this)
           native-gates (native-gates this)
           topology (topology this)
-          noise-model (noise-model this)
+          noise-model (noise-model this)]
   
-          ;; Optimize circuit for hardware
-          hw-circuit (hwopt/optimize
-                      circuit
-                      native-gates
-                      {:optimize-gates? false
-                       :optimize-qubits? false})
-;; TODO topology/coupling map calculation
+      (try
+        ;; Optimize circuit for hardware
+        (let [hw-circuit (hwopt/optimize
+                          circuit
+                          native-gates)
 ;;          optimized-circuit (hwopt/optimize circuit
 ;;                                            native-gates
-;;                                            topology)
-          job (->NoisySimulatorJob job-id hw-circuit options :queued nil
-                                   (System/currentTimeMillis) nil)]
+;;                                            coupling)
+              job (->NoisySimulatorJob job-id hw-circuit options :queued nil
+                                       (System/currentTimeMillis) nil)]
 
-      ;; Store job and start execution in background
-      (swap! simulator-state assoc-in [:active-jobs job-id] job)
+          ;; Store job and start execution in background
+          (swap! simulator-state assoc-in [:active-jobs job-id] job)
 
-      ;; Execute immediately in future (async execution)
-      (future
-        (let [result (if (:result-specs options)
-                      ;; Use enhanced execution with result extraction
-                      (execute-noisy-circuit-with-results circuit options)
-                      ;; Fall back to basic execution
-                      (execute-noisy-circuit-simulation circuit options noise-model))
-              completed-job (assoc job
-                                   :status (:job-status result)
-                                   :result result
-                                   :completed-at (System/currentTimeMillis))]
-          (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
-
-      job-id))
+          ;; Execute immediately in future (async execution)
+          (future
+            (let [result (if (:result-specs options)
+                          ;; Use enhanced execution with result extraction
+                          (execute-noisy-circuit-with-results circuit options)
+                          ;; Fall back to basic execution
+                          (execute-noisy-circuit-simulation circuit options noise-model))
+                  completed-job (assoc job
+                                       :status (:job-status result)
+                                       :result result
+                                       :completed-at (System/currentTimeMillis))]
+              (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
+          job-id)
+        
+        (catch clojure.lang.ExceptionInfo e
+          ;; Handle optimization errors (including empty circuits)
+          (let [failed-job (->NoisySimulatorJob 
+                            job-id
+                            circuit
+                            options
+                            :failed
+                            {:job-status :failed
+                             :error-message (.getMessage e)}
+                            (System/currentTimeMillis) 
+                            (System/currentTimeMillis))]
+            ;; Store the failed job for tracking
+            (swap! simulator-state assoc-in [:active-jobs job-id] failed-job)
+            job-id)))))
 
   (get-job-status [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
@@ -396,8 +408,14 @@
 
   (get-job-result [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
-      (if (= (:status job) :completed)
+      (cond
+        (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
+        
+        (= (:status job) :failed)
+        (:result job) ; Return the failure result directly
+        
+        :else
         {:job-id job-id
          :job-status (:status job)
          :error-message "Job not completed"})

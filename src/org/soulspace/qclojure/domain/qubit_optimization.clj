@@ -150,12 +150,15 @@
                                  :num-qubits optimized-qubits
                                  :operations optimized-operations)
         qubits-saved (- original-qubits optimized-qubits)]
-
-    {:circuit optimized-circuit
-     :qubit-mapping qubit-mapping
-     :qubits-saved qubits-saved
-     :original-qubits original-qubits
-     :optimized-qubits optimized-qubits}))
+    (if (qc/empty-circuit? optimized-circuit)
+      (throw (ex-info "Optimization resulted in an empty circuit"
+                      {:original-circuit circuit
+                       :optimized-circuit optimized-circuit}))
+      {:circuit optimized-circuit
+       :qubit-mapping qubit-mapping
+       :qubits-saved qubits-saved
+       :original-qubits original-qubits
+       :optimized-qubits optimized-qubits})))
 
 (comment
   ;; Empty circuit, qubit will get optimized away and the circuit is invalid

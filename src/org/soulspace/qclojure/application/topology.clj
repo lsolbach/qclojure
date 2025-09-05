@@ -100,7 +100,7 @@
    
    Parameters:
    - processor-type: Keyword identifying the IBM processor type
-                    :basic or 1 - Single hex ring (7 qubits)
+                    :basic or 7 - Single hex ring (7 qubits)
                     :falcon or 27 - Falcon-style pattern (27 qubits)  
                     :hummingbird or 65 - Hummingbird-style pattern (65 qubits)
                     :eagle or 127 - Eagle-style pattern (127 qubits)
@@ -111,7 +111,7 @@
    Example:
    (heavy-hex-topology :basic)    ; 7-qubit hex ring, all degree 2
    (heavy-hex-topology :falcon)   ; 27-qubit IBM Falcon pattern  
-   (heavy-hex-topology 1)         ; Same as :basic
+   (heavy-hex-topology 7)         ; Same as :basic
    (heavy-hex-topology 27)        ; Same as :falcon"
   [processor-type]
   {:pre [(or (keyword? processor-type) (pos-int? processor-type))]}
@@ -131,12 +131,14 @@
 
     (let [proc-key (cond
                      (#{:basic 1} processor-type) :basic
-                     (#{:falcon 27} processor-type) :falcon
-                     (#{:hummingbird 65} processor-type) :hummingbird
-                     (#{:eagle 127} processor-type) :eagle
+                     ; (#{:falcon 27} processor-type) :falcon
+                     ; (#{:hummingbird 65} processor-type) :hummingbird
+                     ; (#{:eagle 127} processor-type) :eagle
                      :else (throw (ex-info "Unsupported heavy-hex processor type"
                                            {:processor-type processor-type
-                                            :supported [:basic :falcon :hummingbird :eagle 1 27 65 127]})))]
+                                            :supported [:basic 7]
+;                                            :supported [:basic :falcon :hummingbird :eagle 7 27 65 127]
+                                            })))]
 
       (case proc-key
         :basic
@@ -502,7 +504,7 @@
                                          num-physical-qubits 
                                          distance-matrix)))
 
-(defn optimize-for-topology
+(defn optimize-for-coupling
   "Optimize a quantum circuit for a specific hardware topology.
   
   This function performs topology-aware optimization by:
@@ -532,7 +534,7 @@
   (optimize-for-topology my-circuit linear-topology)
   ;=> {:circuit <optimized-circuit>, :logical-to-physical {0 1, 1 2, 2 3}, ...}"
   ([circuit coupling]
-   (optimize-for-topology circuit coupling {}))
+   (optimize-for-coupling circuit coupling {}))
 
   ([circuit coupling options]
    {:pre [(s/valid? ::qc/circuit circuit)
@@ -731,7 +733,7 @@
   [circuit topologies]
   (->> topologies
        (map (fn [[name coupling]]
-              (let [result (optimize-for-topology circuit coupling)]
+              (let [result (optimize-for-coupling circuit coupling)]
                 {:topology-name name
                  :total-cost (:total-cost result)
                  :swap-count (:swap-count result)
@@ -741,7 +743,7 @@
 
 (defn topology-aware-transform
   "Transform circuit for topology while being aware of supported gates."
-  [circuit topology supported-operations options]
+  [circuit coupling supported-operations options]
 
   ;; First, check what routing operations we can use
   (let [has-native-swap? (contains? supported-operations :swap)
@@ -750,7 +752,7 @@
     (println (str "Routing strategy: " routing-strategy))
 
     ;; Apply topology optimization
-    (let [topo-result (optimize-for-topology circuit topology options)
+    (let [topo-result (optimize-for-coupling circuit coupling options)
           operations-with-swaps (:operations (:circuit topo-result))]
 
       ;; Decompose any SWAPs if they're not native
@@ -777,7 +779,7 @@
 
   ;; Test with different topologies
   (def linear-2 (coupling-for-linear-topology 2))
-  (def result (optimize-for-topology bell-circuit linear-2))
+  (def result (optimize-for-coupling bell-circuit linear-2))
   (println (:topology-summary result))
 
   ;; Test the new focused mapping functions
@@ -863,7 +865,7 @@
 
   ;; IBM-style heavy-hex usage example  
   (def ibm-heavy-hex (coupling-for-heavy-hex-topology 2))  ; 17 qubits
-  (def hex-optimization (optimize-for-topology complex-circuit ibm-heavy-hex))
+  (def hex-optimization (optimize-for-coupling complex-circuit ibm-heavy-hex))
   (println (:topology-summary hex-optimization))
 
   ;

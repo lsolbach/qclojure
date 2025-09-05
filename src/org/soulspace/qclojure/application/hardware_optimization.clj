@@ -45,7 +45,7 @@
 
         ;; STEP 1: Gate cancellation optimization (after qubit optimization)
         gate-optimization-result (if optimize-gates?
-                                   (let [optimized-circuit (go/optimize-gate-cancellations circuit)
+                                   (let [optimized-circuit (go/optimize-gates circuit)
                                          gates-removed (- (count (:operations circuit))
                                                           (count (:operations optimized-circuit)))]
                                      {:circuit optimized-circuit

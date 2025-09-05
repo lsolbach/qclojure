@@ -83,30 +83,30 @@
       ;; Single-qubit gates
       (:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase)
       #{(:target params)}
-      
+
       ;; Two-qubit controlled gates
       (:cnot :cx :cz :cy :crx :cry :crz)
       #{(:control params) (:target params)}
-      
+
       ;; Rydberg two-qubit gates
       (:rydberg-cz :rydberg-cphase)
       #{(:control params) (:target params)}
-      
+
       ;; Rydberg multi-qubit blockade gate
       :rydberg-blockade
       (set (:qubit-indices params))
-      
+
       ;; SWAP gates
       (:swap :iswap)
       #{(:qubit1 params) (:qubit2 params)}
-      
+
       ;; Multi-qubit gates
       :toffoli
       #{(:control1 params) (:control2 params) (:target params)}
-      
+
       :fredkin
       #{(:control params) (:target1 params) (:target2 params)}
-      
+
       ;; Global gates - affect all qubits in the circuit (need circuit context)
       (:global-x :global-y :global-z :global-h :global-rx :global-ry :global-rz)
       ;; For global gates, we need the circuit context to determine num-qubits
@@ -114,7 +114,7 @@
       (if-let [circuit-qubits (:circuit-qubits params)]
         (set (range circuit-qubits))
         #{})
-      
+
       ;; Default: empty set for unknown operations
       #{})))
 
@@ -170,7 +170,7 @@
            :swap (or (= params1 params2)
                      (and (= (:qubit1 params1) (:qubit2 params2))
                           (= (:qubit2 params1) (:qubit1 params2))))
-           
+
            ;; For all other gates, require exact parameter match
            (= params1 params2)))))
 
@@ -197,13 +197,13 @@
   (loop [i (inc start-index)]
     (cond
       (>= i (count operations)) nil
-      
+
       ;; Found a gate on the same qubits - check if we can cancel
       (= (gate-qubits (nth operations i)) target-qubits) i
-      
+
       ;; Found a gate that shares ANY qubits with target - cannot cancel
       (seq (set/intersection (gate-qubits (nth operations i)) target-qubits)) nil
-      
+
       ;; Gate acts on completely different qubits - continue searching
       :else (recur (inc i)))))
 
@@ -267,7 +267,7 @@
               (if (and next-index
                        (not (contains? used-indices next-index))
                        (gates-equivalent? op1 (nth operations next-index)))
-                (recur (inc i) 
+                (recur (inc i)
                        (conj pairs [i next-index])
                        (conj used-indices i next-index))
                 (recur (inc i) pairs used-indices)))
@@ -301,12 +301,12 @@
   (if (empty? pairs)
     operations
     (let [indices-to-remove (set (mapcat identity pairs))
-          filtered-ops (vec (keep-indexed 
-                            #(when-not (contains? indices-to-remove %1) %2)
-                            operations))]
+          filtered-ops (vec (keep-indexed
+                             #(when-not (contains? indices-to-remove %1) %2)
+                             operations))]
       filtered-ops)))
 
-(defn optimize-gate-cancellations
+(defn optimize-gates
   "Optimize a quantum circuit by removing consecutive self-canceling gates.
   
   This is the main optimization function that repeatedly applies cancellation
@@ -335,7 +335,7 @@
   Optimized quantum circuit with redundant gates removed
   
   Example:
-  (optimize-gate-cancellations
+  (optimize-gates
     {:operations [{:operation-type :h, :operation-params {:target 0}}
                   {:operation-type :h, :operation-params {:target 0}}
                   {:operation-type :x, :operation-params {:target 1}}
@@ -344,15 +344,20 @@
   ;=> {:operations [], :num-qubits 2}  ; All gates cancelled"
   [circuit]
   {:pre [(s/valid? ::qc/circuit circuit)]}
-  (loop [current-circuit circuit
-         iteration 0]
-    (let [operations (:operations current-circuit)
-          pairs (find-cancellation-pairs operations)]
-      (if (empty? pairs)
-        current-circuit  ; No more optimizations possible
-        (let [optimized-ops (remove-cancellation-pairs operations pairs)
-              optimized-circuit (assoc current-circuit :operations optimized-ops)]
-          (recur optimized-circuit (inc iteration)))))))
+  (let [optimized-circuit (loop [current-circuit circuit
+                                 iteration 0]
+                            (let [operations (:operations current-circuit)
+                                  pairs (find-cancellation-pairs operations)]
+                              (if (empty? pairs)
+                                current-circuit  ; No more optimizations possible
+                                (let [optimized-ops (remove-cancellation-pairs operations pairs)
+                                      optimized-circuit (assoc current-circuit :operations optimized-ops)]
+                                  (recur optimized-circuit (inc iteration))))))]
+    (if (qc/empty-circuit? optimized-circuit)
+      (throw (ex-info "Optimization resulted in an empty circuit"
+                      {:circuit circuit
+                       :optimized optimized-circuit}))
+      optimized-circuit)))
 
 (defn circuit-optimization-stats
   "Calculate optimization statistics for a circuit transformation.
@@ -395,14 +400,14 @@
     (-> (qc/create-circuit 1 "Hadamard Test")
         (qc/h-gate 0)
         (qc/h-gate 0)))
-  
-  (def optimized-hadamard 
-    (optimize-gate-cancellations hadamard-test-circuit))
-  
+
+  (def optimized-hadamard
+    (optimize-gates hadamard-test-circuit))
+
   ;; Should result in empty circuit
   (:operations optimized-hadamard)
   ;=> []
-  
+
   ;; Example 2: Circuit with multiple consecutive gate cancellations
   (def circuit-with-multiple-cancellations
     (-> (qc/create-circuit 3 "Multiple Cancellations")
@@ -414,7 +419,7 @@
         (qc/z-gate 0)      ; Z on qubit 0 - remains
         (qc/y-gate 2)))    ; Y on qubit 2 - cancels with first Y
 
-  (def optimized-multiple (optimize-gate-cancellations circuit-with-multiple-cancellations))
+  (def optimized-multiple (optimize-gates circuit-with-multiple-cancellations))
   (println "Original operations:" (count (:operations circuit-with-multiple-cancellations)))
   (println "Optimized operations:" (count (:operations optimized-multiple)))
   (println "Final operations:" (:operations optimized-multiple))
@@ -429,14 +434,14 @@
         (qc/h-gate 0)      ; H on qubit 0 - cancels with first H
         (qc/x-gate 1)))    ; X on qubit 1 - cancels with first X
 
-  (def optimized-qubit-wise (optimize-gate-cancellations circuit-with-qubit-wise-consecutive-gates))
+  (def optimized-qubit-wise (optimize-gates circuit-with-qubit-wise-consecutive-gates))
   (println "Original operations:" (count (:operations circuit-with-qubit-wise-consecutive-gates)))
   (println "Optimized operations:" (count (:operations optimized-qubit-wise)))
   (println "Final operations:" (:operations optimized-qubit-wise))
   (println "Optimization stats:" (circuit-optimization-stats circuit-with-qubit-wise-consecutive-gates optimized-qubit-wise))
   ;; Expected: All gates cancelled because H gates on qubit 0 are consecutive 
   ;; and X gates on qubit 1 are consecutive (gates on different qubits can be reordered)
-  
+
   ;; Example 4: Pauli gate cancellations with qubit-wise consecutive gates
   (def pauli-circuit
     (-> (qc/create-circuit 2 "Pauli Test")
@@ -445,101 +450,101 @@
         (qc/x-gate 0)      ; X gate on qubit 0 - cancels with first X
         (qc/z-gate 0)      ; Z gate on qubit 0 - remains
         (qc/y-gate 1)))    ; Y gate on qubit 1 - cancels with first Y
-  
+
   (def optimized-pauli
-    (optimize-gate-cancellations pauli-circuit))
-  
+    (optimize-gates pauli-circuit))
+
   ;; Should have only Z gate remaining
   (:operations optimized-pauli)
   ;=> [{:operation-type :z, :operation-params {:target 0}}]
   ;; The X gates on qubit 0 are consecutive (indices 0,2) and cancel
   ;; The Y gates on qubit 1 are consecutive (indices 1,4) and cancel
   ;; The Z gate on qubit 0 (index 3) remains
-  
+
   ;; Example 5: Optimization statistics
   (def stats (circuit-optimization-stats circuit-with-multiple-cancellations optimized-multiple))
   stats
   ;=> {:original-gate-count 7, :optimized-gate-count 1, 
   ;    :gates-removed 6, :reduction-percentage 85.71428571428571}
-  
+
   (def stats-qubit-wise (circuit-optimization-stats circuit-with-qubit-wise-consecutive-gates optimized-qubit-wise))
   stats-qubit-wise
   ;=> {:original-gate-count 4, :optimized-gate-count 0, 
   ;    :gates-removed 4, :reduction-percentage 100.0}
-  
+
   ;; Example 6: Complex circuit with Bell state preparation 
   ;; This should NOT be optimized away
   (def bell-circuit (qc/bell-state-circuit))
-  (def optimized-bell (optimize-gate-cancellations bell-circuit))
-  
+  (def optimized-bell (optimize-gates bell-circuit))
+
   ;; Bell circuit should remain unchanged (H + CNOT are not self-canceling)
   (:operations optimized-bell)
   ;=> Same as original Bell circuit
-  
+
   ;; Example 7: Test gate-qubits helper function
   (gate-qubits {:operation-type :x, :operation-params {:target 0}})
   ;=> #{0}
-  
+
   (gate-qubits {:operation-type :cnot, :operation-params {:control 0, :target 1}})
   ;=> #{0 1}
-  
+
   ;; Example 8: Test gates-equivalent? function
   (gates-equivalent?
-    {:operation-type :h, :operation-params {:target 0}}
-    {:operation-type :h, :operation-params {:target 0}})
+   {:operation-type :h, :operation-params {:target 0}}
+   {:operation-type :h, :operation-params {:target 0}})
   ;=> true
-  
+
   (gates-equivalent?
-    {:operation-type :h, :operation-params {:target 0}}
-    {:operation-type :h, :operation-params {:target 1}})
+   {:operation-type :h, :operation-params {:target 0}}
+   {:operation-type :h, :operation-params {:target 1}})
   ;=> false
-  
+
   ;; Test with non-self-inverse gate (should be false)
   (gates-equivalent?
-    {:operation-type :rx, :operation-params {:target 0, :angle 1.5708}}
-    {:operation-type :rx, :operation-params {:target 0, :angle 1.5708}})
+   {:operation-type :rx, :operation-params {:target 0, :angle 1.5708}}
+   {:operation-type :rx, :operation-params {:target 0, :angle 1.5708}})
   ;=> false (RX is not self-inverse)
-  
+
   ;; Example 9: When gates should NOT cancel - same qubit, interfering operations
   (def no-cancel-circuit
     {:num-qubits 1
      :operations [{:operation-type :h :operation-params {:target 0}}
                   {:operation-type :x :operation-params {:target 0}}  ; Interferes with H gates
                   {:operation-type :h :operation-params {:target 0}}]})
-  
-  (def optimized-no-cancel (optimize-gate-cancellations no-cancel-circuit))
+
+  (def optimized-no-cancel (optimize-gates no-cancel-circuit))
   (:operations optimized-no-cancel)
   ;=> All 3 gates remain - H gates cannot cancel because X gate interferes
 
   ;; Example 10: Consecutive vs non-consecutive cancellation
   ;; This WILL be optimized (consecutive H gates)
   (def consecutive-circuit (-> (qc/create-circuit 1)
-                              (qc/h-gate 0)
-                              (qc/h-gate 0)
-                              (qc/x-gate 0)
-                              (qc/x-gate 0)))
-  
-  (def optimized-consecutive (optimize-gate-cancellations consecutive-circuit))
+                               (qc/h-gate 0)
+                               (qc/h-gate 0)
+                               (qc/x-gate 0)
+                               (qc/x-gate 0)))
+
+  (def optimized-consecutive (optimize-gates consecutive-circuit))
   (:operations optimized-consecutive)
   ;=> [] (empty - all gates cancelled)
-  
+
   ;; This will NOT be optimized (non-consecutive H gates)
   (def non-consecutive-circuit (-> (qc/create-circuit 1)
-                                  (qc/h-gate 0)
-                                  (qc/x-gate 0)
-                                  (qc/h-gate 0)
-                                  (qc/x-gate 0)))
-  
-  (def optimized-non-consecutive (optimize-gate-cancellations non-consecutive-circuit))
+                                   (qc/h-gate 0)
+                                   (qc/x-gate 0)
+                                   (qc/h-gate 0)
+                                   (qc/x-gate 0)))
+
+  (def optimized-non-consecutive (optimize-gates non-consecutive-circuit))
   (:operations optimized-non-consecutive)
   ;=> [{:operation-type :h, ...} {:operation-type :x, ...} 
   ;    {:operation-type :h, ...} {:operation-type :x, ...}] (unchanged)
-  
+
   ;; Evaluate individual functions for testing
   (find-cancellation-pairs (:operations hadamard-test-circuit))
   ;=> [[0 1]]
-  
+
   self-inverse-gates
-  
+
   ;
   ) 

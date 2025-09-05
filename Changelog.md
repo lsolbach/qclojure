@@ -4,9 +4,11 @@
 * shortened some spec names by removing the quantum prefix
 * extracted `topology` namespace from `hardware-optimization`
   * differenciated between coupling and topology
+  * added `coupling-for-topology` and `all-to-all-coupling`
 * qubit and gate optimizations throw an exception when the optimization leads to an empty circuit
 * hardware simulator creates a failed job on optimization failures 
 * activated hardware optimizations in hardware simulator
+* removed create-noisy-simulator, use create-hardware-simulator
 * integrated trajectory-state pipeline with result extraction to hardware simulator
 * renamed `math.core` namespace to `math.complex-linear-algebra`
 * registered project with `zenodo.org` for DOI generation

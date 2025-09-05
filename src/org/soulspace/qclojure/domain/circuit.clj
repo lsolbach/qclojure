@@ -1727,7 +1727,7 @@
                                      :circuit-gate-count (circuit-gate-count circuit)
                                      :num-qubits (:num-qubits circuit)}}]
      (if (seq result-specs)
-       (merge results (result/compute-results results result-specs))
+       (merge results (result/extract-results results result-specs))
        results))))
 
 ;;

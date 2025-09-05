@@ -729,7 +729,7 @@
   (swap-gate (qs/computational-basis-state 3 [1 0 1]) 0 2)
   ;=> Swaps qubits 0 and 2, resulting in state |1⟩ ⊗ |0⟩ ⊗ |1⟩ → |1⟩ ⊗ |0⟩ ⊗ |1⟩"
   [state qubit1 qubit2]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (nat-int? qubit1)
          (nat-int? qubit2)
          (not= qubit1 qubit2)
@@ -785,7 +785,7 @@
   (iswap-gate (qs/computational-basis-state 2 [0 1]) 0 1)
   ;=> Transforms |01⟩ → i|10⟩"
   [state qubit1 qubit2]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (nat-int? qubit1)
          (nat-int? qubit2)
          (not= qubit1 qubit2)
@@ -846,7 +846,7 @@
   (toffoli-gate (qs/computational-basis-state 3 [1 1 0]) 0 1 2)
   ;=> Transforms |110⟩ → |111⟩"
   [state control1 control2 target]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (nat-int? control1)
          (nat-int? control2)
          (nat-int? target)
@@ -911,7 +911,7 @@
   (fredkin-gate (qs/computational-basis-state 3 [1 0 1]) 0 1 2)
   ;=> Transforms |101⟩ → |110⟩"
   [state control target1 target2]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (nat-int? control)
          (nat-int? target1)
          (nat-int? target2)

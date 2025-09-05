@@ -63,7 +63,7 @@
       (is (= (:num-qubits extended) 4))
       (is (= (:num-qubits original) 2))
       (is (= (count (:operations extended)) (count (:operations original))))
-      (is (s/valid? ::qc/quantum-circuit extended))))
+      (is (s/valid? ::qc/circuit extended))))
 
   (testing "Extension with qubit mapping"
     (let [original (create-test-circuit-1)

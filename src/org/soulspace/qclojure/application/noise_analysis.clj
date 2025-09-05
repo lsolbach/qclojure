@@ -33,7 +33,7 @@
   
    Returns: Map with fidelity estimates and error analysis"
   [circuit noise-model]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (s/valid? ::noise/noise-model noise-model)]}
   (let [gate-counts (frequencies (map :operation-type (:operations circuit)))
         total-error (reduce-kv
@@ -69,7 +69,7 @@
   
    Returns: Map of platform comparisons with fidelity estimates and characteristics"
   [circuit platform-models]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (map? platform-models)]}
   (into {}
         (map (fn [[platform-name noise-model]]
@@ -107,7 +107,7 @@
   
    Returns: Effective depth considering noise accumulation"
   [circuit noise-model]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (s/valid? ::noise/noise-model noise-model)]}
   (let [operations (:operations circuit)
         noise-strengths (map #(get-in noise-model [:gate-noise (:operation-type %) :noise-strength] 0.0) operations)
@@ -128,7 +128,7 @@
   
     Returns: Map with recommended mitigation strategies"
   [circuit noise-model & [options]]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (s/valid? ::noise/noise-model noise-model)]}
   (let [fidelity-data (estimate-circuit-fidelity circuit noise-model)
         circuit-depth (count (:operations circuit))

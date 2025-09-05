@@ -119,7 +119,7 @@
 (defn analyze-circuit-noise-profile
   "Analyze circuit characteristics to recommend mitigation strategies."
   [circuit noise-model]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  {:pre [(s/valid? ::qc/circuit circuit)]}
   (let [operations (:operations circuit)
         gate-counts (frequencies (map :operation-type operations))
         circuit-depth (count operations)
@@ -231,7 +231,7 @@
   [circuit supported-gates]
   (try
     (let [optimization-result (ct/transform-circuit circuit supported-gates)
-          optimized-circuit (:quantum-circuit optimization-result)]
+          optimized-circuit (:circuit optimization-result)]
       {:optimized-circuit optimized-circuit
        :optimization-applied true
        :gates-reduced (:transformed-operation-count optimization-result)
@@ -247,7 +247,7 @@
   This is the main entry point for error mitigation. It analyzes the circuit
   and noise model, selects appropriate strategies, and orchestrates their application."
   [circuit backend mitigation-config]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (satisfies? qb/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)
@@ -372,7 +372,7 @@
   This is the main integration point that combines circuit optimization,
   error mitigation, and result post-processing in a single function."
   [circuit backend mitigation-config]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (satisfies? qb/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)

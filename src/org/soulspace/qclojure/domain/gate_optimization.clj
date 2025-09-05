@@ -343,7 +343,7 @@
      :num-qubits 2})
   ;=> {:operations [], :num-qubits 2}  ; All gates cancelled"
   [circuit]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  {:pre [(s/valid? ::qc/circuit circuit)]}
   (loop [current-circuit circuit
          iteration 0]
     (let [operations (:operations current-circuit)

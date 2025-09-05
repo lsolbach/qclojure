@@ -167,7 +167,7 @@
      (expectation-value pauli-z |0⟩) ; returns 1.0"
   [observable quantum-state]
   {:pre [(s/valid? ::observable observable)
-         (s/valid? ::state/quantum-state quantum-state)]}
+         (s/valid? ::state/state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
         obs-psi (cla/matrix-vector-product observable state-vec)]
     (fc/re (cla/inner-product state-vec obs-psi))))
@@ -235,7 +235,7 @@
      Real number representing the variance"
   [observable quantum-state]
   {:pre [(s/valid? ::observable observable)
-         (s/valid? ::state/quantum-state quantum-state)]}
+         (s/valid? ::state/state quantum-state)]}
   (let [exp-val (expectation-value observable quantum-state)
         obs-squared (cla/matrix-multiply observable observable)
         exp-val-squared (expectation-value obs-squared quantum-state)]
@@ -262,7 +262,7 @@
      (measurement-probabilities pauli-z |+⟩) ; => {1.0 0.5, -1.0 0.5}"
   [observable quantum-state]
   {:pre [(s/valid? ::observable observable)
-         (s/valid? ::state/quantum-state quantum-state)]}
+         (s/valid? ::state/state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
         {:keys [eigenvalues eigenvectors]} (cla/eigen-hermitian observable)]
     ;; Calculate |⟨vᵢ|ψ⟩|² for each eigenvector vᵢ

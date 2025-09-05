@@ -77,7 +77,7 @@
 (s/def ::fidelities (s/map-of string? ::fidelity))
 (s/def ::reference-states (s/coll-of any? :kind vector? :min-count 1)) ;; Placeholder
 (s/def ::sample-outcomes (s/coll-of string? :kind vector? :min-count 1))
-(s/def ::final-state ::qs/quantum-state)
+(s/def ::final-state ::qs/state)
 (s/def ::execution-metadata (s/map-of keyword? any?))
 (s/def ::result-types (s/coll-of ::result-type :kind set? :min-count 1))
 (s/def ::measurement-results (s/coll-of ::measurement-result :kind vector? :min-count 1))
@@ -154,7 +154,7 @@
    Returns:
    Map with measurement outcomes and probabilities (Braket Sample format)"
   [final-state & {:keys [measurement-qubits shots] :or {shots 1}}]
-  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  {:pre [(s/valid? ::qs/state final-state)]}
   (let [num-qubits (:num-qubits final-state)
         measured-qubits (or measurement-qubits (range num-qubits))
         ;; Perform multiple shots for statistical results
@@ -185,7 +185,7 @@
    Returns:
    Vector of expectation value results (Braket Expectation format)"
   [final-state observables & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (coll? observables)]}
   (let [num-qubits (:num-qubits final-state)]
     (mapv (fn [observable target-qubit]
@@ -221,7 +221,7 @@
    Returns:
    Vector of variance results (Braket Variance format)"
   [final-state observables & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (coll? observables)]}
   (let [num-qubits (:num-qubits final-state)]
     (mapv (fn [observable target-qubit]
@@ -257,7 +257,7 @@
    Returns:
    Map with energy expectation value and measurement optimization info"
   [final-state hamiltonian]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (ham/validate-hamiltonian hamiltonian)]}
   {:energy-expectation (ham/hamiltonian-expectation hamiltonian final-state)
    :hamiltonian hamiltonian
@@ -277,7 +277,7 @@
    Returns:
    Map with probabilities (Braket Probability format)"
   [final-state & {:keys [target-qubits target-states]}]
-  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  {:pre [(s/valid? ::qs/state final-state)]}
   (let [num-qubits (:num-qubits final-state)]
     (if target-states
       ;; Specific target states requested
@@ -312,7 +312,7 @@
    Returns:
    Map with complex amplitudes (Braket Amplitude format)"
   [final-state basis-states]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (vector? basis-states)]}
   (let [state-vector (:state-vector final-state)
         amplitude-values
@@ -333,7 +333,7 @@
    Returns:
    Complete state vector representation (Braket StateVector format)"
   [final-state]
-  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  {:pre [(s/valid? ::qs/state final-state)]}
   {:state-vector (:state-vector final-state)
    :num-qubits (:num-qubits final-state)
    :basis-labels (qs/basis-labels (:num-qubits final-state))})
@@ -349,7 +349,7 @@
    Returns:
    Density matrix representation (Braket style)"
   [final-state]
-  {:pre [(s/valid? ::qs/quantum-state final-state)]}
+  {:pre [(s/valid? ::qs/state final-state)]}
   (let [rho (qs/density-matrix final-state)]
     {:density-matrix rho
      :num-qubits (:num-qubits final-state)
@@ -367,7 +367,7 @@
    Returns:
    Map with fidelity values for each reference state"
   [final-state reference-states]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (coll? reference-states)]}
   (let [fidelities
         (into {} (map-indexed (fn [idx ref-state]
@@ -391,7 +391,7 @@
    Returns:
    Vector of sample results (Braket Sample format)"
   [final-state observables shots & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/quantum-state final-state)
+  {:pre [(s/valid? ::qs/state final-state)
          (coll? observables)
          (pos-int? shots)]}
   (mapv (fn [observable]
@@ -439,7 +439,7 @@
    Returns:
    Map of extracted results based on requested types"
   [result result-specs]
-  {:pre [(s/valid? ::qs/quantum-state (:final-state result))
+  {:pre [(s/valid? ::qs/state (:final-state result))
          (map? result-specs)]}
 
   (let [final-state (:final-state result)]

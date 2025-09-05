@@ -40,7 +40,7 @@
   - :max-qubit-id - Highest qubit ID used
   - :qubit-usage-efficiency - Ratio of used qubits to total qubits"
   [circuit]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  {:pre [(s/valid? ::qc/circuit circuit)]}
 
   (let [operations (:operations circuit)
         total-qubits (:num-qubits circuit)
@@ -118,7 +118,7 @@
   
   Returns:
   Map containing:
-  - :quantum-circuit - Circuit with optimized qubit usage
+  - :circuit - Circuit with optimized qubit usage
   - :qubit-mapping - Map from old qubit IDs to new qubit IDs
   - :qubits-saved - Number of qubits saved by optimization
   - :original-qubits - Original number of qubits
@@ -128,10 +128,10 @@
   ;; Circuit using qubits [0, 2, 5] out of 6 total qubits
   ;; After optimization: uses qubits [0, 1, 2] out of 3 total qubits
   (optimize-qubit-usage circuit)
-  ;=> {:quantum-circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 5 2}, 
+  ;=> {:circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 5 2}, 
   ;    :qubits-saved 3, :original-qubits 6, :optimized-qubits 3}"
   [circuit]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+  {:pre [(s/valid? ::qc/circuit circuit)]}
 
   (let [usage-analysis (analyze-qubit-usage circuit)
         used-qubits (:used-qubits usage-analysis)
@@ -151,9 +151,15 @@
                                  :operations optimized-operations)
         qubits-saved (- original-qubits optimized-qubits)]
 
-    {:quantum-circuit optimized-circuit
+    {:circuit optimized-circuit
      :qubit-mapping qubit-mapping
      :qubits-saved qubits-saved
      :original-qubits original-qubits
      :optimized-qubits optimized-qubits}))
 
+(comment
+  ;; Empty circuit, qubit will get optimized away and the circuit is invalid
+  (optimize-qubit-usage
+   (qc/create-circuit 1))
+  ;
+  )

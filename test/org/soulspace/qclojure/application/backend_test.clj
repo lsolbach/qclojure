@@ -138,7 +138,7 @@
           result (qb/transform-circuit-for-backend circuit mock-backend)]
 
       ;; Verify transformation was successful
-      (is (:quantum-circuit result))
+      (is (:circuit result))
       (is (pos? (:transformed-operation-count result)))
       (is (empty? (:unsupported-operations result))))))
 

@@ -15,8 +15,8 @@
             [org.soulspace.qclojure.adapter.visualization.coordinates :as vcoord]
             [org.soulspace.qclojure.adapter.visualization.common :as common]))
 
-(s/def ::quantum-data (s/or :state ::qs/quantum-state
-                            :circuit ::qc/quantum-circuit
+(s/def ::quantum-data (s/or :state ::qs/state
+                            :circuit ::qc/circuit
                             :result map?))
 
 ;;

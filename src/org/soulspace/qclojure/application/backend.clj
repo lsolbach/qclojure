@@ -25,7 +25,7 @@
 (s/def ::backend-config map?)
 (s/def ::job-id string?)
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
-(s/def ::initial-state (s/nilable ::qs/quantum-state))
+(s/def ::initial-state (s/nilable ::qs/state))
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
 (s/def ::supported-gates ::gr/operation-set)
@@ -239,7 +239,7 @@
    (execute-circuit backend circuit {:shots 512}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
-          (s/valid? ::qc/quantum-circuit circuit)
+          (s/valid? ::qc/circuit circuit)
           (s/valid? ::execution-options options)]}
 
    (if-not (is-available? backend)
@@ -283,7 +283,7 @@
    (execute-circuit-async backend circuit {:shots 1024}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
-          (s/valid? ::qc/quantum-circuit circuit)
+          (s/valid? ::qc/circuit circuit)
           (s/valid? ::execution-options options)]}
 
    (submit-circuit backend circuit options)))
@@ -421,7 +421,7 @@
   Returns: Device ID of the best matching device, or nil if none suitable"
   [backend circuit & [options]]
   {:pre [(cloud-backend? backend)
-         (s/valid? ::qc/quantum-circuit circuit)]}
+         (s/valid? ::qc/circuit circuit)]}
   (let [opts (merge {:prefer-online true} options)
         devices (list-available-devices backend)
         circuit-qubits (:num-qubits circuit)
@@ -585,7 +585,7 @@
    
    Returns:
    A map containing:
-   - :quantum-circuit - The transformed circuit
+   - :circuit - The transformed circuit
    - :transformed-operation-count - Count of gates that were transformed
    - :unsupported-gates - List of gate types that couldn't be transformed"
   [circuit backend & [options]]
@@ -934,7 +934,7 @@
   :ret ::gr/operation-set)
 
 (s/fdef transform-circuit-for-backend
-  :args (s/cat :circuit ::qc/quantum-circuit
+  :args (s/cat :circuit ::qc/circuit
                :backend #(satisfies? QuantumBackend %)
                :options (s/? map?))
   :ret map?)

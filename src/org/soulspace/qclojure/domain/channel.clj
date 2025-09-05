@@ -160,7 +160,7 @@
   
   Returns: New quantum state after applying Kraus operator and normalizing"
   [state kraus-op qubit-index]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (s/valid? ::kraus-operator kraus-op)
          (nat-int? qubit-index)
          (< qubit-index (:num-qubits state))]}
@@ -213,7 +213,7 @@
   
   Returns: Output quantum state after channel application"
   [state kraus-operators qubit-index]
-  {:pre [(s/valid? ::qs/quantum-state state)
+  {:pre [(s/valid? ::qs/state state)
          (s/valid? ::quantum-channel kraus-operators)
          (nat-int? qubit-index)
          (< qubit-index (:num-qubits state))]}
@@ -299,8 +299,8 @@
   
   Returns: Fidelity value between 0 and 1"
   [input-state output-state]
-  {:pre [(s/valid? ::qs/quantum-state input-state)
-         (s/valid? ::qs/quantum-state output-state)
+  {:pre [(s/valid? ::qs/state input-state)
+         (s/valid? ::qs/state output-state)
          (= (:num-qubits input-state) (:num-qubits output-state))]}
   (let [input-vec (:state-vector input-state)
         output-vec (:state-vector output-state)

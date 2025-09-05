@@ -357,13 +357,18 @@
           native-gates (native-gates this)
           topology (topology this)
           noise-model (noise-model this)
-
+  
+          ;; Optimize circuit for hardware
+          hw-circuit (hwopt/optimize
+                      circuit
+                      native-gates
+                      {:optimize-gates? false
+                       :optimize-qubits? false})
 ;; TODO topology/coupling map calculation
-;;          ;; Optimize circuit for hardware
 ;;          optimized-circuit (hwopt/optimize circuit
 ;;                                            native-gates
 ;;                                            topology)
-          job (->NoisySimulatorJob job-id circuit options :queued nil
+          job (->NoisySimulatorJob job-id hw-circuit options :queued nil
                                    (System/currentTimeMillis) nil)]
 
       ;; Store job and start execution in background

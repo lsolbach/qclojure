@@ -27,7 +27,7 @@
                    ::operation-type]
           :opt-un [::operation-params]))
 
-(s/def ::quantum-circuit
+(s/def ::circuit
   (s/keys :req-un [::operations ::num-qubits]
           :opt-un [::name ::description]))
 
@@ -100,7 +100,7 @@
   Returns:
   Updated quantum circuit with the new operation appended to the :operations vector"
   [circuit operation-type params]
-  {:pre [(s/valid? ::quantum-circuit circuit)
+  {:pre [(s/valid? ::circuit circuit)
          (keyword? operation-type)]}
   (let [operation (if (seq params)
                     {:operation-type operation-type
@@ -138,7 +138,7 @@
   (add-gate (create-circuit 1) :rx :target 0 :angle 1.57)
   ;=> {:operations [{:operation-type :rx, :operation-params {:target 0, :angle 1.57}}], :num-qubits 1}"
   [circuit gate-type & {:keys [target target1 target2 control control1 control2 angle] :as params}]
-  {:pre [(s/valid? ::quantum-circuit circuit)
+  {:pre [(s/valid? ::circuit circuit)
          (keyword? gate-type)]}
   (let [resolved-gate-type (gr/resolve-gate-alias gate-type)]
     ;; Validate that the resolved gate type is known
@@ -843,7 +843,7 @@
   (measure-operation (create-circuit 2) [0 1])
   ;=> Circuit with measurement of qubits 0 and 1"
   ([circuit qubits]
-   {:pre [(s/valid? ::quantum-circuit circuit)
+   {:pre [(s/valid? ::circuit circuit)
           (vector? qubits)
           (every? nat-int? qubits)]}
    (add-operation circuit :measure {:measurement-qubits qubits})))
@@ -1193,7 +1193,7 @@
   (inverse-circuit (bell-state-circuit))
   ;=> Circuit that converts Bell state back to |00⟩"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (let [;; Get inverse operations, filtering out measurements (nil values)
         inverse-operations (->> (:operations circuit)
                                 (map inverse-operation)
@@ -1204,7 +1204,21 @@
         (assoc :operations inverse-operations)
         (update :name #(str (or % "Circuit") " (inverse)")))))
 
-;; Circuit analysis and utility functions
+;;;
+;;; Circuit analysis and utility functions
+;;;
+(defn empty-circuit?
+  "Check if a circuit is effectively empty (has no qubits or operations).
+  
+  Parameters:
+  - circuit: Quantum circuit to check
+  
+  Returns:
+  Boolean indicating if the circuit is empty"
+  [circuit]
+  (or (zero? (:num-qubits circuit))
+      (empty? (:operations circuit))))
+
 (defn operation-qubits-with-spans
   "Extract qubits used by an operation and any spans it creates.
   
@@ -1301,11 +1315,6 @@
                              (:target2 params)])
        :spans []})))
 
-(defn- operation-qubits
-  "Extract all qubit indices that an operation operates on."
-  [operation]
-  (:qubits (operation-qubits-with-spans operation)))
-
 (defn spans-conflict?
   "Check if two spans (ranges) conflict/overlap.
   
@@ -1367,7 +1376,7 @@
   (circuit-depth bell-circuit)
   ;=> 2 (H gate in layer 1, CNOT in layer 2)"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (let [operations (:operations circuit)
         num-qubits (:num-qubits circuit)]
     (if (empty? operations)
@@ -1436,7 +1445,7 @@
   (circuit-operation-count bell-circuit)
   ;=> 2 (H gate + CNOT gate)"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (count (:operations circuit)))
 
 (defn circuit-gate-count
@@ -1454,7 +1463,7 @@
   (circuit-gate-count bell-circuit)
   ;=> 2 (H gate + CNOT gate)"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (count (filter #(not= (:operation-type %) :measure) (:operations circuit))))
 
 (defn circuit-operation-types
@@ -1473,7 +1482,7 @@
   (circuit-operation-types bell-circuit-with-measurement)
   ;=> {:h 1, :cnot 1, :measure 1}"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (frequencies (map :operation-type (:operations circuit))))
 
 (defn circuit-gate-types
@@ -1492,7 +1501,7 @@
   (circuit-gate-types bell-circuit)
   ;=> {:h 1, :cnot 1}"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (frequencies (map :operation-type
                     (filter #(not= (:operation-type %) :measure) (:operations circuit)))))
 
@@ -1574,7 +1583,7 @@
   ;; H(0)
   ;; CNOT(0→1)"
   [circuit]
-  {:pre [(s/valid? ::quantum-circuit circuit)]}
+  {:pre [(s/valid? ::circuit circuit)]}
   (let [name (get circuit :name "Unnamed Circuit")
         description (get circuit :description "")
         num-qubits (:num-qubits circuit)
@@ -1587,7 +1596,9 @@
       (doseq [operation operations]
         (println (str "  " (operation-display operation)))))))
 
-;; Predefined quantum circuits
+;;;
+;;; Predefined quantum circuits
+;;;
 (defn bell-state-circuit
   "Create a Bell state preparation circuit.
   
@@ -1716,8 +1727,8 @@
   ([circuit initial-state]
    (execute-circuit circuit initial-state {}))
   ([circuit initial-state result-specs]
-   {:pre [(s/valid? ::quantum-circuit circuit)
-          (s/valid? ::qs/quantum-state initial-state)
+   {:pre [(s/valid? ::circuit circuit)
+          (s/valid? ::qs/state initial-state)
           (= (:num-qubits circuit) (:num-qubits initial-state))]}
    (let [final-state (reduce apply-operation-to-state initial-state (:operations circuit))
          results {:final-state final-state
@@ -1730,9 +1741,9 @@
        (merge results (result/extract-results results result-specs))
        results))))
 
-;;
-;; Convenience functions for common result patterns
-;;
+;;;
+;;; Convenience functions for common result patterns
+;;;
 (defn execute-with-energy-measurement
   "Execute circuit and measure energy expectation value.
    

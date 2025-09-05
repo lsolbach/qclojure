@@ -98,8 +98,8 @@
   Map with serializable data"
   [data]
   (cond
-    (s/valid? ::qs/quantum-state data) (serialize-quantum-state data)
-    (s/valid? ::qc/quantum-circuit data) (serialize-quantum-circuit data)
+    (s/valid? ::qs/state data) (serialize-quantum-state data)
+    (s/valid? ::qc/circuit data) (serialize-quantum-circuit data)
     :else (throw (ex-info "Unsupported quantum data type" {:data data}))))
 
 (defn deserialize-quantum-data

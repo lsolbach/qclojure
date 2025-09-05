@@ -10,7 +10,7 @@
 
 ;; Specs
 (s/def ::transformation-result
-  (s/keys :req-un [::qc/quantum-circuit]
+  (s/keys :req-un [::qc/circuit]
           :opt-un [::transformed-operation-count ::unsupported-operations]))
 
 (defn transform-circuit
@@ -28,18 +28,18 @@
   
   Returns:
   A map containing:
-  - :quantum-circuit - The transformed circuit
+  - :circuit - The transformed circuit
   - :transformed-operation-count - Count of operations that were transformed
   - :unsupported-operations - List of operation types that couldn't be transformed
   
   Example:
   (transform-circuit my-circuit #{:h :x :cnot} {:max-iterations 50})
-  ;=> {:quantum-circuit <transformed-circuit>, :transformed-operation-count 3, :unsupported-operations []}"
+  ;=> {:circuit <transformed-circuit>, :transformed-operation-count 3, :unsupported-operations []}"
   ([circuit supported-operations]
    (transform-circuit circuit supported-operations {}))
 
   ([circuit supported-operations options]
-   {:pre [(s/valid? ::qc/quantum-circuit circuit)]}
+   {:pre [(s/valid? ::qc/circuit circuit)]}
 
    (let [max-iterations (get options :max-iterations 100)
          transform-unsupported? (get options :transform-unsupported? true)
@@ -61,7 +61,7 @@
                                      (filter #(not (contains? supported-operations %))
                                              (keys new-types)))]
 
-     {:quantum-circuit transformed-circuit
+     {:circuit transformed-circuit
       :transformed-operation-count (- (count transformed-operations) original-operation-count)
       :unsupported-operations remaining-unsupported})))
 
@@ -80,7 +80,7 @@
   (def result (transform-circuit test-circuit backend-gates))
 
   (println "Original operations:" (count (:operations test-circuit)))
-  (println "Transformed operations:" (count (:operations (:quantum-circuit result))))
+  (println "Transformed operations:" (count (:operations (:circuit result))))
   (println "Transformation count:" (:transformed-operation-count result))
   (println "Unsupported operations:" (:unsupported-operations result))
 

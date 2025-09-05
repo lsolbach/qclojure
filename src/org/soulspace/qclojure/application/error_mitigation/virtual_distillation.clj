@@ -136,7 +136,7 @@
   - :backend-info - Backend configuration and capabilities"
   [backend circuit base-noise-model copy-index num-shots]
   {:pre [(satisfies? qb/QuantumBackend backend)
-         (s/valid? ::qc/quantum-circuit circuit)
+         (s/valid? ::qc/circuit circuit)
          (integer? copy-index)
          (pos-int? num-shots)]}
   (try
@@ -352,7 +352,7 @@
   - Apply before readout error mitigation for enhanced measurement accuracy
   - Integrate with variational optimization for improved algorithm convergence"
   [circuit backend num-copies num-shots]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (satisfies? qb/QuantumBackend backend)
          (pos-int? num-copies)
          (pos-int? num-shots)]}

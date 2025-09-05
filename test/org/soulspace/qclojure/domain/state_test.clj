@@ -115,7 +115,7 @@
   (testing "Normalize unnormalized state"
     (let [unnormalized {:state-vector [(fc/complex 3 0) (fc/complex 4 0)] :num-qubits 1}
           normalized (qs/normalize-state unnormalized)]
-      (is (s/valid? ::qs/quantum-state normalized))
+      (is (s/valid? ::qs/state normalized))
       ;; Check norm = 1
       (let [amplitudes (:state-vector normalized)
             norm (reduce + (map #(* (fc/abs %) (fc/abs %)) amplitudes))]

@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-optimization :as opt]
-            [org.soulspace.qclojure.domain.circuit :as circuit]))
+            [org.soulspace.qclojure.domain.circuit :as qc]))
 
 ;; Test data
 (def hadamard-op {:operation-type :h :operation-params {:target 0}})
@@ -94,73 +94,73 @@
 
 (deftest test-optimize-gate-cancellations
   (testing "Empty circuit"
-    (let [empty-circuit (circuit/create-circuit 2)]
+    (let [empty-circuit (qc/create-circuit 2)]
       (is (= empty-circuit (opt/optimize-gate-cancellations empty-circuit)))))
   
   (testing "Simple H-H cancellation"
-    (let [circuit (-> (circuit/create-circuit 1)
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 0))
+    (let [circuit (-> (qc/create-circuit 1)
+                     (qc/h-gate 0)
+                     (qc/h-gate 0))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= [] (:operations optimized)))))
   
   (testing "Multiple gate cancellations"
-    (let [circuit (-> (circuit/create-circuit 3)
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 1)
-                     (circuit/x-gate 1)
-                     (circuit/y-gate 2)
-                     (circuit/y-gate 2))
+    (let [circuit (-> (qc/create-circuit 3)
+                     (qc/h-gate 0)
+                     (qc/h-gate 0)
+                     (qc/x-gate 1)
+                     (qc/x-gate 1)
+                     (qc/y-gate 2)
+                     (qc/y-gate 2))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= [] (:operations optimized)))))
   
   (testing "Partial cancellation"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 1)
-                     (circuit/y-gate 1)
-                     (circuit/y-gate 1))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/h-gate 0)
+                     (qc/h-gate 0)
+                     (qc/x-gate 1)
+                     (qc/y-gate 1)
+                     (qc/y-gate 1))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 1 (count (:operations optimized))))
       (is (= :x (get-in optimized [:operations 0 :operation-type])))))
   
   (testing "Bell circuit preservation"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/h-gate 0)
-                     (circuit/cnot-gate 0 1))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/h-gate 0)
+                     (qc/cnot-gate 0 1))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 2 (count (:operations optimized))))
       (is (= :h (get-in optimized [:operations 0 :operation-type])))
       (is (= :cnot (get-in optimized [:operations 1 :operation-type])))))
   
   (testing "No cancellations possible"
-    (let [circuit (-> (circuit/create-circuit 3)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 1)
-                     (circuit/y-gate 2))
+    (let [circuit (-> (qc/create-circuit 3)
+                     (qc/h-gate 0)
+                     (qc/x-gate 1)
+                     (qc/y-gate 2))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 3 (count (:operations optimized))))))
   
   (testing "Iterative optimization"
     ;; Test consecutive gates that can be removed in one pass
-    (let [circuit (-> (circuit/create-circuit 1)
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 0)
-                     (circuit/x-gate 0))
+    (let [circuit (-> (qc/create-circuit 1)
+                     (qc/h-gate 0)
+                     (qc/h-gate 0)
+                     (qc/x-gate 0)
+                     (qc/x-gate 0))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= [] (:operations optimized))))))
 
 (deftest test-circuit-optimization-stats
   (testing "Complete optimization"
-    (let [original (-> (circuit/create-circuit 2)
-                      (circuit/h-gate 0)
-                      (circuit/h-gate 0)
-                      (circuit/x-gate 1)
-                      (circuit/x-gate 1))
-          optimized (circuit/create-circuit 2)
+    (let [original (-> (qc/create-circuit 2)
+                      (qc/h-gate 0)
+                      (qc/h-gate 0)
+                      (qc/x-gate 1)
+                      (qc/x-gate 1))
+          optimized (qc/create-circuit 2)
           stats (opt/circuit-optimization-stats original optimized)]
       (is (= 4 (:original-gate-count stats)))
       (is (= 0 (:optimized-gate-count stats)))
@@ -168,14 +168,14 @@
       (is (= 100.0 (:reduction-percentage stats)))))
   
   (testing "Partial optimization"
-    (let [original (-> (circuit/create-circuit 2)
-                      (circuit/h-gate 0)
-                      (circuit/h-gate 0)
-                      (circuit/x-gate 1)
-                      (circuit/y-gate 1))
-          optimized (-> (circuit/create-circuit 2)
-                       (circuit/x-gate 1)
-                       (circuit/y-gate 1))
+    (let [original (-> (qc/create-circuit 2)
+                      (qc/h-gate 0)
+                      (qc/h-gate 0)
+                      (qc/x-gate 1)
+                      (qc/y-gate 1))
+          optimized (-> (qc/create-circuit 2)
+                       (qc/x-gate 1)
+                       (qc/y-gate 1))
           stats (opt/circuit-optimization-stats original optimized)]
       (is (= 4 (:original-gate-count stats)))
       (is (= 2 (:optimized-gate-count stats)))
@@ -183,14 +183,14 @@
       (is (= 50.0 (:reduction-percentage stats)))))
   
   (testing "No optimization"
-    (let [original (-> (circuit/create-circuit 2)
-                      (circuit/h-gate 0)
-                      (circuit/x-gate 1)
-                      (circuit/y-gate 1))
-          optimized (-> (circuit/create-circuit 2)
-                       (circuit/h-gate 0)
-                       (circuit/x-gate 1)
-                       (circuit/y-gate 1))
+    (let [original (-> (qc/create-circuit 2)
+                      (qc/h-gate 0)
+                      (qc/x-gate 1)
+                      (qc/y-gate 1))
+          optimized (-> (qc/create-circuit 2)
+                       (qc/h-gate 0)
+                       (qc/x-gate 1)
+                       (qc/y-gate 1))
           stats (opt/circuit-optimization-stats original optimized)]
       (is (= 3 (:original-gate-count stats)))
       (is (= 3 (:optimized-gate-count stats)))
@@ -198,8 +198,8 @@
       (is (= 0.0 (:reduction-percentage stats)))))
   
   (testing "Empty circuit"
-    (let [original (circuit/create-circuit 2)
-          optimized (circuit/create-circuit 2)
+    (let [original (qc/create-circuit 2)
+          optimized (qc/create-circuit 2)
           stats (opt/circuit-optimization-stats original optimized)]
       (is (= 0 (:original-gate-count stats)))
       (is (= 0 (:optimized-gate-count stats)))
@@ -222,40 +222,40 @@
 ;; Integration test with real circuit structures
 (deftest test-integration-with-circuit-domain
   (testing "Optimization preserves circuit structure"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 1))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/h-gate 0)
+                     (qc/h-gate 0)
+                     (qc/x-gate 1))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 2 (:num-qubits optimized)))
       (is (= 1 (count (:operations optimized))))
       (is (= :x (get-in optimized [:operations 0 :operation-type])))
-      (is (s/valid? ::circuit/quantum-circuit optimized))))
+      (is (s/valid? ::qc/circuit optimized))))
   
   (testing "Complex optimization scenario"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/h-gate 0)  ; These two H gates cancel
-                     (circuit/h-gate 0)
-                     (circuit/h-gate 1)  ; These two H gates cancel
-                     (circuit/h-gate 1)
-                     (circuit/cnot-gate 0 1)  ; These two CNOT gates cancel
-                     (circuit/cnot-gate 0 1)
-                     (circuit/x-gate 0)  ; These two X gates cancel
-                     (circuit/x-gate 0)
-                     (circuit/x-gate 1)  ; These two X gates cancel
-                     (circuit/x-gate 1))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/h-gate 0)  ; These two H gates cancel
+                     (qc/h-gate 0)
+                     (qc/h-gate 1)  ; These two H gates cancel
+                     (qc/h-gate 1)
+                     (qc/cnot-gate 0 1)  ; These two CNOT gates cancel
+                     (qc/cnot-gate 0 1)
+                     (qc/x-gate 0)  ; These two X gates cancel
+                     (qc/x-gate 0)
+                     (qc/x-gate 1)  ; These two X gates cancel
+                     (qc/x-gate 1))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= [] (:operations optimized)))
-      (is (s/valid? ::circuit/quantum-circuit optimized)))))
+      (is (s/valid? ::qc/circuit optimized)))))
 
 ;; Additional test cases for comprehensive coverage
 
 (deftest test-quantum-mechanical-correctness
   (testing "H gates should NOT cancel across CNOT (fundamental quantum mechanics)"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/h-gate 0)
-                     (circuit/cnot-gate 0 1)  ; CNOT shares qubit 0 with H gates
-                     (circuit/h-gate 0))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/h-gate 0)
+                     (qc/cnot-gate 0 1)  ; CNOT shares qubit 0 with H gates
+                     (qc/h-gate 0))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 3 (count (:operations optimized)))
           "H gates must not cancel across CNOT because they don't commute")
@@ -264,10 +264,10 @@
       (is (= :h (get-in optimized [:operations 2 :operation-type])))))
   
   (testing "X gates should NOT cancel across controlled gates sharing qubits"
-    (let [circuit (-> (circuit/create-circuit 2)
-                     (circuit/x-gate 0)
-                     (circuit/cnot-gate 0 1)  ; Shares qubit 0
-                     (circuit/x-gate 0))
+    (let [circuit (-> (qc/create-circuit 2)
+                     (qc/x-gate 0)
+                     (qc/cnot-gate 0 1)  ; Shares qubit 0
+                     (qc/x-gate 0))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 3 (count (:operations optimized)))
           "X gates must not cancel across CNOT sharing the same qubit")))
@@ -282,11 +282,11 @@
           "CZ gates must not cancel across SWAP that shares both qubits")))
   
   (testing "Gates on completely different qubits CAN cancel"
-    (let [circuit (-> (circuit/create-circuit 3)
-                     (circuit/h-gate 0)
-                     (circuit/x-gate 1)     ; Different qubit, should not interfere
-                     (circuit/y-gate 2)     ; Different qubit, should not interfere
-                     (circuit/h-gate 0))    ; Should cancel with first H
+    (let [circuit (-> (qc/create-circuit 3)
+                     (qc/h-gate 0)
+                     (qc/x-gate 1)     ; Different qubit, should not interfere
+                     (qc/y-gate 2)     ; Different qubit, should not interfere
+                     (qc/h-gate 0))    ; Should cancel with first H
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 2 (count (:operations optimized)))
           "H gates should cancel when intervening gates are on different qubits")
@@ -397,14 +397,14 @@
 
 (deftest test-edge-cases-and-error-conditions
   (testing "Empty operations should remain empty"
-    (let [circuit (circuit/create-circuit 2)
+    (let [circuit (qc/create-circuit 2)
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= [] (:operations optimized)))
       (is (= 2 (:num-qubits optimized)))))
   
   (testing "Single gate should remain unchanged"
-    (let [circuit (-> (circuit/create-circuit 1)
-                     (circuit/h-gate 0))
+    (let [circuit (-> (qc/create-circuit 1)
+                     (qc/h-gate 0))
           optimized (opt/optimize-gate-cancellations circuit)]
       (is (= 1 (count (:operations optimized))))
       (is (= :h (get-in optimized [:operations 0 :operation-type])))))

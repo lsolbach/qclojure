@@ -207,7 +207,7 @@
   services, and various simulator implementations."
   [backend circuit noise-model scale-factor num-shots]
   {:pre [(satisfies? qb/QuantumBackend backend)
-         (s/valid? ::qc/quantum-circuit circuit)
+         (s/valid? ::qc/circuit circuit)
          (number? scale-factor)
          (pos-int? num-shots)]}
   (try
@@ -702,7 +702,7 @@
   - Memory usage scales with measurement data storage requirements
   - Parallelization opportunities for independent noise scale execution"
   [circuit backend noise-scales ideal-states num-shots]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (satisfies? qb/QuantumBackend backend)
          (vector? noise-scales)
          (every? number? noise-scales)

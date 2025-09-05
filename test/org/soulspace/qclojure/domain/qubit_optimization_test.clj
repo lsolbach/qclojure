@@ -72,7 +72,7 @@
   (testing "Optimized circuit operations are remapped correctly"
     (let [circuit (create-test-circuit-with-gaps)
           result (qo/optimize-qubit-usage circuit)
-          optimized-circuit (:quantum-circuit result)]
+          optimized-circuit (:circuit result)]
       ; Original H gate on qubit 0 should stay on qubit 0
       (is (= (get-in optimized-circuit [:operations 0 :operation-params :target]) 0))
       ; Original X gate on qubit 2 should be on qubit 1

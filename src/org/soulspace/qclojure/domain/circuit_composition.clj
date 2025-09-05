@@ -63,7 +63,7 @@
   (extend-circuit (h-gate (create-circuit 1) 0) 3 #(+ % 2))
   ;=> 3-qubit circuit with Hadamard gate on qubit 2"
   [circuit new-num-qubits & {:keys [qubit-mapping] :or {qubit-mapping identity}}]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit)
+  {:pre [(s/valid? ::qc/circuit circuit)
          (>= new-num-qubits (:num-qubits circuit))]}
 
   ;; Only update operation parameters if the qubit mapping is not identity
@@ -110,8 +110,8 @@
   (compose-circuits (create-circuit 5) (h-gate (create-circuit 2) 0) {:offset 3})
   ;=> 5-qubit circuit with H gate on qubit 3"
   [circuit1 circuit2 & [options]]
-  {:pre [(s/valid? ::qc/quantum-circuit circuit1)
-         (s/valid? ::qc/quantum-circuit circuit2)]}
+  {:pre [(s/valid? ::qc/circuit circuit1)
+         (s/valid? ::qc/circuit circuit2)]}
   (let [{:keys [qubit-mapping offset control-qubits-only]} (or options {})
         num-qubits-1 (:num-qubits circuit1)
         num-qubits-2 (:num-qubits circuit2)

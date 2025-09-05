@@ -29,7 +29,7 @@
 (s/def ::complex-amplitude qmath/complex?)
 (s/def ::state-vector (s/coll-of ::complex-amplitude :kind vector? :min-count 1))
 (s/def ::num-qubits pos-int?)
-(s/def ::quantum-state (s/keys :req-un [::state-vector ::num-qubits]))
+(s/def ::state (s/keys :req-un [::state-vector ::num-qubits]))
 (s/def ::basis-states (s/coll-of pos-int? :kind vector? :min-count 1))
 (s/def ::basis-strings (s/coll-of string? :kind vector? :min-count 1))
 (s/def ::basis-labels (s/coll-of string? :kind vector? :min-count 1))
@@ -212,7 +212,7 @@
   ;=> State approximately equal to |+⟩ = (|0⟩ + |1⟩)/√2"
   [amplitude]
   {:pre [(s/valid? ::complex-amplitude amplitude)]
-   :post [(s/valid? ::quantum-state %)]}
+   :post [(s/valid? ::state %)]}
   (let [norm (fm/sqrt (+ (fc/abs amplitude) (fc/abs (- 1 amplitude))))]
     {:state-vector [(fc/complex (/ (fc/abs amplitude) norm) 0)
                     (fc/complex (/ (fc/abs (- 1 amplitude)) norm) 0)]
@@ -241,7 +241,7 @@
   ;=> 2-qubit Bell state (|00⟩ + |11⟩)/√2"
   [amplitudes]
   {:pre [(every? #(s/valid? ::complex-amplitude %) amplitudes)]
-   ;:post [(s/valid? ::quantum-state %)]
+   ;:post [(s/valid? ::state %)]
    }
   (let [num-qubits (max 1 (fm/log2int (count amplitudes)))
         state-vector amplitudes]
@@ -276,7 +276,7 @@
     :num-qubits 1})
   ([n]
    {:pre [(pos-int? n)]
-   ;:post [(s/valid? ::quantum-state %)]
+   ;:post [(s/valid? ::state %)]
     }
    (let [size (bit-shift-left 1 n)
          state-vector (into [] (concat [(fc/complex 1 0)] (repeat (- size 1) (fc/complex 0 0))))]
@@ -490,9 +490,9 @@
   (tensor-product |0⟩ |1⟩)
   ;=> 2-qubit state |01⟩ = [0, 1, 0, 0]"
   [state1 state2]
-  #_{:pre [(s/valid? ::quantum-state state1)
-           (s/valid? ::quantum-state state2)]
-     :post [(s/valid? ::quantum-state %)]}
+  #_{:pre [(s/valid? ::state state1)
+           (s/valid? ::state state2)]
+     :post [(s/valid? ::state %)]}
   (let [v1 (:state-vector state1)
         v2 (:state-vector state2)
         n1 (:num-qubits state1)
@@ -517,7 +517,7 @@
     Note:
     Uses outer-product semantics with automatic normalization"
   [state]
-  {:pre [(s/valid? ::quantum-state state)]}
+  {:pre [(s/valid? ::state state)]}
   (cla/outer-product (:state-vector state) (:state-vector state)))
 
 (defn trace-one?
@@ -563,7 +563,7 @@
   ;=> 1.0  ; 100% chance of measuring |0⟩"
   [state basis-index]
   ;; Temporarily disabled spec validation
-  ;; {:pre [(s/valid? ::quantum-state state)
+  ;; {:pre [(s/valid? ::state state)
   ;;        (< basis-index (count (:state-vector state)))]}
   (let [amplitude (nth (:state-vector state) basis-index)]
     (* (fc/abs amplitude) (fc/abs amplitude))))
@@ -664,7 +664,7 @@
    (trajectory-to-density-matrix trajectories nil))
   ([trajectories weights]
    {:pre [(seq trajectories)
-          (every? #(s/valid? ::quantum-state %) trajectories)]}
+          (every? #(s/valid? ::state %) trajectories)]}
    (let [n (count trajectories)
          first-state (first trajectories)
          num-qubits (:num-qubits first-state)

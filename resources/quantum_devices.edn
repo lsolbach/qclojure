@@ -302,7 +302,7 @@
    {:num-modes 216
     :topology :programmable
     :connectivity :all-to-all
-    :coupling :programmable  ; Photonic system with reconfigurable beam splitter network
+    ;:coupling :programmable  ; Photonic system with reconfigurable beam splitter network
     :native-gates #{:s :d :r :mz :bs}  ; Photonic operations
     :virtual-gates #{:x :z :h :cnot}   ; Discrete qubit emulation
     :measurement-basis :photon-number
@@ -752,7 +752,6 @@
    {:num-qubits 30  ; Limited by classical memory
     :topology :all-to-all
     :connectivity :full
-    :coupling :all-to-all  ; Simulator supports all connections
     :native-gates #{:x :y :z :h :s :t :cnot :cz :rx :ry :rz :swap}
     :virtual-gates #{}
     :measurement-basis :any}

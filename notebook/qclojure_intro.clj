@@ -78,7 +78,7 @@ gate/cnot
 ;; # Quantum Circuits
 ;; ## Creating a Quantum Circuit
 (def test-circuit
-  (-> (circuit/quantum-circuit 2)
+  (-> (circuit/create-circuit 2 "Bell Circuit" "Creates a Bell state")
       (circuit/h-gate 0)
       (circuit/cnot-gate 0 1)))
 ;; ## Visualizing the Circuit in ASCII

@@ -1,5 +1,5 @@
 (ns org.soulspace.qclojure.application.topology
-  
+
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit :as qc]
@@ -8,7 +8,39 @@
 ;;;
 ;;; Hardware Topology Creation Functions
 ;;;
-(defn coupling-for-linear-topology
+(defn ensure-symmetric-coupling
+  "Ensure all connections in topology are symmetric.
+   
+   Parameters:
+    - coupling: Vector of vectors representing qubit connectivity
+  
+    Returns:
+    Symmetric coupling where if qubit A connects to B, then B connects to A"
+  [coupling]
+  (let [num-qubits (count coupling)]
+    (vec (for [i (range num-qubits)]
+           (let [neighbors (set (get coupling i))
+                 ;; Add reverse connections to ensure symmetry
+                 symmetric-neighbors
+                 (into neighbors
+                       (for [j (range num-qubits)
+                             :when (some #(= % i) (get coupling j))]
+                         j))]
+             (vec (sort (remove #(= % i) symmetric-neighbors))))))))
+
+(defn all-to-all-coupling
+  "Create the coupling for an all-to-all hardware topology where every qubit is connected to every other qubit.
+  
+  Parameters:
+  - num-qubits: Number of qubits in the topology
+  
+  Returns:
+  Vector of vectors representing adjacency list for all-to-all topology"
+  [num-qubits]
+  (vec (for [i (range num-qubits)]
+         (vec (remove #(= % i) (range num-qubits))))))
+
+(defn linear-coupling
   "Create the coupling for a linear hardware topology where qubits are connected in a line.
   
   Parameters:
@@ -27,7 +59,7 @@
                   (= i (dec num-qubits)) [(dec i)] ; Last qubit connects to second-to-last
                   :else [(dec i) (inc i)]))))))   ; Middle qubits connect to neighbors
 
-(defn coupling-for-ring-topology
+(defn ring-coupling
   "Create the coupling for a ring hardware topology where qubits are connected in a circle.
   
   Parameters:
@@ -37,14 +69,14 @@
   Vector of vectors representing adjacency list for ring topology"
   [num-qubits]
   (cond
-    (< num-qubits 3) (coupling-for-linear-topology num-qubits) ; Ring needs at least 3 qubits
+    (< num-qubits 3) (linear-coupling num-qubits) ; Ring needs at least 3 qubits
     :else
     (vec (for [i (range num-qubits)]
            (let [prev (mod (dec i) num-qubits)
                  next (mod (inc i) num-qubits)]
              [prev next])))))
 
-(defn coupling-for-star-topology
+(defn star-coupling
   "Create the coupling for a star hardware topology with one central qubit connected to all others.
   
   Parameters:
@@ -60,7 +92,7 @@
     (vec (cons (vec (range 1 num-qubits))  ; Center qubit (0) connects to all others
                (repeat (dec num-qubits) [0]))))) ; All other qubits connect only to center
 
-(defn coupling-for-grid-topology
+(defn grid-coupling
   "Create the coupling for a grid hardware topology with qubits arranged in a rectangular grid.
   
   Parameters:
@@ -85,7 +117,7 @@
                    (when (< col (dec cols)) [(inc i)]))))))))
 
 ; TODO fix the heavy hex topologies and add higher qubit heavy hex topologies
-(defn coupling-for-heavy-hex-topology
+(defn heavy-hex-coupling
   "Create the coupling for a heavy-hex hardware topology as used by IBM quantum computers.
    
    Heavy-hex topology consists of hexagonal units where each qubit has degree 2-3.
@@ -115,144 +147,38 @@
    (heavy-hex-topology 27)        ; Same as :falcon"
   [processor-type]
   {:pre [(or (keyword? processor-type) (pos-int? processor-type))]}
-
-  (letfn [(ensure-symmetric [topology]
-            "Ensure all connections in topology are symmetric"
-            (let [num-qubits (count topology)]
-              (vec (for [i (range num-qubits)]
-                     (let [neighbors (set (get topology i))
-                           ;; Add reverse connections to ensure symmetry
-                           symmetric-neighbors
-                           (into neighbors
-                                 (for [j (range num-qubits)
-                                       :when (some #(= % i) (get topology j))]
-                                   j))]
-                       (vec (sort (remove #(= % i) symmetric-neighbors))))))))]
-
-    (let [proc-key (cond
-                     (#{:basic 1} processor-type) :basic
+  (let [proc-key (cond
+                   (#{:basic 1} processor-type) :basic
                      ; (#{:falcon 27} processor-type) :falcon
                      ; (#{:hummingbird 65} processor-type) :hummingbird
                      ; (#{:eagle 127} processor-type) :eagle
-                     :else (throw (ex-info "Unsupported heavy-hex processor type"
-                                           {:processor-type processor-type
-                                            :supported [:basic 7]
+                   :else (throw (ex-info "Unsupported heavy-hex processor type"
+                                         {:processor-type processor-type
+                                          :supported [:basic 7]
 ;                                            :supported [:basic :falcon :hummingbird :eagle 7 27 65 127]
-                                            })))]
+                                          })))]
 
-      (case proc-key
-        :basic
-        ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
-        ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
-        ;; Layout:
-        ;;          0 
-        ;;           \
-        ;;            1---2
-        ;;           /     \
-        ;;          6       3
-        ;;           \     /
-        ;;            5---4
-        ;;
-        (let [topology [[1]                ; 0: edge qubit, degree 1
-                        [0 2 6]            ; 1: Connection qubit, degree 3  
-                        [1 3]              ; 2: corner qubit, degree 2
-                        [2 4]              ; 3: corner qubit, degree 2
-                        [3 5]              ; 4: corner qubit, degree 2
-                        [4 6]              ; 5: corner qubit, degree 2
-                        [5 1]]]            ; 6: corner qubit, degree 2
-          (ensure-symmetric topology))
-
-        :falcon
-        ;; 27-qubit IBM Falcon heavy-hex topology
-        ;; Based on IBM's actual Falcon processor heavy-hex lattice
-        ;; This creates a proper heavy-hex lattice with degree 2-3 qubits
-        (let [topology [[1 14]             ; 0: degree 2
-                        [0 2 4]            ; 1: degree 3 (heavy qubit)
-                        [1 3]              ; 2: degree 2
-                        [2 5]              ; 3: degree 2
-                        [1 5 6]            ; 4: degree 3 (heavy qubit)
-                        [3 4 7]            ; 5: degree 3 (heavy qubit)
-                        [4 7 8]            ; 6: degree 3 (heavy qubit)
-                        [5 6 9]            ; 7: degree 3 (heavy qubit)
-                        [6 9 10]           ; 8: degree 3 (heavy qubit)
-                        [7 8 11]           ; 9: degree 3 (heavy qubit)
-                        [8 11 12]          ; 10: degree 3 (heavy qubit)
-                        [9 10 13]          ; 11: degree 3 (heavy qubit)
-                        [10 13 14]         ; 12: degree 3 (heavy qubit)
-                        [11 12 15]         ; 13: degree 3 (heavy qubit)
-                        [0 12 15 16]       ; 14: degree 4 (connection point)
-                        [13 14 17]         ; 15: degree 3 (heavy qubit)
-                        [14 17 18]         ; 16: degree 3 (heavy qubit)
-                        [15 16 19]         ; 17: degree 3 (heavy qubit)
-                        [16 19 20]         ; 18: degree 3 (heavy qubit)
-                        [17 18 21]         ; 19: degree 3 (heavy qubit)
-                        [18 21 22]         ; 20: degree 3 (heavy qubit)
-                        [19 20 23]         ; 21: degree 3 (heavy qubit)
-                        [20 23 24]         ; 22: degree 3 (heavy qubit)
-                        [21 22 25]         ; 23: degree 3 (heavy qubit)
-                        [22 25 26]         ; 24: degree 3 (heavy qubit)
-                        [23 24]            ; 25: degree 2
-                        [24]]]             ; 26: degree 1
-          (ensure-symmetric topology))
-
-        :hummingbird
-        ;; 65-qubit IBM Hummingbird heavy-hex topology
-        ;; Simplified heavy-hex pattern ensuring degree 2-3 connectivity
-        ;; Based on IBM's actual heavy-hex lattice principles
-        (let [topology (vec
-                        (for [i (range 65)]
-                          (let [;; Create a realistic heavy-hex pattern
-                                ;; Use row-column mapping with hex constraints
-                                row (quot i 13)  ; 5 rows of ~13 qubits
-                                col (mod i 13)
-                                ;; Build neighbors step by step
-                                horizontal-neighbors (cond-> []
-                                                       ;; Left neighbor 
-                                                       (and (> col 0) (>= (dec i) 0))
-                                                       (conj (dec i))
-                                                       ;; Right neighbor
-                                                       (and (< col 12) (< (inc i) 65))
-                                                       (conj (inc i)))
-                                neighbors (cond-> horizontal-neighbors
-                                            ;; Add vertical if we have room (max degree 3)
-                                            (and (> row 0) (>= (- i 13) 0) (< (count horizontal-neighbors) 2))
-                                            (conj (- i 13))
-                                            (and (< row 4) (< (+ i 13) 65) (< (count horizontal-neighbors) 1))
-                                            (conj (+ i 13)))]
-                            ;; Limit to max degree 3 for heavy-hex
-                            (vec (take 3 neighbors)))))]
-          (ensure-symmetric topology))
-
-        :eagle
-        ;; 127-qubit IBM Eagle heavy-hex topology
-        ;; Larger heavy-hex lattice following IBM's Eagle processor design
-        ;; Maintains degree 2-3 connectivity in heavy-hex pattern
-        (let [topology (vec
-                        (for [i (range 127)]
-                          (let [;; Map to large heavy-hex lattice coordinates  
-                                row (quot i 11)  ; Adjusted for larger Eagle pattern
-                                col (mod i 11)
-                                neighbors (cond-> []
-                                            ;; Primary heavy-hex connections
-                                            (and (> col 0) (>= (dec i) 0))
-                                            (conj (dec i))
-                                            (and (< col 10) (< (inc i) 127))
-                                            (conj (inc i))
-                                            ;; Vertical heavy-hex pattern
-                                            (and (> row 0) (>= (- i 11) 0))
-                                            (conj (- i 11))
-                                            (and (< row 10) (< (+ i 11) 127))
-                                            (conj (+ i 11))
-                                            ;; Hex diagonal connections (limited)
-                                            (and (> row 1) (> col 1) (< col 9) (< row 9)
-                                                 (even? (+ row col)) (>= (- i 12) 0) (< (- i 12) 127))
-                                            (conj (- i 12))
-                                            (and (> row 1) (> col 1) (< col 9) (< row 9)
-                                                 (odd? (+ row col)) (>= (+ i 12) 0) (< (+ i 12) 127))
-                                            (conj (+ i 12)))]
-                            ;; Enforce max degree 3 for heavy-hex  
-                            (vec (take 3 neighbors)))))]
-          (ensure-symmetric topology))))))
+    (case proc-key
+      :basic
+      ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
+      ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
+      ;; Layout:
+      ;;          0 
+      ;;           \
+      ;;            1---2
+      ;;           /     \
+      ;;          6       3
+      ;;           \     /
+      ;;            5---4
+      ;;
+      (let [coupling [[1]                ; 0: edge qubit, degree 1
+                      [0 2 6]            ; 1: Connection qubit, degree 3  
+                      [1 3]              ; 2: corner qubit, degree 2
+                      [2 4]              ; 3: corner qubit, degree 2
+                      [3 5]              ; 4: corner qubit, degree 2
+                      [4 6]              ; 5: corner qubit, degree 2
+                      [5 1]]]            ; 6: corner qubit, degree 2
+        (ensure-symmetric-coupling coupling)))))
 
 ;;;
 ;;; Hardware Topology Optimization Functions
@@ -453,7 +379,7 @@
     ;; Empty circuit case
     (zero? num-logical-qubits)
     {}
-    
+
     ;; Small circuits: try all possible mappings and pick the best
     (<= num-logical-qubits 8)
     (let [logical-qubits (range num-logical-qubits)
@@ -464,7 +390,7 @@
           best-mapping (first (sort-by #(calculate-mapping-cost two-qubit-ops % distance-matrix)
                                        all-mappings))]
       best-mapping)
-    
+
     ;; Large circuits: use identity mapping as placeholder
     ;; TODO: Implement more sophisticated algorithms for large circuits
     :else
@@ -498,10 +424,10 @@
   (let [two-qubit-ops (extract-two-qubit-operations circuit)
         num-logical-qubits (:num-qubits circuit)
         num-physical-qubits (count coupling)]
-    
-    (find-optimal-mapping-for-operations two-qubit-ops 
-                                         num-logical-qubits 
-                                         num-physical-qubits 
+
+    (find-optimal-mapping-for-operations two-qubit-ops
+                                         num-logical-qubits
+                                         num-physical-qubits
                                          distance-matrix)))
 
 (defn optimize-for-coupling
@@ -557,8 +483,8 @@
 
          ;; Apply the mapping to the circuit operations
          mapped-operations (mapv #(cc/update-operation-params %
-                                                           (fn [qubit-id]
-                                                             (get logical-to-physical qubit-id qubit-id)))
+                                                              (fn [qubit-id]
+                                                                (get logical-to-physical qubit-id qubit-id)))
                                  (:operations circuit))
 
          ;; Insert SWAP operations for non-adjacent two-qubit operations
@@ -610,8 +536,8 @@
                                                        (swap! result-operations conj mapped-op))))
                                                  ;; Single-qubit operation - map directly
                                                  (let [mapped-op (cc/update-operation-params op
-                                                                                          (fn [qubit-id]
-                                                                                            (get @current-mapping qubit-id qubit-id)))]
+                                                                                             (fn [qubit-id]
+                                                                                               (get @current-mapping qubit-id qubit-id)))]
                                                    (swap! result-operations conj mapped-op)))))
                                            [@result-operations @total-swaps])
                                          [mapped-operations 0])
@@ -661,38 +587,38 @@
   [coupling]
   (let [num-qubits (count coupling)]
     (if (> num-qubits 1)
-     (let [degrees (mapv count coupling)
-           degrees-count (count degrees)
-           total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
-           avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
-           max-degree (if (> degrees-count 1) (apply max degrees) 0)
-           min-degree (if (> degrees-count 1) (apply min degrees) 0)
+      (let [degrees (mapv count coupling)
+            degrees-count (count degrees)
+            total-edges (/ (reduce + degrees) 2) ; Each edge counted twice
+            avg-degree (/ (reduce + degrees) (double num-qubits)) ; Total degree sum divided by qubits
+            max-degree (if (> degrees-count 1) (apply max degrees) 0)
+            min-degree (if (> degrees-count 1) (apply min degrees) 0)
 
-           ;; Calculate diameter using distance matrix
-           distance-matrix (calculate-distance-matrix coupling)
-           all-distances (for [i (range num-qubits)
-                               j (range num-qubits)
-                               :when (not= i j)]
-                           (get-in distance-matrix [i j]))
-           diameter (if (some #(= % Integer/MAX_VALUE) all-distances)
-                      Integer/MAX_VALUE ; Disconnected
-                      (apply max all-distances))
-           is-connected (not= diameter Integer/MAX_VALUE)]
+            ;; Calculate diameter using distance matrix
+            distance-matrix (calculate-distance-matrix coupling)
+            all-distances (for [i (range num-qubits)
+                                j (range num-qubits)
+                                :when (not= i j)]
+                            (get-in distance-matrix [i j]))
+            diameter (if (some #(= % Integer/MAX_VALUE) all-distances)
+                       Integer/MAX_VALUE ; Disconnected
+                       (apply max all-distances))
+            is-connected (not= diameter Integer/MAX_VALUE)]
 
-       {:num-qubits num-qubits
-        :total-edges total-edges
-        :avg-degree avg-degree
-        :max-degree max-degree
-        :min-degree min-degree
-        :diameter diameter
-        :is-connected is-connected})
-     {:num-qubits num-qubits
-      :total-edges 0
-      :avg-degree 0
-      :max-degree 0
-      :min-degree 0
-      :diameter 0
-      :is-connected (= num-qubits 1)})))
+        {:num-qubits num-qubits
+         :total-edges total-edges
+         :avg-degree avg-degree
+         :max-degree max-degree
+         :min-degree min-degree
+         :diameter diameter
+         :is-connected is-connected})
+      {:num-qubits num-qubits
+       :total-edges 0
+       :avg-degree 0
+       :max-degree 0
+       :min-degree 0
+       :diameter 0
+       :is-connected (= num-qubits 1)})))
 
 (defn get-coupling-info
   "Get human-readable information about a topology.
@@ -778,31 +704,31 @@
                   {:operation-type :cnot :operation-params {:control 0 :target 1}}]})
 
   ;; Test with different topologies
-  (def linear-2 (coupling-for-linear-topology 2))
+  (def linear-2 (linear-coupling 2))
   (def result (optimize-for-coupling bell-circuit linear-2))
   (println (:topology-summary result))
 
   ;; Test the new focused mapping functions
   (def distance-matrix (calculate-distance-matrix linear-2))
-  
+
   ;; Circuit-based mapping (recommended for most use cases)
   (def circuit-mapping (find-optimal-mapping bell-circuit linear-2 distance-matrix))
-  
+
   ;; Low-level operations-based mapping (for advanced use)
   (def two-qubit-ops (extract-two-qubit-operations bell-circuit))
-  (def ops-mapping (find-optimal-mapping-for-operations 
-                     two-qubit-ops 
-                     (:num-qubits bell-circuit)
-                     (count linear-2)
-                     distance-matrix))
-  
+  (def ops-mapping (find-optimal-mapping-for-operations
+                    two-qubit-ops
+                    (:num-qubits bell-circuit)
+                    (count linear-2)
+                    distance-matrix))
+
   ;; They should produce the same result
   (= circuit-mapping ops-mapping) ;=> true
 
   ;; Compare multiple topologies
-  (def topologies {"Linear-5" (coupling-for-linear-topology 5)
-                   "Ring-5" (coupling-for-ring-topology 5)
-                   "Star-5" (coupling-for-star-topology 5)})
+  (def topologies {"Linear-5" (linear-coupling 5)
+                   "Ring-5" (ring-coupling 5)
+                   "Star-5" (star-coupling 5)})
 
   (doseq [[name topo] topologies]
     (println (get-coupling-info topo name)))
@@ -835,15 +761,15 @@
                   {:operation-type :cnot :operation-params {:control 0 :target 2}}]}) ; Non-adjacent
 
   (def supported-gates #{:h :x :z :rz :cnot})  ; SWAP is NOT supported
-  (def coupling-for-linear-topology [[1] [0 2] [1]])        ; Linear: 0-1-2
+  (def linear-coupling [[1] [0 2] [1]])        ; Linear: 0-1-2
 
   ;; Test the topology-aware transformation
-  (topology-aware-transform test-circuit coupling-for-linear-topology supported-gates {})
+  (topology-aware-transform test-circuit linear-coupling supported-gates {})
 
 
   ;; Test Heavy-Hex topology (IBM-style)
-  (def hex1 (coupling-for-heavy-hex-topology 1))  ; 7-qubit single hexagon
-  (def hex2 (coupling-for-heavy-hex-topology 2))  ; 17-qubit connected hexagons
+  (def hex1 (heavy-hex-coupling 1))  ; 7-qubit single hexagon
+  (def hex2 (heavy-hex-coupling 2))  ; 17-qubit connected hexagons
 
   ;; Validate heavy-hex topologies
   (validate-coupling hex1)  ;=> true
@@ -854,17 +780,17 @@
   (get-coupling-info hex2 "Heavy-Hex Size-2")
 
   ;; Compare heavy-hex with other topologies for circuit optimization
-  (def topologies-with-hex {"Heavy-Hex-1" (coupling-for-heavy-hex-topology 1)
-                            "Heavy-Hex-2" (coupling-for-heavy-hex-topology 2)
-                            "Linear-7" (coupling-for-linear-topology 7)
-                            "Grid-2x4" (coupling-for-grid-topology 2 4)
-                            "Ring-7" (coupling-for-ring-topology 7)})
+  (def topologies-with-hex {"Heavy-Hex-1" (heavy-hex-coupling 1)
+                            "Heavy-Hex-2" (heavy-hex-coupling 2)
+                            "Linear-7" (linear-coupling 7)
+                            "Grid-2x4" (grid-coupling 2 4)
+                            "Ring-7" (ring-coupling 7)})
 
   (compare-couplings complex-circuit topologies-with-hex)
   ;=> Shows heavy-hex often has lower routing costs due to better connectivity
 
   ;; IBM-style heavy-hex usage example  
-  (def ibm-heavy-hex (coupling-for-heavy-hex-topology 2))  ; 17 qubits
+  (def ibm-heavy-hex (heavy-hex-coupling 2))  ; 17 qubits
   (def hex-optimization (optimize-for-coupling complex-circuit ibm-heavy-hex))
   (println (:topology-summary hex-optimization))
 

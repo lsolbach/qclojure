@@ -16,7 +16,7 @@
                       (qc/t-gate 1)  ; Virtual gate
                       (qc/cnot-gate 0 2))  ; Non-adjacent
           supported-gates #{:h :x :z :rz :cnot}
-          topology (topo/coupling-for-linear-topology 3)
+          topology (topo/linear-coupling 3)
           result (ho/optimize circuit supported-gates topology {:optimize-topology? true})]
       (is (s/valid? ::qc/circuit (:circuit result)))
       (is (contains? result :pipeline-order))

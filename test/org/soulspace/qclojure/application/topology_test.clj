@@ -29,22 +29,22 @@
 ;;;
 (deftest test-topology-creation
   (testing "Linear topology"
-    (let [topology (topo/coupling-for-linear-topology 4)]
+    (let [topology (topo/linear-coupling 4)]
       (is (= topology [[1] [0 2] [1 3] [2]]))
       (is (= (count topology) 4))))
 
   (testing "Ring topology"
-    (let [topology (topo/coupling-for-ring-topology 4)]
+    (let [topology (topo/ring-coupling 4)]
       (is (= topology [[3 1] [0 2] [1 3] [2 0]]))
       (is (= (count topology) 4))))
 
   (testing "Star topology"
-    (let [topology (topo/coupling-for-star-topology 4)]
+    (let [topology (topo/star-coupling 4)]
       (is (= topology [[1 2 3] [0] [0] [0]]))
       (is (= (count topology) 4))))
 
   (testing "Grid topology"
-    (let [topology (topo/coupling-for-grid-topology 2 2)]
+    (let [topology (topo/grid-coupling 2 2)]
       (is (= topology [[2 1] [3 0] [0 3] [1 2]]))
       (is (= (count topology) 4))))
 
@@ -73,17 +73,17 @@
 
   (testing "Heavy-hex topology error cases"
     ;; Test invalid processor type (precondition)
-    (is (thrown? AssertionError (topo/coupling-for-heavy-hex-topology 0)))
+    (is (thrown? AssertionError (topo/heavy-hex-coupling 0)))
     
     ;; Test unsupported processor type
     (is (thrown-with-msg? clojure.lang.ExceptionInfo 
                           #"Unsupported heavy-hex processor type"
-                          (topo/coupling-for-heavy-hex-topology :unsupported))))
+                          (topo/heavy-hex-coupling :unsupported))))
 
   (testing "Single qubit topologies"
-    (is (= (topo/coupling-for-linear-topology 1) [[]]))
-    (is (= (topo/coupling-for-ring-topology 1) [[]]))
-    (is (= (topo/coupling-for-star-topology 1) [[]]))))
+    (is (= (topo/linear-coupling 1) [[]]))
+    (is (= (topo/ring-coupling 1) [[]]))
+    (is (= (topo/star-coupling 1) [[]]))))
 
 (deftest test-validate-topology
   (testing "Valid topologies"
@@ -101,7 +101,7 @@
 ;;
 (deftest test-topology-analysis
   (testing "Linear topology analysis"
-    (let [topology (topo/coupling-for-linear-topology 4)
+    (let [topology (topo/linear-coupling 4)
           analysis (topo/analyze-coupling-connectivity topology)]
       (is (= (:num-qubits analysis) 4))
       (is (= (:total-edges analysis) 3))
@@ -110,7 +110,7 @@
       (is (:is-connected analysis))))
 
   (testing "Star topology analysis"
-    (let [topology (topo/coupling-for-star-topology 4)
+    (let [topology (topo/star-coupling 4)
           analysis (topo/analyze-coupling-connectivity topology)]
       (is (= (:num-qubits analysis) 4))
       (is (= (:total-edges analysis) 3))
@@ -192,7 +192,7 @@
 ;;
 (deftest test-calculate-distance-matrix
   (testing "Linear topology distances"
-    (let [topology (topo/coupling-for-linear-topology 4)
+    (let [topology (topo/linear-coupling 4)
           distances (topo/calculate-distance-matrix topology)]
       (is (= (get-in distances [0 0]) 0))
       (is (= (get-in distances [0 1]) 1))
@@ -201,7 +201,7 @@
       (is (= (get-in distances [1 3]) 2))))
 
   (testing "Star topology distances"
-    (let [topology (topo/coupling-for-star-topology 4)
+    (let [topology (topo/star-coupling 4)
           distances (topo/calculate-distance-matrix topology)]
       (is (= (get-in distances [0 0]) 0))
       (is (= (get-in distances [0 1]) 1))
@@ -209,7 +209,7 @@
       (is (= (get-in distances [2 3]) 2)))) ; Through center
 
   (testing "Ring topology distances"
-    (let [topology (topo/coupling-for-ring-topology 4)
+    (let [topology (topo/ring-coupling 4)
           distances (topo/calculate-distance-matrix topology)]
       (is (= (get-in distances [0 0]) 0))
       (is (= (get-in distances [0 1]) 1))
@@ -221,22 +221,22 @@
 ;;
 (deftest test-find-shortest-path
   (testing "Path in linear topology"
-    (let [topology (topo/coupling-for-linear-topology 4)
+    (let [topology (topo/linear-coupling 4)
           path (topo/find-shortest-path topology 0 3)]
       (is (= path [0 1 2 3]))))
 
   (testing "Path in star topology"
-    (let [topology (topo/coupling-for-star-topology 4)
+    (let [topology (topo/star-coupling 4)
           path (topo/find-shortest-path topology 1 2)]
       (is (= path [1 0 2]))))  ; Through center
 
   (testing "Same start and end"
-    (let [topology (topo/coupling-for-linear-topology 3)
+    (let [topology (topo/linear-coupling 3)
           path (topo/find-shortest-path topology 1 1)]
       (is (= path [1]))))
 
   (testing "Adjacent qubits"
-    (let [topology (topo/coupling-for-linear-topology 3)
+    (let [topology (topo/linear-coupling 3)
           path (topo/find-shortest-path topology 0 1)]
       (is (= path [0 1])))))
 
@@ -269,7 +269,7 @@
     (let [circuit (-> (qc/create-circuit 3)
                       (qc/h-gate 0)
                       (qc/cnot-gate 0 2))  ; Non-adjacent
-          topology (topo/coupling-for-linear-topology 3)
+          topology (topo/linear-coupling 3)
           result (topo/optimize-for-coupling circuit topology)]
       (is (s/valid? ::qc/circuit (:circuit result)))
       (is (map? (:logical-to-physical result)))
@@ -281,13 +281,13 @@
     (let [circuit (-> (qc/create-circuit 4)
                       (qc/cnot-gate 1 2)
                       (qc/cnot-gate 2 3))
-          topology (topo/coupling-for-star-topology 4)
+          topology (topo/star-coupling 4)
           result (topo/optimize-for-coupling circuit topology)]
       (is (s/valid? ::qc/circuit (:circuit result)))))
 
   (testing "Optimize with options"
     (let [circuit (create-test-circuit-1)
-          topology (topo/coupling-for-linear-topology 2)
+          topology (topo/linear-coupling 2)
           result (topo/optimize-for-coupling circuit topology {:insert-swaps? false})]
       (is (s/valid? ::qc/circuit (:circuit result))))))
 
@@ -298,9 +298,9 @@
   (testing "Compare topologies for a circuit"
     (let [circuit (-> (qc/create-circuit 3)
                       (qc/cnot-gate 0 2))
-          topologies {"linear" (topo/coupling-for-linear-topology 3)
-                      "star" (topo/coupling-for-star-topology 3)
-                      "ring" (topo/coupling-for-ring-topology 3)}
+          topologies {"linear" (topo/linear-coupling 3)
+                      "star" (topo/star-coupling 3)
+                      "ring" (topo/ring-coupling 3)}
           comparison (topo/compare-couplings circuit topologies)]
       (is (vector? comparison))
       (is (= (count comparison) 3))
@@ -338,7 +338,7 @@
 
   (testing "Small circuit with large topology"
     (let [circuit (-> (qc/create-circuit 2) (qc/cnot-gate 0 1))
-          topology (topo/coupling-for-linear-topology 5)
+          topology (topo/linear-coupling 5)
           distance-matrix (topo/calculate-distance-matrix topology)
           mapping (topo/find-optimal-mapping circuit topology distance-matrix)]
       (is (map? mapping))
@@ -349,7 +349,7 @@
 ;;
 (deftest test-get-topology-info
   (testing "Linear topology info"
-    (let [topology (topo/coupling-for-linear-topology 4)
+    (let [topology (topo/linear-coupling 4)
           info (topo/get-coupling-info topology "Linear-4")]
       (is (string? info))
       (is (str/includes? info "Linear-4"))
@@ -357,7 +357,7 @@
       (is (str/includes? info "Connected: true"))))
 
   (testing "Star topology info"
-    (let [topology (topo/coupling-for-star-topology 5)
+    (let [topology (topo/star-coupling 5)
           info (topo/get-coupling-info topology "Star-5")]
       (is (string? info))
       (is (str/includes? info "Star-5"))

@@ -1309,20 +1309,27 @@ qft-result
 ;; the solution to the system of linear equations Ax = b.
 
 (def hhl-result
-  (hhl/hhl-algorithm (sim/create-simulator) hhl-matrix hhl-vector {:shots 20000}))
+  (hhl/hhl-algorithm (sim/create-simulator)
+                     hhl-matrix
+                     hhl-vector
+                     {:shots 10000}))
 
 ;; The result of the HHL algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
+;; We don't show the full result here, as it contains 20000 measurement outcomes
+;; for the 20000 shots requested. We only show the probability results
+;; and the final result.
 
-hhl-result
+(get-in hhl-result [:execution-result :results :probability-results])
+
+(:result hhl-result)
 
 ;; The result shows that the HHL algorithm correctly aproximates the solution of
 ;; the system of linear equations represented by the matrix A and the vector b.
 ;;
-;; The measurement outcome is the vector of unknowns x that satisfies the equations.
-
-(:result hhl-result)
-
+;; The measurement outcome is an approximation to the vector of unknowns x that
+;; satisfies the equations.
+;;
 ;; Let's visualize the final quantum state after executing the HHL algorithm.
 
 (kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state])))
@@ -1330,7 +1337,12 @@ hhl-result
 ;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition
 ;; of the states that represent the solution to the system of equations.
-;;
+
+(hhl/solve (sim/create-simulator)
+           hhl-matrix
+           hhl-vector
+           {:shots 10000})
+
 ;; ### Variational Quantum Eigensolver (VQE) Algorithm
 ;; The [Variational Quantum Eigensolver (VQE)](https://en.wikipedia.org/wiki/Variational_quantum_eigensolver)
 ;; is a hybrid quantum-classical algorithm used to find the ground state energy

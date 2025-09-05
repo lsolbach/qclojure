@@ -14,7 +14,7 @@
             [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.gate :as gate]
             [org.soulspace.qclojure.domain.state :as state]
-            [org.soulspace.qclojure.domain.math.core :as mcore]))
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]))
 
 ;;;
 ;;; Specs for Observables
@@ -103,7 +103,7 @@
   {:pre [(s/valid? (s/coll-of (s/tuple number? ::observable)) coeffs-observables)]}
   (reduce
    (fn [result [coeff obs]]
-     (mcore/add result (mcore/scale obs coeff)))
+     (cla/add result (cla/scale obs coeff)))
    (zero-matrix (count (first (second (first coeffs-observables))))
                 (count (second (first coeffs-observables))))
    coeffs-observables))
@@ -121,7 +121,7 @@
      (tensor-product [pauli-x pauli-z])"
   [observables]
   {:pre [(s/valid? (s/coll-of ::observable) observables)]}
-  (reduce mcore/kronecker-product observables))
+  (reduce cla/kronecker-product observables))
 
 ;;;
 ;;; Pauli String Functions
@@ -169,8 +169,8 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        obs-psi (mcore/matrix-vector-product observable state-vec)]
-    (fc/re (mcore/inner-product state-vec obs-psi))))
+        obs-psi (cla/matrix-vector-product observable state-vec)]
+    (fc/re (cla/inner-product state-vec obs-psi))))
 
 (defn expectation-value-density-matrix
   "Calculate expectation value Tr(ρO) of observable O for density matrix ρ.
@@ -201,14 +201,14 @@
      ;; Collection of density matrices - uniform weighting
      (expectation-value-density-matrix observable density-matrix nil)
      ;; Single density matrix
-     (fc/re (mcore/trace (mcore/matrix-multiply density-matrix observable)))))
+     (fc/re (cla/trace (cla/matrix-multiply density-matrix observable)))))
   ([observable density-matrices weights]
    {:pre [(s/valid? ::observable observable)
           (coll? density-matrices)
           (or (nil? weights) (and (coll? weights) (= (count weights) (count density-matrices))))]}
    (let [num-matrices (count density-matrices)
          actual-weights (or weights (repeat num-matrices (/ 1.0 num-matrices)))
-         individual-values (mapv #(fc/re (mcore/trace (mcore/matrix-multiply % observable)))
+         individual-values (mapv #(fc/re (cla/trace (cla/matrix-multiply % observable)))
                                  density-matrices)
          weighted-mean (reduce + (map * actual-weights individual-values))
          variance (if (> num-matrices 1)
@@ -237,7 +237,7 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [exp-val (expectation-value observable quantum-state)
-        obs-squared (mcore/matrix-multiply observable observable)
+        obs-squared (cla/matrix-multiply observable observable)
         exp-val-squared (expectation-value obs-squared quantum-state)]
     (- exp-val-squared (* exp-val exp-val))))
 
@@ -264,11 +264,11 @@
   {:pre [(s/valid? ::observable observable)
          (s/valid? ::state/quantum-state quantum-state)]}
   (let [state-vec (:state-vector quantum-state)
-        {:keys [eigenvalues eigenvectors]} (mcore/eigen-hermitian observable)]
+        {:keys [eigenvalues eigenvectors]} (cla/eigen-hermitian observable)]
     ;; Calculate |⟨vᵢ|ψ⟩|² for each eigenvector vᵢ
     (into {}
           (map (fn [eigenval eigenvec]
-                 (let [overlap (mcore/inner-product eigenvec state-vec)
+                 (let [overlap (cla/inner-product eigenvec state-vec)
                        prob (fc/re (fc/mult overlap (fc/conjugate overlap)))
                        real-eigenval (fc/re eigenval)]
                    [real-eigenval prob]))
@@ -314,8 +314,8 @@
   (measurement-probabilities pauli-z state/|0⟩)  ; => {1.0 1.0, -1.0 0.0}
 
   ;; Verify observables are Hermitian
-  (mcore/hermitian? pauli-x)        ; => true
-  (mcore/hermitian? custom-hamiltonian) ; => true
+  (cla/hermitian? pauli-x)        ; => true
+  (cla/hermitian? custom-hamiltonian) ; => true
 
   ;; Test with Bell states
   (def bell-state (state/normalize-state

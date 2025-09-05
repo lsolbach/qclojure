@@ -20,7 +20,7 @@
             [clojure.spec.alpha :as s]
             [fastmath.core :as fm]
             [fastmath.complex :as fc]
-            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.domain.math :as qmath]))
 
 ;;;
@@ -456,9 +456,9 @@
   ;=> Normalized state with amplitudes [0.6, 0.8] since 3²+4²=25, norm=5"
   [state]
   (let [amplitudes (:state-vector state)
-        norm (mcore/norm2 amplitudes)
+        norm (cla/norm2 amplitudes)
         normalized-amplitudes (if (and (pos? norm)
-                                       (> norm (mcore/current-tolerance)))
+                                       (> norm (cla/current-tolerance)))
                                 (mapv #(fc/scale % (/ 1.0 norm)) amplitudes)
                                 amplitudes)]
     (assoc state :state-vector normalized-amplitudes)))
@@ -518,7 +518,7 @@
     Uses outer-product semantics with automatic normalization"
   [state]
   {:pre [(s/valid? ::quantum-state state)]}
-  (mcore/outer-product (:state-vector state) (:state-vector state)))
+  (cla/outer-product (:state-vector state) (:state-vector state)))
 
 (defn trace-one?
   "Test if a matrix has trace equal to one (Tr(ρ) ≈ 1).
@@ -532,8 +532,8 @@
   Note:
   Useful for validating quantum density matrices"
   [rho]
-  (let [trace (mcore/trace rho)
-        eps (mcore/current-tolerance)
+  (let [trace (cla/trace rho)
+        eps (cla/current-tolerance)
         trace-real (fc/re trace)]  ; Extract real part of complex trace
     (< (fm/abs (- trace-real 1.0)) eps)))
 
@@ -620,7 +620,7 @@
       ;; Mixed state (diagonal) density matrix: ρ = Σ_i p_i |i⟩⟨i| with p_i = |α_i|^2
       (let [probs (probabilities state)
             total (reduce + probs)
-            eps (mcore/current-tolerance)
+            eps (cla/current-tolerance)
             probs (if (and (pos? total)
                            (> (fm/abs (- total 1.0)) eps))
                     ;; normalize to ensure Tr(ρ)=1
@@ -649,13 +649,13 @@
          weights (or weights (repeat n (/ 1.0 n)))
          num-qubits (:num-qubits (first trajectories))
          projectors (map (fn [state weight]
-                          (mcore/scale (mcore/outer-product (:state-vector state)
+                          (cla/scale (cla/outer-product (:state-vector state)
                                                             (:state-vector state))
                                        weight))
                         trajectories weights)
-         sum-matrix (reduce mcore/add (first projectors) (rest projectors))
-         trace (mcore/trace sum-matrix)
-         normalized-matrix (mcore/scale sum-matrix (/ 1.0 trace))]
+         sum-matrix (reduce cla/add (first projectors) (rest projectors))
+         trace (cla/trace sum-matrix)
+         normalized-matrix (cla/scale sum-matrix (/ 1.0 trace))]
      {:density-matrix normalized-matrix
       :num-qubits num-qubits
       :trace trace})))

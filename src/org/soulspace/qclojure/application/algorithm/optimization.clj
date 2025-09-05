@@ -103,7 +103,7 @@
   (:require [clojure.spec.alpha :as s]
             [fastmath.core :as fm]
             [fastmath.optimization :as opt]
-            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.application.backend :as qb]))
@@ -615,12 +615,12 @@
               regularized-fisher (regularize-fisher-matrix fisher-matrix regularization)
               
               ;; Compute Fisher matrix inverse
-              fisher-inverse (mcore/matrix-inverse regularized-fisher)
+              fisher-inverse (cla/matrix-inverse regularized-fisher)
               
               ;; Check if matrix is invertible
               new-params (if fisher-inverse
                           ;; QNG update: θ_{k+1} = θ_k - α * F⁻¹ * ∇E
-                          (let [natural-gradient (first (mcore/matrix-multiply fisher-inverse [gradient]))]
+                          (let [natural-gradient (first (cla/matrix-multiply fisher-inverse [gradient]))]
                             (mapv #(- %1 (* learning-rate %2)) params natural-gradient))
                           ;; Fallback to regular gradient descent if Fisher matrix is singular
                           (do

@@ -471,7 +471,7 @@ gate/t-dag-gate
 ;; backend should be used only for educational purposes or for small quantum states and
 ;; circuits.
 
-(require '[org.soulspace.qclojure.domain.math.core :as mcore])
+(require '[org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla])
 
 ;; You can switch between the backends by using the `set-backend` function.
 ;; After switching the backend, all complex linear algebra operations
@@ -485,14 +485,14 @@ gate/t-dag-gate
 ;;
 ;; To switch to the pure Clojure Math backend, use the following code:
 
-(mcore/set-backend! :pure)
+(cla/set-backend! :pure)
 
 ;; Now, all complex linear algebra operations will use the pure Clojure Math
 ;; backend.
 ;;
 ;; You can switch back to the Fastmath backend by using the following code:
 
-(mcore/set-backend! :fastmath)
+(cla/set-backend! :fastmath)
 
 ;; A BLAS/LAPACK (CPU) and OpenCL/CUDA (GPU) enabled backend would be desirable for simulating
 ;; larger quantum states and circuits, but is not yet available.

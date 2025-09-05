@@ -1,5 +1,5 @@
 
-(ns org.soulspace.qclojure.domain.math.core
+(ns org.soulspace.qclojure.domain.math.complex-linear-algebra
   "Facade for linear algebra operations with pluggable backends.
   
    Goals:

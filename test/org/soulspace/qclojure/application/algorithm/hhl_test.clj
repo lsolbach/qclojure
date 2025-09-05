@@ -6,7 +6,7 @@
             [clojure.test.check.properties :as prop]
             [clojure.string :as str]
             [org.soulspace.qclojure.util.test :refer [approx-vector= real-part]]
-            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.application.algorithm.hhl :as hhl]
             [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
@@ -258,7 +258,7 @@
       ;; Test that the solution satisfies A*x ≈ b with proper scaling
       (when (:success result)
         (let [solution (:solution-vector result)
-              computed-b (mcore/matrix-vector-product matrix solution)]
+              computed-b (cla/matrix-vector-product matrix solution)]
           ;; With corrected amplitude extraction and scaling,
           ;; expect better accuracy than before (was ~30%, now target ~20%)
           (is (approx-vector= computed-b vector 0.2)
@@ -537,7 +537,7 @@
           (str "Solution " solution " should be close to input " vector))
       
       ;; Most importantly: verify the solution satisfies A*x = b
-      (let [computed-b (mcore/matrix-vector-product matrix solution)]
+      (let [computed-b (cla/matrix-vector-product matrix solution)]
         (is (approx-vector= computed-b vector 0.1)
             "A*x should equal b within tolerance"))))
 
@@ -644,9 +644,9 @@
         solution (:solution-vector result)]
     (when (:success result)
       {:solution solution
-       :computed-b (mcore/matrix-vector-product matrix solution)
+       :computed-b (cla/matrix-vector-product matrix solution)
        :original-b vector
-       :error (mapv - (mapv real-part (mcore/matrix-vector-product matrix solution)) vector)}))
+       :error (mapv - (mapv real-part (cla/matrix-vector-product matrix solution)) vector)}))
 
   ;; Run property-based tests
   (tc/quick-check 30 hhl-algorithm-properties)

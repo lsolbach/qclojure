@@ -12,7 +12,7 @@
    [fastmath.complex :as fc]
    [org.soulspace.qclojure.util.test :as util]
    [org.soulspace.qclojure.domain.math.protocols :as proto]
-   [org.soulspace.qclojure.domain.math.core :as mcore]))
+   [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]))
 
 ;;;
 ;;; Test Data
@@ -43,12 +43,12 @@
 (defn test-backend-consistency
   "Test that all backends produce consistent results for a given operation."
   [operation & args]
-  (let [backends (mcore/available-backends)
+  (let [backends (cla/available-backends)
         results (into {} 
                       (map (fn [backend-key]
                              [backend-key 
                               (try
-                                (mcore/with-backend backend-key
+                                (cla/with-backend backend-key
                                   (apply operation args))
                                 (catch Exception e
                                   {:error (.getMessage e)}))])
@@ -89,27 +89,27 @@
 
 (deftest test-backend-selection
   (testing "Available backends"
-    (let [backends (mcore/available-backends)]
+    (let [backends (cla/available-backends)]
       (is (set? backends))
       (is (contains? backends :pure))
       (is (contains? backends :fastmath))))
 
   (testing "Current backend"
-    (is (keyword? (mcore/get-backend)))
-    (is (contains? (mcore/available-backends) (mcore/get-backend))))
+    (is (keyword? (cla/get-backend)))
+    (is (contains? (cla/available-backends) (cla/get-backend))))
 
   (testing "Backend switching"
-    (let [original-backend (mcore/get-backend)]
+    (let [original-backend (cla/get-backend)]
       ;; Test with-backend macro
-      (mcore/with-backend :pure
-        (is (= :pure (mcore/get-backend))))
+      (cla/with-backend :pure
+        (is (= :pure (cla/get-backend))))
       
       ;; Should restore original backend
-      (is (= original-backend (mcore/get-backend)))))
+      (is (= original-backend (cla/get-backend)))))
 
   (testing "Backend creation"
-    (let [pure-backend (mcore/create-backend :pure)
-          fastmath-backend (mcore/create-backend :fastmath)]
+    (let [pure-backend (cla/create-backend :pure)
+          fastmath-backend (cla/create-backend :fastmath)]
       (is (satisfies? proto/MatrixAlgebra pure-backend))
       (is (satisfies? proto/MatrixAlgebra fastmath-backend)))))
 
@@ -119,13 +119,13 @@
 
 (deftest test-data-conversion
   (testing "Complex vector creation"
-    (let [cv (mcore/complex-vector [1 2] [3 4])]
+    (let [cv (cla/complex-vector [1 2] [3 4])]
       (is (= 2 (count cv)))
       (is (util/approx= (fc/complex 1.0 3.0) (first cv)))
       (is (util/approx= (fc/complex 2.0 4.0) (second cv)))))
 
   (testing "Complex matrix creation"
-    (let [cm (mcore/complex-matrix [[1 2] [3 4]] [[5 6] [7 8]])]
+    (let [cm (cla/complex-matrix [[1 2] [3 4]] [[5 6] [7 8]])]
       (is (= 2 (count cm)))
       (is (= 2 (count (first cm))))
       (is (util/approx= (fc/complex 1.0 5.0) (get-in cm [0 0])))
@@ -137,29 +137,29 @@
 
 (deftest test-basic-operations
   (testing "Matrix shape"
-    (is (= [3 3] (mcore/shape real-matrix)))
-    (is (= [2 2] (mcore/shape complex-matrix))))
+    (is (= [3 3] (cla/shape real-matrix)))
+    (is (= [2 2] (cla/shape complex-matrix))))
 
   (testing "Matrix addition consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/add identity-2x2 identity-2x2)]
+    (let [[consistent? results] (test-backend-consistency cla/add identity-2x2 identity-2x2)]
       (is consistent? (str "Backend results differ: " results))
       (let [result (second (first results))]
         (is (util/approx= (fc/complex 2.0 0.0) (get-in result [0 0]))))))
 
   (testing "Matrix subtraction consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/subtract identity-2x2 identity-2x2)]
+    (let [[consistent? results] (test-backend-consistency cla/subtract identity-2x2 identity-2x2)]
       (is consistent? (str "Backend results differ: " results))
       (let [result (second (first results))]
         (is (util/approx= (fc/complex 0.0 0.0) (get-in result [0 0]))))))
 
   (testing "Scalar multiplication consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/scale identity-2x2 2.0)]
+    (let [[consistent? results] (test-backend-consistency cla/scale identity-2x2 2.0)]
       (is consistent? (str "Backend results differ: " results))
       (let [result (second (first results))]
         (is (util/approx= (fc/complex 2.0 0.0) (get-in result [0 0]))))))
 
   (testing "Matrix negation consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/negate identity-2x2)]
+    (let [[consistent? results] (test-backend-consistency cla/negate identity-2x2)]
       (is consistent? (str "Backend results differ: " results))
       (let [result (second (first results))]
         (is (util/approx= (fc/complex -1.0 0.0) (get-in result [0 0])))))))
@@ -170,7 +170,7 @@
 
 (deftest test-product-operations
   (testing "Matrix multiplication consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/matrix-multiply identity-2x2 complex-matrix)]
+    (let [[consistent? results] (test-backend-consistency cla/matrix-multiply identity-2x2 complex-matrix)]
       (is consistent? (str "Backend results differ: " results))
       ;; Identity * A should equal A
       (let [result (second (first results))]
@@ -178,29 +178,29 @@
 
   (testing "Matrix-vector product consistency across backends"
     (let [vector-2d [(fc/complex 1.0 0.0) (fc/complex 0.0 1.0)]
-          [consistent? results] (test-backend-consistency mcore/matrix-vector-product complex-matrix vector-2d)]
+          [consistent? results] (test-backend-consistency cla/matrix-vector-product complex-matrix vector-2d)]
       (is consistent? (str "Backend results differ: " results))))
 
   (testing "Inner product consistency across backends"
     (let [v1 [(fc/complex 1.0 0.0) (fc/complex 0.0 1.0)]
           v2 [(fc/complex 1.0 0.0) (fc/complex 1.0 0.0)]
-          [consistent? results] (test-backend-consistency mcore/inner-product v1 v2)]
+          [consistent? results] (test-backend-consistency cla/inner-product v1 v2)]
       (is consistent? (str "Backend results differ: " results))))
 
   (testing "Outer product consistency across backends"
     (let [v1 [(fc/complex 1.0 0.0) (fc/complex 0.0 1.0)]
           v2 [(fc/complex 1.0 0.0) (fc/complex 1.0 0.0)]
-          [consistent? results] (test-backend-consistency mcore/outer-product v1 v2)]
+          [consistent? results] (test-backend-consistency cla/outer-product v1 v2)]
       (is consistent? (str "Backend results differ: " results))))
 
   (testing "Kronecker product consistency across backends"
     (let [small-matrix [[(fc/complex 1.0 0.0) (fc/complex 0.0 0.0)]
                         [(fc/complex 0.0 0.0) (fc/complex 1.0 0.0)]]
-          [consistent? results] (test-backend-consistency mcore/kronecker-product small-matrix small-matrix)]
+          [consistent? results] (test-backend-consistency cla/kronecker-product small-matrix small-matrix)]
       (is consistent? (str "Backend results differ: " results))
       ;; Result should be 4x4 matrix
       (let [result (second (first results))]
-        (is (= [4 4] (mcore/shape result)))))))
+        (is (= [4 4] (cla/shape result)))))))
 
 ;;;
 ;;; Transformation Tests
@@ -208,14 +208,14 @@
 
 (deftest test-transformations
   (testing "Transpose consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/transpose complex-matrix)]
+    (let [[consistent? results] (test-backend-consistency cla/transpose complex-matrix)]
       (is consistent? (str "Backend results differ: " results))))
 
   (testing "Conjugate transpose consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/conjugate-transpose complex-matrix)]
+    (let [[consistent? results] (test-backend-consistency cla/conjugate-transpose complex-matrix)]
       (is consistent? (str "Backend results differ: " results))
       ;; For Hermitian matrices, A† should equal A
-      (let [hermitian-conj-transpose (mcore/conjugate-transpose hermitian-matrix)]
+      (let [hermitian-conj-transpose (cla/conjugate-transpose hermitian-matrix)]
         (is (util/approx-matrix= hermitian-matrix hermitian-conj-transpose))))))
 
 ;;;
@@ -224,12 +224,12 @@
 
 (deftest test-reductions
   (testing "Trace consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/trace complex-matrix)]
+    (let [[consistent? results] (test-backend-consistency cla/trace complex-matrix)]
       (is consistent? (str "Backend results differ: " results))))
 
   (testing "Vector norm consistency across backends"
     (let [vector-2d [(fc/complex 3.0 0.0) (fc/complex 4.0 0.0)]
-          [consistent? results] (test-backend-consistency mcore/norm2 vector-2d)]
+          [consistent? results] (test-backend-consistency cla/norm2 vector-2d)]
       (is consistent? (str "Backend results differ: " results))
       ;; ||[3, 4]|| should be 5
       (let [result (second (first results))]
@@ -241,13 +241,13 @@
 
 (deftest test-predicates
   (testing "Hermitian test consistency across backends"
-    (let [[consistent? results] (test-backend-consistency mcore/hermitian? hermitian-matrix)]
+    (let [[consistent? results] (test-backend-consistency cla/hermitian? hermitian-matrix)]
       (is consistent? (str "Backend results differ: " results))
       (is (every? true? (vals results)) "Hermitian matrix should be detected as Hermitian")))
 
   (testing "Unitary test consistency across backends"
     ;; Use identity matrix which is unitary
-    (let [[consistent? results] (test-backend-consistency mcore/unitary? identity-2x2)]
+    (let [[consistent? results] (test-backend-consistency cla/unitary? identity-2x2)]
       (is consistent? (str "Backend results differ: " results))
       (is (every? true? (vals results)) "Identity matrix should be detected as unitary"))))
 
@@ -259,7 +259,7 @@
   (testing "Hermitian eigendecomposition consistency across backends"
     (let [pauli-z [[(fc/complex 1.0 0.0) (fc/complex 0.0 0.0)]
                    [(fc/complex 0.0 0.0) (fc/complex -1.0 0.0)]]
-          [consistent? results] (test-backend-consistency mcore/eigen-hermitian pauli-z)]
+          [consistent? results] (test-backend-consistency cla/eigen-hermitian pauli-z)]
       (is consistent? (str "Backend results differ: " results))
       
       ;; Test eigenvalue equation A*v = λ*v for each backend
@@ -272,7 +272,7 @@
           (doseq [i (range (count eigenvalues))]
             (let [lambda (nth eigenvalues i)
                   v (nth eigenvectors i)
-                  av (mcore/with-backend backend-key (mcore/matrix-vector-product pauli-z v))
+                  av (cla/with-backend backend-key (cla/matrix-vector-product pauli-z v))
                   lambda-v (mapv #(fc/mult lambda %) v)
                   diff (mapv fc/sub av lambda-v)
                   norm-diff (Math/sqrt (apply + (map #(let [abs-val (fc/abs %)]

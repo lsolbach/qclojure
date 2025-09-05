@@ -4,7 +4,7 @@
             [fastmath.complex :as c]
             [org.soulspace.qclojure.util.test :as util]
             [org.soulspace.qclojure.domain.observables :as obs]
-            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.domain.state :as state]))
 
 ;;
@@ -143,14 +143,14 @@
 ;;
 (deftest test-hermitian-properties
   (testing "Pauli matrices are Hermitian"
-    (is (mcore/hermitian? obs/pauli-x))
-    (is (mcore/hermitian? obs/pauli-y))
-    (is (mcore/hermitian? obs/pauli-z))
-    (is (mcore/hermitian? obs/identity-op)))
+    (is (cla/hermitian? obs/pauli-x))
+    (is (cla/hermitian? obs/pauli-y))
+    (is (cla/hermitian? obs/pauli-z))
+    (is (cla/hermitian? obs/identity-op)))
 
   (testing "Linear combinations of Hermitian operators are Hermitian"
     (let [combo (obs/linear-combination [[0.3 obs/pauli-x] [0.7 obs/pauli-z]])]
-      (is (mcore/hermitian? combo)))))
+      (is (cla/hermitian? combo)))))
 
 ;;
 ;; Integration Tests
@@ -163,7 +163,7 @@
           bell-obs (obs/linear-combination [[0.5 z-i] [0.5 i-z]])]
 
       ;; Verify it's Hermitian
-      (is (mcore/hermitian? bell-obs))
+      (is (cla/hermitian? bell-obs))
 
       ;; Test with Bell state |00⟩ + |11⟩
       (let [bell-state (state/normalize-state
@@ -181,13 +181,13 @@
     (doseq [[name observable] [["Pauli-X" obs/pauli-x]
                                ["Pauli-Y" obs/pauli-y]
                                ["Pauli-Z" obs/pauli-z]]]
-      (let [{:keys [eigenvalues eigenvectors]} (mcore/eigen-hermitian observable)]
+      (let [{:keys [eigenvalues eigenvectors]} (cla/eigen-hermitian observable)]
         (doseq [i (range (count eigenvalues))]
           (let [eigenval (nth eigenvalues i)
                 eigenvec (nth eigenvectors i)
-                Av (mcore/matrix-vector-product observable eigenvec)
+                Av (cla/matrix-vector-product observable eigenvec)
                 lambda-v (mapv #(c/mult eigenval %) eigenvec)
-                diff-norm (mcore/norm2 (mapv c/sub Av lambda-v))]
+                diff-norm (cla/norm2 (mapv c/sub Av lambda-v))]
             (is (< diff-norm 1e-10)
                 (str name " eigenvector " i " fails eigenvalue equation: ||A*v - λ*v|| = " diff-norm)))))))
 
@@ -195,10 +195,10 @@
     (doseq [[name observable] [["Pauli-X" obs/pauli-x]
                                ["Pauli-Y" obs/pauli-y]
                                ["Pauli-Z" obs/pauli-z]]]
-      (let [{:keys [eigenvectors]} (mcore/eigen-hermitian observable)]
+      (let [{:keys [eigenvectors]} (cla/eigen-hermitian observable)]
         (doseq [i (range (count eigenvectors))]
           (let [eigenvec (nth eigenvectors i)
-                norm (mcore/norm2 eigenvec)]
+                norm (cla/norm2 eigenvec)]
             (is (util/approx= 1.0 norm)
                 (str name " eigenvector " i " not normalized: ||v|| = " norm)))))))
 
@@ -206,7 +206,7 @@
     (doseq [[name observable] [["Pauli-X" obs/pauli-x]
                                ["Pauli-Y" obs/pauli-y]
                                ["Pauli-Z" obs/pauli-z]]]
-      (let [{:keys [eigenvalues]} (mcore/eigen-hermitian observable)]
+      (let [{:keys [eigenvalues]} (cla/eigen-hermitian observable)]
         (doseq [i (range (count eigenvalues))]
           (let [eigenval (nth eigenvalues i)
                 imag-part (c/im eigenval)]
@@ -216,11 +216,11 @@
   (testing "Matrix reconstruction from eigendecomposition"
     (doseq [[name observable] [["Pauli-X" obs/pauli-x]
                                ["Pauli-Z" obs/pauli-z]]] ; Skip Pauli-Y until bug is fixed
-      (let [{:keys [eigenvalues eigenvectors]} (mcore/eigen-hermitian observable)
+      (let [{:keys [eigenvalues eigenvectors]} (cla/eigen-hermitian observable)
             n (count eigenvalues)
             ;; Construct V matrix (eigenvectors as columns)
             V (mapv (fn [i] (mapv #(get % i) eigenvectors)) (range n))
-            V-dagger (mcore/conjugate-transpose V)
+            V-dagger (cla/conjugate-transpose V)
             ;; Construct diagonal eigenvalue matrix
             Lambda (mapv (fn [i]
                            (mapv (fn [j]
@@ -230,10 +230,10 @@
                                  (range n)))
                          (range n))
             ;; Reconstruct: A = V * Λ * V†
-            reconstructed (-> (mcore/matrix-multiply V Lambda)
-                              (mcore/matrix-multiply V-dagger))
+            reconstructed (-> (cla/matrix-multiply V Lambda)
+                              (cla/matrix-multiply V-dagger))
             ;; Check reconstruction error
-            diff-matrix (mcore/subtract observable reconstructed)
+            diff-matrix (cla/subtract observable reconstructed)
             max-diff (apply max (map (fn [row]
                                        (apply max (map c/abs row)))
                                      diff-matrix))]

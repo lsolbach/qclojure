@@ -22,7 +22,7 @@
   3. Apply mitigation to measured data using matrix inversion
   4. Analyze improvement in measurement fidelity"
   (:require [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.domain.math.core :as mcore]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.domain.state :as qs]
             [fastmath.complex :as fc]))
 
@@ -119,7 +119,7 @@
       single-qubit-matrix
       ;; Compute tensor product iteratively for multi-qubit systems
       (reduce (fn [acc-matrix _]
-                (mcore/kronecker-product acc-matrix single-qubit-matrix))
+                (cla/kronecker-product acc-matrix single-qubit-matrix))
               single-qubit-matrix
               (range (dec num-qubits))))))
 
@@ -176,7 +176,7 @@
         ;; Solve the linear system: C * true_probs = measured_probs
         ;; where C is the calibration matrix
         corrected-probs (try
-                          (mcore/solve-linear-system calibration-matrix measured-probs)
+                          (cla/solve-linear-system calibration-matrix measured-probs)
                           (catch Exception e
                             (println "Matrix inversion failed, using measured probabilities:" (.getMessage e))
                             measured-probs))

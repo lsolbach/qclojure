@@ -26,7 +26,7 @@
             [fastmath.core :as fm]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.math.core :as math]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
             [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; Specs for HHL algorithm
@@ -130,7 +130,7 @@
       
       ;; For 3x3 and 4x4 matrices, use eigendecomposition
       (<= n 4)
-      (let [{:keys [eigenvalues]} (math/eigen-hermitian matrix)]
+      (let [{:keys [eigenvalues]} (cla/eigen-hermitian matrix)]
         (every? #(> % 1e-14) eigenvalues))
       
       ;; For larger matrices, use eigenvalues (det = product of eigenvalues)
@@ -139,7 +139,7 @@
         (every? #(> % 1e-14)
                 (for [k (range 1 (inc n))]
                   (let [submatrix (mapv #(subvec % 0 k) (subvec matrix 0 k))
-                        {:keys [eigenvalues]} (math/eigen-hermitian submatrix)
+                        {:keys [eigenvalues]} (cla/eigen-hermitian submatrix)
                         det (reduce * eigenvalues)]
                     det)))
         (catch Exception _

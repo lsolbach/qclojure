@@ -335,6 +335,189 @@
       (is (= (:state-vector (:collapsed-state measurement)) (:state-vector |110⟩))))))
 
 ;;
+;; Density matrix and projector tests
+;;
+(deftest test-state-projector
+  (testing "State projector for pure states"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)
+          |+⟩ (qs/plus-state)
+          
+          proj-0 (qs/state-projector |0⟩)
+          proj-1 (qs/state-projector |1⟩)
+          proj-+ (qs/state-projector |+⟩)]
+
+      ;; |0⟩⟨0| should be [[1,0],[0,0]]
+      (is (< (abs (- (fc/re (get-in proj-0 [0 0])) 1.0)) 1e-10))
+      (is (< (abs (fc/re (get-in proj-0 [0 1]))) 1e-10))
+      (is (< (abs (fc/re (get-in proj-0 [1 0]))) 1e-10))
+      (is (< (abs (fc/re (get-in proj-0 [1 1]))) 1e-10))
+
+      ;; |1⟩⟨1| should be [[0,0],[0,1]]
+      (is (< (abs (fc/re (get-in proj-1 [0 0]))) 1e-10))
+      (is (< (abs (fc/re (get-in proj-1 [0 1]))) 1e-10))
+      (is (< (abs (fc/re (get-in proj-1 [1 0]))) 1e-10))
+      (is (< (abs (- (fc/re (get-in proj-1 [1 1])) 1.0)) 1e-10))
+
+      ;; |+⟩⟨+| should be [[0.5,0.5],[0.5,0.5]]
+      (is (< (abs (- (fc/re (get-in proj-+ [0 0])) 0.5)) 1e-10))
+      (is (< (abs (- (fc/re (get-in proj-+ [0 1])) 0.5)) 1e-10))
+      (is (< (abs (- (fc/re (get-in proj-+ [1 0])) 0.5)) 1e-10))
+      (is (< (abs (- (fc/re (get-in proj-+ [1 1])) 0.5)) 1e-10))))
+
+  (testing "State projector properties"
+    (let [|+⟩ (qs/plus-state)
+          proj (qs/state-projector |+⟩)]
+      
+      ;; Projectors should be Hermitian: P† = P
+      ;; For real matrices this means symmetric
+      (is (< (abs (- (fc/re (get-in proj [0 1])) (fc/re (get-in proj [1 0])))) 1e-10))
+
+      ;; Projectors should be idempotent: P² = P (for pure states)
+      ;; This is more complex to test, but trace should equal rank for projectors
+      )))
+
+(deftest test-density-matrix
+  (testing "Density matrix for pure states"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)
+          |+⟩ (qs/plus-state)
+          
+          rho-0 (qs/density-matrix |0⟩)
+          rho-1 (qs/density-matrix |1⟩)
+          rho-+ (qs/density-matrix |+⟩)]
+
+      ;; Density matrices should equal their projectors for pure states
+      (let [proj-0 (qs/state-projector |0⟩)]
+        (is (< (abs (- (fc/re (get-in rho-0 [0 0])) (fc/re (get-in proj-0 [0 0])))) 1e-10))
+        (is (< (abs (- (fc/re (get-in rho-0 [1 1])) (fc/re (get-in proj-0 [1 1])))) 1e-10)))
+
+      ;; Check trace equals 1
+      (is (qs/trace-one? rho-0))
+      (is (qs/trace-one? rho-1))
+      (is (qs/trace-one? rho-+))))
+
+  (testing "Density matrix properties"
+    (let [|+⟩ (qs/plus-state)
+          rho (qs/density-matrix |+⟩)]
+      
+      ;; Should be Hermitian (ρ† = ρ)
+      ;; For our real case, this means symmetric
+      (is (< (abs (- (fc/re (get-in rho [0 1])) (fc/re (get-in rho [1 0])))) 1e-10))
+
+      ;; Should be positive semidefinite (all eigenvalues ≥ 0)
+      ;; This is harder to test without eigenvalue computation
+
+      ;; Trace should be 1
+      (is (qs/trace-one? rho)))))
+
+(deftest test-trajectory-to-density-matrix
+  (testing "Basic trajectory to density matrix conversion"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)
+          |+⟩ (qs/plus-state)]
+
+      ;; Test equal mixture of |0⟩ and |1⟩
+      (let [result (qs/trajectory-to-density-matrix [|0⟩ |1⟩])]
+        (is (= (:num-qubits result) 1))
+        (is (< (abs (- (:trace result) 1.0)) 1e-10))
+        (is (= (:weights result) [0.5 0.5]))
+        
+        ;; The resulting density matrix should be (|0⟩⟨0| + |1⟩⟨1|)/2
+        ;; This should be [[0.5, 0], [0, 0.5]]
+        (let [dm (:density-matrix result)]
+          (is (< (abs (- (fc/re (get-in dm [0 0])) 0.5)) 1e-10))
+          (is (< (abs (fc/re (get-in dm [0 1]))) 1e-10))
+          (is (< (abs (fc/re (get-in dm [1 0]))) 1e-10))
+          (is (< (abs (- (fc/re (get-in dm [1 1])) 0.5)) 1e-10))))
+
+      ;; Test single state (should equal pure state density matrix)
+      (let [result (qs/trajectory-to-density-matrix [|+⟩])
+            pure-dm (qs/density-matrix |+⟩)]
+        (is (= (:weights result) [1.0]))
+        (let [traj-dm (:density-matrix result)]
+          (is (< (abs (- (fc/re (get-in traj-dm [0 0])) (fc/re (get-in pure-dm [0 0])))) 1e-10))
+          (is (< (abs (- (fc/re (get-in traj-dm [0 1])) (fc/re (get-in pure-dm [0 1])))) 1e-10))))))
+
+  (testing "Weighted trajectory to density matrix conversion"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)]
+
+      ;; Test weighted mixture
+      (let [result (qs/trajectory-to-density-matrix [|0⟩ |1⟩] [0.7 0.3])]
+        (is (= (:weights result) [0.7 0.3]))
+        (is (< (abs (- (:trace result) 1.0)) 1e-10))
+        
+        ;; Should be 0.7|0⟩⟨0| + 0.3|1⟩⟨1| = [[0.7, 0], [0, 0.3]]
+        (let [dm (:density-matrix result)]
+          (is (< (abs (- (fc/re (get-in dm [0 0])) 0.7)) 1e-10))
+          (is (< (abs (fc/re (get-in dm [0 1]))) 1e-10))
+          (is (< (abs (fc/re (get-in dm [1 0]))) 1e-10))
+          (is (< (abs (- (fc/re (get-in dm [1 1])) 0.3)) 1e-10))))
+
+      ;; Test automatic weight normalization
+      (let [result (qs/trajectory-to-density-matrix [|0⟩ |1⟩] [2.0 3.0])]
+        (is (= (:weights result) [0.4 0.6]))
+        (is (< (abs (- (reduce + (:weights result)) 1.0)) 1e-10)))))
+
+  (testing "Trajectory validation"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)
+          |00⟩ (qs/zero-state 2)]
+
+      ;; Different number of qubits should throw
+      (is (thrown? Exception (qs/trajectory-to-density-matrix [|0⟩ |00⟩])))
+
+      ;; Empty trajectory list should throw (due to precondition)
+      (is (thrown? AssertionError (qs/trajectory-to-density-matrix [])))
+
+      ;; Test with unnormalized state (should throw)
+      (let [unnormalized {:state-vector [(fc/complex 2.0 0) (fc/complex 0 0)] :num-qubits 1}]
+        (is (thrown? Exception (qs/trajectory-to-density-matrix [|0⟩ unnormalized]))))))
+
+  (testing "Multi-qubit trajectory to density matrix"
+    (let [|00⟩ (qs/zero-state 2)
+          |11⟩ (qs/tensor-product qs/|1⟩ qs/|1⟩)]
+
+      (let [result (qs/trajectory-to-density-matrix [|00⟩ |11⟩])]
+        (is (= (:num-qubits result) 2))
+        (is (= (:weights result) [0.5 0.5]))
+        (is (< (abs (- (:trace result) 1.0)) 1e-10))
+        
+        ;; Should be (|00⟩⟨00| + |11⟩⟨11|)/2
+        ;; This is a diagonal matrix with [0.5, 0, 0, 0.5]
+        (let [dm (:density-matrix result)]
+          (is (= (count dm) 4))  ; 2^2 dimensions
+          (is (< (abs (- (fc/re (get-in dm [0 0])) 0.5)) 1e-10))  ; |00⟩⟨00|
+          (is (< (abs (fc/re (get-in dm [1 1]))) 1e-10))           ; |01⟩⟨01|
+          (is (< (abs (fc/re (get-in dm [2 2]))) 1e-10))           ; |10⟩⟨10|
+          (is (< (abs (- (fc/re (get-in dm [3 3])) 0.5)) 1e-10)))))) ; |11⟩⟨11|
+
+  (testing "Trajectory properties preservation"
+    (let [|0⟩ (qs/zero-state 1)
+          |1⟩ (qs/one-state)
+          |+⟩ (qs/plus-state)
+          result (qs/trajectory-to-density-matrix [|0⟩ |1⟩ |+⟩] [0.4 0.3 0.3])]
+
+      ;; Resulting density matrix should be Hermitian
+      (let [dm (:density-matrix result)]
+        (doseq [i (range 2)
+                j (range 2)]
+          (let [elem-ij (get-in dm [i j])
+                elem-ji (get-in dm [j i])]
+            ;; For Hermitian: A[i,j] = A[j,i]* (complex conjugate)
+            ;; For our real matrices, this means symmetric
+            (is (< (abs (- (fc/re elem-ij) (fc/re elem-ji))) 1e-10)))))
+
+      ;; Trace should be 1
+      (is (< (abs (- (:trace result) 1.0)) 1e-10))
+
+      ;; All diagonal elements should be non-negative (positive semidefinite property)
+      (let [dm (:density-matrix result)]
+        (doseq [i (range 2)]
+          (is (>= (fc/re (get-in dm [i i])) -1e-10)))))))
+
+;;
 ;; Additional tests for quantum mechanics properties
 ;;
 (deftest test-computational-basis-state-quantum-properties

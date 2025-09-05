@@ -616,6 +616,7 @@
   [state]
   (let [projector (state-projector state)]
     (if (trace-one? projector)
+      ;; Pure state density matrix: ρ = |ψ⟩⟨ψ| with Tr(ρ)=1
       projector
       ;; Mixed state (diagonal) density matrix: ρ = Σ_i p_i |i⟩⟨i| with p_i = |α_i|^2
       (let [probs (probabilities state)
@@ -635,30 +636,73 @@
                       (range n)))
               (range n) probs)))))
 
-
-
 (defn trajectory-to-density-matrix
   "Convert a collection of quantum state trajectories to a normalized density matrix.
-  Accepts a collection of quantum state maps (with :state-vector and :num-qubits).
-  Optionally accepts weights for weighted averaging.
-  Returns a map {:density-matrix ... :num-qubits ... :trace ...}"
+   
+  This function takes a collection of normalized quantum states (trajectories) and computes
+  the corresponding density matrix by averaging the projectors of each state with given weights.
+  This is useful for representing mixed states arising from statistical ensembles
+  of pure states, such as those from noisy quantum simulations.
+   
+  Parameters:
+  - trajectories: Collection of quantum state maps (each with :state-vector and :num-qubits)
+                 All states must be normalized and have the same number of qubits
+  - weights: (optional) Collection of weights for each trajectory. Weights will be 
+            automatically normalized to sum to 1.0. If not provided, equal weighting is assumed.
+   
+  Returns:
+  Map containing:
+  - :density-matrix - The resulting density matrix as a matrix of complex numbers
+  - :num-qubits - Number of qubits in the states
+  - :trace - Trace of the density matrix (should be 1.0 after normalization)
+  - :weights - The normalized weights used
+
+   Example:
+   (trajectory-to-density-matrix [|0⟩ |1⟩])
+   (trajectory-to-density-matrix [|0⟩ |+⟩ |1⟩] [0.5 0.3 0.2])"
   ([trajectories]
    (trajectory-to-density-matrix trajectories nil))
   ([trajectories weights]
+   {:pre [(seq trajectories)
+          (every? #(s/valid? ::quantum-state %) trajectories)]}
    (let [n (count trajectories)
-         weights (or weights (repeat n (/ 1.0 n)))
-         num-qubits (:num-qubits (first trajectories))
+         first-state (first trajectories)
+         num-qubits (:num-qubits first-state)
+         
+         ;; Validate all trajectories have same number of qubits
+         _ (when-not (every? #(= (:num-qubits %) num-qubits) trajectories)
+             (throw (ex-info "All trajectories must have the same number of qubits"
+                            {:expected num-qubits
+                             :found (mapv :num-qubits trajectories)})))
+         
+         ;; Validate all trajectories are normalized (within tolerance)
+         eps (cla/current-tolerance)
+         _ (doseq [state trajectories]
+             (let [norm-sq (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector state)))]
+               (when (> (fm/abs (- norm-sq 1.0)) eps)
+                 (throw (ex-info "All trajectories must be normalized quantum states"
+                                {:norm-squared norm-sq :tolerance eps})))))
+         
+         ;; Normalize weights to sum to 1.0
+         raw-weights (or weights (repeat n (/ 1.0 n)))
+         weight-sum (reduce + raw-weights)
+         normalized-weights (if (> (fm/abs weight-sum) eps)
+                             (mapv #(/ % weight-sum) raw-weights)
+                             raw-weights)
+         
+         ;; Create weighted projectors using state-projector function
          projectors (map (fn [state weight]
-                          (cla/scale (cla/outer-product (:state-vector state)
-                                                            (:state-vector state))
-                                       weight))
-                        trajectories weights)
-         sum-matrix (reduce cla/add (first projectors) (rest projectors))
-         trace (cla/trace sum-matrix)
-         normalized-matrix (cla/scale sum-matrix (/ 1.0 trace))]
-     {:density-matrix normalized-matrix
+                           (cla/scale (state-projector state) weight))
+                         trajectories normalized-weights)
+         
+         ;; Sum all weighted projectors
+         density-matrix (reduce cla/add (first projectors) (rest projectors))
+         trace (cla/trace density-matrix)]
+     
+     {:density-matrix density-matrix
       :num-qubits num-qubits
-      :trace trace})))
+      :trace (fc/re trace)
+      :weights (vec normalized-weights)})))
 
 ;;;
 ;;; Pre-defined common quantum states

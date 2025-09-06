@@ -1,4 +1,9 @@
 (ns org.soulspace.qclojure.application.format.qasm2 
+  "QASM 2.0 (Quantum Assembly Language) format conversion for quantum circuits.
+   
+   This namespace provides functions to convert quantum circuits to and from
+   the OpenQASM 2.0 format, which is widely used in quantum computing platforms
+   such as IBM Qiskit and others."
   (:require
     [org.soulspace.qclojure.domain.circuit :as qc]
     [org.soulspace.qclojure.domain.operation-registry :as gr]

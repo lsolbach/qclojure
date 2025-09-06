@@ -1,9 +1,9 @@
 (ns org.soulspace.qclojure.adapter.io.json
-  "JSON I/O adapter for quantum circuits and data.
-   
-   This module provides methods to export and import quantum circuits
-   and data in JSON format, allowing for easy serialization and
-   deserialization of quantum information."
+  "JSON (JavaScript Object Notation) based import and export of quantum states, circuits, and data.
+
+   Contains implementations of the `io/export-quantum-state`, `io/import-quantum-state`,
+   `io/export-quantum-circuit`, `io/import-quantum-circuit`,
+   `io/export-quantum-data`, and `io/import-quantum-data` multimethods for the `:json` format."
   (:require [clojure.data.json :as json]
             [org.soulspace.qclojure.adapter.io :as io]))
 

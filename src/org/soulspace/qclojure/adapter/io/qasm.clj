@@ -1,9 +1,8 @@
 (ns org.soulspace.qclojure.adapter.io.qasm
-  "OpenQASM I/O adapter for quantum circuits.
+  "QASM (Quantum Assembly Language) based import and export of quantum circuits.
    
-   This module provides methods to export quantum circuits to OpenQASM
-   format, which is a standard quantum assembly language used by many
-   quantum computing platforms."
+   Contains implementations of the `io/export-quantum-circuit` and `io/import-quantum-circuit`
+   multimethods for the `:qasm2` and `:qasm3` formats."
   (:require [org.soulspace.qclojure.adapter.io :as io]
             [org.soulspace.qclojure.application.format.qasm2 :as qasm2]
             [org.soulspace.qclojure.application.format.qasm3 :as qasm3]))

@@ -1,11 +1,26 @@
 (ns org.soulspace.qclojure.application.algorithm.shor
-  (:require
-   [org.soulspace.qclojure.domain.math :as qmath]
-   [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]))
+  "Shor's algorithm for integer factorization using quantum period finding.
+  
+   This implementation includes optimizations for hardware compatibility,
+   multiple measurements for statistical robustness, and enhanced period extraction.
+  
+   The algorithm combines classical preprocessing, quantum period finding,
+   and classical post-processing to efficiently factor composite integers.
+  
+   For complete prime factorization, use the `complete-factorization` function
+   which recursively applies Shor's algorithm until all factors are prime."
+  (:require [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.application.algorithm.quantum-period-finding :as qpf]))
 
-(defn generate-unique-coprime-values 
+(defn generate-unique-coprime-values
   "Generate all values a where 2 <= a < N and gcd(a,N) = 1, in random order.
-   This ensures no duplicate values are attempted during factorization."
+   This ensures no duplicate values are attempted during factorization.
+   
+   Parameters:
+   - N: Integer to factor
+   
+   Returns:
+   Vector of unique coprime integers a"
   [N]
   (->> (range 2 N)
        (filter #(= 1 (qmath/gcd % N)))

@@ -1,6 +1,13 @@
 (ns org.soulspace.qclojure.application.algorithm.quantum-fourier-transform 
-  (:require
-    [org.soulspace.qclojure.domain.circuit :as qc]))
+  "Quantum Fourier Transform (QFT) and Inverse QFT (IQFT) implementation.
+
+   The QFT is a fundamental quantum algorithm that transforms quantum states
+   into their frequency domain representation. It is widely used in various
+   quantum algorithms, including Shor's factoring algorithm and quantum phase estimation.
+
+   This namespace provides functions to create QFT and IQFT circuits for a given
+   number of qubits."
+  (:require [org.soulspace.qclojure.domain.circuit :as qc]))
 
 (defn quantum-fourier-transform-circuit
   "Create a Quantum Fourier Transform (QFT) circuit.

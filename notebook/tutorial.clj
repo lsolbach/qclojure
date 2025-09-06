@@ -1,9 +1,20 @@
 
 ;; # QClojure Quantum Computing Tutorial
-;; This is a simple tutorial to demonstrate the use of the
-;; [QClojure](https://github.com/lsolbach/qclojure) library.
-;; It covers the creation of quantum states, gates, and circuits and the
-;; execution of quantum and hybrid algorithms on a QClojure backend.
+;; This tutorial demonstrates the use of the
+;; [QClojure](https://github.com/lsolbach/qclojure) library for quantum
+;; computing. It will introduce you to the fascinating world of quantum
+;; computing and show you how to use QClojure to create and run quantum
+;; programs. It covers
+
+;; * the creation and visualization of quantum states and quantum registers
+;; * the application of quantum gates
+;; * the creation, visualization and simulation of quantum circuits
+;; * the export and import of quantum data
+;; * the exchange of quantum circuits with other frameworks
+;; * the use of ideal and realistic quantum simulator backends
+;; * the optimization of quantum circuits for specific hardware topologies
+;; * the use of error mitigation techniques
+;; * the description and execution of quantum and hybrid algorithms
 ;;
 ;; ## Introduction to Quantum Computing
 ;; Quantum computing is a fascinating field that combines computer science,
@@ -30,7 +41,7 @@
 ;; to classical logic circuits.
 ;;
 ;; For a general introduction to quantum computing, take a look at
-
+;;
 ;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing)
 ;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
 ;;
@@ -111,10 +122,17 @@
    [org.soulspace.qclojure.domain.gate :as gate]
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
+   [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
    [org.soulspace.qclojure.adapter.visualization.svg :as svg]
    [org.soulspace.qclojure.adapter.visualization.html :as html]
    [org.soulspace.qclojure.application.backend :as qb]))
 
+;; Some namespaces, like visualization namespaces contain multimethod
+;; implementations. To make sure that the implementations are loaded, we
+;; require the namespaces. They will not be used directly in the code, only
+;; indirectly by calling the multimethod, so a warning might be shown by
+;; your IDE. 
+;;
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
 ;; quantum system.
@@ -440,6 +458,121 @@ gate/t-dag-gate
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.
 ;; 
+;; ## Data Format and I/O
+;; Sometimes we want to save quantum circuits or quantum states to disk
+;; or read them from disk.
+;; This is especially useful if we want to share quantum circuits or states
+;; with others or if we want to use quantum circuits or states created
+;; in other quantum computing frameworks.
+;; 
+;; QClojure supports various input and output formats for quantum circuits
+;; and quantum states. This allows users to easily import and export quantum
+;; circuits and states between different quantum computing frameworks and tools.
+;; The supported formats include:
+;; * Extensible Data Notation (EDN)
+;; * JSON (JavaScript Object Notation)
+;; * QASM (Quantum Assembly Language)
+;; 
+;; Let's import the I/O namespace providing the API for reading and writing
+;; quantum circuits and quantum states.
+
+(require '[org.soulspace.qclojure.adapter.io :as io])
+
+;; Now we define some test data to demonstrate the I/O capabilities.
+;; We create a quantum circuit with medium complexity for import and export.
+
+(def test-circuit
+  (-> (circuit/create-circuit 3 "I/O Test Circuit" "A circuit with medium complexity")
+      (circuit/h-gate 0)
+      (circuit/cnot-gate 0 1)
+      (circuit/t-gate 1)
+      (circuit/cnot-gate 1 2)
+      (circuit/measure-operation [0 1 2])))
+
+;; ## EDN Support
+;; EDN (Extensible Data Notation) is a data format that is similar to JSON
+;; but is more expressive and flexible. It is a subset of Clojure syntax
+;; and is used for representing data structures in a human-readable format.
+;; QClojure supports EDN format for importing and exporting quantum circuits
+;; and quantum states.
+
+(require '[org.soulspace.qclojure.adapter.io.edn :as edn])
+
+;; Let's first write a simple quantum state to disk in EDN format.
+
+(io/export-quantum-state :edn state/|+⟩ "export/plus-state.edn")
+
+;; We can read the quantum state in EDN form back from disk.
+
+(io/import-quantum-state :edn "export/plus-state.edn")
+
+;; ## JSON Support
+;; JSON (JavaScript Object Notation) is a lightweight data interchange format
+;; that is easy for humans to read and write and easy for machines to parse
+;; and generate. It is widely used for data exchange between web applications
+;; and servers.
+;; QClojure supports JSON format for importing and exporting quantum circuits
+;; and quantum states. To use JSON I/O capabilities, we need to require
+;; the `io.json` namespace.
+
+(require '[org.soulspace.qclojure.adapter.io.json :as json])
+
+;; The functions for JSON I/O are the same, just with the different format
+;; keyword `:json`.
+;; Let's write the same quantum state to disk in JSON format.
+
+(io/export-quantum-state :json state/|+⟩ "export/plus-state.json")
+
+;; We can read the quantum state in JSON form back from disk.
+
+(io/import-quantum-state :json "export/plus-state.json")
+
+;; ### OpenQASM Support
+;; QASM (Quantum Assembly Language) is a low-level programming language
+;; used to describe quantum circuits. It is a standard format for representing
+;; quantum circuits and is supported by many quantum computing frameworks.
+;; QASM allows us to define quantum gates, measurements, and other operations
+;; in a text-based format that can be easily shared and executed on different
+;; quantum computing platforms.
+;; QASM 3 for example is used as the exchange format for quantum circuits
+;; by Amazon Braket. QASM 2 is supported by IBM Quantum and other
+;; quantum computing frameworks.
+;;
+;; QClojure supports QASM 2 and QASM 3 formats, allowing users to import
+;; and export quantum circuits in QASM format. It does not support quantum states
+;; in QASM format, as QASM is primarily used for representing quantum circuits.
+;;
+;; Let's require the QASM namespace to explore the QASM I/O capabilities.
+
+(require '[org.soulspace.qclojure.adapter.io.qasm :as qasm])
+
+;; We can export the quantum circuit to QASM 2 format.
+
+(io/export-quantum-circuit :qasm2 test-circuit "export/test-circuit-qasm2.qasm")
+
+;; To see how the QASM 2 output looks like, we can read the file with slurp.
+
+^kind/code
+(slurp "export/test-circuit-qasm2.qasm")
+
+;; We can read the quantum circuit in QASM 2 format back from disk.
+
+(io/import-quantum-circuit :qasm2 "export/test-circuit-qasm2.qasm")
+
+;; We can also export the quantum circuit to QASM 3 format.
+
+(io/export-quantum-circuit :qasm3 test-circuit "export/test-circuit-qasm3.qasm")
+
+;; To see how the QASM 3 output looks like, we can read the file with slurp.
+
+^kind/code
+(slurp "export/test-circuit-qasm3.qasm")
+
+;; We can read the quantum circuit in QASM 3 format back from disk.
+
+(io/import-quantum-circuit :qasm3 "export/test-circuit-qasm3.qasm")
+
+;;
 ;; ## Math Backends for Complex Linear Algebra
 ;; Simulating quantum circuits on a classical computer requires efficient
 ;; linear algebra operations on complex numbers. QClojure provides a
@@ -597,10 +730,10 @@ gate/t-dag-gate
 (require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as noisy])
 
 ;; We can instantiate the hardware simulator with the `create-noisy-simulator` function
-;; and provide a provide a device map. The noise profile we use is derived from the
+;; and provide a provide a device map. The device map we use here is derived from the
 ;; IBM Lagos Quantum Computer.
 
-(noisy/noise-model-for :ibm-lagos)
+(qb/devices :ibm-lagos)
 
 ;; The noise profile shows configurations for the different types of noise,
 ;; a physical quantum computer can have. All different types of noise contribute
@@ -608,8 +741,7 @@ gate/t-dag-gate
 ;;
 ;; Let's instantiate the noisy simulator with the IBM Lagos profile.
 
-(def lagos-simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
-                                                       :noise-model (qb/devices :ibm-lagos)}))
+(def lagos-simulator (noisy/create-hardware-simulator (qb/devices :ibm-lagos)))
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 ;; Because we use a noisy simulator, we may measure wrong answers.
@@ -635,15 +767,14 @@ lagos-10k-result
 
 (kind/html (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result)))
 
-;; We can also use the noisy simulator with a different noise profile,
-;; e.g. for an IonQ Forte quantum computer.
+;; We can also use the hardware simulator with a different device map, e.g.
+;; for an IonQ Forte quantum computer.
 
-(noisy/noise-model-for :ionq-forte)
+(qb/devices :ionq-forte)
 
 ;; Let's instantiate the noisy simulator with the IonQ Forte profile.
 
-(def forte-simulator (noisy/create-hardware-simulator {:name "Noisy Simulator"
-                                                       :noise-model (qb/devices :ionq-forte)}))
+(def forte-simulator (noisy/create-hardware-simulator (qb/devices :ionq-forte)))
 
 ;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.
@@ -657,6 +788,67 @@ forte-10k-result
 
 (kind/html (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
 
+;; You can also create your own device profiles by defining a device map
+;; with the required parameters. You can then use this device map to create
+;; a hardware simulator backend.
+;; A device map may not have all parameters defined. In this case some features
+;; may not be used, e.g. error mitigation techniques.
+;; If you provide a device map with no native-gates, coupling and noise model
+;; defined, the hardware simulator will behave like the ideal simulator.
+;; You can also modify an existing device map to create a new device map for
+;; testing specific aspects or scenarios.
+;;
+;; ## Circuit Optimization and Transformation
+;; Quantum circuits can be optimized and transformed to improve their performance
+;; and to run on specific quantum hardware.
+;; QClojure provides a set of optimization and transformation techniques
+;; that can be applied to quantum circuits.
+;;
+;; ### Gate Optimization
+;; Gate optimization is a technique used to reduce the number of gates in a
+;; quantum circuit. It is based on the idea that some gates can be combined
+;; or eliminated without changing the overall functionality of the circuit.
+;; Gate optimization can be applied to quantum circuits to improve their
+;; performance and to reduce the effects of noise.
+;; For example, consecutive Pauli and Hadamard gates can be eliminated, as they
+;; are self-inverse.
+;; 
+;; ### Qubit Optimization
+;; Qubit optimization is a technique used to reduce the number of qubits in
+;; a quantum circuit. It is based on the idea that some qubits can be eliminated
+;; without changing the overall functionality of the circuit. The simplest case
+;; is to eliminate qubits that are not used in the circuit.
+;;
+;; ### Topology Optimization
+;; Topology optimization is a technique used to transform a quantum circuit
+;; to run on specific quantum hardware. Quantum hardware has a limited topology
+;; of coupled qubits, which means that not all qubits can be used freely in
+;; a multi-qubit gate, e.g. a CNOT gate. If a CNOT gate should be applied to
+;; qubits which are not coupled in the topology, represented by a coupling map,
+;; Swap gates have to be introduced to 'move' the information to qubits that
+;; are coupled, so that the CNOT gate can be applied. Topology optimization
+;; can be applied to quantum circuits to transform them to run on specific
+;; quantum hardware.
+;;
+;; ### Gate Decomposition
+;; Gate decomposition is a technique used to transform a quantum circuit
+;; to use only a limited set of native quantum gates. Quantum hardware supports
+;; only a limited set of native quantum gates, which means that some gates
+;; in a quantum circuit may not be supported by the hardware. Gate decomposition
+;; can be applied to quantum circuits to transform them to use only the
+;; native gates supported by the hardware. For example, a Toffoli gate can be
+;; decomposed into a series of CNOT and single-qubit gates.
+;;
+;; ### The Optimization Pipeline
+;; QClojure provides an optimization pipeline that can be used to apply
+;; these optimization and transformation techniques to a quantum circuit.
+;; The optimization pipeline will apply the techniques in a specific order
+;; to optimize and transform the quantum circuit for a specific hardware.
+;; 
+;; The optimization pipeline is used in the hardware simulator backend
+;; to optimize and transform the quantum circuit before executing it on
+;; the simulator.
+;;
 ;; ## Error Mitigation
 ;; Error mitigation is a collection of techniques used to reduce the effects
 ;; of noise in quantum computations. It is not a full error correction, but it
@@ -1605,105 +1797,3 @@ triangle-qaoa-result
 ;; is a superposition of the states that represent the optimal solution to
 ;; the Max-Cut problem.
 ;;
-;; # Data Format and I/O Support
-;; QClojure supports various input and output formats for quantum circuits
-;; and quantum states. This allows users to easily import and export quantum
-;; circuits and states between different quantum computing frameworks and tools.
-;; The supported formats include:
-;; * Extensible Data Notation (EDN)
-;; * JSON (JavaScript Object Notation)
-;; * QASM (Quantum Assembly Language)
-;; 
-;; Let's import the I/O namespace providing the API for reading and writing
-;; quantum circuits and quantum states.
-
-(require '[org.soulspace.qclojure.adapter.io :as io])
-
-;; Now we define some test data to demonstrate the I/O capabilities.
-;; We create a quantum circuit with medium complexity for import and export.
-
-(def test-circuit
-  (-> (circuit/create-circuit 3 "I/O Test Circuit" "A circuit with medium complexity")
-      (circuit/h-gate 0)
-      (circuit/cnot-gate 0 1)
-      (circuit/t-gate 1)
-      (circuit/cnot-gate 1 2)
-      (circuit/measure-operation [0 1 2])))
-
-;; ## EDN Support
-;; EDN (Extensible Data Notation) is a data format that is similar to JSON
-;; but is more expressive and flexible. It is a subset of Clojure syntax
-;; and is used for representing data structures in a human-readable format.
-;; QClojure supports EDN format for importing and exporting quantum circuits
-;; and quantum states.
-
-(require '[org.soulspace.qclojure.adapter.io.edn :as edn])
-
-;; Let's first write a simple quantum state to disk in EDN format.
-
-(io/export-quantum-state :edn state/|+⟩ "export/plus-state.edn")
-
-;; We can read the quantum state in EDN form back from disk.
-
-(io/import-quantum-state :edn "export/plus-state.edn")
-
-;; ## JSON Support
-;; JSON (JavaScript Object Notation) is a lightweight data interchange format
-;; that is easy for humans to read and write and easy for machines to parse
-;; and generate. It is widely used for data exchange between web applications
-;; and servers.
-;; QClojure supports JSON format for importing and exporting quantum circuits
-;; and quantum states. To use JSON I/O capabilities, we need to require
-;; the `io.json` namespace.
-
-(require '[org.soulspace.qclojure.adapter.io.json :as json])
-
-;; The functions for JSON I/O are the same, just with the different format
-;; keyword `:json`.
-;; Let's write the same quantum state to disk in JSON format.
-
-(io/export-quantum-state :json state/|+⟩ "export/plus-state.json")
-
-;; We can read the quantum state in JSON form back from disk.
-
-(io/import-quantum-state :json "export/plus-state.json")
-
-;; ### QASM Support
-;; QASM (Quantum Assembly Language) is a low-level programming language
-;; used to describe quantum circuits. It is a standard format for representing
-;; quantum circuits and is supported by many quantum computing frameworks.
-;; QASM allows us to define quantum gates, measurements, and other operations
-;; in a text-based format that can be easily shared and executed on different
-;; quantum computing platforms.
-;; 
-;; QClojure supports QASM 2 and QASM 3 formats, allowing users to import
-;; and export quantum circuits in QASM format. It does not support quantum states
-;; in QASM format, as QASM is primarily used for representing quantum circuits.
-;;
-;; Let's require the QASM namespace to explore the QASM I/O capabilities.
-
-(require '[org.soulspace.qclojure.adapter.io.qasm :as qasm])
-
-;; We can export the quantum circuit to QASM 2 format.
-
-(io/export-quantum-circuit :qasm2 test-circuit "export/test-circuit-qasm2.qasm")
-
-;; To see how the QASM 2 output looks like, we can read the file with slurp.
-
-(slurp "export/test-circuit-qasm2.qasm")
-
-;; We can read the quantum circuit in QASM 2 format back from disk.
-
-(io/import-quantum-circuit :qasm2 "export/test-circuit-qasm2.qasm")
-
-;; We can also export the quantum circuit to QASM 3 format.
-
-(io/export-quantum-circuit :qasm3 test-circuit "export/test-circuit-qasm3.qasm")
-
-;; To see how the QASM 3 output looks like, we can read the file with slurp.
-
-(slurp "export/test-circuit-qasm3.qasm")
-
-;; We can read the quantum circuit in QASM 3 format back from disk.
-
-(io/import-quantum-circuit :qasm3 "export/test-circuit-qasm3.qasm")

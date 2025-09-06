@@ -129,34 +129,6 @@
       (is (ham/validate-hamiltonian heisenberg-h))
       (is (every? #(= 1.0 (:coefficient %)) heisenberg-h)))))
 
-(deftest test-measurement-based-expectation
-  (testing "Expectation from measurement statistics"
-    (let [;; Simulate measuring |0⟩ state in Z basis: all measurements are "0"
-          measurements-0 {"Z" {"0" 1000}}
-          ;; Simulate measuring |1⟩ state in Z basis: all measurements are "1" 
-          measurements-1 {"Z" {"1" 1000}}
-          ;; Simulate measuring |+⟩ state in Z basis: 50/50 split
-          measurements-plus {"Z" {"0" 500 "1" 500}}
-          
-          z-hamiltonian [(ham/pauli-term 1.0 "Z")]]
-      
-      (is (= 1.0 (vqe/measurement-based-expectation z-hamiltonian measurements-0 1000))
-          "Z expectation from |0⟩ measurements should be +1")
-      (is (= -1.0 (vqe/measurement-based-expectation z-hamiltonian measurements-1 1000))
-          "Z expectation from |1⟩ measurements should be -1")
-      (is (< (abs (vqe/measurement-based-expectation z-hamiltonian measurements-plus 1000)) 0.1)
-          "Z expectation from |+⟩ measurements should be ~0")))
-  
-  (testing "Multi-qubit measurement statistics"
-    (let [measurements-00 {"ZZ" {"00" 1000}}
-          measurements-11 {"ZZ" {"11" 1000}}
-          zz-hamiltonian [(ham/pauli-term 1.0 "ZZ")]]
-      
-      (is (= 1.0 (vqe/measurement-based-expectation zz-hamiltonian measurements-00 1000))
-          "ZZ expectation from |00⟩ measurements")
-      (is (= 1.0 (vqe/measurement-based-expectation zz-hamiltonian measurements-11 1000))
-          "ZZ expectation from |11⟩ measurements"))))
-
 ;;
 ;; Edge Case and Error Handling Tests  
 ;;

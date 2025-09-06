@@ -123,7 +123,8 @@
    (circuit-to-qasm circuit nil))
   ([circuit result-specs]
    (let [num-qubits (:num-qubits circuit)
-         header (str "OPENQASM 3.0;\n\n"
+         header (str "OPENQASM 3.0;\n"
+                     "include \"stdgates.inc\";\n\n"
                      "qubit[" num-qubits "] q;\n"
                      "bit[" num-qubits "] c;\n")
 

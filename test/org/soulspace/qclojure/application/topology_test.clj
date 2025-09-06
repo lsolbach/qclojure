@@ -344,7 +344,7 @@
 ;;
 ;; Tests for topology info generation
 ;;
-(deftest test-get-topology-info
+(deftest test-get-coupling-info
   (testing "Linear topology info"
     (let [topology (topo/linear-coupling 4)
           info (topo/get-coupling-info topology "Linear-4")]

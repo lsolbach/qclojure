@@ -1,5 +1,5 @@
 (ns org.soulspace.qclojure.adapter.hardware-report
-  (:require [org.soulspace.qclojure.application.hardware-optimization :as hw]
+  (:require [org.soulspace.qclojure.application.topology :as topo]
             [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
             [org.soulspace.qclojure.adapter.visualization.svg :as svg]
@@ -59,14 +59,14 @@
            (str "TOPOLOGY ANALYSIS:\n"
                 (str/join "\n"
                           (map (fn [[name topology]]
-                                 (str "• " (hw/get-topology-info topology name)))
+                                 (str "• " (topo/get-coupling-info topology name)))
                                topologies))
                 "\n\n"))
          
          ;; Circuit optimization comparison
          (when show-optimization
            (str "CIRCUIT OPTIMIZATION COMPARISON:\n"
-                (let [comparisons (hw/compare-topologies circuit topologies)]
+                (let [comparisons (topo/compare-couplings circuit topologies)]
                   (str/join "\n"
                             (map (fn [result]
                                    (str "• " (:topology-name result) 
@@ -94,11 +94,12 @@
   Returns:
   String containing the demonstration"
   [& {:keys [size format] :or {size 5 format :ascii}}]
-  (let [demo-topologies {"Linear" (hw/linear-topology size)
-                         "Ring" (hw/ring-topology size)
-                         "Star" (hw/star-topology size)
-                         "Grid-2x3" (hw/grid-topology 2 3)
-                         "Heavy-Hex" (hw/heavy-hex-topology :basic)}]
+  (let [demo-topologies {"Linear" (topo/linear-coupling size)
+                         "Ring" (topo/ring-coupling size)
+                         "Star" (topo/star-coupling size)
+                         "Grid-2x3" (topo/grid-coupling 2 3)
+                         "All-to-all" (topo/all-to-all-coupling size)
+                         "Heavy-Hex" (topo/heavy-hex-coupling 7)}]
     
     (create-topology-comparison-report demo-topologies nil 
                                        {:format format 
@@ -112,27 +113,27 @@
   (println demo-report)
 
   ;; Save SVG visualizations to files
-  (let [topologies {"Linear" (hw/linear-topology 5)
-                    "Ring" (hw/ring-topology 5)
-                    "Star" (hw/star-topology 5)}
-        svg-visuals (compare-topologies-visually topologies :svg {:width 600 :height 400})]
+  (let [couplings {"Linear" (topo/linear-coupling 5)
+                    "Ring" (topo/ring-coupling 5)
+                    "Star" (topo/star-coupling 5)}
+        svg-visuals (compare-topologies-visually couplings :svg {:width 600 :height 400})]
     (doseq [[name svg] svg-visuals]
       (let [filename (str (str/lower-case (str/replace name " " "-")) "-topology.svg")]
         (spit filename svg)
         (println "Saved visualization to" filename))))
 
   ;; Basic topology visualization
-  (def linear-5 (hw/linear-topology 5))
+  (def linear-5 (topo/linear-coupling 5))
   (println (visualize-topology linear-5 :ascii))
 
   ;; Create SVG visualization and save to file
-  (def ring-svg (visualize-topology (hw/ring-topology 6) :svg {:layout :circular}))
+  (def ring-svg (visualize-topology (topo/ring-coupling 6) :svg {:layout :circular}))
   ;; (spit "ring-topology.svg" ring-svg)
 
   ;; Compare multiple topologies visually
-  (def demo-topologies {"Linear-5" (hw/linear-topology 5)
-                        "Ring-5" (hw/ring-topology 5)
-                        "Star-5" (hw/star-topology 5)})
+  (def demo-topologies {"Linear-5" (topo/linear-coupling 5)
+                        "Ring-5" (topo/ring-coupling 5)
+                        "Star-5" (topo/star-coupling 5)})
 
   (def ascii-comparisons (compare-topologies-visually demo-topologies :ascii))
   (doseq [[name viz] ascii-comparisons]

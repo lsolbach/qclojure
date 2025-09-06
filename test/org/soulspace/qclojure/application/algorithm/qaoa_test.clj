@@ -96,21 +96,6 @@
         (is (every? #(= (:operation-type %) :h) first-ops)
             "Should start with Hadamard gates on all qubits")))))
 
-;;
-;; Analysis and Utility Tests
-;;
-(deftest test-estimate-classical-optimum
-  (testing "Classical optimum estimation for MaxCut"
-    (let [optimum (qaoa/estimate-classical-optimum :max-cut triangle-graph 3)]
-      (is (number? optimum) "Should return a number")
-      (is (= 2.0 optimum) "Triangle graph should have classical optimum of 2.0")))
-
-  (testing "Classical optimum estimation for larger graphs"
-    (let [large-graph (for [i (range 10) j (range (inc i) 10)] [i j 1.0])
-          optimum (qaoa/estimate-classical-optimum :max-cut large-graph 13)]
-      (is (number? optimum) "Should return a number")
-      (is (pos? optimum) "Should be positive"))))
-
 (deftest test-qaoa-config-validation
   (testing "QAOA configuration validation"
     (let [valid-config {:problem-hamiltonian (qaoa/max-cut-hamiltonian triangle-graph 3)
@@ -128,7 +113,7 @@
   (testing "QAOA objective function creation and evaluation"
     (let [problem-ham (qaoa/max-cut-hamiltonian line-graph 3) 
           mixer-ham (qaoa/standard-mixer-hamiltonian 3)
-          objective-fn (qaoa/create-qaoa-objective problem-ham mixer-ham 3 (sim/create-simulator) {})]
+          objective-fn (qaoa/qaoa-objective problem-ham mixer-ham 3 (sim/create-simulator) {})]
       (is (fn? objective-fn) "Should return a function")
       ;; Test with simple parameters
       (let [energy (objective-fn [0.1 0.2])]

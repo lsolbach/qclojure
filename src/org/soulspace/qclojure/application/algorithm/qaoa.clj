@@ -27,8 +27,7 @@
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
-            [org.soulspace.qclojure.application.algorithm.optimization :as qopt]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.application.algorithm.variational-algorithm :as va]))
 
 ;;;
 ;;; Specs for QAOA components
@@ -307,14 +306,15 @@
   "Decode a quantum state measurement into a TSP tour.
   
   Parameters:
-  - measurement: String of 0s and 1s representing qubit measurements
-  - n: Number of cities
+  - index: Integer index from measurement
+  - num-qubits: Number of qubits (should be n²)
   - distance-matrix: Distance matrix for cost calculation
   
   Returns:
   Map with decoded tour information"
-  [measurement n distance-matrix]
-  (let [qubit-values (mapv #(Character/digit % 10) measurement)
+  [index num-qubits distance-matrix]
+  (let [n (count distance-matrix)
+        qubit-values (qs/index-to-bits index num-qubits)
 
         ;; Build assignment matrix: city i at time j
         assignment-matrix
@@ -616,7 +616,7 @@
 ;;;
 ;;; QAOA Algorithm Implementation
 ;;;
-(defn create-qaoa-objective
+(defn qaoa-objective
   "Create the objective function for QAOA optimization.
   
   This function creates the objective function that:
@@ -639,58 +639,12 @@
   {:pre [(ham/validate-hamiltonian problem-hamiltonian)
          (ham/validate-hamiltonian mixer-hamiltonian)
          (pos-int? num-qubits)]}
-  (fn objective [parameters]
-    (try
-      (let [circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian parameters num-qubits)
-            ;; Execute on quantum backend
-            execution-result (qb/execute-circuit backend circuit options)
-            results (:results execution-result)
-            final-state (:final-state results)]
-        (ham/hamiltonian-expectation problem-hamiltonian final-state))
-      (catch Exception e
-        (println "Error in QAOA objective function:" (.getMessage e))
-        Double/POSITIVE_INFINITY))))  ; Return high energy for failed evaluations
-
-(defn qaoa-optimization
-  "Run QAOA optimization using the specified method.
-  
-  Similar to VQE optimization but specialized for QAOA's alternating structure.
-  Supports the same optimization methods as VQE.
-  
-  Parameters:
-  - objective-fn: QAOA objective function to minimize
-  - initial-parameters: Starting parameter values [γ₁ β₁ γ₂ β₂ ...]
-  - options: Optimization options
-  
-  Returns:
-  Map with optimization results"
-  [objective-fn initial-parameters options]
-  (let [method (:optimization-method options :adam)]  ; Default to Adam
-    (case method
-      ;; Custom implementations with parameter shift rules
-      :gradient-descent
-      (qopt/gradient-descent-optimization objective-fn initial-parameters options)
-
-      :adam
-      (qopt/adam-optimization objective-fn initial-parameters options)
-
-      :quantum-natural-gradient
-      (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters
-                                                  (merge options
-                                                         {:ansatz-fn (:ansatz-fn options)
-                                                          :backend (:backend options)
-                                                          :exec-options (:exec-options options)}))
-
-      ;; Fastmath derivative-free optimizers (verified working)
-      (:nelder-mead :powell :cmaes :bobyqa)
-      (qopt/fastmath-derivative-free-optimization method objective-fn initial-parameters options)
-
-      ;; Fastmath gradient-based optimizers
-      (:gradient :lbfgsb)
-      (qopt/fastmath-gradient-based-optimization method objective-fn initial-parameters options)
-
-      ;; Default fallback
-      (throw (ex-info "Unknown optimization method" {:method method})))))
+  ;; Create circuit construction function that captures QAOA-specific structure
+  (let [circuit-construction-fn (fn [parameters]
+                                  (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian 
+                                                       parameters num-qubits))]
+    ;; Use the common variational objective
+    (va/variational-objective problem-hamiltonian circuit-construction-fn backend options)))
 
 (defn quantum-approximate-optimization-algorithm
   "Main QAOA algorithm implementation.
@@ -769,13 +723,13 @@
 
         ;; Create objective function
         exec-options {:shots (:shots options 1024)}
-        objective-fn (create-qaoa-objective problem-hamiltonian mixer-hamiltonian
+        objective-fn (qaoa-objective problem-hamiltonian mixer-hamiltonian
                                             num-qubits backend exec-options)
 
         ;; Run optimization
         optimization-options (merge options {:gradient-method :parameter-shift})
         start-time (System/currentTimeMillis)
-        optimization-result (qaoa-optimization objective-fn initial-parameters optimization-options)
+        optimization-result (va/enhanced-variational-optimization objective-fn initial-parameters optimization-options)
         end-time (System/currentTimeMillis)
 
         ;; Build final circuit with optimal parameters
@@ -827,61 +781,17 @@
       :total-parameters (count optimal-params)}
 
      :convergence-analysis
-     (when-let [history (:convergence-history optimization-result)]
-       (let [energies (vec history)
-             improvement (when (> (count energies) 1)
-                           (- (first energies) (last energies)))]
-         {:initial-energy (first energies)
-          :final-energy (last energies)
-          :total-improvement improvement
-          :convergence-achieved (:success optimization-result)}))
+     ;; Use the generic convergence history analysis
+     (va/analyze-convergence-history optimization-result)
 
      :performance-metrics
      {:function-evaluations (:function-evaluations optimization-result 0)
       :total-runtime-ms (:total-runtime-ms optimization-result)
       :approximation-ratio (:approximation-ratio optimization-result)}}))
 
-(defn estimate-classical-optimum
-  "Estimate the classical optimum for comparison with QAOA results.
-  
-  For small problem instances, this performs brute-force enumeration.
-  For larger instances, this provides heuristic estimates.
-  
-  Parameters:
-  - problem-type: Type of optimization problem
-  - problem-instance: Problem-specific data
-  - num-qubits: Number of qubits (determines search space size)
-  
-  Returns:
-  Estimated classical optimum value"
-  [problem-type problem-instance num-qubits]
-  (case problem-type
-    :max-cut
-    (if (<= num-qubits 12)  ; Brute force for small instances
-      (let [graph problem-instance]
-        ;; Evaluate all 2^n possible cuts
-        (reduce max
-                (for [assignment (range (bit-shift-left 1 num-qubits))]
-                  (reduce +
-                          (for [[i j weight] graph]
-                            (let [bit-i (bit-test assignment i)
-                                  bit-j (bit-test assignment j)]
-                              (if (not= bit-i bit-j) weight 0.0)))))))
-      ;; Heuristic for larger instances
-      (let [total-weight (reduce + (map #(nth % 2) problem-instance))]
-        (* 0.5 total-weight)))  ; Rough estimate: half of total edge weight
-
-    :max-sat
-    ;; For Max-SAT, would need proper SAT solver integration
-    (count problem-instance)  ; Optimistic: all clauses satisfied
-
-    :tsp
-    ;; For TSP, would need proper heuristic or exact solver
-    1.0  ; Placeholder
-
-    :custom
-    nil))  ; Cannot estimate without knowing the problem structure
-
+;;;
+;;; Rich comment section
+;;;
 (comment
   (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
 
@@ -903,12 +813,9 @@
 
   ;; Analyze results
   (def analysis (analyze-qaoa-parameters qaoa-result))
-  (def classical-opt (estimate-classical-optimum :max-cut triangle-graph 3))
 
   ;; Print key results
   (println "QAOA Energy:" (:optimal-energy qaoa-result))
-  (println "Classical Optimum:" classical-opt)
-  (println "Approximation Ratio:" (/ (:optimal-energy qaoa-result) classical-opt))
   (println "Optimal γ parameters:" (:gamma-parameters qaoa-result))
   (println "Optimal β parameters:" (:beta-parameters qaoa-result))
 
@@ -938,13 +845,10 @@
      :shots 10000})
 
   (def maxsat-result (quantum-approximate-optimization-algorithm backend maxsat-config))
-  (def maxsat-classical (estimate-classical-optimum :max-sat production-sat-clauses 3))
 
   (println "\n=== Max-SAT Results (Production Ready) ===")
   (println "SAT clauses:" production-sat-clauses)
   (println "QAOA Energy:" (:optimal-energy maxsat-result))
-  (println "Classical Optimum:" maxsat-classical "clauses")
-  (println "Approximation Ratio:" (/ (:optimal-energy maxsat-result) maxsat-classical))
   (println "Success:" (:success maxsat-result))
 
   ;; Example 3: Traveling Salesman Problem (TSP) - PRODUCTION READY
@@ -968,19 +872,16 @@
      :shots 10000})
 
   (def tsp-result (quantum-approximate-optimization-algorithm backend tsp-config))
-  (def tsp-classical (estimate-classical-optimum :tsp production-tsp-distances 3))
 
   (println "\n=== TSP Results (Production Ready) ===")
   (println "Distance matrix:" production-tsp-distances)
   (println "QAOA Energy:" (:optimal-energy tsp-result))
-  (println "Classical Optimum:" tsp-classical)
-  (println "Approximation Ratio:" (/ (:optimal-energy tsp-result) tsp-classical))
   (println "Success:" (:success tsp-result))
 
   ;; Decode TSP solution from quantum measurement
   (when (:success tsp-result)
-    (let [best-measurement "100010001"  ; Example valid tour measurement
-          decoded-tour (decode-tsp-solution best-measurement 3 production-tsp-distances)]
+    (let [best-measurement-index 273  ; Example: binary 100010001 = 273 in decimal
+          decoded-tour (decode-tsp-solution best-measurement-index 9 production-tsp-distances)]
       (println "Decoded Tour:" (:tour decoded-tour))
       (println "Tour Valid:" (:valid decoded-tour))
       (println "Tour Cost:" (:cost decoded-tour))))
@@ -1005,11 +906,5 @@
   (println "QAOA Energy:" (:optimal-energy ising-result))
   (println "Ground state energy (QAOA approximation):" (:optimal-energy ising-result))
 
-  ;; Performance comparison across problem types
-  (println "\n=== Performance Summary ===")
-  (println "Problem Type    | Approximation Ratio | Parameter Strategy")
-  (println "----------------|---------------------|-------------------")
-  (println "MaxCut          | " (format "%.3f" (/ (:optimal-energy qaoa-result) classical-opt)) "               | :theoretical")
-  (println "Max-SAT         | " (format "%.3f" (/ (:optimal-energy maxsat-result) maxsat-classical)) "               | :theoretical")
-  (println "TSP             | " (format "%.3f" (/ (:optimal-energy tsp-result) tsp-classical)) "               | :adiabatic")
-  (println "Custom Ising    | N/A                 | :random-smart"))
+  ;
+  )

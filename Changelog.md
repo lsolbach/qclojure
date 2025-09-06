@@ -12,9 +12,11 @@
 * integrated trajectory-state pipeline with result extraction to hardware simulator
 * extracted common framework for variational algorithms
 * improved VQE/QAOA optimization and integrated result extraction
+* added standard gate library import to generated QASM3
 * renamed `math.core` namespace to `math.complex-linear-algebra`
 * registered project with `zenodo.org` for DOI generation
   * makes qclojure releases citeable in papers
+* restructured and enhanced the tutorial
 
 ## Version (0.14.0)
 * simulator enhancements

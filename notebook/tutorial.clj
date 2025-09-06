@@ -89,12 +89,13 @@
 ;; ### Source Code
 ;; The source code is available on [GitHub](https://github.com/lsolbach/qclojure).
 ;;
-;;[![GitHub Repo stars](https://img.shields.io/github/stars/lsolbach/qclojure?style=social)](https://github.com/lsolbach/qclojure)
+;; [![GitHub Repo stars](https://img.shields.io/github/stars/lsolbach/qclojure?style=social)](https://github.com/lsolbach/qclojure)
 ;;
 ;; ### Release Artifacts
 ;; The release artifacts (JAR files) are available on [Clojars](https://clojars.org/org.soulspace/qclojure).
+;; Click on the badge below to go to the Clojars page of the latest release.
 ;;
-;;[![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
+;; [![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
 ;;
 ;; QClojure provides citeable releases, so if you use it in your research, you
 ;; can cite it. Click on the badge below for the DOI of the latest release.
@@ -131,13 +132,13 @@
 ;; `project.clj` file:
 ;;
 ;; ```clojure
-;; [org.soulspace/qclojure "0.14.0"]
+;; [org.soulspace/qclojure "0.15.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
 ;;
 ;; ```clojure
-;; {:deps {org.soulspace/qclojure {:mvn/version "0.14.0"}}}
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.15.0"}}}
 ;; ```
 ;;
 ;; ### Imports
@@ -666,7 +667,7 @@ gate/t-dag-gate
 ;; ## Math Backends for Complex Linear Algebra
 ;; Simulating quantum circuits on a classical computer requires efficient
 ;; linear algebra operations on complex numbers. QClojure provides a
-;; `domain.math.core` namespace that abstracts the underlying complex linear algebra
+;; `domain.math.complex-linear-algebra` namespace that abstracts the underlying complex linear algebra
 ;; implementation. This namespace provides the public API for complex linear
 ;; algebra operations used in QClojure. It allows to switch between different
 ;; implementations of complex linear algebra without changing the QClojure code.

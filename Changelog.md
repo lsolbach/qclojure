@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.15.0
 * shortened some spec names by removing the quantum prefix
 * extracted `topology` namespace from `hardware-optimization`
   * differenciated between coupling and topology
@@ -14,11 +14,11 @@
 * improved VQE/QAOA optimization and integrated result extraction
 * added standard gate library import to generated QASM3
 * renamed `math.core` namespace to `math.complex-linear-algebra`
+* restructured and enhanced the tutorial
 * registered project with `zenodo.org` for DOI generation
   * makes qclojure releases citeable in papers
-* restructured and enhanced the tutorial
 
-## Version (0.14.0)
+## Version 0.14.0
 * simulator enhancements
   * renamed `simulator` namespace to `ideal-simulator`
     * transports the role of the simulator 

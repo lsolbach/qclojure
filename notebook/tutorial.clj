@@ -1,11 +1,12 @@
 
 ;; # QClojure Quantum Computing Tutorial
-;; This tutorial demonstrates the use of the
-;; [QClojure](https://github.com/lsolbach/qclojure) library for quantum
-;; computing. It will introduce you to the fascinating world of quantum
-;; computing and show you how to use QClojure to create and run quantum
-;; programs. It covers
-
+;; This tutorial will guide you through the basics of quantum computing using
+;; [QClojure](https://github.com/lsolbach/qclojure).
+;;
+;; The tutorial demonstrates the use of the QClojure. It will introduce you
+;; to the fascinating world of quantum computing and show you how to use
+;; QClojure to create and run quantum programs. It covers
+;;
 ;; * the creation and visualization of quantum states and quantum registers
 ;; * the application of quantum gates
 ;; * the creation, visualization and simulation of quantum circuits
@@ -15,6 +16,25 @@
 ;; * the optimization of quantum circuits for specific hardware topologies
 ;; * the use of error mitigation techniques
 ;; * the description and execution of quantum and hybrid algorithms
+;;
+;; ## The Tutorial as a Notebook
+;; The tutorial is written as a literate programming notebook, in a style
+;; called 'Namespace as a Notebook', which means that the code and the
+;; documentation are interleaved. You can read the notebook in an editor and
+;; run the code snippets in a Clojure REPL.
+;;
+;; ### Reproducible Notebooks
+;; You can also generate documentation with [Clay](https://github.com/scicloj/clay).
+;; With Clay a notebook can be rendered to HTML or via [Quarto](https://quarto.org/)
+;; to various formats like PDF, revealjs presentations or Github flavoured markdown.
+;; Quarto also supports articles, books and websites, so you can easily create an
+;; article, book or website from your notebooks.
+;; 
+;; Generating notebooks with Clay always produces **reproducible** results, as
+;; the code is in the namespace is executed during the rendering process
+;; in a deterministic way. Even with quarto, the code is executed by Clay,
+;; not by Quarto or yupiter, so the results are always the same, no matter how often
+;; you render the notebook.
 ;;
 ;; ## Introduction to Quantum Computing
 ;; Quantum computing is a fascinating field that combines computer science,
@@ -66,12 +86,30 @@
 ;; Those extensions will be available as separate libraries, to keep the core
 ;; library focused and lightweight.
 ;;
-;; QClojure is open source and licensed under the Eclipse Public License 1.0.
+;; ### Source Code
+;; The source code is available on [GitHub](https://github.com/lsolbach/qclojure).
 ;;
-;; This tutorial will guide you through the basics of quantum computing using
-;; QClojure. It is written as a literate programming notebook, which means that
-;; the code and the documentation are interleaved. You can run the code
-;; snippets in a Clojure REPL or generate HTML documentation with Clay.
+;;[![GitHub Repo stars](https://img.shields.io/github/stars/lsolbach/qclojure?style=social)](https://github.com/lsolbach/qclojure)
+;;
+;; ### Release Artifacts
+;; The release artifacts (JAR files) are available on [Clojars](https://clojars.org/org.soulspace/qclojure).
+;;
+;;[![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
+;;
+;; QClojure provides citeable releases, so if you use it in your research, you
+;; can cite it. Click on the badge below for the DOI of the latest release.
+;;
+;; [![DOI](https://zenodo.org/badge/993970268.svg)](https://doi.org/10.5281/zenodo.17059552)
+;;
+;; ### Documentation
+;; QClojure provides extensive API documentation, which is available on [CljDoc](https://cljdoc.org/d/org.soulspace/qclojure).
+;;
+;; [![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure)
+;; 
+;; ### License
+;; QClojure is open source and licensed under the Eclipse Public License 1.0. 
+;;
+;; ![GitHub](https://img.shields.io/github/license/lsolbach/QClojure)
 ;;
 ;; ### Prerequisites
 ;; As QClojure is running on Clojure and Clojure itself on the JVM, you need to
@@ -165,7 +203,7 @@
 ;; to the square of the amplitude of that state in the quantum state vector.
 ;;
 ;; ### Basic Quantum States
-;; The *qs* namespace defines some basic quantum states.
+;; The *state* namespace defines some basic quantum states.
 ;; Let's look at the quantum state |0⟩, which is the ground state of a qubit.
 
 state/|0⟩
@@ -173,9 +211,29 @@ state/|0⟩
 ;; The measured value of a quantum state is probabilistic.
 ;; We have a probability of measuring the state |0⟩ as 0, and a probability of
 ;; measuring it as 1.
-;; We can visualize the probability distribution of the quantum state |0⟩.
 
-(kind/html (viz/visualize-quantum-state :svg state/|0⟩))
+;; We can visualize the probability distribution of the quantum state |0⟩.
+;; QClojure provides several visualization functions in the
+;; `org.soulspace.qclojure.application.visualization` namespace.
+;; They all take the desired output format as the first argument.
+;; We can use the `:ascii` format to generate an ASCII art representation
+;; and `:svg` format to generate an SVG image.
+;; The ASCII format is useful for quick visualizations in the REPL,
+;; while the SVG format is more suitable for embedding in documents like
+;; tutorials, papers or presentations. We tag the code blocks with
+;; `^kind/code` and `^kind/html` to indicate the type of content.
+;; With these tags, the Clay notebook renderer can render the output
+;; appropriately.
+;;
+;; Here is the ascii representation of the quantum state |0⟩.
+
+^kind/code
+(viz/visualize-quantum-state :ascii state/|0⟩)
+
+;; And this is the SVG representation of the same quantum state.
+
+^kind/html
+(viz/visualize-quantum-state :svg state/|0⟩)
 
 ;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
 ;; which is certain.
@@ -183,8 +241,16 @@ state/|0⟩
 ;; The [Bloch sphere](https://en.wikipedia.org/wiki/Bloch_sphere) is a
 ;; geometrical representation of quantum states.
 ;; We can visualize the quantum state |0⟩ as a vector on the Bloch sphere.
+;;
+;; First the ASCI representation of the Bloch sphere.
 
-(kind/html (viz/visualize-bloch-sphere :svg state/|0⟩))
+^kind/code
+(viz/visualize-bloch-sphere :ascii state/|0⟩)
+
+;; And now the Bloch sphere in SVG format of the same quantum state.
+
+^kind/html
+(viz/visualize-bloch-sphere :svg state/|0⟩)
 
 ;; The Bloch sphere representation shows that the state |0⟩ is at the north pole
 ;; of the sphere.
@@ -195,14 +261,16 @@ state/|1⟩
 
 ;; We can visualize the probability distribution of the quantum state |1⟩.
 
-(kind/html (viz/visualize-quantum-state :svg state/|1⟩))
+^kind/html
+(viz/visualize-quantum-state :svg state/|1⟩)
 
 ;; It shows that the probability of measuring the state |1⟩ results in 1 is 1,
 ;; which is also certain.
 ;; The Bloch sphere representation shows that the state |1⟩ is at the south pole
 ;; of the sphere.
 
-(kind/html (viz/visualize-bloch-sphere :svg state/|1⟩))
+^kind/html
+(viz/visualize-bloch-sphere :svg state/|1⟩)
 
 ;; ### Superposition States
 ;; Quantum states can also be in a superposition of the ground and excited
@@ -217,13 +285,15 @@ state/|+⟩
 
 ;; We can visualize the probability distribution of the quantum state |+⟩.
 
-(kind/html (viz/visualize-quantum-state :svg state/|+⟩))
+^kind/html
+(viz/visualize-quantum-state :svg state/|+⟩)
 
 ;; The Bloch sphere representation shows that the state |+⟩ is on the
 ;; equator of the sphere, which means, that the probabilities for
 ;; measuring 0 or 1 are the same.
 
-(kind/html (viz/visualize-bloch-sphere :svg state/|+⟩))
+^kind/html
+(viz/visualize-bloch-sphere :svg state/|+⟩)
 
 ;; The quantum state |-⟩ is another superposition of the ground and
 ;; excited states. The state |-⟩ is defined as (|0⟩ - |1⟩) / √2.
@@ -232,12 +302,14 @@ state/|-⟩
 
 ;; We can visualize the probability distribution of the quantum state |-⟩.
 
-(kind/html (viz/visualize-quantum-state :svg state/|-⟩))
+^kind/html
+(viz/visualize-quantum-state :svg state/|-⟩)
 
 ;; The Bloch sphere representation shows that the state |-⟩ is also on the
 ;; equator of the sphere, but pointing in the opposite direction.
 
-(kind/html (viz/visualize-bloch-sphere :svg state/|-⟩))
+^kind/html
+(viz/visualize-bloch-sphere :svg state/|-⟩)
 
 ;; ### Multi-Qubit States and Quantum Registers
 ;; Tensor products can be used to create multi-qubit states from single-qubit
@@ -247,12 +319,13 @@ state/|00⟩
 
 ;; We can visualize the probability distribution of the quantum state |00⟩.
 
-(kind/html (viz/visualize-quantum-state :svg state/|00⟩))
+^kind/html
+(viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; ## Quantum Gates
 ;; Quantum gates are operations that can be applied to quantum states.
 ;; They are represented as matrices that act on the quantum states.
-;; The *qg* namespace defines several quantum gates.
+;; The *gate* namespace defines several quantum gates.
 ;;
 ;; ### Pauli Gates
 ;; The [Pauli gates](https://en.wikipedia.org/wiki/Pauli_matrices) are a set of
@@ -292,12 +365,14 @@ gate/hadamard
 
 ;; We can visualize the probability distribution of the Hadamard state.
 
-(kind/html (viz/visualize-quantum-state :svg hadamard-state))
+^kind/html
+(viz/visualize-quantum-state :svg hadamard-state)
 
 ;; The probability distribution shows that the Hadamard state is in a
 ;; superposition of the ground and excited states.
 
-(kind/html (viz/visualize-bloch-sphere :svg hadamard-state))
+^kind/html
+(viz/visualize-bloch-sphere :svg hadamard-state)
 
 ;; The Bloch sphere representation shows that the Hadamard state is on the
 ;; equator of the sphere.
@@ -369,7 +444,7 @@ gate/t-dag-gate
 ;;
 ;; ## Quantum Circuits
 ;; Quantum circuits are sequences of quantum gates applied to quantum states.
-;; The *qc* namespace provides functions to create and manipulate quantum
+;; The *circuit* namespace provides functions to create and manipulate quantum
 ;; circuits.
 ;;
 ;; ### Creating a Quantum Circuit
@@ -380,9 +455,18 @@ gate/t-dag-gate
   (-> (circuit/create-circuit 1 "Hadamard on qubit 0")
       (circuit/h-gate 0)))
 
-;; We can visualize the quantum circuit.
+;; We can visualize the quantum circuit as ASCII or SVG, like we did with
+;; quantum states.
+;;
+;; Here is the ascii representation of the quantum circuit.
 
-(kind/html (viz/visualize-circuit :svg simple-circuit))
+^kind/code
+(viz/visualize-circuit :ascii simple-circuit)
+
+;; And this is the SVG representation of the same quantum circuit.
+
+^kind/html
+(viz/visualize-circuit :svg simple-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the qubit 0.
 ;;
@@ -394,16 +478,18 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the Hadamard circuit state.
 
-(kind/html (viz/visualize-quantum-state :svg (:final-state hadamard-circuit-result)))
+^kind/html
+(viz/visualize-quantum-state :svg (:final-state hadamard-circuit-result))
 
 ;; The probability distribution shows that the Hadamard circuit state is
 ;; in a superposition of the ground and excited states. It is the same as the
 ;; Hadamard state we created earlier, but now created by a quantum circuit, not
 ;; just the application of a single gate on a quantum state.
 
-(kind/html (viz/visualize-bloch-sphere :svg (:final-state hadamard-circuit-result)))
+^kind/html
+(viz/visualize-bloch-sphere :svg (:final-state hadamard-circuit-result))
 
-;; The *qc* namespace also has some predefined circuits.
+;; The *circuit* namespace also has some predefined circuits.
 ;;
 ;; For example, the 'qc/bell-state-circuit' creates a circuit that prepares 
 ;; Bell state, which is a two-qubit entangled state.
@@ -413,7 +499,8 @@ gate/t-dag-gate
 
 ;; We can visualize the Bell circuit.
 
-(kind/html (viz/visualize-circuit :svg bell-circuit))
+^kind/html
+(viz/visualize-circuit :svg bell-circuit)
 
 ;; The Bell circuit shows that the Hadamard gate is applied to the first qubit,
 ;; followed by a CNOT gate between the first and second qubits.
@@ -425,9 +512,10 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the Bell state.
 
-(kind/html (viz/visualize-quantum-state :svg (:final-state bell-result)))
+^kind/html
+(viz/visualize-quantum-state :svg (:final-state bell-result))
 
-;; The *qc* namespace also has a predefined circuit for multi-qubit states.
+;; The *circuit* namespace also has a predefined circuit for multi-qubit states.
 ;; This circuit can be used to create entangled states with more than two
 ;; qubits.
 ;;
@@ -440,7 +528,8 @@ gate/t-dag-gate
 
 ;; We can visualize the GHZ circuit.
 
-(kind/html (viz/visualize-circuit :svg ghz-circuit))
+^kind/html
+(viz/visualize-circuit :svg ghz-circuit)
 
 ;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit,
 ;; followed by CNOT gates between the first and second qubits, and between the
@@ -453,7 +542,8 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the GHZ state.
 
-(kind/html (viz/visualize-quantum-state :svg (:final-state ghz-result)))
+^kind/html
+(viz/visualize-quantum-state :svg (:final-state ghz-result))
 
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.
@@ -750,7 +840,8 @@ gate/t-dag-gate
 
 lagos-50-result
 
-(kind/html (viz/visualize-quantum-state :svg (:final-state lagos-50-result)))
+^kind/html
+(viz/visualize-quantum-state :svg (:final-state lagos-50-result))
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
 ;; even though those states should have the highest counts. The other states
@@ -765,7 +856,8 @@ lagos-10k-result
 ;; With 10000 shots, the difference of the counts of the correct answers
 ;; and the counts of the wrong answers should be quite significant.
 
-(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result)))
+^kind/html
+(viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result))
 
 ;; We can also use the hardware simulator with a different device map, e.g.
 ;; for an IonQ Forte quantum computer.
@@ -945,7 +1037,8 @@ forte-10k-result
 
 ;; We can visualize the circuit for the constant oracle.
 
-(kind/html (viz/visualize-circuit :svg constant-deutsch-circuit))
+^kind/html
+(viz/visualize-circuit :svg constant-deutsch-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubit, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -967,7 +1060,8 @@ deutsch-constant-result
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the constant function. It is contained in the execution result of the algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :results :final-state])))
+^kind/html
+(viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :results :final-state]))
 
 ;; For the balanced function, we can create the circuit for the Deutsch algorithm.
 
@@ -976,7 +1070,8 @@ deutsch-constant-result
 
 ;; We can visualize the circuit for the balanced oracle.
 
-(kind/html (viz/visualize-circuit :svg balanced-deutsch-circuit))
+^kind/html
+(viz/visualize-circuit :svg balanced-deutsch-circuit)
 
 ;; Execute the Deutsch algorithm with the balanced function.
 (def deutsch-balanced-result
@@ -991,7 +1086,8 @@ deutsch-balanced-result
 
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the balanced function.
-(kind/html (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :results :final-state])))
+^kind/html
+(viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :results :final-state]))
 
 ;; ### Bernstein-Vazirani Algorithm
 ;; The [Bernstein-Vazirani algorithm](https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm)
@@ -1044,7 +1140,8 @@ deutsch-balanced-result
 
 ;; We can visualize the circuit for the Bernstein-Vazirani algorithm.
 
-(kind/html (viz/visualize-circuit :svg bv-circuit))
+^kind/html
+(viz/visualize-circuit :svg bv-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -1067,7 +1164,8 @@ bv-result
 ;; The measurement outcome is the hidden binary string, which is 110.
 ;; Let's visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :results :final-state])))
+^kind/html
+(viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly
 ;; identifies the hidden binary string. The final quantum state is a superposition
@@ -1121,7 +1219,8 @@ bv-result
 
 ;; We can visualize the circuit for Simon's algorithm.
 
-(kind/html (viz/visualize-circuit :svg simon-circuit))
+^kind/html
+(viz/visualize-circuit :svg simon-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -1199,7 +1298,8 @@ simon-result
 
 ;; Let's visualize the circuit for Grover's search algorithm.
 
-(kind/html (viz/visualize-circuit :svg grover-circuit))
+^kind/html
+(viz/visualize-circuit :svg grover-circuit)
 
 ;; Now we can execute Grover's search algorithm with the defined oracle.
 
@@ -1259,7 +1359,8 @@ grover-result
 
 ;; We can visualize the circuit for the Quantum Fourier Transform.
 
-(kind/html (viz/visualize-circuit :svg qft-circuit))
+^kind/html
+(viz/visualize-circuit :svg qft-circuit)
 
 ;; The circuit shows that the QFT applies a series of controlled phase gates
 ;; and Hadamard gates to the qubits, transforming the quantum state into its
@@ -1278,7 +1379,8 @@ qft-result
 
 ;; We can visualize the circuit for the inverse Quantum Fourier Transform.
 
-(kind/html (viz/visualize-circuit :svg inverse-qft-circuit))
+^kind/html
+(viz/visualize-circuit :svg inverse-qft-circuit)
 
 ;; The inverse QFT circuit applies the inverse operations of the controlled phase gates
 ;; and Hadamard gates to the qubits, transforming the quantum state back to its
@@ -1492,7 +1594,8 @@ qft-result
 
 ;; We can visualize the circuit for the HHL algorithm.
 
-(kind/html (viz/visualize-circuit :svg hhl-circuit))
+^kind/html
+(viz/visualize-circuit :svg hhl-circuit)
 
 ;; The circuit shows that the HHL algorithm applies a series of controlled-U gates
 ;; to the qubits, which represent the matrix A, and applies the inverse quantum
@@ -1524,7 +1627,8 @@ qft-result
 ;;
 ;; Let's visualize the final quantum state after executing the HHL algorithm.
 
-(kind/html (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state])))
+^kind/html
+(viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition
@@ -1535,6 +1639,43 @@ qft-result
            hhl-vector
            {:shots 10000})
 
+;; ### Variational Algorithms
+;; Variational algorithms are a class of hybrid quantum-classical algorithms
+;; that use a parameterized quantum circuit to solve optimization problems.
+;; They are particularly useful for near-term quantum computers, which have
+;; limited qubit counts and are prone to noise and errors.
+;; Variational algorithms use a quantum circuit to prepare a trial state,
+;; and a classical optimization algorithm to minimize a cost function
+;; that depends on the parameters of the quantum circuit.
+;; The goal is to find the optimal parameters that minimize the cost function,
+;; which can be used to solve a variety of problems, including quantum chemistry,
+;; machine learning, and optimization.
+;;
+;; QClojure provides a framework for implementing variational algorithms,
+;; including the Variational Quantum Eigensolver (VQE) and the Quantum Approximate
+;; Optimization Algorithm (QAOA). The framework can be used to define
+;; parameterized quantum circuits, cost functions, and optimization strategies.
+;;
+;; The variational algorithm framework provides different gradient based and
+;; gradient free optimization methods, including
+;;
+;; * gradient based methods:
+;;   * :gradient-descent - a simple gradient descent optimizer
+;;   * :adam - the Adam optimizer (Adaptive Moment Estimation)
+;;   * :quantum-natural-gradient - the quantum natural gradient optimizer using Quantum Fisher Information
+;; * gradient free methods:
+;;   * :nelder-mead - the Nelder-Mead optimizer (also known as the downhill simplex method)
+;;   * :powell - the Powell optimizer
+;;   * :cmaes - the CMA-ES optimizer (Covariance Matrix Adaptation Evolution Strategy)
+;;   * :bobyqa - the BOBYQA optimizer (Bound Optimization BY Quadratic Approximation)
+;;
+;; QClojure provides the parameter-shift rule to compute gradients of
+;; parameterized quantum circuits. The parameter-shift rule is a method for
+;; computing the gradient of a quantum circuit with respect to its parameters
+;; by evaluating the circuit at shifted parameter values. This allows us to
+;; compute gradients without the need for backpropagation, which is not
+;; directly applicable to quantum circuits.
+;;
 ;; ### Variational Quantum Eigensolver (VQE) Algorithm
 ;; The [Variational Quantum Eigensolver (VQE)](https://en.wikipedia.org/wiki/Variational_quantum_eigensolver)
 ;; is a hybrid quantum-classical algorithm used to find the ground state energy
@@ -1633,14 +1774,18 @@ h2-hamiltonian
 ;; The result of the VQE algorithm is a map that contains the result of the
 ;; algorithm, the measurement outcome, and the circuit used to execute the algorithm.
 ;;
-;; There are different ansatz types available, such as `:hardware-efficient`,
-;; `:chemistry-inspired`, `:uccsd`, `:symmetry-preserving` and `:custom`.
-;; The `:hardware-efficient` ansatz type is not suitable for chemistry problems,
-;; as it does not preserve the symmetries of the Hamiltonian. The `:uccsd` ansatz
-;; type is suitable for chemistry problems, as it uses the unitary coupled cluster
-;; ansatz. The `:symmetry-preserving` ansatz type is suitable for chemistry
-;; problems, as it preserves the symmetries of the Hamiltonian. The `:custom`
-;; ansatz type allows you to define your own ansatz circuit.
+;; There are different ansatz types available, such as
+;;
+;; * `:hardware-efficient` - a general-purpose ansatz that uses a series of parameterized
+;; * `:uccsd` - the unitary coupled cluster ansatz, which is suitable for chemistry problems.
+;; * `:chemistry-inspired` - an ansatz inspired by the structure of molecular Hamiltonians.
+;; * `:symmetry-preserving` - an ansatz that preserves the symmetries of the Hamiltonian.
+;; * `:custom` - allows you to define your own ansatz circuit.
+;;
+;; The choice of ansatz depends on the problem and the available quantum hardware.
+;; For a problem like molecular hydrogen, the `:uccsd` ansatz is a good choice,
+;; as it is specifically designed for chemistry problems and can capture the
+;; relevant correlations in the electronic structure of molecules.
 ;;
 ;; We'll compare different optimization methods to show their performance.
 ;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
@@ -1673,7 +1818,8 @@ vqe-result
 
 ;; The final circuit with the optimal parameters is
 
-(kind/html (viz/visualize-circuit :svg (:circuit vqe-result)))
+^kind/html
+(viz/visualize-circuit :svg (:circuit vqe-result))
 
 ;; ### Quantum Approximation Optimization Algorithm (QAOA)
 ;; The [Quantum Approximation Optimization Algorithm (QAOA)](https://en.wikipedia.org/wiki/Quantum_approximate_optimization_algorithm)
@@ -1780,13 +1926,14 @@ vqe-result
 triangle-qaoa-result
 
 ;; The result shows that the QAOA algorithm approximated the optimal solution
-;; for the Max-Cut problem on the triangular graph,  which is 2.0.
+;; for the Max-Cut problem on the triangular graph, which is 2.0.
 
 (:result triangle-qaoa-result)
 
 ;; The final circuit with the optimal parameters is
 
-(kind/html (viz/visualize-circuit :svg (:circuit triangle-qaoa-result)))
+^kind/html
+(viz/visualize-circuit :svg (:circuit triangle-qaoa-result))
 
 ;; Let's visualize the final quantum state after executing the QAOA algorithm.
 

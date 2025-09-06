@@ -10,6 +10,7 @@
 * activated hardware optimizations in hardware simulator
 * removed create-noisy-simulator, use create-hardware-simulator
 * integrated trajectory-state pipeline with result extraction to hardware simulator
+* improved VQE optimization and integrated result extraction
 * renamed `math.core` namespace to `math.complex-linear-algebra`
 * registered project with `zenodo.org` for DOI generation
   * makes qclojure releases citeable in papers

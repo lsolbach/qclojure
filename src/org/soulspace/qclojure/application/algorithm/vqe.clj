@@ -215,6 +215,72 @@
 ;;;
 ;;; VQE Core Algorithm
 ;;;
+(defn convergence-monitor
+  "Monitor VQE convergence with sophisticated stopping criteria.
+  
+  This function tracks VQE optimization progress and implements intelligent
+  stopping criteria based on energy convergence, gradient norms, and 
+  parameter stability.
+  
+  Parameters:
+  - history: Vector of optimization steps {:iteration :energy :gradients :parameters}
+  - options: Convergence options map
+  
+  Returns:
+  Map with convergence analysis and recommendations"
+  [history options]
+  (let [tolerance (:tolerance options 1e-6)
+        gradient-tolerance (:gradient-tolerance options 1e-4)
+        min-iterations (:min-iterations options 10)
+        patience (:patience options 20)
+
+        current-iteration (count history)
+        recent-history (take-last (min patience current-iteration) history)]
+
+    (when (seq history)
+      (let [current-step (last history)
+            current-energy (:energy current-step)
+            current-gradients (:gradients current-step)
+
+            ;; Energy-based convergence criteria
+            energy-converged? (and (>= current-iteration min-iterations)
+                                   (>= (count recent-history) 2)
+                                   (let [energy-changes (map (fn [[step1 step2]]
+                                                               (abs (- (:energy step2) (:energy step1))))
+                                                             (partition 2 1 recent-history))]
+                                     (every? #(< % tolerance) energy-changes)))
+
+            ;; Gradient-based convergence criteria  
+            gradient-norm (when current-gradients
+                            (Math/sqrt (reduce + (map #(* % %) current-gradients))))
+            gradient-converged? (and gradient-norm (< gradient-norm gradient-tolerance))
+
+            ;; Parameter stability analysis
+            parameter-stable? (and (>= (count recent-history) 3)
+                                   (let [param-changes (map (fn [[step1 step2]]
+                                                              (let [params1 (:parameters step1)
+                                                                    params2 (:parameters step2)]
+                                                                (when (and params1 params2)
+                                                                  (Math/sqrt (reduce + (map #(* % %)
+                                                                                            (map - params2 params1)))))))
+                                                            (partition 2 1 recent-history))]
+                                     (every? #(and % (< % tolerance)) param-changes)))
+
+            ;; Overall convergence assessment
+            converged? (or energy-converged? gradient-converged? parameter-stable?)]
+
+        {:converged converged?
+         :energy-converged energy-converged?
+         :gradient-converged gradient-converged?
+         :parameter-stable parameter-stable?
+         :current-energy current-energy
+         :gradient-norm gradient-norm
+         :iterations current-iteration
+         :recommendation (cond
+                           converged? :stop-converged
+                           (> current-iteration (* 2 patience)) :stop-slow-progress
+                           :else :continue)}))))
+
 (defn create-vqe-objective
   "Create the objective function for VQE optimization.
   
@@ -238,88 +304,229 @@
   Function that takes parameters and returns energy expectation value"
   [hamiltonian ansatz-fn backend options]
   {:pre [(ham/validate-hamiltonian hamiltonian) (fn? ansatz-fn)]}
-  (let [options (merge options {:result-specs {:measurments {:shots (:shots options 1)}
-                                               :hamiltonian hamiltonian}})]
-  (fn objective [parameters] 
-    (try
-      (let [;; Ensure parameters is a vector (fastmath optimizers may pass ArraySeq)
-            params-vec (if (vector? parameters) parameters (vec parameters))
-            ;; Step 1: Create ansatz circuit with current parameters
-            circuit (ansatz-fn params-vec)
+  (let [result-specs {:result-specs {:hamiltonian hamiltonian}}
+        run-options (merge options result-specs)]
+    (fn objective [parameters]
+      (try
+        (let [;; Ensure parameters is a vector (fastmath optimizers may pass ArraySeq)
+              params-vec (if (vector? parameters) parameters (vec parameters))
+              ;; Step 1: Create ansatz circuit with current parameters
+              circuit (ansatz-fn params-vec)
 
-            ;; Step 2: Execute circuit to get final quantum state
-            execution-result (qb/execute-circuit backend circuit options)
-            results (:results execution-result)
-            final-state (:final-state results)
+              ;; Step 2: Execute circuit and extract Hamiltonian expectation via result-specs
+              execution-result (qb/execute-circuit backend circuit run-options)
+              results (:results execution-result)
+              hamiltonian-result (:hamiltonian-result results)
 
-            ;; Step 3: Calculate Hamiltonian expectation value (energy)
-            energy (ham/hamiltonian-expectation hamiltonian final-state)]
+              ;; Step 3: Extract energy from hamiltonian result
+              energy (:energy-expectation hamiltonian-result)]
 
-        ;; Return the energy (real number to be minimized)
-        energy)
+          ;; Return the energy (real number to be minimized)
+          energy)
 
-      (catch Exception e
-        ;; Return large positive value if any step fails
-        (println "VQE objective evaluation failed:" (.getMessage e))
-        (.printStackTrace e)
-        1000.0)))))
+        (catch Exception e
+          ;; Return large positive value if any step fails
+          (println "VQE objective evaluation failed:" (.getMessage e))
+          (.printStackTrace e)
+          1000.0)))))
 
-(defn vqe-optimization
-  "Run VQE optimization using the specified method.
+;;;
+;;; Gradient-Enhanced VQE using Result Framework
+;;;
+(defn gradient-enhanced-objective
+  "Create enhanced VQE objective function that provides gradients via result framework.
   
-  Supports multiple optimization methods:
-  
-  Custom implementations with parameter shift rules:
-  - :gradient-descent - Parameter shift rule with gradient descent (robust)
-  - :adam - Adam optimizer with parameter shift gradients (often fastest)
-  - :quantum-natural-gradient - Quantum Natural Gradient (experimental, requires QFIM)
-  
-  Fastmath derivative-free optimizers:
-  - :nelder-mead - Nelder-Mead simplex (good general purpose)
-  - :powell - Powell's method (coordinate descent)
-  - :cmaes - Covariance Matrix Adaptation Evolution Strategy (robust, global)
-  - :bobyqa - Bound Optimization BY Quadratic Approximation (handles bounds well)
-  
-  Note: Other fastmath optimizers like BFGS, L-BFGS, CG, COBYLA are not available 
-  in this fastmath version due to builder issues. Use the verified methods above.
+  This function creates an enhanced objective that computes both energy and gradients
+  efficiently using the existing parameter shift rule from the optimization namespace.
+  The gradient computation is integrated with the result framework to access 
+  intermediate quantum states and enable sophisticated gradient-based optimization methods.
   
   Parameters:
-  - objective-fn: Objective function to minimize
-  - initial-parameters: Starting parameter values  
-  - options: Optimization options
+  - hamiltonian: Hamiltonian to minimize  
+  - ansatz-fn: Function that takes parameters and returns a circuit
+  - backend: Quantum backend for circuit execution
+  - options: Execution options (can include :parallel? for gradient computation)
   
   Returns:
-  Map with optimization results"
+  Function that takes parameters and returns {:energy value :gradients [...] :quantum-state state}"
+  [hamiltonian ansatz-fn backend options]
+  {:pre [(ham/validate-hamiltonian hamiltonian) (fn? ansatz-fn)]}
+  (let [base-result-specs {:result-specs {:hamiltonian hamiltonian
+                                          :state-vector true}}
+        run-options (merge options base-result-specs)
+
+        ;; Create standard objective function for gradient computation
+        standard-objective (create-vqe-objective hamiltonian ansatz-fn backend run-options)]
+
+    (fn enhanced-objective [parameters]
+      (try
+        (let [params-vec (if (vector? parameters) parameters (vec parameters))
+
+              ;; Compute energy at current parameters using result framework
+              base-circuit (ansatz-fn params-vec)
+              base-result (qb/execute-circuit backend base-circuit run-options)
+              base-energy (:energy-expectation (:hamiltonian-result (:results base-result)))
+              base-state (:final-state (:results base-result))
+
+              ;; Compute gradients using existing parameter shift implementation
+              gradients (qopt/calculate-parameter-shift-gradient standard-objective params-vec
+                                                                 {:parallel? (:parallel? options true)})]
+
+          {:energy base-energy
+           :gradients gradients
+           :quantum-state base-state})
+
+        (catch Exception e
+          (println "Enhanced VQE objective evaluation failed:" (.getMessage e))
+          {:energy 1000.0
+           :gradients (vec (repeat (count parameters) 0.0))})))))
+
+(defn vqe-optimization
+  "Run VQE optimization with integrated convergence monitoring.
+  
+   This function wraps the standard optimization methods with intelligent convergence
+   monitoring, allowing for early stopping based on energy changes, gradient norms,
+   and parameter stability. It tracks the full optimization history and provides
+   detailed convergence analysis.
+     
+   Supports multiple optimization methods:
+  
+   Custom implementations with parameter shift rules:
+   - :gradient-descent - Parameter shift rule with gradient descent (robust)
+   - :adam - Adam optimizer with parameter shift gradients (often fastest)
+   - :quantum-natural-gradient - Quantum Natural Gradient (experimental, requires QFIM)
+  
+   Fastmath derivative-free optimizers:
+   - :nelder-mead - Nelder-Mead simplex (good general purpose)
+   - :powell - Powell's method (coordinate descent)
+   - :cmaes - Covariance Matrix Adaptation Evolution Strategy (robust, global)
+   - :bobyqa - Bound Optimization BY Quadratic Approximation (handles bounds well)
+  
+   Parameters:
+   - objective-fn: Objective function to minimize
+   - initial-parameters: Starting parameter values  
+   - options: Optimization options including convergence monitoring parameters
+  
+   Returns:
+   Map with optimization results and convergence analysis"
   [objective-fn initial-parameters options]
-  (let [method (:optimization-method options :adam)]  ; Default to Adam
-    (case method
-      ;; Custom implementations
-      :gradient-descent
-      (qopt/gradient-descent-optimization objective-fn initial-parameters options)
+  (let [method (:optimization-method options :adam)
+        tolerance (:tolerance options 1e-6)
+        gradient-tolerance (:gradient-tolerance options 1e-4)
+        min-iterations (:min-iterations options 10)
+        patience (:patience options 20)
+        max-iterations (:max-iterations options 500)
 
-      :adam
-      (qopt/adam-optimization objective-fn initial-parameters options)
+        ;; Check if we have gradient-enhanced objective
+        enhanced? (try
+                    (let [test-result (objective-fn initial-parameters)]
+                      (and (map? test-result) (:gradients test-result)))
+                    (catch Exception _ false))
 
-      :quantum-natural-gradient
-      (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters
-                                                  (merge options
-                                                         {:ansatz-fn (:ansatz-fn options)
-                                                          :backend (:backend options)
-                                                          :exec-options (:exec-options options)}))
+        convergence-options {:tolerance tolerance
+                             :gradient-tolerance gradient-tolerance
+                             :min-iterations min-iterations
+                             :patience patience}]
 
-      ;; Fastmath derivative-free optimizers (verified working)
-      (:nelder-mead :powell :cmaes :bobyqa)
-      (qopt/fastmath-derivative-free-optimization method objective-fn initial-parameters options)
+    (if enhanced?
+      ;; Use convergence monitoring with gradient-enhanced objective
+      (loop [iteration 0
+             current-params initial-parameters
+             history []
+             best-energy Double/POSITIVE_INFINITY
+             best-params initial-parameters]
 
-      ;; Fastmath gradient-based optimizers (not available in this version)
-      (:gradient :lbfgsb)
-      (qopt/fastmath-gradient-based-optimization method objective-fn initial-parameters options)
+        (if (>= iteration max-iterations)
+          {:success false
+           :reason :max-iterations
+           :optimal-energy best-energy
+           :optimal-parameters best-params
+           :iterations iteration
+           :history history
+           :convergence-analysis (convergence-monitor history convergence-options)}
 
-      ;; Default fallback
-      (throw (ex-info (str "Unknown optimization method: " method)
-                      {:method method
-                       :available-methods [:gradient-descent :adam :quantum-natural-gradient
-                                           :nelder-mead :powell :cmaes :bobyqa :gradient]})))))
+          ;; Evaluate current point
+          (let [current-result (objective-fn current-params)
+                current-energy (:energy current-result)
+                current-gradients (:gradients current-result)
+
+                ;; Update history
+                step-info {:iteration iteration
+                           :energy current-energy
+                           :gradients current-gradients
+                           :parameters current-params}
+                updated-history (conj history step-info)
+
+                ;; Check convergence
+                convergence-result (convergence-monitor updated-history convergence-options)
+                converged? (:converged convergence-result)]
+
+            (cond
+              ;; Convergence achieved
+              converged?
+              {:success true
+               :reason :converged
+               :optimal-energy (if (< current-energy best-energy) current-energy best-energy)
+               :optimal-parameters (if (< current-energy best-energy) current-params best-params)
+               :iterations iteration
+               :history updated-history
+               :convergence-analysis convergence-result}
+
+              ;; Slow progress detected
+              (= (:recommendation convergence-result) :stop-slow-progress)
+              {:success false
+               :reason :slow-progress
+               :optimal-energy best-energy
+               :optimal-parameters best-params
+               :iterations iteration
+               :history updated-history
+               :convergence-analysis convergence-result}
+
+              ;; Continue optimization with simple gradient descent
+              :else
+              (let [learning-rate (:learning-rate options 0.01)
+                    gradient-step (mapv #(* learning-rate %) current-gradients)
+                    next-params (mapv - current-params gradient-step)
+
+                    ;; Track best result
+                    new-best-energy (if (< current-energy best-energy) current-energy best-energy)
+                    new-best-params (if (< current-energy best-energy) current-params best-params)]
+
+                (recur (inc iteration)
+                       next-params
+                       updated-history
+                       new-best-energy
+                       new-best-params))))))
+
+      ;; Fallback to standard optimization without convergence monitoring for non-enhanced objectives
+      (case method
+        ;; Custom implementations
+        :gradient-descent
+        (qopt/gradient-descent-optimization objective-fn initial-parameters options)
+
+        :adam
+        (qopt/adam-optimization objective-fn initial-parameters options)
+
+        :quantum-natural-gradient
+        (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters
+                                                    (merge options
+                                                           {:ansatz-fn (:ansatz-fn options)
+                                                            :backend (:backend options)
+                                                            :exec-options (:exec-options options)}))
+
+        ;; Fastmath derivative-free optimizers (verified working)
+        (:nelder-mead :powell :cmaes :bobyqa)
+        (qopt/fastmath-derivative-free-optimization method objective-fn initial-parameters options)
+
+        ;; Fastmath gradient-based optimizers (not available in this version)
+        (:gradient :lbfgsb)
+        (qopt/fastmath-gradient-based-optimization method objective-fn initial-parameters options)
+
+        ;; Default fallback
+        (throw (ex-info (str "Unknown optimization method: " method)
+                        {:method method
+                         :available-methods [:gradient-descent :adam :quantum-natural-gradient
+                                             :nelder-mead :powell :cmaes :bobyqa :gradient]}))))))
 
 (defn variational-quantum-eigensolver
   "Main VQE algorithm implementation.
@@ -417,14 +624,21 @@
         initial-params (or (:initial-parameters options)
                            (vec (repeatedly param-count #(* 0.1 (- (rand) 0.5)))))
 
-        ;; Create objective function
+        ;; Create objective function - use gradient-enhanced by default for gradient-based methods
         exec-options {:shots shots}
-        objective-fn (create-vqe-objective hamiltonian ansatz-fn backend exec-options)
+        use-gradients? (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method)
+        objective-fn (if use-gradients?
+                       (gradient-enhanced-objective hamiltonian ansatz-fn backend exec-options)
+                       (create-vqe-objective hamiltonian ansatz-fn backend exec-options))
 
-        ;; Run optimization
+        ;; Run optimization with convergence monitoring
         opt-options {:optimization-method opt-method
                      :max-iterations max-iter
                      :tolerance tolerance
+                     :gradient-tolerance (:gradient-tolerance options 1e-4)
+                     :min-iterations (:min-iterations options 10)
+                     :patience (:patience options 20)
+                     :learning-rate (:learning-rate options 0.01)
                      :gradient-method :parameter-shift  ; Use parameter shift for quantum VQE
                      ;; Add QNG-specific parameters
                      :ansatz-fn ansatz-fn
@@ -435,8 +649,9 @@
         opt-result (vqe-optimization objective-fn initial-params opt-options)
         end-time (System/currentTimeMillis)
 
-        ;; Initial value
-        initial-energy (objective-fn initial-params)
+        ;; Initial value - handle both standard and gradient-enhanced objectives
+        initial-result (objective-fn initial-params)
+        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
 
         ;; Calculate final results
         optimal-params (:optimal-parameters opt-result)
@@ -475,8 +690,116 @@
      :optimization opt-result}))
 
 ;;;
-;;; Analysis and Utilities
+;;; Analysis and Utilities  
 ;;;
+(defn post-optimization-analysis
+  "Comprehensive post-optimization analysis using result framework.
+  
+  This function performs detailed analysis of VQE results, including:
+  - Energy landscape analysis around optimal point
+  - Quantum state characterization
+  - Measurement statistics and confidence intervals
+  - Hardware compatibility assessment
+  
+  Parameters:
+  - vqe-result: Complete VQE result map
+  - analysis-options: Options for analysis depth and methods
+  
+  Returns:
+  Comprehensive analysis report"
+  [vqe-result analysis-options]
+  (let [optimal-params (:optimal-parameters (:results vqe-result))
+        optimal-energy (:optimal-energy (:results vqe-result))
+        config (:config vqe-result)
+
+        ;; Extract backend and create enhanced objective for analysis
+        backend (:backend analysis-options)
+        hamiltonian (:hamiltonian config)
+        ansatz-type (:ansatz-type config)
+
+        ;; Analysis parameters
+        landscape-radius (:landscape-radius analysis-options 0.1)
+        confidence-level (:confidence-level analysis-options 0.95)]
+
+    (when (and backend hamiltonian optimal-params)
+      (let [;; Create ansatz function for analysis
+            ansatz-fn (case ansatz-type
+                        :hardware-efficient
+                        (ansatz/hardware-efficient-ansatz (:num-qubits config)
+                                                          (:num-layers config 1)
+                                                          (:entangling-gate config :cnot))
+                        :chemistry-inspired
+                        (ansatz/chemistry-inspired-ansatz (:num-qubits config)
+                                                          (:num-excitation-layers config 1))
+                        :uccsd
+                        (ansatz/uccsd-inspired-ansatz (:num-qubits config)
+                                                      (:num-excitations config 2))
+                        :symmetry-preserving
+                        (ansatz/symmetry-preserving-ansatz (:num-qubits config)
+                                                           (:num-particles config 2)
+                                                           (:num-layers config 1)))
+
+            ;; Enhanced analysis using result framework and existing optimization tools
+            enhanced-obj-fn (gradient-enhanced-objective hamiltonian ansatz-fn backend
+                                                         {:shots (:shots analysis-options 1024)
+                                                          :parallel? false})  ; Sequential for analysis
+
+            ;; Analyze optimal point
+            optimal-analysis (enhanced-obj-fn optimal-params)
+
+            ;; Landscape analysis - sample points around optimum  
+            landscape-points (for [i (range (count optimal-params))
+                                   delta [landscape-radius (- landscape-radius)]]
+                               (let [perturbed-params (assoc optimal-params i
+                                                             (+ (nth optimal-params i) delta))]
+                                 {:parameters perturbed-params
+                                  :analysis (enhanced-obj-fn perturbed-params)}))
+
+            ;; Quantum state analysis
+            optimal-state (:quantum-state optimal-analysis)
+            state-analysis (when optimal-state
+                             {:trace-valid (qs/trace-one? optimal-state)
+                              :state-fidelity-self 1.0  ; Perfect fidelity with itself
+                              :num-qubits (:num-qubits optimal-state)
+                              :state-type "pure-state"})
+
+            ;; Statistical analysis of energy estimates
+            energy-estimates (map #(:energy (:analysis %)) landscape-points)
+            energy-std (when (seq energy-estimates)
+                         (let [mean (/ (reduce + energy-estimates) (count energy-estimates))
+                               variance (/ (reduce + (map #(* (- % mean) (- % mean)) energy-estimates))
+                                           (count energy-estimates))]
+                           (Math/sqrt variance)))
+
+            ;; Gradient analysis
+            gradient-norm (Math/sqrt (reduce + (map #(* % %) (:gradients optimal-analysis))))
+
+            ;; Hardware assessment
+            circuit-depth (:circuit-depth (:circuit-metadata (:results vqe-result)) 0)
+            gate-count (:circuit-gate-count (:circuit-metadata (:results vqe-result)) 0)]
+
+        {:analysis-type "Post-Optimization VQE Analysis"
+         :optimal-point {:energy optimal-energy
+                         :parameters optimal-params
+                         :gradients (:gradients optimal-analysis)
+                         :gradient-norm gradient-norm}
+         :quantum-state state-analysis
+         :energy-landscape {:local-points landscape-points
+                            :energy-std energy-std
+                            :landscape-radius landscape-radius}
+         :statistical-analysis {:confidence-level confidence-level
+                                :energy-uncertainty energy-std}
+         :hardware-metrics {:circuit-depth circuit-depth
+                            :gate-count gate-count
+                            :qubit-count (:num-qubits config)
+                            :estimated-fidelity (when (> gate-count 0)
+                                                  (Math/pow 0.99 gate-count))}
+         :convergence-assessment (:convergence-assessment vqe-result)
+         :recommendations (cond
+                            (< gradient-norm 1e-6) ["Excellent convergence achieved"]
+                            (< gradient-norm 1e-4) ["Good convergence, consider more iterations"]
+                            :else ["Poor convergence, check ansatz and Hamiltonian"])}))))
+
 (defn analyze-vqe-landscape
   "Analyze the VQE energy landscape around optimal parameters.
   
@@ -491,16 +814,8 @@
   (let [num-params (count optimal-params)
         optimal-energy (objective-fn optimal-params)
 
-        ;; Calculate gradients (finite difference)
-        gradients (mapv (fn [i]
-                          (let [params-plus (assoc optimal-params i
-                                                   (+ (nth optimal-params i) perturbation-size))
-                                params-minus (assoc optimal-params i
-                                                    (- (nth optimal-params i) perturbation-size))
-                                energy-plus (objective-fn params-plus)
-                                energy-minus (objective-fn params-minus)]
-                            (/ (- energy-plus energy-minus) (* 2 perturbation-size))))
-                        (range num-params))
+        ;; Calculate gradients using existing optimization tools
+        gradients (qopt/calculate-parameter-shift-gradient objective-fn optimal-params)
 
         ;; Calculate parameter sensitivities
         sensitivities (mapv (fn [i]

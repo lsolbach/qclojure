@@ -225,81 +225,82 @@
                                   (assoc q1 \Z)
                                   (assoc q2 \Z))))]
 
-    (concat
-     ;; 1. Cost function: minimize travel distances
-     ;; H_cost = Σ_{i,j,t} d_{i,j} * (1 + Z_{i,t})/2 * (1 + Z_{j,t+1})/2
-     ;; Expanding: d_{i,j}/4 * (1 + Z_{i,t} + Z_{j,t+1} + Z_{i,t}Z_{j,t+1})
-     (for [i (range n)
-           j (range n)
-           t (range n)
-           :when (not= i j)]  ; No self-loops
-       (let [distance (nth (nth distance-matrix i) j)
-             q1 (qubit-index i t)
-             q2 (qubit-index j (mod (inc t) n))  ; Next time step (periodic)
-             coeff (/ distance 4.0)]
-         ;; Generate all four terms from the expansion
-         [{:coefficient coeff :pauli-string (apply str (repeat num-qubits \I))}      ; constant
-          {:coefficient coeff :pauli-string (single-z q1)}                          ; Z_i
-          {:coefficient coeff :pauli-string (single-z q2)}                          ; Z_j  
-          {:coefficient coeff :pauli-string (double-z q1 q2)}]))                     ; Z_i Z_j
+    (flatten
+     (concat
+      ;; 1. Cost function: minimize travel distances
+      ;; H_cost = Σ_{i,j,t} d_{i,j} * (1 + Z_{i,t})/2 * (1 + Z_{j,t+1})/2
+      ;; Expanding: d_{i,j}/4 * (1 + Z_{i,t} + Z_{j,t+1} + Z_{i,t}Z_{j,t+1})
+      (for [i (range n)
+            j (range n)
+            t (range n)
+            :when (not= i j)]  ; No self-loops
+        (let [distance (nth (nth distance-matrix i) j)
+              q1 (qubit-index i t)
+              q2 (qubit-index j (mod (inc t) n))  ; Next time step (periodic)
+              coeff (/ distance 4.0)]
+          ;; Generate all four terms from the expansion
+          [{:coefficient coeff :pauli-string (apply str (repeat num-qubits \I))}      ; constant
+           {:coefficient coeff :pauli-string (single-z q1)}                          ; Z_i
+           {:coefficient coeff :pauli-string (single-z q2)}                          ; Z_j  
+           {:coefficient coeff :pauli-string (double-z q1 q2)}]))                     ; Z_i Z_j
 
-     ;; 2. City constraints: each city visited exactly once
-     ;; Σ_i (Σ_j x_{i,j} - 1)² = Σ_i (Σ_j (1+Z_{i,j})/2 - 1)²
-     ;; = Σ_i (Σ_j Z_{i,j}/2 + (n-2)/2)²
-     (for [i (range n)]
-       (let [;; Expand (Σ_j Z_{i,j}/2 + (n-2)/2)²
-             ;; = (Σ_j Z_{i,j})²/4 + (n-2)/2 * Σ_j Z_{i,j} + (n-2)²/4
+      ;; 2. City constraints: each city visited exactly once
+      ;; Σ_i (Σ_j x_{i,j} - 1)² = Σ_i (Σ_j (1+Z_{i,j})/2 - 1)²
+      ;; = Σ_i (Σ_j Z_{i,j}/2 + (n-2)/2)²
+      (for [i (range n)]
+        (let [;; Expand (Σ_j Z_{i,j}/2 + (n-2)/2)²
+              ;; = (Σ_j Z_{i,j})²/4 + (n-2)/2 * Σ_j Z_{i,j} + (n-2)²/4
 
-             ;; Quadratic terms: Σ_{j₁,j₂} Z_{i,j₁} Z_{i,j₂} / 4
-             quadratic-terms
-             (for [j1 (range n)
-                   j2 (range n)]
-               (let [q1 (qubit-index i j1)
-                     q2 (qubit-index i j2)
-                     coeff (/ A 4.0)]
-                 (if (= j1 j2)
-                   {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I, so just Z term  
-                   {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
+              ;; Quadratic terms: Σ_{j₁,j₂} Z_{i,j₁} Z_{i,j₂} / 4
+              quadratic-terms
+              (for [j1 (range n)
+                    j2 (range n)]
+                (let [q1 (qubit-index i j1)
+                      q2 (qubit-index i j2)
+                      coeff (/ A 4.0)]
+                  (if (= j1 j2)
+                    {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I, so just Z term  
+                    {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
 
-             ;; Linear terms: (n-2)/2 * Σ_j Z_{i,j}
-             linear-terms
-             (for [j (range n)]
-               {:coefficient (* A (- n 2) 0.5)
-                :pauli-string (single-z (qubit-index i j))})
+              ;; Linear terms: (n-2)/2 * Σ_j Z_{i,j}
+              linear-terms
+              (for [j (range n)]
+                {:coefficient (* A (- n 2) 0.5)
+                 :pauli-string (single-z (qubit-index i j))})
 
-             ;; Constant term: (n-2)²/4
-             constant-term
-             {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
-              :pauli-string (apply str (repeat num-qubits \I))}]
+              ;; Constant term: (n-2)²/4
+              constant-term
+              {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
+               :pauli-string (apply str (repeat num-qubits \I))}]
 
-         (concat quadratic-terms linear-terms [constant-term])))
+          (concat quadratic-terms linear-terms [constant-term])))
 
-     ;; 3. Time constraints: exactly one city visited at each time
-     ;; Similar structure to city constraints but summing over cities for each time
-     (for [t (range n)]
-       (let [;; Quadratic terms: Σ_{i₁,i₂} Z_{i₁,t} Z_{i₂,t} / 4
-             quadratic-terms
-             (for [i1 (range n)
-                   i2 (range n)]
-               (let [q1 (qubit-index i1 t)
-                     q2 (qubit-index i2 t)
-                     coeff (/ A 4.0)]
-                 (if (= i1 i2)
-                   {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I term
-                   {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
+      ;; 3. Time constraints: exactly one city visited at each time
+      ;; Similar structure to city constraints but summing over cities for each time
+      (for [t (range n)]
+        (let [;; Quadratic terms: Σ_{i₁,i₂} Z_{i₁,t} Z_{i₂,t} / 4
+              quadratic-terms
+              (for [i1 (range n)
+                    i2 (range n)]
+                (let [q1 (qubit-index i1 t)
+                      q2 (qubit-index i2 t)
+                      coeff (/ A 4.0)]
+                  (if (= i1 i2)
+                    {:coefficient coeff :pauli-string (single-z q1)}      ; Z²=I term
+                    {:coefficient coeff :pauli-string (double-z q1 q2)})))  ; ZZ term
 
-             ;; Linear terms: (n-2)/2 * Σ_i Z_{i,t}
-             linear-terms
-             (for [i (range n)]
-               {:coefficient (* A (- n 2) 0.5)
-                :pauli-string (single-z (qubit-index i t))})
+              ;; Linear terms: (n-2)/2 * Σ_i Z_{i,t}
+              linear-terms
+              (for [i (range n)]
+                {:coefficient (* A (- n 2) 0.5)
+                 :pauli-string (single-z (qubit-index i t))})
 
-             ;; Constant term: (n-2)²/4
-             constant-term
-             {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
-              :pauli-string (apply str (repeat num-qubits \I))}]
+              ;; Constant term: (n-2)²/4
+              constant-term
+              {:coefficient (* A (/ (* (- n 2) (- n 2)) 4.0))
+               :pauli-string (apply str (repeat num-qubits \I))}]
 
-         (concat quadratic-terms linear-terms [constant-term]))))))
+          (concat quadratic-terms linear-terms [constant-term])))))))
 
 ;; Add TSP solution decoder
 (defn decode-tsp-solution
@@ -794,6 +795,7 @@
 ;;;
 (comment
   (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
+  (def backend (sim/create-simulator))
 
   ;; Example 1: MaxCut on triangle graph
   (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
@@ -808,7 +810,6 @@
      :tolerance 1e-6
      :shots 10000})
 
-  (def backend (sim/create-simulator))
   (def qaoa-result (quantum-approximate-optimization-algorithm backend triangle-maxcut-config))
 
   ;; Analyze results
@@ -824,18 +825,18 @@
   ;; :adiabatic - Good for larger p, inspired by adiabatic quantum computation
   ;; :random-smart - Robust fallback, random sampling in good ranges
 
-  ;; Example 2: Max-SAT on Boolean satisfiability problem (PRODUCTION READY)
+  ;; Example 2: Max-SAT on Boolean satisfiability problem
   ;; SAT formula: (x₀ ∨ x₁) ∧ (¬x₀ ∨ x₂) ∧ (x₁ ∨ ¬x₂) ∧ (¬x₀ ∨ ¬x₁ ∨ x₂)
   ;; Using proper literal encoding: keywords :not-X for negated variables
-  (def production-sat-clauses [[0 1]           ; (x₀ ∨ x₁)
+  (def sat-clauses [[0 1]           ; (x₀ ∨ x₁)
                                [:not-0 2]      ; (¬x₀ ∨ x₂) 
                                [1 :not-2]      ; (x₁ ∨ ¬x₂)
                                [:not-0 :not-1 2]]) ; (¬x₀ ∨ ¬x₁ ∨ x₂)
 
   (def maxsat-config
     {:problem-type :max-sat
-     :problem-hamiltonian (max-sat-hamiltonian production-sat-clauses 3)
-     :problem-instance production-sat-clauses
+     :problem-hamiltonian (max-sat-hamiltonian sat-clauses 3)
+     :problem-instance sat-clauses
      :num-qubits 3
      :num-layers 2
      :parameter-strategy :theoretical
@@ -846,12 +847,12 @@
 
   (def maxsat-result (quantum-approximate-optimization-algorithm backend maxsat-config))
 
-  (println "\n=== Max-SAT Results (Production Ready) ===")
-  (println "SAT clauses:" production-sat-clauses)
+  (println "\n=== Max-SAT Results ===")
+  (println "SAT clauses:" sat-clauses)
   (println "QAOA Energy:" (:optimal-energy maxsat-result))
   (println "Success:" (:success maxsat-result))
 
-  ;; Example 3: Traveling Salesman Problem (TSP) - PRODUCTION READY
+  ;; Example 3: Traveling Salesman Problem (TSP)
   ;; Full n² qubit encoding with proper constraint handling
   ;; Note: This uses exponential quantum resources - practical for n ≤ 4
   (def production-tsp-distances
@@ -873,7 +874,7 @@
 
   (def tsp-result (quantum-approximate-optimization-algorithm backend tsp-config))
 
-  (println "\n=== TSP Results (Production Ready) ===")
+  (println "\n=== TSP Results ===")
   (println "Distance matrix:" production-tsp-distances)
   (println "QAOA Energy:" (:optimal-energy tsp-result))
   (println "Success:" (:success tsp-result))

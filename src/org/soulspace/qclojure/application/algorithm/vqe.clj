@@ -164,8 +164,10 @@
   
   Example:
   (variational-quantum-eigensolver backend
-    {:hamiltonian [{:coefficient 1.0 :terms [[0 1]]}
-                   {:coefficient -0.5 :terms [[0 0] [1 1]]}]
+    {:hamiltonian [(ham/pauli-term -1.052373245772859 "ZI")
+                   (ham/pauli-term 0.39793742484318045 "XX")
+                   (ham/pauli-term -0.39793742484318045 "YY")
+                   (ham/pauli-term -0.01128010425623538 "IZ")]
      :ansatz-type :hardware-efficient
      :num-qubits 2
      :num-layers 2
@@ -270,8 +272,8 @@
                :success (:success opt-result)
                :iterations (:iterations opt-result)
                :function-evaluations (:function-evaluations opt-result)}
-     :hamiltonian {:terms (count hamiltonian)
-                   :grouped-terms (when grouped-terms (count grouped-terms))
+     :hamiltonian {:pauli-terms (count hamiltonian)
+                   :grouped-pauli-terms (when grouped-terms (count grouped-terms))
                    :classical-bound classical-energy}
      :timing {:execution-time-ms (- end-time start-time)
               :start-time start-time

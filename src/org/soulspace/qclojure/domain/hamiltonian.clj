@@ -20,7 +20,7 @@
 ;;
 ;; Specs for Hamiltonian components
 ;;
-(s/def ::pauli-term 
+(s/def ::pauli-term
   (s/keys :req-un [::coefficient ::pauli-string]))
 
 (s/def ::coefficient number?)

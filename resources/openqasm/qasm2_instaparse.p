@@ -1,0 +1,110 @@
+program = version? statement*
+
+version = OPENQASM version_spec SEMICOLON
+version_spec = #'[0-9]+(\.[0-9]+)?'
+
+statement = include_statement
+          | qreg_declaration
+          | creg_declaration
+          | gate_definition
+          | opaque_declaration
+          | builtin_gate_statement
+          | gate_call_statement
+          | if_statement
+          | measure_statement
+          | reset_statement
+          | barrier_statement
+          | comment_statement
+          | others
+
+include_statement = INCLUDE StringLiteral SEMICOLON
+
+qreg_declaration = QREG Identifier designator SEMICOLON
+creg_declaration = CREG Identifier designator SEMICOLON
+
+designator = LBRACKET expression RBRACKET
+
+gate_definition = GATE Identifier LPAREN param_list? RPAREN LPAREN id_list RPAREN LBRACE statement* RBRACE
+opaque_declaration = OPAQUE Identifier LPAREN param_list? RPAREN LPAREN id_list RPAREN SEMICOLON
+param_list = Identifier (COMMA Identifier)*
+
+id = Identifier designator?
+id_list = id (COMMA id)*
+
+
+builtin_gate_statement = Identifier id_list SEMICOLON
+
+;; gate calls can be either `name(params) q0,q1;` or simple `name q0,q1;`
+gate_call_statement = Identifier (LPAREN expression_list? RPAREN)? id_list SEMICOLON
+
+if_statement = IF LPAREN Identifier EQUALS Number RPAREN gate_call_statement
+
+measure_statement = MEASURE id ARROW id SEMICOLON
+reset_statement = RESET id SEMICOLON
+barrier_statement = BARRIER id (COMMA id)* SEMICOLON
+
+comment_statement = LineComment
+
+others = id SEMICOLON
+
+expression = logical_or
+
+logical_or = logical_and (DOUBLE_PIPE logical_and)*
+logical_and = equality (DOUBLE_AMPERSAND equality)*
+equality = comparison (EqualityOperator comparison)*
+comparison = additive (ComparisonOperator additive)*
+additive = multiplicative ((PLUS | MINUS) multiplicative)*
+multiplicative = power ((ASTERISK | SLASH | PERCENT) power)*
+power = unary (DOUBLE_ASTERISK power)?
+unary = (PLUS | MINUS) unary | primary
+
+primary = LPAREN expression RPAREN | Number | Identifier | PI
+
+expression_list = expression (COMMA expression)*
+
+Number = FloatLiteral | IntegerLiteral
+FloatLiteral = #'[0-9]+(\.[0-9]*)?([eE][+-]?[0-9]+)?'
+IntegerLiteral = #'[0-9]+'
+PI = 'pi'
+
+StringLiteral = #"\"[^\"]*\"|\'[^\']*\'"
+Identifier = #'[A-Za-z_][A-Za-z0-9_]*'
+
+OPENQASM = 'OPENQASM'
+INCLUDE = 'include'
+QREG = 'qreg'
+CREG = 'creg'
+GATE = 'gate'
+OPAQUE = 'opaque'
+MEASURE = 'measure'
+RESET = 'reset'
+BARRIER = 'barrier'
+IF = 'if'
+ARROW = '->'
+
+SEMICOLON = ';'
+LPAREN = '('
+RPAREN = ')'
+LBRACKET = '['
+RBRACKET = ']'
+LBRACE = '{'
+RBRACE = '}'
+COMMA = ','
+EQUALS = '='
+PLUS = '+'
+MINUS = '-'
+ASTERISK = '*'
+DOUBLE_ASTERISK = '**'
+SLASH = '/'
+PERCENT = '%'
+PIPE = '|'
+DOUBLE_PIPE = '||'
+AMPERSAND = '&'
+DOUBLE_AMPERSAND = '&&'
+CARET = '^'
+
+EqualityOperator = '==' | '!='
+ComparisonOperator = '>' | '<' | '>=' | '<='
+LineComment = #'//.*'
+
+

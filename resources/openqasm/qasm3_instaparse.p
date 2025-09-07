@@ -1,0 +1,239 @@
+program = version? statement*
+
+version = OPENQASM version_spec SEMICOLON
+version_spec = #'[0-9]+(\.[0-9]+)?'
+
+statement = pragma
+          | annotation
+          | include_statement
+          | gate_statement
+          | gate_call_statement
+          | classical_declaration
+          | quantum_declaration
+          | alias_declaration
+          | const_declaration
+          | assignment_statement
+          | reset_statement
+          | measure_statement
+          | barrier_statement
+          | delay_statement
+          | box_statement
+          | expression_statement
+          | extern_statement
+          | def_statement
+          | defcal_statement
+          | for_statement
+          | if_statement
+          | while_statement
+          | return_statement
+          | switch_statement
+          | nop_statement
+
+pragma = PRAGMA REMAINING_LINE
+annotation = AnnotationKeyword REMAINING_LINE?
+include_statement = INCLUDE StringLiteral SEMICOLON
+
+alias_declaration = LET Identifier EQUALS expression SEMICOLON
+classical_declaration = (scalar_type | array_type) Identifier (EQUALS declaration_expression)? SEMICOLON
+const_declaration = CONST scalar_type Identifier EQUALS declaration_expression SEMICOLON
+quantum_declaration = qubit_type Identifier SEMICOLON
+
+assignment_statement = indexed_identifier op=('=' | CompoundAssignmentOperator) (expression | measure_expression) SEMICOLON
+expression_statement = expression SEMICOLON
+
+reset_statement = RESET gate_operand SEMICOLON
+measure_statement = measure_expression (ARROW indexed_identifier)? SEMICOLON
+measure_expression = MEASURE gate_operand
+
+barrier_statement = BARRIER gate_operand_list? SEMICOLON
+delay_statement = DELAY designator gate_operand_list? SEMICOLON
+nop_statement = NOP gate_operand_list? SEMICOLON
+box_statement = BOX designator? scope
+
+extern_statement = EXTERN Identifier LPAREN extern_argument_list? RPAREN return_signature? SEMICOLON
+
+def_statement = DEF Identifier LPAREN argument_definition_list? RPAREN return_signature? scope
+
+defcal_statement = DEFCAL defcal_target (LPAREN defcal_argument_definition_list? RPAREN)? defcal_operand_list return_signature? LBRACE CalibrationBlock? RBRACE
+
+for_statement = FOR scalar_type Identifier IN (set_expression | LBRACKET range_expression RBRACKET | expression) statement_or_scope
+if_statement = IF LPAREN expression RPAREN statement_or_scope (ELSE statement_or_scope)?
+while_statement = WHILE LPAREN expression RPAREN statement_or_scope
+return_statement = RETURN (expression | measure_expression)? SEMICOLON
+
+switch_statement = SWITCH LPAREN expression RPAREN LBRACE switch_case_item* RBRACE
+switch_case_item = CASE expression_list scope | DEFAULT scope
+
+gate_statement = GATE Identifier (LPAREN identifier_list? RPAREN)? identifier_list scope
+
+gate_call_statement = gate_modifier* (GPHASE | Identifier) (LPAREN expression_list? RPAREN)? designator? gate_operand_list? SEMICOLON
+
+gate_modifier = INV | POW LPAREN expression RPAREN | (CTRL | NEGCTRL) (LPAREN expression RPAREN)? AT
+
+indexed_identifier = Identifier index_operator*
+index_operator = LBRACKET (set_expression | (expression | range_expression) (COMMA (expression | range_expression))* COMMA?) RBRACKET
+identifier_list = Identifier (COMMA Identifier)* COMMA?
+identifier = Identifier
+
+gate_operand = indexed_identifier | HardwareQubit
+gate_operand_list = gate_operand (COMMA gate_operand)* COMMA?
+
+expression = logical_or
+
+logical_or = logical_and (DOUBLE_PIPE logical_and)*
+logical_and = bitwise_or (DOUBLE_AMPERSAND bitwise_or)*
+bitwise_or = bitwise_xor (PIPE bitwise_xor)*
+bitwise_xor = bitwise_and (CARET bitwise_and)*
+bitwise_and = equality (AMPERSAND equality)*
+equality = comparison (EqualityOperator comparison)*
+comparison = additive (ComparisonOperator additive)*
+additive = multiplicative ((PLUS | MINUS) multiplicative)*
+multiplicative = power ((ASTERISK | SLASH | PERCENT) power)*
+power = unary (DOUBLE_ASTERISK power)?
+unary = (TILDE | EXCLAMATION_POINT | MINUS | PLUS) unary | primary
+
+primary = LPAREN expression RPAREN
+        | call_expression
+        | literal
+        | Identifier
+        | HardwareQubit
+
+call_expression = Identifier LPAREN expression_list? RPAREN
+expression_list = expression (COMMA expression)* COMMA?
+
+alias_expression = expression (DOUBLE_PLUS expression)*
+declaration_expression = array_literal | expression | measure_expression
+range_expression = expression? COLON expression? (COLON expression)?
+set_expression = LBRACE expression (COMMA expression)* COMMA? RBRACE
+array_literal = LBRACE ((expression | array_literal) (COMMA (expression | array_literal))* COMMA?)? RBRACE
+
+measure_expression = MEASURE gate_operand
+
+return_signature = ARROW scalar_type
+scalar_type = BIT designator? | INT designator? | UINT designator? | FLOAT designator? | ANGLE designator? | BOOL | DURATION | STRETCH | COMPLEX (LBRACKET scalar_type RBRACKET)?
+qubit_type = QUBIT designator?
+array_type = ARRAY LBRACKET scalar_type COMMA expression_list RBRACKET
+array_reference_type = (READONLY | MUTABLE) ARRAY LBRACKET scalar_type COMMA (expression_list | DIM EQUALS expression) RBRACKET
+
+designator = LBRACKET expression RBRACKET
+
+argument_definition = scalar_type Identifier | qubit_type Identifier | (CREG | QREG) Identifier designator? | array_reference_type Identifier
+argument_definition_list = argument_definition (COMMA argument_definition)* COMMA?
+extern_argument = scalar_type | array_reference_type | CREG designator?
+extern_argument_list = extern_argument (COMMA extern_argument)* COMMA?
+
+defcal_target = MEASURE | RESET | DELAY | Identifier
+defcal_argument_definition = expression | argument_definition
+defcal_argument_definition_list = defcal_argument_definition (COMMA defcal_argument_definition)* COMMA?
+defcal_operand = HardwareQubit | Identifier
+defcal_operand_list = defcal_operand (COMMA defcal_operand)* COMMA?
+
+statement_or_scope = statement | scope
+scope = LBRACE statement_or_scope* RBRACE
+
+literal = Number | ImaginaryLiteral | BooleanLiteral | BitstringLiteral | TimingLiteral
+
+Number = FloatLiteral | DecimalIntegerLiteral
+FloatLiteral = #'[0-9]+(\.[0-9]*)?([eE][+-]?[0-9]+)?'
+DecimalIntegerLiteral = #'[0-9]+'
+ImaginaryLiteral = #'[0-9]+(\.[0-9]*)?[eE]?[+-]?[0-9]*im'
+BooleanLiteral = 'true' | 'false'
+BitstringLiteral = StringLiteral
+TimingLiteral = #'[0-9]+(\.[0-9]*)?(dt|ns|us|µs|ms|s)'
+
+StringLiteral = #"\"[^\"]*\"|\'[^\']*\'"
+Identifier = #'[A-Za-z_][A-Za-z0-9_]*'
+HardwareQubit = #'\$[0-9]+'
+
+OPENQASM = 'OPENQASM'
+INCLUDE = 'include'
+DEFCALGRAMMAR = 'defcalgrammar'
+DEF = 'def'
+CAL = 'cal'
+DEFCAL = 'defcal'
+GATE = 'gate'
+EXTERN = 'extern'
+BOX = 'box'
+LET = 'let'
+BREAK = 'break'
+CONTINUE = 'continue'
+IF = 'if'
+ELSE = 'else'
+END = 'end'
+RETURN = 'return'
+FOR = 'for'
+WHILE = 'while'
+IN = 'in'
+SWITCH = 'switch'
+CASE = 'case'
+DEFAULT = 'default'
+NOP = 'nop'
+PRAGMA = #'(#)?pragma'
+AnnotationKeyword = #'@' Identifier ('.' Identifier)*
+REMAINING_LINE = #'[^\n]*'
+
+INPUT = 'input'
+OUTPUT = 'output'
+CONST = 'const'
+READONLY = 'readonly'
+MUTABLE = 'mutable'
+QREG = 'qreg'
+QUBIT = 'qubit'
+CREG = 'creg'
+BOOL = 'bool'
+BIT = 'bit'
+INT = 'int'
+UINT = 'uint'
+FLOAT = 'float'
+ANGLE = 'angle'
+COMPLEX = 'complex'
+ARRAY = 'array'
+VOID = 'void'
+DURATION = 'duration'
+STRETCH = 'stretch'
+
+GPHASE = 'gphase'
+INV = 'inv'
+POW = 'pow'
+CTRL = 'ctrl'
+NEGCTRL = 'negctrl'
+DIM = '#dim'
+DURATIONOF = 'durationof'
+DELAY = 'delay'
+RESET = 'reset'
+MEASURE = 'measure'
+BARRIER = 'barrier'
+
+LBRACKET = '['
+RBRACKET = ']'
+LBRACE = '{'
+RBRACE = '}'
+LPAREN = '('
+RPAREN = ')'
+COLON = ':'
+SEMICOLON = ';'
+DOT = '.'
+COMMA = ','
+EQUALS = '='
+ARROW = '->'
+PLUS = '+'
+DOUBLE_PLUS = '++'
+MINUS = '-'
+ASTERISK = '*'
+DOUBLE_ASTERISK = '**'
+SLASH = '/'
+PERCENT = '%'
+PIPE = '|'
+DOUBLE_PIPE = '||'
+AMPERSAND = '&'
+DOUBLE_AMPERSAND = '&&'
+CARET = '^'
+AT = '@'
+TILDE = '~'
+EXCLAMATION_POINT = '!'
+EqualityOperator = '==' | '!='
+CompoundAssignmentOperator = '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '%=' | '**='
+ComparisonOperator = '>' | '<' | '>=' | '<='
+BitshiftOperator = '>>' | '<<'
+
+CalibrationBlock = #'(?s).*?'

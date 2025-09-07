@@ -7,7 +7,8 @@
                  [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
                  [generateme/fastmath "3.0.0-alpha3"]
-                 [hiccup/hiccup "2.0.0"]]
+                 [hiccup/hiccup "2.0.0"]
+                 [instaparse/instaparse "1.5.0"]]
 
   :profiles {:dev [:user {}]
              :sim-heavy {:jvm-opts ["-Xms8g" "-Xmx32g"

@@ -6,11 +6,11 @@
    and execute quantum circuits, as well as to analyze their structure and results."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.gate :as qg]
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.gate :as gate]
             [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.result :as result]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]))
+            [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
 ;; Specs for quantum circuits
 (s/def ::operation-kind keyword?)
@@ -140,9 +140,9 @@
   [circuit gate-type & {:keys [target target1 target2 control control1 control2 angle] :as params}]
   {:pre [(s/valid? ::circuit circuit)
          (keyword? gate-type)]}
-  (let [resolved-gate-type (gr/resolve-gate-alias gate-type)]
+  (let [resolved-gate-type (opreg/resolve-gate-alias gate-type)]
     ;; Validate that the resolved gate type is known
-    (when-not (gr/get-gate-info-with-alias resolved-gate-type)
+    (when-not (opreg/get-gate-info-with-alias resolved-gate-type)
       (throw (ex-info "Unknown gate type"
                       {:operation-type gate-type
                        :resolved-operation-type resolved-gate-type})))
@@ -891,14 +891,14 @@
       (let [control (first control-qubits)
             target (first targets)]
         (case target-gate
-          :x (qg/cnot state control target)
-          :z (qg/controlled-z state control target)
-          :y (qg/controlled-y state control target)
+          :x (gate/cnot state control target)
+          :z (gate/controlled-z state control target)
+          :y (gate/controlled-y state control target)
           ;; For other gates, use basic gate functions directly
           (case target-gate
-            :h (qg/h-gate state target)
-            :s (qg/apply-single-qubit-gate qg/s-gate state target)
-            :t (qg/apply-single-qubit-gate qg/t-gate state target)
+            :h (gate/h-gate state target)
+            :s (gate/apply-single-qubit-gate gate/s-gate state target)
+            :t (gate/apply-single-qubit-gate gate/t-gate state target)
             ;; Default: return state unchanged for unsupported gates
             state)))
 
@@ -931,7 +931,7 @@
   (apply-gate-to-state |0⟩ {:operation-type :x, :operation-params {:target 0}})
   ;=> |1⟩ state"
   [state gate]
-  (let [gate-type (gr/resolve-gate-alias (:operation-type gate))
+  (let [gate-type (opreg/resolve-gate-alias (:operation-type gate))
         params (:operation-params gate)
         target (:target params)
         target1 (:target params)
@@ -944,104 +944,104 @@
         qubit2 (:qubit2 params)]
     (case gate-type
       :x (if target
-           (qg/x-gate state target)
-           (qg/x-gate state))
+           (gate/x-gate state target)
+           (gate/x-gate state))
       :y (if target
-           (qg/y-gate state target)
-           (qg/y-gate state))
+           (gate/y-gate state target)
+           (gate/y-gate state))
       :z (if target
-           (qg/z-gate state target)
-           (qg/z-gate state))
+           (gate/z-gate state target)
+           (gate/z-gate state))
       :h (if target
-           (qg/h-gate state target)
-           (qg/h-gate state))
-      :s (qg/apply-single-qubit-gate qg/s-gate state (or target 0))
-      :s-dag (qg/apply-single-qubit-gate qg/s-dag-gate state (or target 0))
-      :t (qg/apply-single-qubit-gate qg/t-gate state (or target 0))
-      :t-dag (qg/apply-single-qubit-gate qg/t-dag-gate state (or target 0))
-      :rx (qg/apply-single-qubit-gate (qg/rx-gate angle) state (or target 0))
-      :ry (qg/apply-single-qubit-gate (qg/ry-gate angle) state (or target 0))
-      :rz (qg/apply-single-qubit-gate (qg/rz-gate angle) state (or target 0))
-      :phase (qg/apply-single-qubit-gate (qg/phase-gate angle) state (or target 0))
+           (gate/h-gate state target)
+           (gate/h-gate state))
+      :s (gate/apply-single-qubit-gate gate/s-gate state (or target 0))
+      :s-dag (gate/apply-single-qubit-gate gate/s-dag-gate state (or target 0))
+      :t (gate/apply-single-qubit-gate gate/t-gate state (or target 0))
+      :t-dag (gate/apply-single-qubit-gate gate/t-dag-gate state (or target 0))
+      :rx (gate/apply-single-qubit-gate (gate/rx-gate angle) state (or target 0))
+      :ry (gate/apply-single-qubit-gate (gate/ry-gate angle) state (or target 0))
+      :rz (gate/apply-single-qubit-gate (gate/rz-gate angle) state (or target 0))
+      :phase (gate/apply-single-qubit-gate (gate/phase-gate angle) state (or target 0))
       :cnot (if (and control target)
-              (qg/cnot state control target)
+              (gate/cnot state control target)
               (throw (ex-info "CNOT requires both control and target qubits"
                               {:gate gate})))
       :cz (if (and control target)
-            (qg/controlled-z state control target)
+            (gate/controlled-z state control target)
             (throw (ex-info "CZ requires both control and target qubits"
                             {:gate gate})))
       :crz (if (and control target angle)
-             (qg/controlled-rz state control target angle)
+             (gate/controlled-rz state control target angle)
              (throw (ex-info "CRZ requires control, target qubits and angle"
                              {:gate gate})))
       :crx (if (and control target angle)
-             (qg/controlled-rx state control target angle)
+             (gate/controlled-rx state control target angle)
              (throw (ex-info "CRX requires control, target qubits and angle"
                              {:gate gate})))
       :cry (if (and control target angle)
-             (qg/controlled-ry state control target angle)
+             (gate/controlled-ry state control target angle)
              (throw (ex-info "CRY requires control, target qubits and angle"
                              {:gate gate})))
       :swap (if (and qubit1 qubit2)
-              (qg/swap-gate state qubit1 qubit2)
+              (gate/swap-gate state qubit1 qubit2)
               (throw (ex-info "SWAP requires both qubit1 and qubit2 parameters"
                               {:gate gate})))
       :iswap (if (and qubit1 qubit2)
-               (qg/iswap-gate state qubit1 qubit2)
+               (gate/iswap-gate state qubit1 qubit2)
                (throw (ex-info "iSWAP requires both qubit1 and qubit2 parameters"
                                {:gate gate})))
       :toffoli (if (and control1 control2 target)
-                 (qg/toffoli-gate state control1 control2 target)
+                 (gate/toffoli-gate state control1 control2 target)
                  (throw (ex-info "Toffoli requires control1, control2, and target parameters"
                                  {:gate gate})))
       :fredkin (if (and control target1 target2)
-                 (qg/fredkin-gate state control target1 target2)
+                 (gate/fredkin-gate state control target1 target2)
                  (throw (ex-info "Fredkin requires control, target1, and target2 parameters"
                                  {:gate gate})))
 
       ;; Rydberg gates - Specific to neutral atom quantum processors
       :rydberg-cz (if (and control target)
-                    (qg/rydberg-cz-gate state control target)
+                    (gate/rydberg-cz-gate state control target)
                     (throw (ex-info "Rydberg CZ requires both control and target qubits"
                                     {:gate gate})))
 
       :rydberg-cphase (let [phi (:angle params)]
                         (if (and control target phi)
-                          (qg/rydberg-cphase-gate state control target phi)
+                          (gate/rydberg-cphase-gate state control target phi)
                           (throw (ex-info "Rydberg CPhase requires control, target qubits and phase angle"
                                           {:gate gate}))))
 
       :rydberg-blockade (let [qubit-indices (:qubit-indices params)
                               phi (:angle params)]
                           (if (and qubit-indices phi)
-                            (qg/rydberg-blockade-gate state qubit-indices phi)
+                            (gate/rydberg-blockade-gate state qubit-indices phi)
                             (throw (ex-info "Rydberg blockade requires qubit-indices vector and phase angle"
                                             {:gate gate}))))
 
       ;; Global gates - Applied to all qubits simultaneously
       :global-rx (if-let [theta angle]
-                   (qg/global-rx-gate state theta)
+                   (gate/global-rx-gate state theta)
                    (throw (ex-info "Global RX requires rotation angle"
                                    {:gate gate})))
 
       :global-ry (if-let [theta angle]
-                   (qg/global-ry-gate state theta)
+                   (gate/global-ry-gate state theta)
                    (throw (ex-info "Global RY requires rotation angle"
                                    {:gate gate})))
 
       :global-rz (if-let [theta angle]
-                   (qg/global-rz-gate state theta)
+                   (gate/global-rz-gate state theta)
                    (throw (ex-info "Global RZ requires rotation angle"
                                    {:gate gate})))
 
-      :global-h (qg/global-hadamard-gate state)
+      :global-h (gate/global-hadamard-gate state)
 
-      :global-x (qg/global-x-gate state)
+      :global-x (gate/global-x-gate state)
 
-      :global-y (qg/global-y-gate state)
+      :global-y (gate/global-y-gate state)
 
-      :global-z (qg/global-z-gate state)
+      :global-z (gate/global-z-gate state)
 
       :controlled (let [control-qubits (:control-qubits params)
                         target-gate (:target-gate params)
@@ -1068,7 +1068,7 @@
   (let [params (:operation-params measurement)
         measurement-qubits (:measurement-qubits params)]
     (if measurement-qubits
-      (:collapsed-state (qs/measure-specific-qubits state measurement-qubits))
+      (:collapsed-state (state/measure-specific-qubits state measurement-qubits))
       (throw (ex-info "Measure requires measurement-qubits parameter"
                       {:operation measurement})))))
 
@@ -1100,11 +1100,11 @@
   [state qubit-indices]
   (if (= (count qubit-indices) (:num-qubits state))
     ;; Measuring all qubits - use direct measurement
-    (qs/measure-state state)
+    (state/measure-state state)
     ;; Measuring subset - use partial trace approach
     (let [other-qubits (remove (set qubit-indices) (range (:num-qubits state)))
-          traced-state (reduce qs/partial-trace state (reverse other-qubits))]
-      (qs/measure-state traced-state))))
+          traced-state (reduce state/partial-trace state (reverse other-qubits))]
+      (state/measure-state traced-state))))
 
 (defn inverse-gate
   "Get the inverse (adjoint) of a quantum gate.
@@ -1564,7 +1564,7 @@
       ;; Default case for unknown operations
       (str (name operation-type) "(" (pr-str params) ")"))))
 
-(defn circuit-statistics
+(defn statistics
   "Get a summary of key statistics for a quantum circuit.
   
   Returns a map with metrics like depth, total operations, gate count,
@@ -1583,7 +1583,7 @@
   - :gate-types - Set of unique gate types used (excluding measurements)
    
   Example:
-  (circuit-stats bell-circuit)
+  (statistics bell-circuit)
   ;=> {:num-qubits 2, :depth 2, :total-operations 2, :gate-count 2, :operation-types #{:h :cnot}}"
   [circuit]
   {:pre [(s/valid? ::circuit circuit)]}
@@ -1753,12 +1753,12 @@
   (execute-circuit (bell-state-circuit) (qs/zero-state 2))
   ;=> Bell state (|00⟩ + |11⟩)/√2"
   ([circuit]
-   (execute-circuit circuit (qs/zero-state (:num-qubits circuit)) {}))
+   (execute-circuit circuit (state/zero-state (:num-qubits circuit)) {}))
   ([circuit initial-state]
    (execute-circuit circuit initial-state {}))
   ([circuit initial-state result-specs]
    {:pre [(s/valid? ::circuit circuit)
-          (s/valid? ::qs/state initial-state)
+          (s/valid? ::state/state initial-state)
           (= (:num-qubits circuit) (:num-qubits initial-state))]}
    (let [final-state (reduce apply-operation-to-state initial-state (:operations circuit))
          results {:final-state final-state
@@ -1863,7 +1863,7 @@
   (def results
     (execute-circuit
      (bell-state-circuit)
-     (qs/zero-state 2)
+     (state/zero-state 2)
      {:measurements {:shots 1000}
       :expectation {:observables [obs/pauli-z obs/pauli-x] :targets [0]}
       :state-vector true
@@ -1877,7 +1877,7 @@
      including measurements, probabilities, state vector, and expectation values."
     [& {:keys [shots] :or {shots 1000}}]
     (let [circuit (bell-state-circuit)
-          initial-state (qs/zero-state 2)
+          initial-state (state/zero-state 2)
           result-specs {:measurements {:shots shots}
                         :probabilities {:targets [[0 0] [0 1] [1 0] [1 1]]}
                         :state-vector true
@@ -1890,7 +1890,7 @@
      Creates a GHZ state circuit for n qubits and analyzes entanglement properties."
     [n-qubits & {:keys [shots] :or {shots 1000}}]
     (let [circuit (ghz-state-circuit n-qubits)
-          initial-state (qs/zero-state n-qubits)
+          initial-state (state/zero-state n-qubits)
           all-zeros (vec (repeat n-qubits 0))
           all-ones (vec (repeat n-qubits 1))
           result-specs {:measurements {:shots shots}
@@ -1909,8 +1909,8 @@
         (measure-operation [0 1])))
 
   (print-circuit test-circuit)
-  (execute-circuit test-circuit (qs/zero-state 2))
-  (execute-circuit test-circuit (qs/zero-state 2) {:measurements {:shots 1000}})
+  (execute-circuit test-circuit (state/zero-state 2))
+  (execute-circuit test-circuit (state/zero-state 2) {:measurements {:shots 1000}})
   (circuit-depth test-circuit)
   (circuit-operation-count test-circuit)
   (circuit-gate-count test-circuit)
@@ -1919,6 +1919,6 @@
   (inverse-circuit test-circuit)
   (measure-operation test-circuit [0 1])
   (measure-all-operation test-circuit)
-  (measure-subsystem (qs/zero-state 3) [0 2])
+  (measure-subsystem (state/zero-state 3) [0 2])
   ;
   )

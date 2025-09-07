@@ -76,6 +76,16 @@
                       :parametric-fn (fn [_] [[:rz Math/PI]])
                       :s-basis [:s :s]}}  ; S^2 = Z
 
+   ;; Identity gate
+   :i {:operation-kind :gate
+       :operation-id :i
+       :operation-name "I"
+       :operation-type :single-qubit
+       :description "Identity gate - leaves qubit state unchanged"
+       :decomposition {:universal []  ; Identity requires no operations
+                      :parametric-fn (fn [_] [])
+                      :nop true}}  ; This is a no-operation gate
+
    ;; Hadamard gate
    :h {:operation-kind :gate
        :operation-id :h
@@ -371,7 +381,7 @@
 
 (def basic-gate-set
   "Basic gate set with common single and two-qubit gates."
-  #{:x :y :z :h :s :t :cnot :swap})
+  #{:i :x :y :z :h :s :t :cnot :swap})
 
 (def parametric-gate-set
   "Gate set with parametric rotations."
@@ -380,7 +390,7 @@
 ; TODO move to sim backends?
 (def native-simulator-gate-set
   "Gates typically supported natively by quantum simulators."
-  #{:x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase
+  #{:i :x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase
     :cnot :cx :cz :cy :swap :crx :cry :crz :toffoli :fredkin})
 
 ;; Utility functions
@@ -393,6 +403,7 @@
   {:not :x           ; NOT gate is X gate
    :bit-flip :x      ; Bit flip is X gate
    :phase-flip :z    ; Phase flip is Z gate
+   :id :i            ; Identity gate alias for QASM2
    :cx :cnot         ; CX is CNOT gate
    :ccx :toffoli     ; CCX is Toffoli gate
    :ccnot :toffoli   ; CCNOT is Toffoli gate

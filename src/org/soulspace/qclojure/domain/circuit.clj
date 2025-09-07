@@ -205,6 +205,25 @@
   ([circuit target]
    (add-gate circuit :z :target target)))
 
+(defn i-gate
+  "Add an Identity gate to the quantum circuit.
+  
+  The Identity gate leaves the qubit state unchanged: |0⟩ → |0⟩ and |1⟩ → |1⟩.
+  It's used as a placeholder or no-operation gate in quantum circuits.
+  
+  Parameters:
+  - circuit: Quantum circuit to add the gate to
+  - target: Integer index of the target qubit (0-indexed)
+  
+  Returns:
+  Updated quantum circuit with Identity gate appended
+  
+  Example:
+  (i-gate (create-circuit 2) 0)
+  ;=> Circuit with Identity gate on qubit 0"
+  ([circuit target]
+   (add-gate circuit :i :target target)))
+
 (defn h-gate
   "Add a Hadamard gate to the quantum circuit.
   

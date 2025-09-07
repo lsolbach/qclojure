@@ -549,6 +549,27 @@
   ([state] (apply-single-qubit-gate pauli-z state 0))
   ([state qubit-index] (apply-single-qubit-gate pauli-z state qubit-index)))
 
+(defn i-gate
+  "Apply Identity gate to a quantum state.
+  
+  Convenience function that applies the Identity gate to either a single-qubit
+  state or a specific qubit in a multi-qubit state. The I gate leaves the
+  quantum state unchanged and is used as a placeholder or no-operation.
+  
+  Parameters:
+  - state: Quantum state to apply the gate to
+  - qubit-index: (optional) Index of target qubit for multi-qubit states (default: 0)
+  
+  Returns:
+  Quantum state unchanged (identical to input state)
+  
+  Examples:
+  (i-gate |0⟩)     ;=> |0⟩ (no change)
+  (i-gate |1⟩)     ;=> |1⟩ (no change)
+  (i-gate (qs/zero-state 2) 1)  ;=> I applied to second qubit (no change)"
+  ([state] (apply-single-qubit-gate pauli-i state 0))
+  ([state qubit-index] (apply-single-qubit-gate pauli-i state qubit-index)))
+
 (defn h-gate
   "Apply Hadamard gate to a quantum state.
   

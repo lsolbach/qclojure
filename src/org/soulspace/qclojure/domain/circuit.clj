@@ -1564,6 +1564,36 @@
       ;; Default case for unknown operations
       (str (name operation-type) "(" (pr-str params) ")"))))
 
+(defn circuit-statistics
+  "Get a summary of key statistics for a quantum circuit.
+  
+  Returns a map with metrics like depth, total operations, gate count,
+  and operation type breakdown for quick analysis of circuit complexity.
+  
+  Parameters:
+  - circuit: Quantum circuit to analyze
+  
+  Returns:
+  Map with keys:
+  - :num-qubits - Number of qubits in the circuit
+  - :depth - Circuit depth (number of sequential layers)
+  - :operation-count - Total number of operations (gates + measurements)
+  - :operation-types - Set of unique operation types used
+  - :gate-count - Number of gates (excluding operations)
+  - :gate-types - Set of unique gate types used (excluding measurements)
+   
+  Example:
+  (circuit-stats bell-circuit)
+  ;=> {:num-qubits 2, :depth 2, :total-operations 2, :gate-count 2, :operation-types #{:h :cnot}}"
+  [circuit]
+  {:pre [(s/valid? ::circuit circuit)]}
+  {:num-qubits (:num-qubits circuit)
+   :depth (circuit-depth circuit)
+   :operation-count (circuit-operation-count circuit)
+   :operation-types (into #{} (keys (circuit-operation-types circuit)))
+   :gate-count (circuit-gate-count circuit)
+   :gate-types (into #{} (keys (circuit-gate-types circuit)))})
+
 (defn print-circuit
   "Print a human-readable representation of a quantum circuit.
   
@@ -1747,7 +1777,16 @@
 (defn execute-with-energy-measurement
   "Execute circuit and measure energy expectation value.
    
-   Common pattern for VQE and other variational algorithms."
+   Common pattern for VQE and other variational algorithms.
+   
+   Parameters:
+   - circuit: Quantum circuit to execute
+   - initial-state: Initial quantum state to start from
+   - hamiltonian: Hamiltonian operator to measure energy against
+   - shots: Number of measurement shots (default 1)
+   
+   Returns:
+   Result map including measurements and energy expectation value"
   [circuit initial-state hamiltonian & {:keys [shots] :or {shots 1}}]
   (execute-circuit circuit
                    initial-state
@@ -1757,7 +1796,18 @@
 (defn execute-with-observable-measurement
   "Execute circuit and measure observable expectation values.
    
-   Common pattern for quantum sensing and parameter estimation."
+   Common pattern for quantum sensing and parameter estimation.
+   
+   Parameters:
+   - circuit: Quantum circuit to execute
+   - initial-state: Initial quantum state to start from
+   - observables: Vector of observables to measure (e.g. [pauli-z pauli-x])
+   - targets: Vector of qubit indices to measure on (optional, defaults
+              to all qubits)
+   - shots: Number of measurement shots (default 1)
+   
+   Returns:
+   Result map including measurements, expectation values, and variances"
   [circuit initial-state observables & {:keys [shots targets] :or {shots 1}}]
   (execute-circuit circuit
                    initial-state
@@ -1768,7 +1818,16 @@
 (defn execute-with-full-simulation-results
   "Execute circuit with complete simulation results.
    
-   Extracts all available information for debugging and analysis."
+   Extracts all available information for debugging and analysis.
+   
+   Parameters:
+   - circuit: Quantum circuit to execute
+   - initial-state: Initial quantum state to start from
+   - shots: Number of measurement shots (default 100)
+   
+   Returns:
+   Result map including measurements, state vector, density matrix,
+   probabilities, and amplitudes"
   [circuit initial-state & {:keys [shots] :or {shots 100}}]
   (let [num-qubits (:num-qubits circuit)
         all-basis-states (range (bit-shift-left 1 num-qubits))]
@@ -1783,7 +1842,16 @@
 (defn execute-with-fidelity-benchmarking
   "Execute circuit with fidelity benchmarking against reference states.
    
-   Useful for gate fidelity characterization and error analysis."
+   Useful for gate fidelity characterization and error analysis.
+   
+   Parameters:
+   - circuit: Quantum circuit to execute
+   - initial-state: Initial quantum state to start from
+   - reference-states: Vector of reference quantum states to compare fidelity against
+   - shots: Number of measurement shots (default 1)
+   
+   Returns:
+   Result map including fidelity results"
   [circuit initial-state reference-states & {:keys [shots] :or {shots 1}}]
   (execute-circuit circuit
                    initial-state

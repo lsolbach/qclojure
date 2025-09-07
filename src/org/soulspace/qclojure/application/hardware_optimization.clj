@@ -1,11 +1,14 @@
 (ns org.soulspace.qclojure.application.hardware-optimization
   "Hardware-specific optimization and topology management for quantum circuits.
    
-   This namespace provides functionality for optimizing quantum circuits
-   for specific hardware topologies, including qubit routing, SWAP insertion,
-   and topology-aware optimization strategies."
-  (:require [org.soulspace.qclojure.domain.qubit-optimization :as qo]
-            [org.soulspace.qclojure.domain.gate-optimization :as go]
+   This namespace provides the full optimization pipeline that integrates
+   gate cancellation, qubit optimization, topology-aware transformation with
+   decomposition-aware routing, and final gate decomposition to ensure that
+   quantum circuits are optimized for execution on specific hardware topologies."
+  (:require [clojure.set :as set]
+            [org.soulspace.qclojure.domain.qubit-optimization :as qo]
+            [org.soulspace.qclojure.domain.gate-optimization :as go] 
+            [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.application.topology :as topo]))
 
@@ -108,6 +111,58 @@
                                 "- Final operations: " (count (:operations final-circuit)) "\n"
                                 "- Gates removed by cancellation: " (:gates-removed gate-optimization-result) "\n"
                                 "- All gates supported: " all-supported?)}))
+
+(defn optimization-statistics
+  "Analyze original and optimized circuits and provide
+   comprehensive report of the optimizations.
+   
+   Parameters:
+    - original-circuit: The circuit before optimization
+    - optimized-circuit: The circuit after optimization
+   
+    Returns:
+    Map containing analysis report"
+  [original-circuit optimized-circuit]
+  ; TODO implement/use circuit/statistics
+  (let [original-stats (circuit/statistics original-circuit)
+        optimized-stats (circuit/statistics optimized-circuit)
+
+        orig-qubits (:num-qubits original-stats)
+        opt-qubits (:num-qubits optimized-stats)
+        qubits-delta (- orig-qubits opt-qubits)
+
+        orig-gates (:operation-count original-stats)
+        opt-gates (:operation-count optimized-stats)
+        gates-delta (- orig-gates opt-gates)
+
+        orig-swaps (:swap-count original-stats)
+        opt-swaps (:swap-count optimized-stats)
+        swaps-delta (- orig-swaps opt-swaps)
+
+        orig-circuit-depth (:circuit-depth original-stats)
+        opt-circuit-depth (:circuit-depth optimized-stats)
+        depth-delta (- orig-circuit-depth opt-circuit-depth)
+
+        orig-circuit-operation-types (set (map :operation-type (:operations original-circuit)))
+        opt-circuit-operation-types (set (map :operation-type (:operations optimized-circuit)))
+        operation-type-difference (set/difference orig-circuit-operation-types opt-circuit-operation-types)]
+    {:original-qubits orig-qubits
+     :optimized-qubits opt-qubits
+     :original-gates orig-gates
+     :optimized-gates opt-gates
+     :original-swaps orig-swaps
+     :optimized-swaps opt-swaps
+     :original-circuit-depth orig-circuit-depth
+     :optimized-circuit-depth opt-circuit-depth
+     :original-operation-types orig-circuit-operation-types
+     :optimized-operation-types opt-circuit-operation-types
+     :qubits-delta qubits-delta
+     :gates-delta gates-delta
+     :depth-delta depth-delta
+     :swaps-delta swaps-delta
+     :operation-type-difference operation-type-difference
+     ;
+     }))
 
 (comment
   ;; Test optimization pipeline with real use case

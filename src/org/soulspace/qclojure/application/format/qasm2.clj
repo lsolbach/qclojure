@@ -1,13 +1,12 @@
-(ns org.soulspace.qclojure.application.format.qasm2 
+(ns org.soulspace.qclojure.application.format.qasm2
   "QASM 2.0 (Quantum Assembly Language) format conversion for quantum circuits.
    
    This namespace provides functions to convert quantum circuits to and from
    the OpenQASM 2.0 format, which is widely used in quantum computing platforms
    such as IBM Qiskit and others."
-  (:require
-    [org.soulspace.qclojure.domain.circuit :as qc]
-    [org.soulspace.qclojure.domain.operation-registry :as gr]
-    [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
 (defn circuit-to-qasm
   "Convert a quantum circuit to OpenQASM format.
@@ -84,7 +83,7 @@
                            :measure "// Measurement will be handled by final measure statement"
 
                            ;; Default case - try to get gate info and suggest decomposition
-                           (let [gate-info (gr/get-gate-info gate-type)]
+                           (let [gate-info (opreg/get-gate-info gate-type)]
                              (if gate-info
                                (str "// QClojure gate: " (:description gate-info) "\n"
                                     "// Gate type: " (name gate-type) " - requires decomposition for QASM 2.0")
@@ -115,7 +114,7 @@
                         (re-find #"\d+")
                         Integer/parseInt)
         ;; Create empty circuit
-        circuit (qc/create-circuit num-qubits "Converted Circuit")
+        circuit (circuit/create-circuit num-qubits "Converted Circuit")
 
         ;; Process each line to add gates
         processed-circuit (reduce
@@ -131,7 +130,7 @@
                                                     "tdg" :t-dag
                                                     "id" :i
                                                     (keyword gate-type))]
-                                 (qc/add-gate c gate-keyword :target target-idx))
+                                 (circuit/add-gate c gate-keyword :target target-idx))
 
                                ;; Parse 2-qubit controlled gates (cx, cz, cy)
                                (re-find #"^c([xyz])\s+q\[(\d+)\],q\[(\d+)\]" line)
@@ -139,9 +138,9 @@
                                      control-idx (Integer/parseInt control)
                                      target-idx (Integer/parseInt target)
                                      gate-fn (case gate-suffix
-                                               "x" qc/cnot-gate
-                                               "z" qc/cz-gate
-                                               "y" qc/cy-gate)]
+                                               "x" circuit/cnot-gate
+                                               "z" circuit/cz-gate
+                                               "y" circuit/cy-gate)]
                                  (gate-fn c control-idx target-idx))
 
                                ;; Parse SWAP gate
@@ -149,14 +148,14 @@
                                (let [[_ qubit1 qubit2] (re-find #"^swap\s+q\[(\d+)\],q\[(\d+)\]" line)
                                      qubit1-idx (Integer/parseInt qubit1)
                                      qubit2-idx (Integer/parseInt qubit2)]
-                                 (qc/swap-gate c qubit1-idx qubit2-idx))
+                                 (circuit/swap-gate c qubit1-idx qubit2-idx))
 
                                ;; Parse iSWAP gate
                                (re-find #"^iswap\s+q\[(\d+)\],q\[(\d+)\]" line)
                                (let [[_ qubit1 qubit2] (re-find #"^iswap\s+q\[(\d+)\],q\[(\d+)\]" line)
                                      qubit1-idx (Integer/parseInt qubit1)
                                      qubit2-idx (Integer/parseInt qubit2)]
-                                 (qc/iswap-gate c qubit1-idx qubit2-idx))
+                                 (circuit/iswap-gate c qubit1-idx qubit2-idx))
 
                                ;; Parse Toffoli gate (ccx)
                                (re-find #"^ccx\s+q\[(\d+)\],q\[(\d+)\],q\[(\d+)\]" line)
@@ -164,7 +163,7 @@
                                      control1-idx (Integer/parseInt control1)
                                      control2-idx (Integer/parseInt control2)
                                      target-idx (Integer/parseInt target)]
-                                 (qc/toffoli-gate c control1-idx control2-idx target-idx))
+                                 (circuit/toffoli-gate c control1-idx control2-idx target-idx))
 
                                ;; Parse Fredkin gate (cswap)
                                (re-find #"^cswap\s+q\[(\d+)\],q\[(\d+)\],q\[(\d+)\]" line)
@@ -172,7 +171,7 @@
                                      control-idx (Integer/parseInt control)
                                      target1-idx (Integer/parseInt target1)
                                      target2-idx (Integer/parseInt target2)]
-                                 (qc/fredkin-gate c control-idx target1-idx target2-idx))
+                                 (circuit/fredkin-gate c control-idx target1-idx target2-idx))
 
                                ;; Parse controlled rotation gates (crx, cry, crz)
                                (re-find #"^cr([xyz])\((.+?)\)\s+q\[(\d+)\],q\[(\d+)\]" line)
@@ -181,9 +180,9 @@
                                      control-idx (Integer/parseInt control)
                                      target-idx (Integer/parseInt target)
                                      gate-fn (case axis
-                                               "x" qc/crx-gate
-                                               "y" qc/cry-gate
-                                               "z" qc/crz-gate)]
+                                               "x" circuit/crx-gate
+                                               "y" circuit/cry-gate
+                                               "z" circuit/crz-gate)]
                                  (gate-fn c control-idx target-idx angle))
 
                                ;; Parse phase gate (p)
@@ -191,7 +190,7 @@
                                (let [[_ angle-str target] (re-find #"^p\((.+?)\)\s+q\[(\d+)\]" line)
                                      angle (Double/parseDouble angle-str)
                                      target-idx (Integer/parseInt target)]
-                                 (qc/phase-gate c target-idx angle))
+                                 (circuit/phase-gate c target-idx angle))
 
                                ;; Parse rotation gates (rx, ry, rz)
                                (re-find #"^r([xyz])\((.+?)\)\s+q\[(\d+)\]" line)
@@ -199,9 +198,9 @@
                                      angle (Double/parseDouble angle-str)
                                      target-idx (Integer/parseInt target)
                                      gate-fn (case axis
-                                               "x" qc/rx-gate
-                                               "y" qc/ry-gate
-                                               "z" qc/rz-gate)]
+                                               "x" circuit/rx-gate
+                                               "y" circuit/ry-gate
+                                               "z" circuit/rz-gate)]
                                  (gate-fn c target-idx angle))
 
                                ;; Skip other lines (includes qreg, creg, measure, etc.)
@@ -213,11 +212,11 @@
 (comment
   ;; Example usage:
   (def example-circuit
-    (-> (qc/create-circuit 3 "Example Circuit")
-        (qc/h-gate 0)
-        (qc/cnot-gate 0 1)
-        (qc/ry-gate 2 (/ Math/PI 2))
-        (qc/cz-gate 1 2)
+    (-> (circuit/create-circuit 3 "Example Circuit")
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)
+        (circuit/ry-gate 2 (/ Math/PI 2))
+        (circuit/cz-gate 1 2)
         ;(qc/measure-operation [0 1 2])
         ;
         ))

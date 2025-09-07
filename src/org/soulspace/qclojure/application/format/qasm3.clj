@@ -19,7 +19,6 @@
   and not included in hardware-compatible QASM output."
   (:require
    [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.domain.result :as result]
    [org.soulspace.qclojure.domain.operation-registry :as gr]
    [clojure.string :as str]))
 
@@ -249,6 +248,54 @@
                                    param-pairs))]
           [result-type params])))))
 
+(defn parse-qasm-expression
+  "Parse a QASM mathematical expression and return its numeric value.
+   Supports expressions like 'pi/3', '2*pi', 'pi/2', etc."
+  [expr-str]
+  (let [expr (str/trim expr-str)]
+    (cond
+      ;; Handle pure numbers
+      (re-matches #"^-?\d+(\.\d+)?$" expr)
+      (Double/parseDouble expr)
+      
+      ;; Handle pi expressions
+      (= expr "pi") Math/PI
+      (= expr "-pi") (- Math/PI)
+      
+      ;; Handle pi/n expressions
+      (re-matches #"^-?pi/\d+(\.\d+)?$" expr)
+      (let [[_ sign divisor] (re-find #"^(-?)pi/(.+)$" expr)
+            div-val (Double/parseDouble divisor)]
+        (if (= sign "-")
+          (/ (- Math/PI) div-val)
+          (/ Math/PI div-val)))
+      
+      ;; Handle n*pi expressions  
+      (re-matches #"^-?\d+(\.\d+)?\*pi$" expr)
+      (let [[_ multiplier] (re-find #"^(.+)\*pi$" expr)
+            mult-val (Double/parseDouble multiplier)]
+        (* mult-val Math/PI))
+      
+      ;; Handle pi*n expressions
+      (re-matches #"^-?pi\*\d+(\.\d+)?$" expr)
+      (let [[_ multiplier] (re-find #"^pi\*(.+)$" expr)
+            mult-val (Double/parseDouble multiplier)]
+        (* Math/PI mult-val))
+      
+      ;; Handle fractional expressions without pi
+      (re-matches #"^-?\d+(\.\d+)?/\d+(\.\d+)?$" expr)
+      (let [[numerator denominator] (str/split expr #"/")]
+        (/ (Double/parseDouble numerator) (Double/parseDouble denominator)))
+      
+      ;; Default - try to parse as double, throw informative error if it fails
+      :else
+      (try
+        (Double/parseDouble expr)
+        (catch NumberFormatException _
+          (throw (ex-info (str "Unsupported QASM expression: " expr
+                               ". Supported: numbers, pi, pi/n, n*pi, pi*n, fractions")
+                          {:expression expr :type :unsupported-qasm-expression})))))))
+
 (defn collect-result-specs-from-qasm
   "Collect all result specifications from QASM pragma comments."
   [qasm-lines]
@@ -356,7 +403,7 @@
                                  ;; Parse controlled rotation gates (crx, cry, crz)
                                  (re-find #"^cr([xyz])\((.+?)\)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
                                  (let [[_ axis angle-str control target] (re-find #"^cr([xyz])\((.+?)\)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
-                                       angle (Double/parseDouble angle-str)
+                                       angle (parse-qasm-expression angle-str)
                                        control-idx (Integer/parseInt control)
                                        target-idx (Integer/parseInt target)
                                        gate-keyword (case axis
@@ -368,14 +415,14 @@
                                  ;; Parse phase gate (p)
                                  (re-find #"^p\((.+?)\)\s+q\[(\d+)\]" line)
                                  (let [[_ angle-str target] (re-find #"^p\((.+?)\)\s+q\[(\d+)\]" line)
-                                       angle (Double/parseDouble angle-str)
+                                       angle (parse-qasm-expression angle-str)
                                        target-idx (Integer/parseInt target)]
                                    (qc/add-gate c :phase :target target-idx :angle angle))
 
                                  ;; Parse rotation gates (rx, ry, rz)
                                  (re-find #"^r([xyz])\((.+?)\)\s+q\[(\d+)\]" line)
                                  (let [[_ axis angle-str target] (re-find #"^r([xyz])\((.+?)\)\s+q\[(\d+)\]" line)
-                                       angle (Double/parseDouble angle-str)
+                                       angle (parse-qasm-expression angle-str)
                                        target-idx (Integer/parseInt target)
                                        gate-keyword (case axis
                                                       "x" :rx
@@ -399,14 +446,14 @@
 (comment
   ;; Example usage:
   (def example-circuit
-  (-> (qc/create-circuit 3 "Example Circuit")
-      (qc/h-gate 0)
-      (qc/cnot-gate 0 1)
-      (qc/ry-gate 2 (/ Math/PI 2))
-      (qc/cz-gate 1 2) 
-      (qc/measure-operation [0 1 2])
+    (-> (qc/create-circuit 3 "Example Circuit")
+        (qc/h-gate 0)
+        (qc/cnot-gate 0 1)
+        (qc/ry-gate 2 (/ Math/PI 2))
+        (qc/cz-gate 1 2)
+        (qc/measure-operation [0 1 2])
         ;
-      ))
+        ))
 
   (def result-specs
     {:measurements {:shots 1000 :qubits [0 1]}
@@ -421,4 +468,24 @@
   (def parsed (qasm-to-circuit qasm-output))
   (println (:circuit parsed))
   (println (:result-specs parsed))
+
+  (def qasm-sample "OPENQASM 3;
+include \"stdgates.inc\";
+
+qubit[4] q;
+bit[4] c;
+
+rz(pi/3) q[0];
+rz(pi/5) q[0];   // can be folded to rz(pi/3 + pi/5)
+rx(pi/2) q[1];
+rx(-pi/2) q[1];  // cancels
+h q[2];
+h q[2];          // cancels
+cx q[0], q[1];
+cx q[0], q[1];   // cancels")
+
+  (def parsed-sample (qasm-to-circuit qasm-sample))
+  (println (:circuit parsed-sample))
+  (println (:result-specs parsed-sample))
+  ;
   )

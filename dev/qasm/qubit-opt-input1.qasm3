@@ -1,0 +1,14 @@
+OPENQASM 3;
+include "stdgates.inc";
+
+qubit[4] q;
+bit[4] c;
+
+rz(pi/3) q[0];
+rz(pi/5) q[0];   // can be folded to rz(pi/3 + pi/5)
+rx(pi/2) q[1];
+rx(-pi/2) q[1];  // cancels
+h q[2];
+h q[2];          // cancels
+cx q[0], q[1];
+cx q[0], q[1];   // cancels

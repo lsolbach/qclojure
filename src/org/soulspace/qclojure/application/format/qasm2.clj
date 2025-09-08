@@ -3,13 +3,23 @@
    
    This namespace provides functions to convert quantum circuits to and from
    the OpenQASM 2.0 format, which is widely used in quantum computing platforms
-   such as IBM Qiskit and others."
+   such as IBM Qiskit and others.
+   
+   Note: OpenQASM 2.0 does not natively support some advanced gate types
+   (e.g., global gates, Rydberg gates). Such gates are either decomposed
+   into standard gates where possible or annotated with comments indicating
+   that they require special handling by the backend."
   (:require [clojure.string :as str]
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
 (defn gate-to-qasm-fn
-  "Ret "
+  "Return a function that converts a gate to its QASM representation.
+   
+   Parameters:
+    - num-qubits: Total number of qubits in the circuit (for global gates)
+   
+   Returns: A function that takes a gate and returns its QASM string."
   [num-qubits]
   (fn [gate]
   (let [gate-type (:operation-type gate)
@@ -126,7 +136,13 @@
           [result-type params])))))
 
 (defn collect-result-specs-from-qasm
-  "Collect all result specifications from QASM pragma comments."
+  "Collect all result specifications from QASM pragma comments.
+   
+   Parameters:
+   - qasm-lines: Sequence of lines from QASM code
+   
+   Returns:
+   Map of result specifications"
   [qasm-lines]
   (let [pragmas (filter #(str/starts-with? (str/trim %) "// #pragma qclojure result") qasm-lines)
         parsed-pragmas (keep parse-result-pragma pragmas)]
@@ -147,7 +163,14 @@
             {} parsed-pragmas)))
 
 (defn qasm-to-gate
-  "Add the gate for the line of QASM to the circuit."
+  "Add the gate for the line of QASM to the circuit.
+   
+   Parameters:
+     - circuit: Current quantum circuit
+     - line: Line of QASM code
+   
+   Returns:
+   Updated quantum circuit"
   [circuit line]
     (cond
       ;; Parse single-qubit gates (x, y, z, h, s, t, sdg, tdg, id)

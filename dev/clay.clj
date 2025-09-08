@@ -65,6 +65,11 @@
    (clay/make! config)))
 
 (comment ; Clay 
+
+  (clay/stop!)
+
+  (clay/browse!)
+
   (make-tutorial-notebook)
   (make-tutorial-notebook tutorial-quarto-html-config)
   (make-tutorial-notebook tutorial-quarto-gfm-config)

@@ -17,10 +17,10 @@
   
   Note: State vector and density matrix extraction are simulation-only
   and not included in hardware-compatible QASM output."
-  (:require
-   [org.soulspace.qclojure.domain.circuit :as qc]
-   [org.soulspace.qclojure.domain.operation-registry :as gr]
-   [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [clojure.math :as math]
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.operation-registry :as gr]))
 
 ;;;
 ;;; QASM 3 emission
@@ -259,7 +259,13 @@
 
 (defn parse-qasm-expression
   "Parse a QASM mathematical expression and return its numeric value.
-   Supports expressions like 'pi/3', '2*pi', 'pi/2', etc."
+   Supports expressions like 'pi/3', '2*pi', 'pi/2', etc.
+   
+   Parameters:
+   - expr-str: String representation of the QASM expression
+   
+   Returns:
+   Numeric value of the expression"
   [expr-str]
   (let [expr (str/trim expr-str)]
     (cond
@@ -268,28 +274,28 @@
       (Double/parseDouble expr)
 
       ;; Handle pi expressions
-      (= expr "pi") Math/PI
-      (= expr "-pi") (- Math/PI)
+      (= expr "pi") math/PI
+      (= expr "-pi") (- math/PI)
 
       ;; Handle pi/n expressions
       (re-matches #"^-?pi/\d+(\.\d+)?$" expr)
       (let [[_ sign divisor] (re-find #"^(-?)pi/(.+)$" expr)
             div-val (Double/parseDouble divisor)]
         (if (= sign "-")
-          (/ (- Math/PI) div-val)
-          (/ Math/PI div-val)))
+          (/ (- math/PI) div-val)
+          (/ math/PI div-val)))
 
       ;; Handle n*pi expressions  
       (re-matches #"^-?\d+(\.\d+)?\*pi$" expr)
       (let [[_ multiplier] (re-find #"^(.+)\*pi$" expr)
             mult-val (Double/parseDouble multiplier)]
-        (* mult-val Math/PI))
+        (* mult-val math/PI))
 
       ;; Handle pi*n expressions
       (re-matches #"^-?pi\*\d+(\.\d+)?$" expr)
       (let [[_ multiplier] (re-find #"^pi\*(.+)$" expr)
             mult-val (Double/parseDouble multiplier)]
-        (* Math/PI mult-val))
+        (* math/PI mult-val))
 
       ;; Handle fractional expressions without pi
       (re-matches #"^-?\d+(\.\d+)?/\d+(\.\d+)?$" expr)
@@ -306,7 +312,13 @@
                           {:expression expr :type :unsupported-qasm-expression})))))))
 
 (defn collect-result-specs-from-qasm
-  "Collect all result specifications from QASM pragma comments."
+  "Collect all result specifications from QASM pragma comments.
+   
+   Parameters:
+   - qasm-lines: Sequence of lines from QASM code
+   
+   Returns:
+   Map of result specifications"
   [qasm-lines]
   (let [pragmas (filter #(str/starts-with? (str/trim %) "#pragma qclojure result") qasm-lines)
         parsed-pragmas (keep parse-result-pragma pragmas)]
@@ -327,7 +339,14 @@
             {} parsed-pragmas)))
 
 (defn qasm-to-gate
-  ""
+  "Add the gate for the line of QASM to the circuit.
+   
+   Parameters:
+     - circuit: Current quantum circuit
+     - line: Line of QASM code
+   
+   Returns:
+   Updated quantum circuit"
   [circuit line]
   (let [line (str/trim line)]
     (cond

@@ -4,7 +4,7 @@
 
 (def tutorial-base-config
   "Base configuration for building the tutorial."
-  {:base-source-path "notebook"
+  {:base-source-path "notebooks"
    :source-path ["tutorial.clj"]
    :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
                  :branch "main"}

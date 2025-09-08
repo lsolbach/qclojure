@@ -9,3 +9,9 @@ Add high level public API?
 Add high level Java API?
 
 Implement Analog Hamiltonian Simulation (AHS)?
+
+Algorithm frameworks (like for variational algorithms)
+* for general hidden subgroup problems
+* for general search problems
+
+Enhance OpenQASM with OpenPulse

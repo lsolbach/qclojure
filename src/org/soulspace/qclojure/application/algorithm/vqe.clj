@@ -164,10 +164,10 @@
   
   Example:
   (variational-quantum-eigensolver backend
-    {:hamiltonian [(ham/pauli-term -1.052373245772859 "ZI")
-                   (ham/pauli-term 0.39793742484318045 "XX")
-                   (ham/pauli-term -0.39793742484318045 "YY")
-                   (ham/pauli-term -0.01128010425623538 "IZ")]
+    {:hamiltonian [(ham/pauli-term -1.052373245772859 \"ZI\")
+                   (ham/pauli-term 0.39793742484318045 \"XX\")
+                   (ham/pauli-term -0.39793742484318045 \"YY\")
+                   (ham/pauli-term -0.01128010425623538 \"IZ\")]
      :ansatz-type :hardware-efficient
      :num-qubits 2
      :num-layers 2

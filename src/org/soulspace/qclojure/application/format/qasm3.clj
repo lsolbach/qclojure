@@ -443,8 +443,7 @@
 
         ;; Process each line to add gates
         processed-circuit (reduce qasm-to-gate circuit lines)]
-    {:circuit processed-circuit
-     :result-specs result-specs}))
+    (assoc processed-circuit :result-specs result-specs)))
 
 (comment
   ;; Example usage:

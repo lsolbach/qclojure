@@ -174,7 +174,7 @@ h q[0];
 cx q[0], q[1];
 c[0] = measure q[0];
 c[1] = measure q[1];"
-          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          circuit (qasm3/qasm-to-circuit qasm-code)]
       (is (= 2 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
 
@@ -207,7 +207,7 @@ s q[1];
 t q[2];
 sdg q[0];
 tdg q[1];"
-          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          circuit (qasm3/qasm-to-circuit qasm-code)]
       (is (= 3 (:num-qubits circuit)))
       (is (= 8 (count (:operations circuit))))
       
@@ -226,7 +226,7 @@ rx(1.5708) q[0];
 ry(0.7854) q[1];
 rz(1.0472) q[0];
 p(0.5236) q[1];"
-          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          circuit (qasm3/qasm-to-circuit qasm-code)]
       (is (= 2 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
       
@@ -248,7 +248,7 @@ swap q[0], q[1];
 iswap q[1], q[2];
 ccx q[0], q[1], q[2];
 cswap q[3], q[0], q[2];"
-          circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          circuit (qasm3/qasm-to-circuit qasm-code)]
       (is (= 4 (:num-qubits circuit)))
       (is (= 4 (count (:operations circuit))))
       
@@ -260,7 +260,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion from Bell state circuit to QASM 3.0 and back"
     (let [original-circuit (bell-state-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -276,7 +276,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion of complex circuit"
     (let [original-circuit (complex-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -291,7 +291,7 @@ cswap q[3], q[0], q[2];"
   (testing "Round-trip conversion of advanced gates circuit"
     (let [original-circuit (advanced-gates-circuit)
           qasm-code (qasm3/circuit-to-qasm original-circuit)
-          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))]
+          converted-circuit (qasm3/qasm-to-circuit qasm-code)]
       
       ;; Check basic structure
       (is (= (:num-qubits original-circuit) (:num-qubits converted-circuit)))
@@ -360,7 +360,7 @@ cswap q[3], q[0], q[2];"
           circuit (-> (qc/create-circuit 1 "Precision Test")
                       (qc/add-gate :rx :target 0 :angle precise-angle))
           qasm-code (qasm3/circuit-to-qasm circuit)
-          converted-circuit (:circuit (qasm3/qasm-to-circuit qasm-code))
+          converted-circuit (qasm3/qasm-to-circuit qasm-code)
           converted-angle (get-in (first (:operations converted-circuit)) 
                                   [:operation-params :angle])]
       (is (< (abs (- precise-angle converted-angle)) 1e-10)

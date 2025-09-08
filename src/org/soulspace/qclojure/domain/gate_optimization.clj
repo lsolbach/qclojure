@@ -359,39 +359,6 @@
                        :optimized optimized-circuit}))
       optimized-circuit)))
 
-(defn circuit-optimization-stats
-  "Calculate optimization statistics for a circuit transformation.
-  
-  Compares the original and optimized circuits to provide metrics about
-  the effectiveness of the optimization process.
-  
-  Parameters:
-  - original-circuit: Circuit before optimization
-  - optimized-circuit: Circuit after optimization
-  
-  Returns:
-  Map containing optimization statistics:
-  - :original-gate-count: Number of gates before optimization
-  - :optimized-gate-count: Number of gates after optimization
-  - :gates-removed: Number of gates eliminated
-  - :reduction-percentage: Percentage of gates removed
-  
-  Example:
-  (circuit-optimization-stats original optimized)
-  ;=> {:original-gate-count 10, :optimized-gate-count 6, 
-  ;    :gates-removed 4, :reduction-percentage 40.0}"
-  [original-circuit optimized-circuit]
-  (let [original-count (count (:operations original-circuit))
-        optimized-count (count (:operations optimized-circuit))
-        gates-removed (- original-count optimized-count)
-        reduction-percentage (if (zero? original-count)
-                               0.0
-                               (* 100.0 (/ gates-removed original-count)))]
-    {:original-gate-count original-count
-     :optimized-gate-count optimized-count
-     :gates-removed gates-removed
-     :reduction-percentage reduction-percentage}))
-
 (comment
 
   ;; Example 1: Hadamard gate cancellation
@@ -423,7 +390,6 @@
   (println "Original operations:" (count (:operations circuit-with-multiple-cancellations)))
   (println "Optimized operations:" (count (:operations optimized-multiple)))
   (println "Final operations:" (:operations optimized-multiple))
-  (println "Optimization stats:" (circuit-optimization-stats circuit-with-multiple-cancellations optimized-multiple))
   ;; Expected: H-H and X-X pairs cancel, Y-Y pair also cancels, leaving only Z(0)
 
   ;; Example 3: Circuit with qubit-wise consecutive gates (should be optimized)
@@ -438,7 +404,6 @@
   (println "Original operations:" (count (:operations circuit-with-qubit-wise-consecutive-gates)))
   (println "Optimized operations:" (count (:operations optimized-qubit-wise)))
   (println "Final operations:" (:operations optimized-qubit-wise))
-  (println "Optimization stats:" (circuit-optimization-stats circuit-with-qubit-wise-consecutive-gates optimized-qubit-wise))
   ;; Expected: All gates cancelled because H gates on qubit 0 are consecutive 
   ;; and X gates on qubit 1 are consecutive (gates on different qubits can be reordered)
 
@@ -461,18 +426,7 @@
   ;; The Y gates on qubit 1 are consecutive (indices 1,4) and cancel
   ;; The Z gate on qubit 0 (index 3) remains
 
-  ;; Example 5: Optimization statistics
-  (def stats (circuit-optimization-stats circuit-with-multiple-cancellations optimized-multiple))
-  stats
-  ;=> {:original-gate-count 7, :optimized-gate-count 1, 
-  ;    :gates-removed 6, :reduction-percentage 85.71428571428571}
-
-  (def stats-qubit-wise (circuit-optimization-stats circuit-with-qubit-wise-consecutive-gates optimized-qubit-wise))
-  stats-qubit-wise
-  ;=> {:original-gate-count 4, :optimized-gate-count 0, 
-  ;    :gates-removed 4, :reduction-percentage 100.0}
-
-  ;; Example 6: Complex circuit with Bell state preparation 
+  ;; Example 5: Complex circuit with Bell state preparation 
   ;; This should NOT be optimized away
   (def bell-circuit (qc/bell-state-circuit))
   (def optimized-bell (optimize-gates bell-circuit))
@@ -481,14 +435,14 @@
   (:operations optimized-bell)
   ;=> Same as original Bell circuit
 
-  ;; Example 7: Test gate-qubits helper function
+  ;; Example 6: Test gate-qubits helper function
   (gate-qubits {:operation-type :x, :operation-params {:target 0}})
   ;=> #{0}
 
   (gate-qubits {:operation-type :cnot, :operation-params {:control 0, :target 1}})
   ;=> #{0 1}
 
-  ;; Example 8: Test gates-equivalent? function
+  ;; Example 7: Test gates-equivalent? function
   (gates-equivalent?
    {:operation-type :h, :operation-params {:target 0}}
    {:operation-type :h, :operation-params {:target 0}})
@@ -505,7 +459,7 @@
    {:operation-type :rx, :operation-params {:target 0, :angle 1.5708}})
   ;=> false (RX is not self-inverse)
 
-  ;; Example 9: When gates should NOT cancel - same qubit, interfering operations
+  ;; Example 8: When gates should NOT cancel - same qubit, interfering operations
   (def no-cancel-circuit
     {:num-qubits 1
      :operations [{:operation-type :h :operation-params {:target 0}}

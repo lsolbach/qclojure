@@ -347,6 +347,10 @@
               :expression_list (fn [& xs]
                                  (->> xs (remove string?) vec))
 
+              ;; literal wrapper (e.g. [:literal [:FloatLiteral "1.2345"]])
+              :literal (fn [& xs]
+                         (first xs))
+
               ;; call expressions
               :call_expression (fn [& xs]
                                  ;; xs typically: name, "(", expr-list?, ")". Identify name and optional vector args
@@ -496,8 +500,7 @@
    Returns a vector of evaluated parameter values."
   [expression-list-node]
   (when (and expression-list-node (vector? expression-list-node))
-    (let [expr-nodes (filter #(and (vector? %) (= :expression (first %)))
-                             (rest expression-list-node))]
+    (let [expr-nodes (filter vector? (rest expression-list-node))]
       (when (seq expr-nodes)
         (vec (map evaluate-expression expr-nodes))))))
 
@@ -693,8 +696,7 @@
                  operations)]
 
     ;; Return result with parsed result specs
-    {:circuit circuit
-     :result-specs result-specs}))
+    (assoc circuit :result-specs result-specs)))
 
 ;; Public API
 (defn qasm-to-circuit

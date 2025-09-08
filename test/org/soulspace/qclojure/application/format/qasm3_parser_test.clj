@@ -13,7 +13,8 @@
 (defn- parse-and-emit-test
   "Test parsing QASM3 code and emitting it back, checking for specific content."
   [qasm-code expected-operation-count expected-content]
-  (let [{:keys [circuit result-specs]} (qasm3/qasm-to-circuit qasm-code)
+  (let [circuit (qasm3/qasm-to-circuit qasm-code)
+        result-specs (:result-specs circuit)
         emitted (qasm3/circuit-to-qasm circuit result-specs)]
     {:operations-count (count (:operations circuit))
      :expected-count expected-operation-count
@@ -48,7 +49,7 @@ qubit[3] q;
 x q[0];
 y q[1];
 z q[2];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 3 (count (:operations circuit))))
       (is (str/includes? emitted "x q[0];"))
@@ -64,7 +65,7 @@ s q[0];
 t q[1];
 sdg q[2];
 tdg q[3];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 4 (count (:operations circuit))))
       (is (str/includes? emitted "s q[0];"))
@@ -83,7 +84,7 @@ qubit[3] q;
 rx(1.5708) q[0];
 ry(0.7854) q[1];
 rz(3.1416) q[2];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 3 (count operations)))
@@ -102,7 +103,7 @@ rz(3.1416) q[2];"
 include \"stdgates.inc\";
 qubit[1] q;
 p(1.2345) q[0];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           op (first (:operations circuit))
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 1 (count (:operations circuit))))
@@ -119,7 +120,7 @@ include \"stdgates.inc\";
 qubit[3] q;
 cx q[0], q[1];
 cx q[1], q[2];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 2 (count operations)))
@@ -135,7 +136,7 @@ include \"stdgates.inc\";
 qubit[4] q;
 cy q[0], q[1];
 cz q[2], q[3];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 2 (count operations)))
@@ -151,7 +152,7 @@ include \"stdgates.inc\";
 qubit[4] q;
 swap q[0], q[3];
 iswap q[1], q[2];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 2 (count operations)))
@@ -172,7 +173,7 @@ include \"stdgates.inc\";
 qubit[4] q;
 ccx q[0], q[1], q[2];
 ccx q[1], q[2], q[3];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 2 (count operations)))
@@ -188,7 +189,7 @@ include \"stdgates.inc\";
 qubit[4] q;
 cswap q[0], q[1], q[2];
 cswap q[1], q[2], q[3];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           operations (:operations circuit)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 2 (count operations)))
@@ -224,9 +225,9 @@ swap q[0], q[4];
 iswap q[1], q[3];
 ccx q[0], q[1], q[2];
 cswap q[2], q[3], q[4];"
-          {:keys [circuit]} (qasm3/qasm-to-circuit original-qasm)
+          circuit (qasm3/qasm-to-circuit original-qasm)
           emitted (qasm3/circuit-to-qasm circuit)
-          {circuit-2 :circuit} (qasm3/qasm-to-circuit emitted)]
+          circuit-2 (qasm3/qasm-to-circuit emitted)]
       ;; Verify parsing
       (is (= 19 (count (:operations circuit))))
       ;; Verify round-trip preservation
@@ -242,7 +243,7 @@ cswap q[2], q[3], q[4];"
     (let [qasm "OPENQASM 3.0;
 include \"stdgates.inc\";
 qubit[1] q;"
-          {:keys [circuit]} (qasm3/qasm-to-circuit qasm)
+          circuit (qasm3/qasm-to-circuit qasm)
           emitted (qasm3/circuit-to-qasm circuit)]
       (is (= 0 (count (:operations circuit))))
       (is (str/includes? emitted "OPENQASM 3.0;"))
@@ -261,10 +262,10 @@ qubit[1] q;"
 (deftest test-large-circuit-performance
   (testing "Large circuit parsing and emission performance"
     (let [large-qasm (str "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[20] q;\n"
-                         (str/join "\n" (for [i (range 50)]
-                                          (str "h q[" (mod i 20) "];"))))
+                          (str/join "\n" (for [i (range 50)]
+                                           (str "h q[" (mod i 20) "];"))))
           start-time (System/nanoTime)
-          {:keys [circuit]} (qasm3/qasm-to-circuit large-qasm)
+          circuit (qasm3/qasm-to-circuit large-qasm)
           parse-time (- (System/nanoTime) start-time)
           emit-start (System/nanoTime)
           emitted (qasm3/circuit-to-qasm circuit)

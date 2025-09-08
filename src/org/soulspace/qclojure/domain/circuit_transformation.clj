@@ -3,7 +3,12 @@
    
    This namespace provides functionality for adapting quantum circuits
    to specific hardware backends by transforming operations not supported
-   by the backend into equivalent sequences of supported operations."
+   by the backend into equivalent sequences of supported operations.
+   
+   Circuit Transformation:
+   - Transforms entire quantum circuits to use only supported operations
+   - Preserves quantum circuit semantics while changing implementation
+   - Provides iterative decomposition with cycle detection"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]))

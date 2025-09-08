@@ -10,11 +10,6 @@
   - Handles parametric gates (rotation gates with arbitrary angles)
   - Supports multiple decomposition strategies based on target hardware
   
-  Circuit Transformation:
-  - Transforms entire quantum circuits to use only supported operations
-  - Preserves quantum circuit semantics while changing implementation
-  - Provides iterative decomposition with cycle detection
-  
   Gate Decomposition Examples
   
   ```clojure

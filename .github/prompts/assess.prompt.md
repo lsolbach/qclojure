@@ -1,0 +1,1 @@
+Thoroughly assess the @workspace to answer the following question:

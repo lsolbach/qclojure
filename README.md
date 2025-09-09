@@ -59,6 +59,7 @@ QClojure provides the core features for quantum computing.
 ### Extensions of QClojure
 Additional features, like specific backend implementations or algorithms for specific domains, will be provided as separate libraries, e.g.
 * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) - QClojure backend to quantum computers and simulators provided by Amazon Braket
+* [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) - QClojure backend to quantum computers and simulators provided by IBM Quantum
 * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) - QClojure Machine Learning (QML) algorithms
 
 ## Usage

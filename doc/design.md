@@ -10,13 +10,42 @@ QClojure should provide a
   * adaptable complex linear algebra backends
   * vizualizations of quantum computing concepts
 
-### Extensibility
-QClojure focuses on the core capablities of quantum computing and on providing
-mechanisms for extension, like data specs and protocols. These can be implemented
-in extension libraries. This separation keeps QClojure lean, comprehensible and decoupled.
+QClojure has a modular architecture with a small core and extension libraries. QClojure focuses on the core capablities of quantum computing and on providing mechanisms for extension, like data specs and protocols. These can be implemented in extension libraries. This separation keeps QClojure lean, comprehensible and decoupled.
 
-Extension libraries will be created for backend adapters to real QPUs and
-pecific applications of quantum computing, e.g. quantum machine learning or quantum chemistry.
+## Core Functionality
+The QClojure library provides the core functionality needed to build circuits and algorithms and to optimize and simulate them.
+
+The core functionality includes
+* Domain constructs for
+  * quantum states, gates and circuits
+  * observables, hamiltonians, results
+  * quantum channels and noise
+  * circuit transformation and optimization logic
+  * analytics and statistics
+
+* Application workflows and abstractions
+  * backend protocols
+  * circuit optimization workflows
+  * error mitigation workflows
+  * format transformations
+
+* Adapter implementations
+  * simulation backends
+  * visualization formats
+  * I/O adapters
+
+## Extensibility
+
+
+Specific code lives (or will live) in separate libraries.
+
+* Provider backends, e.g.
+  * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) - Amazon Braket backend
+  * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) - IBM Quantum backend
+* Domain specific algorithms
+  * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) - for quantum machine learning
+  * qclojure-chemistry - for quantum chemistry (to be done)
+
 
 ## Architecture
 The implementation architecture for QClojure is *Clean Architecture*.

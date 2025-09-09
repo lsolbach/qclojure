@@ -36,7 +36,6 @@ The core functionality includes
 
 ## Extensibility
 
-
 Specific code lives (or will live) in separate libraries.
 
 * Provider backends, e.g.

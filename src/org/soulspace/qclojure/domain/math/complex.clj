@@ -1,7 +1,17 @@
 (ns org.soulspace.qclojure.domain.math.complex 
-  (:require
-    [org.soulspace.qclojure.domain.math.protocols :as proto]
-    [fastmath.complex :as fc]))
+  "Protocol and implementations for complex number operations.
+   
+   This namespace defines a protocol for complex number operations, allowing
+   different backends to implement their own representations of complex numbers,
+   vectors, and matrices. The protocol provides functions to access the real
+   and imaginary parts, compute the complex conjugate, and check if a value
+   is a complex number.
+   
+   Complex Number Protocol:
+   - Access real and imaginary parts of complex numbers
+   - Compute complex conjugates
+   - Check if a value is a complex number"
+  (:require [fastmath.complex :as fc]))
 
 ;;;
 ;;; Complex number protocols

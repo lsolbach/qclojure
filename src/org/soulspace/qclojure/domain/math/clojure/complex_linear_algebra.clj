@@ -1,4 +1,27 @@
 (ns org.soulspace.qclojure.domain.math.clojure.complex-linear-algebra
+  "Linear algebra operations for complex numbers in Clojure.
+   
+   This namespace provides implementations of common linear algebra operations
+   for complex numbers represented in a structure-of-arrays (SoA) format.
+   It includes matrix addition, multiplication, inversion, eigen-decomposition,
+   and other utilities necessary for quantum computing applications.
+   
+   Complex Number Representation:
+   - Complex numbers are represented as maps with :real and :imag keys.
+   - Vectors and matrices of complex numbers are represented as maps with
+     :real and :imag keys containing vectors or matrices of real numbers.
+   
+   Linear Algebra Operations:
+   - Matrix addition, subtraction, scaling, multiplication
+   - Matrix-vector products
+   - Kronecker products
+   - Transpose and conjugate transpose
+   - Inner products
+   - Hermitian checks
+   - Solving linear systems
+   - Matrix inversion
+   - Spectral norm computation
+   - Eigen-decomposition for Hermitian matrices"
   (:require
    [clojure.math :as math]))
 

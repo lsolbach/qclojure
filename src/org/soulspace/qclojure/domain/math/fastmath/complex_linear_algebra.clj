@@ -1,12 +1,20 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.complex-linear-algebra
-  "Matrix and linear algebra operations for complex numbers using FastMath.
+  "Linear algebra operations for complex numbers using FastMath library.
    
-   This namespace provides utilities for handling complex numbers represented as FastMath Vec2 objects,
-   along with a suite of matrix operations tailored for complex matrices, including addition, multiplication,
-   inversion, eigendecomposition, and more.
+   This namespace provides implementations of various linear algebra operations
+   for complex numbers, vectors, and matrices using the FastMath library.
+   It includes functions for matrix addition, multiplication, inversion,
+   eigenvalue decomposition, and other common linear algebra tasks.
    
-   The functions ensure type safety and proper handling of complex arithmetic, leveraging FastMath's capabilities
-   for performance and accuracy."
+   The functions are designed to work with complex numbers represented
+   as FastMath Vec2 objects or as maps with :real and :imag keys.
+   
+   Linear Algebra Operations:
+   - Matrix addition, subtraction, scaling, and negation
+   - Matrix multiplication and matrix-vector products
+   - Solving linear systems and computing matrix inverses
+   - Eigenvalue and eigenvector computations for Hermitian matrices
+   - Various matrix properties checks (unitary, Hermitian, diagonal)"
   (:require
    [fastmath.core :as fm]
    [fastmath.complex :as fc]

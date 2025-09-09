@@ -1,5 +1,18 @@
 (ns org.soulspace.qclojure.domain.math.fastmath.backend
-  "Backend for fastmath complex numbers."
+  "Backend for linear algebra operations for complex numbers using the FastMath library.
+   
+   This namespace provides an implementation of the matrix algebra protocols
+   defined in `org.soulspace.qclojure.domain.math.protocols` using the FastMath
+   library for complex number support. It includes conversion utilities between
+   QClojure's internal representations and FastMath's representations, as well
+   as implementations of matrix operations, decompositions, and functions.
+   
+   FastMath Complex Backend:
+   - Conversion between QClojure and FastMath representations
+   - Matrix algebra operations (addition, multiplication, inversion, etc.)
+   - Matrix decompositions (eigenvalue, SVD, LU, QR, Cholesky)
+   - Matrix functions (exponential, logarithm, square root)
+   - Matrix analysis (spectral norm, condition number)"
   (:require [org.soulspace.qclojure.domain.math.fastmath.complex-linear-algebra :as fcla]
             [org.soulspace.qclojure.domain.math.protocols :as proto]
             [fastmath.complex :as fc]))

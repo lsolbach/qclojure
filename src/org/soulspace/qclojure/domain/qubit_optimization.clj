@@ -1,5 +1,14 @@
 (ns org.soulspace.qclojure.domain.qubit-optimization
-  "Functions for analyzing and optimizing qubit usage in quantum circuits."
+  "Functions for analyzing and optimizing qubit usage in quantum circuits.
+   
+   This namespace provides utilities to analyze which qubits are actually used
+   in a quantum circuit and to optimize the circuit by remapping qubit IDs to
+   eliminate gaps and unused qubits.
+   
+   Qubit Optimization:
+   - Analyze qubit usage efficiency in a circuit
+   - Remap qubit IDs to minimize total qubit count
+   - Ensure circuit validity after optimization"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
             [clojure.set :as set]))

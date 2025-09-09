@@ -1,5 +1,17 @@
 (ns org.soulspace.qclojure.application.topology
-
+  "Hardware-specific optimization and topology management for quantum circuits.
+   
+   This namespace provides functions to create couplings for common hardware topologies
+   (like linear, ring, star, grid, heavy-hex) and to optimize quantum circuits
+   for execution on specific hardware topologies by finding optimal qubit mappings
+   and inserting necessary SWAP operations.
+   
+   Hardware Topology:
+   - Create common hardware topologies
+   - Validate and analyze hardware couplings
+   - Optimize quantum circuits for specific hardware topologies
+   - Find optimal qubit mappings and insert SWAP operations
+   - Calculate distance matrices for qubit connectivity"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit :as qc]

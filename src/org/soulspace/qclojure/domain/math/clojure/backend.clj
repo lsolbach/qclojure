@@ -1,5 +1,20 @@
 (ns org.soulspace.qclojure.domain.math.clojure.backend
-  "Backend for Clojure complex numbers."
+  "Backend for linear algebra operations on complex numbers using clojure.math.
+   
+   This backend implements the `BackendAdapter`, `MatrixAlgebra`, `MatrixDecompositions`,
+   `MatrixFunctions`, and `MatrixAnalysis` protocols from `org.soulspace.qclojure.domain.math.protocols`
+   using clojure.math.
+
+   The backend uses a Structure of Arrays (SoA) representation for complex numbers,
+   where complex vectors and matrices are represented as maps with separate real and imaginary parts.
+   This format is efficient for numerical computations and compatible with clojure.math operations.
+   
+   Features:
+   - Conversion between various complex number representations
+   - Basic and advanced matrix operations
+   - Matrix decompositions (eigen, SVD, LU, QR, Cholesky)
+   - Matrix functions (exponential, logarithm, square root)
+   - Matrix analysis (spectral norm, condition number)"
   (:require [org.soulspace.qclojure.domain.math.protocols :as proto]
             [org.soulspace.qclojure.domain.math.clojure.complex-linear-algebra :as ccla]
             [fastmath.complex :as fc]))

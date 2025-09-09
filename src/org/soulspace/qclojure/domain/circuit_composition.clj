@@ -1,4 +1,13 @@
 (ns org.soulspace.qclojure.domain.circuit-composition
+  "Functions for composing and extending quantum circuits.
+   
+   This namespace provides utilities to extend quantum circuits to a larger number of qubits
+   and to compose two circuits sequentially, handling qubit index remapping as needed.
+   
+   Circuit Composition:
+   - Extend circuits to more qubits while preserving operations
+   - Compose two circuits with automatic qubit index adjustment
+   - Support for custom qubit mappings and offsets"
   (:require [org.soulspace.qclojure.domain.circuit :as qc]
             [clojure.spec.alpha :as s]))
 

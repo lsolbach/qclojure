@@ -351,16 +351,9 @@
           optimized-circuit (loop [current-circuit circuit
                                    iteration 0]
                               (let [operations (:operations current-circuit)
-                                    _ (println operations)
-                                    pairs (find-cancellation-pairs operations)
-                                    _ (println "Iteration" iteration ": Found" (count pairs) "cancellation pairs")
-                                    _ (println pairs)]
+                                    pairs (find-cancellation-pairs operations)]
                                 (if (empty? pairs)
-                                  (do
-                                    (println current-circuit)
-                                    current-circuit  ; No more optimizations possible
-                                   ;
-                                   )
+                                  current-circuit  ; No more optimizations possible
                                   (let [optimized-ops (remove-cancellation-pairs operations pairs)
                                         optimized-circuit (assoc current-circuit :operations optimized-ops)]
                                     (recur optimized-circuit (inc iteration))))))

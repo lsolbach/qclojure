@@ -356,8 +356,7 @@
                                   current-circuit  ; No more optimizations possible
                                   (let [optimized-ops (remove-cancellation-pairs operations pairs)
                                         optimized-circuit (assoc current-circuit :operations optimized-ops)]
-                                    (recur optimized-circuit (inc iteration))))))
-          _ (println optimized-circuit)]
+                                    (recur optimized-circuit (inc iteration))))))]
       (if (qc/empty-circuit? optimized-circuit)
         (throw (ex-info "Optimization resulted in an empty circuit"
                         {:circuit circuit

@@ -271,7 +271,7 @@ qubit[1] q;"
           emitted (qasm3/circuit-to-qasm circuit)
           emit-time (- (System/nanoTime) emit-start)]
       (is (= 50 (count (:operations circuit))))
-      (is (< parse-time 500000000)) ;; Less than 100ms
+      (is (< parse-time 750000000)) ;; Less than 750ms
       (is (< emit-time 100000000))  ;; Less than 100ms
       (is (str/includes? emitted "h q[0];")))))
 

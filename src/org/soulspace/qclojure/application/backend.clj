@@ -10,6 +10,7 @@
             [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.result :as result]
             [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.device :as device]
             [org.soulspace.qclojure.application.hardware-optimization :as hw-opt]
             [org.soulspace.qclojure.domain.operation-registry :as op-reg]))
 
@@ -28,7 +29,6 @@
 (s/def ::initial-state (s/nilable ::state/state))
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
-(s/def ::supported-gates ::op-reg/operation-set)
 
 ;;
 ;; Enhanced specs for cloud backends
@@ -41,8 +41,6 @@
 (s/def ::token string?)
 (s/def ::api-key string?)
 
-(s/def ::device-id string?)
-(s/def ::device-name string?)
 (s/def ::device-status #{:online :offline :maintenance :calibrating})
 (s/def ::coupling-map (s/coll-of (s/tuple nat-int? nat-int?)))
 (s/def ::gate-times (s/map-of keyword? pos?))
@@ -77,7 +75,6 @@
           :opt-un [::backend-config ::description ::max-qubits ::device-topology ::cost-per-shot]))
 
 (s/def ::capabilities (s/coll-of keyword?))
-(s/def ::max-qubits pos-int?)
 (s/def ::cost-per-shot number?)
 
 (s/def ::priority #{:low :normal :high})

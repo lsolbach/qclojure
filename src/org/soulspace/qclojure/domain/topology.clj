@@ -699,8 +699,9 @@
     ctx
     ;; Perform topology-aware optimization
     (let [circuit (:circuit ctx)
-          supported-operations (:supported-operations ctx)
-          coupling (:coupling ctx)
+          device (:device ctx)
+          supported-operations (:supported-operations device)
+          coupling (:coupling device)
           options (:options ctx)
 
           ;; First, check what routing operations we can use

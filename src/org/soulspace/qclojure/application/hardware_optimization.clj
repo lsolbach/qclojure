@@ -62,8 +62,8 @@
     Complete optimization result with corrected pipeline"
   [circuit supported-operations & [coupling options]]
   (-> {:circuit circuit
-       :supported-operations supported-operations
-       :coupling coupling
+       :device {:supported-operations supported-operations
+                :coupling coupling}
        :options options}
 
       ;; STEP 1: Gate cancellation optimization (after qubit optimization)

@@ -4,18 +4,20 @@
    This namespace provides functions to manage device configurations,
    validate circuits against device constraints, and handle device-specific
    optimizations."
-  (:require [clojure.set :as set]
-            [org.soulspace.qclojure.domain.qubit-optimization :as qo]
-            [org.soulspace.qclojure.domain.gate-optimization :as go]
-            [org.soulspace.qclojure.domain.circuit :as circuit]
-            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
+  (:require [clojure.set :as set] 
+            [clojure.spec.alpha :as s]
+            [org.soulspace.qclojure.domain.operation-registry :as op-reg]
             [org.soulspace.qclojure.domain.topology :as topo]) 
   )
 
 ;;;
 ;;; Device Specs
 ;;;
+(s/def ::device-id string?)
+(s/def ::device-name string?)
 
+(s/def ::max-qubits pos-int?)
+(s/def ::native-gates ::op-reg/operation-set)
 
 ;;;
 ;;; Device Validation
@@ -34,15 +36,11 @@
    - :unsupported-gates - List of unsupported gate types (if any)
    - :topology-valid? - Boolean indicating if circuit respects topology (if coupling provided)
    - :topology-issues - List of topology issues (if any)"
-  [circuit supported-operations & [coupling]]
-  (let [gate-types (set (map :operation-type (:operations circuit)))
+  [device circuit]
+  (let [supported-operations (:supported-operations device)
+        gate-types (set (map :operation-type (:operations circuit)))
         unsupported-gates (remove #(contains? supported-operations %) gate-types)
-        all-gates-supported? (empty? unsupported-gates)
-        topology-result (if coupling
-                          (topo/validate-topology circuit coupling)
-                          {:topology-valid? true :topology-issues []})]
+        all-gates-supported? (empty? unsupported-gates)]
     {:all-gates-supported? all-gates-supported?
-     :unsupported-gates (vec unsupported-gates)
-     :topology-valid? (:topology-valid? topology-result)
-     :topology-issues (:topology-issues topology-result)}))
+     :unsupported-gates (vec unsupported-gates)}))
 

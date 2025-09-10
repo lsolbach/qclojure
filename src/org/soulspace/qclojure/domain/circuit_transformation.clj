@@ -48,7 +48,8 @@
      ctx
      ;; Perform transformation and return updated context
      (let [circuit (:circuit ctx)
-           supported-operations (:supported-gates ctx)
+           device (:device ctx)
+           supported-operations (:supported-operations device)
            options (:options ctx {})
            max-iterations (get options :max-iterations 100)
            transform-unsupported? (get options :transform-unsupported? true)

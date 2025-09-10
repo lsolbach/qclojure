@@ -1,1 +1,1 @@
-Research the following topic thoroughly using all available resources.
+Research the following topic thoroughly using all available resources. Please define all abbreviations at least once before using it.

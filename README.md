@@ -63,9 +63,15 @@ Additional features, like specific backend implementations or algorithms for spe
 * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) - QClojure Machine Learning (QML) algorithms
 
 ## Usage
-QClojure is a library to be used in programs or interactive within the REPL.
+QClojure is a Clojure library to be used in programs or interactive within the REPL.
 
 To use QClojure, add a dependency to your project definition.
+
+See [![Clojars Project](https://img.shields.io/clojars/v/org.soulspace/qclojure.svg)](https://clojars.org/org.soulspace/qclojure)
+
+### Prerequisites
+As Clojure runs on the Java Virtual Machine, you need a JVM installed.
+While QClojure will run with Java 11, a recent JVM >= 21 is preferred.
 
 ### Simple Plus State Qubit Example
 The plus state is a single qubit state in superposition with equal

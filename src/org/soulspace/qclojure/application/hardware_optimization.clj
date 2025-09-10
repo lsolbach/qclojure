@@ -7,10 +7,32 @@
    quantum circuits are optimized for execution on specific hardware topologies."
   (:require [clojure.set :as set]
             [org.soulspace.qclojure.domain.qubit-optimization :as qo]
-            [org.soulspace.qclojure.domain.gate-optimization :as go] 
+            [org.soulspace.qclojure.domain.gate-optimization :as go]
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.application.topology :as topo]))
+
+(defn validate-result-context
+  "Validate the optimization result context to ensure all gates are supported.
+   
+   Parameters:
+   - ctx: Optimization context containing:
+       :circuit - The optimized circuit
+       :supported-operations - Set of natively supported operations
+   
+   Returns:
+   Updated context with:
+   - :all-gates-supported? - Boolean indicating if all gates are supported
+   - :final-unsupported-gates - List of unsupported gate types (if any)"
+  [ctx]
+  (let [circuit (:circuit ctx)
+        supported-operations (:supported-operations ctx)
+        gate-types (set (map :operation-type (:operations circuit)))
+        unsupported-gates (remove #(contains? supported-operations %) gate-types)]
+    (if (empty? unsupported-gates)
+      (assoc ctx :all-gates-supported? true :final-unsupported-gates [])
+      (assoc ctx :all-gates-supported? false :final-unsupported-gates (vec unsupported-gates)))))
+
 
 ;;;
 ;;; Full Optimization Pipeline
@@ -39,78 +61,32 @@
     Returns:
     Complete optimization result with corrected pipeline"
   [circuit supported-operations & [coupling options]]
+  (-> {:circuit circuit
+       :supported-operations supported-operations
+       :coupling coupling
+       :options options}
 
-  (let [opts (or options {})
-        optimize-gates? (get opts :optimize-gates? true)
-        optimize-qubits? (get opts :optimize-qubits? true)
-        optimize-topology? (and coupling (get opts :optimize-topology? false))
-        transform-operations? (get opts :transform-operations? true)
+      ;; STEP 1: Gate cancellation optimization (after qubit optimization)
+      (go/optimize-gates)
 
-        ;; STEP 1: Gate cancellation optimization (after qubit optimization)
-        gate-optimization-result (if optimize-gates?
-                                   (let [optimized-circuit (go/optimize-gates circuit)
-                                         gates-removed (- (count (:operations circuit))
-                                                          (count (:operations optimized-circuit)))]
-                                     {:circuit optimized-circuit
-                                      :gates-removed gates-removed
-                                      :original-gate-count (count (:operations circuit))
-                                      :optimized-gate-count (count (:operations optimized-circuit))})
-                                   {:circuit circuit
-                                    :gates-removed 0
-                                    :original-gate-count (count (:operations circuit))
-                                    :optimized-gate-count (count (:operations circuit))})
+      ;; STEP 2: Qubit optimization FIRST (before topology constraints)
+      (qo/optimize-qubit-usage)
 
-        step1-circuit (:circuit gate-optimization-result)
-        
-        ;; STEP 2: Qubit optimization FIRST (before topology constraints)
-        qubit-result (if optimize-qubits?
-                       (qo/optimize-qubit-usage step1-circuit)
-                       {:circuit step1-circuit
-                        :qubits-saved 0
-                        :original-qubits (:num-qubits step1-circuit)
-                        :optimized-qubits (:num-qubits step1-circuit)})
+      ;; STEP 3: Topology optimization with decomposition-aware routing
+      (topo/topology-aware-transform)
 
-        step2-circuit (:circuit qubit-result)
+      ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
+      (ct/transform-circuit)
 
-        ;; STEP 3: Topology optimization with decomposition-aware routing
-        topo-result (if optimize-topology?
-                      (topo/topology-aware-transform step2-circuit coupling supported-operations opts)
-                      {:circuit step2-circuit
-                       :swap-count 0
-                       :total-cost 0})
+      ;; STEP 5: Final validation
+      (validate-result-context)
 
-        step3-circuit (:circuit topo-result)
-
-        ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
-        final-transform-result (if transform-operations?
-                                 (ct/transform-circuit step3-circuit supported-operations opts)
-                                 {:circuit step3-circuit
-                                  :transformed-operation-count 0
-                                  :unsupported-operations []})
-
-        final-circuit (:circuit final-transform-result)
-
-        ;; STEP 5: Final validation
-        final-gate-types (map :operation-type (:operations final-circuit))
-        unsupported-final (remove #(contains? supported-operations %) final-gate-types)
-        all-supported? (empty? unsupported-final)]
-
-    ;; Return comprehensive result
-    {:circuit final-circuit
-     :pipeline-order [:gate-cancellation :qubit-optimization :topology-optimization :gate-decomposition :validation]
-     :qubit-optimization-result qubit-result
-     :gate-optimization-result gate-optimization-result
-     :topology-optimization-result topo-result
-     :gate-decomposition-result final-transform-result
-     :all-gates-supported? all-supported?
-     :final-unsupported-gates (vec (distinct unsupported-final))
-     :optimization-summary (str "Circuit optimization:\n"
-                                "- Original qubits: " (:num-qubits circuit) "\n"
-                                "- Final qubits: " (:num-qubits final-circuit) "\n"
-                                "- Original operations: " (count (:operations circuit)) "\n"
-                                "- Final operations: " (count (:operations final-circuit)) "\n"
-                                "- Gates removed by cancellation: " (:gates-removed gate-optimization-result) "\n"
-                                "- All gates supported: " all-supported?)}))
+      (assoc :pipeline-order
+             [:gate-cancellation
+              :qubit-optimization
+              :topology-optimization
+              :gate-decomposition
+              :validation])))
 
 (defn optimization-statistics
   "Analyze original and optimized circuits and provide
@@ -121,27 +97,35 @@
     - optimized-circuit: The circuit after optimization
    
     Returns:
-    Map containing analysis report"
+    Map containing analysis data including qubit/gate counts,
+    circuit depth, and operation type differences."
   [original-circuit optimized-circuit]
-  ; TODO implement/use circuit/statistics
   (let [original-stats (circuit/statistics original-circuit)
         optimized-stats (circuit/statistics optimized-circuit)
 
-        orig-qubits (:num-qubits original-stats)
-        opt-qubits (:num-qubits optimized-stats)
-        qubits-delta (- orig-qubits opt-qubits)
+        orig-qubits (:num-qubits original-stats 0)
+        opt-qubits (:num-qubits optimized-stats 0)
+        qubits-delta (- opt-qubits orig-qubits)
+        qubits-reduction-percent (if (zero? orig-qubits) 0
+                                     (double (* 100 (/ qubits-delta orig-qubits))))
 
-        orig-gates (:operation-count original-stats)
-        opt-gates (:operation-count optimized-stats)
-        gates-delta (- orig-gates opt-gates)
+        orig-gates (:operation-count original-stats 0)
+        opt-gates (:operation-count optimized-stats 0)
+        gates-delta (- opt-gates orig-gates)
+        gates-reduction-percent (if (zero? orig-gates) 0
+                                    (double (* 100 (/ gates-delta orig-gates))))
 
-        orig-swaps (:swap-count original-stats)
-        opt-swaps (:swap-count optimized-stats)
-        swaps-delta (- orig-swaps opt-swaps)
+        orig-swaps (:swap-count original-stats 0)
+        opt-swaps (:swap-count optimized-stats 0)
+        swaps-delta (- opt-swaps orig-swaps)
+        swaps-reduction-percent (if (zero? orig-swaps) 0
+                                    (double (* 100 (/ swaps-delta orig-swaps))))
 
-        orig-circuit-depth (:circuit-depth original-stats)
-        opt-circuit-depth (:circuit-depth optimized-stats)
-        depth-delta (- orig-circuit-depth opt-circuit-depth)
+        orig-circuit-depth (:circuit-depth original-stats 0)
+        opt-circuit-depth (:circuit-depth optimized-stats 0)
+        depth-delta (- opt-circuit-depth orig-circuit-depth)
+        depth-reduction-percent (if (zero? orig-circuit-depth) 0
+                                    (double (* 100 (/ depth-delta orig-circuit-depth))))
 
         orig-circuit-operation-types (set (map :operation-type (:operations original-circuit)))
         opt-circuit-operation-types (set (map :operation-type (:operations optimized-circuit)))
@@ -160,6 +144,10 @@
      :gates-delta gates-delta
      :depth-delta depth-delta
      :swaps-delta swaps-delta
+     :qubits-reduction-percent qubits-reduction-percent
+     :gates-reduction-percent gates-reduction-percent
+     :depth-reduction-percent depth-reduction-percent
+     :swaps-reduction-percent swaps-reduction-percent
      :operation-type-difference operation-type-difference
      ;
      }))
@@ -175,11 +163,22 @@
   (def supported-gates #{:h :x :z :rz :cnot})  ; SWAP is NOT supported
   (def linear-topology [[1] [0 2] [1]])        ; Linear: 0-1-2
 
-  ;; Test the topology-aware transformation
-  (topo/topology-aware-transform test-circuit linear-topology supported-gates {})
-
   ;; Test the corrected pipeline
-  (optimize test-circuit supported-gates linear-topology {:optimize-topology? true})
+  (optimize test-circuit supported-gates linear-topology
+            {:optimize-gates? true
+             :optimize-qubits? true
+             :optimize-topology? true
+             :transform-operations? true
+             :max-iterations 50})
+
+  (optimization-statistics
+   test-circuit
+   (:circuit (optimize test-circuit supported-gates linear-topology
+                       {:optimize-gates? true
+                        :optimize-qubits? true
+                        :optimize-topology? true
+                        :transform-operations? true
+                        :max-iterations 50})))
 
   ;
   )

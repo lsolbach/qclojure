@@ -84,3 +84,32 @@ It contains
 * I/O handling (export/import of QClojure quantum states and circuits)
 * visualization (ASCII, SVG) of quantum states and circuits, results and hardware topologies
 
+
+### Central Concepts
+These concepts are central for QClojure
+
+* Circuit
+  * qubits
+  * operations
+    * gates, measurements
+
+* Result Specs/Result
+  * states
+  * measurment outcomes
+  * probabilities
+  * observables
+  
+* Algorithm
+  * circuit
+  * result specs
+
+* Device
+  * native gates
+  * topology/coupling
+  * noise model/profile
+  * calibration
+
+* Backend
+  * devices
+  * jobs
+

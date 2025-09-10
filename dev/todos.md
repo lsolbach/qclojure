@@ -13,6 +13,7 @@
 * new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all) 
 * check for inconsistant usage of "operation"/"gate"
   * a gate is an operation, so is a measurement
+* unify qubit mapping across optimization stages
 
 ## Backlog
 * consistently handle backend errors in all algorithms
@@ -25,9 +26,6 @@
   * check topology mapping before inserting SWAP gates
   * apply gate optimization and qubit optimization again after gate decomposition
   * check RESET operation usage to minimize ancilla qubits
-  * make optimizations composable by defining a common format for input/output
-    *maybe only the circuit and options :native-gates, :coupling
-    * extraxt all analysis to separate function taking original and optimized circuits
 * use :operation-registry/operation-id instead of ::operation-type in circuit and other namespaces
 * check for missing type hints in calculations to improve simulator performance
 * extract formatting/styling information for SVG to edn

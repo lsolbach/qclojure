@@ -11,7 +11,8 @@
    - Ensure circuit validity after optimization"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [org.soulspace.qclojure.domain.circuit :as circuit]))
 
 ;;
 ;; Qubit Optimization Functions
@@ -139,39 +140,46 @@
   (optimize-qubit-usage circuit)
   ;=> {:circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 5 2}, 
   ;    :qubits-saved 3, :original-qubits 6, :optimized-qubits 3}"
-  [circuit]
-  {:pre [(s/valid? ::qc/circuit circuit)]}
+  [ctx]
+  {:pre [(s/valid? ::qc/circuit (:circuit ctx))]}
+  (if-not (get-in ctx [:options :optimize-qubits?])
+    ; No optimization requested, return original context
+    ctx
+    ; Perform optimization and return updated context
+    (let [circuit (:circuit ctx)
+          usage-analysis (analyze-qubit-usage circuit)
+          used-qubits (:used-qubits usage-analysis)
 
-  (let [usage-analysis (analyze-qubit-usage circuit)
-        used-qubits (:used-qubits usage-analysis)
-        original-qubits (:num-qubits circuit)
+          ;; Create mapping from old qubit IDs to compact new IDs
+          qubit-mapping (create-qubit-mapping used-qubits)
+          optimized-qubits (count used-qubits)
 
-        ;; Create mapping from old qubit IDs to compact new IDs
-        qubit-mapping (create-qubit-mapping used-qubits)
-        optimized-qubits (count used-qubits)
+          ;; Remap all operations to use the new qubit IDs
+          optimized-operations (mapv #(remap-operation-qubits % qubit-mapping)
+                                     (:operations circuit))
 
-        ;; Remap all operations to use the new qubit IDs
-        optimized-operations (mapv #(remap-operation-qubits % qubit-mapping)
-                                   (:operations circuit))
-
-        ;; Create optimized circuit
-        optimized-circuit (assoc circuit
-                                 :num-qubits optimized-qubits
-                                 :operations optimized-operations)
-        qubits-saved (- original-qubits optimized-qubits)]
-    (if (qc/empty-circuit? optimized-circuit)
-      (throw (ex-info "Optimization resulted in an empty circuit"
-                      {:original-circuit circuit
-                       :optimized-circuit optimized-circuit}))
-      {:circuit optimized-circuit
-       :qubit-mapping qubit-mapping
-       :qubits-saved qubits-saved
-       :original-qubits original-qubits
-       :optimized-qubits optimized-qubits})))
+          ;; Create optimized circuit
+          optimized-circuit (assoc circuit
+                                   :num-qubits optimized-qubits
+                                   :operations optimized-operations)]
+      (if (qc/empty-circuit? optimized-circuit)
+        (throw (ex-info "Optimization resulted in an empty circuit"
+                        {:original-circuit circuit
+                         :optimized-circuit optimized-circuit}))
+        (assoc ctx :circuit optimized-circuit :qubit-mapping qubit-mapping)))))
 
 (comment
-  ;; Empty circuit, qubit will get optimized away and the circuit is invalid
+  ;; Empty circuit, but no optimization requested, should return original circuit
   (optimize-qubit-usage
-   (qc/create-circuit 1))
+   {:circuit (qc/create-circuit 1)})
+
+  ;; Empty circuit, qubit will get optimized away and the circuit is invalid
+  (try (optimize-qubit-usage
+        {:circuit (qc/create-circuit 1)
+         :options {:optimize-qubits? true}})
+       (catch Exception e
+         (println "Caught exception:" (.getMessage e))
+         (println "Data" (ex-data e))))
+
   ;
   )

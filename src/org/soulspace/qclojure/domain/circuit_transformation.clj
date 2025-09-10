@@ -40,35 +40,40 @@
   Example:
   (transform-circuit my-circuit #{:h :x :cnot} {:max-iterations 50})
   ;=> {:circuit <transformed-circuit>, :transformed-operation-count 3, :unsupported-operations []}"
-  ([circuit supported-operations]
-   (transform-circuit circuit supported-operations {}))
+  ([ctx]
+   {:pre [(s/valid? ::qc/circuit (:circuit ctx))]}
 
-  ([circuit supported-operations options]
-   {:pre [(s/valid? ::qc/circuit circuit)]}
+   (if-not (get-in ctx [:options :transform-operations?])
+     ;; No transformation requested, return original context
+     ctx
+     ;; Perform transformation and return updated context
+     (let [circuit (:circuit ctx)
+           supported-operations (:supported-gates ctx)
+           options (:options ctx {})
+           max-iterations (get options :max-iterations 100)
+           transform-unsupported? (get options :transform-unsupported? true)
 
-   (let [max-iterations (get options :max-iterations 100)
-         transform-unsupported? (get options :transform-unsupported? true)
+           original-operations (:operations circuit)
+           original-operation-count (count original-operations)
 
-         original-operations (:operations circuit)
-         original-operation-count (count original-operations)
+           ;; Apply transformation
+           transformed-operations (if transform-unsupported?
+                                    (gd/transform-operations original-operations supported-operations max-iterations)
+                                    original-operations)
 
-         ;; Apply transformation
-         transformed-operations (if transform-unsupported?
-                                  (gd/transform-operations original-operations supported-operations max-iterations)
-                                  original-operations)
+           ;; Create new circuit with transformed operations
+           transformed-circuit (assoc circuit :operations transformed-operations)
 
-         ;; Create new circuit with transformed operations
-         transformed-circuit (assoc circuit :operations transformed-operations)
+           ;; Calculate stats for return value
+           new-types (frequencies (map :operation-type transformed-operations))
+           remaining-unsupported (into []
+                                       (filter #(not (contains? supported-operations %))
+                                               (keys new-types)))]
 
-         ;; Calculate stats for return value
-         new-types (frequencies (map :operation-type transformed-operations))
-         remaining-unsupported (into []
-                                     (filter #(not (contains? supported-operations %))
-                                             (keys new-types)))]
-
-     {:circuit transformed-circuit
-      :transformed-operation-count (- (count transformed-operations) original-operation-count)
-      :unsupported-operations remaining-unsupported})))
+       (assoc ctx
+              :circuit transformed-circuit
+              :transformed-operation-count (- (count transformed-operations) original-operation-count)
+              :unsupported-operations remaining-unsupported)))))
 
 (comment
   ;; Example usage of circuit transformation
@@ -82,7 +87,10 @@
 
   ;; Transform for a backend that only supports H, X, Z, and CNOT
   (def backend-gates #{:h :x :z :cnot})
-  (def result (transform-circuit test-circuit backend-gates))
+  (def result (transform-circuit {:circuit test-circuit 
+                                  :supported-gates backend-gates
+                                  :options {:transform-operations? true
+                                            :max-iterations 50}}))
 
   (println "Original operations:" (count (:operations test-circuit)))
   (println "Transformed operations:" (count (:operations (:circuit result))))

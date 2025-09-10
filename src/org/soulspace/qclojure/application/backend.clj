@@ -7,11 +7,11 @@
   different quantum computing providers and simulators."
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.result :as result]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]))
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.application.hardware-optimization :as hw-opt]
+            [org.soulspace.qclojure.domain.operation-registry :as op-reg]))
 
 ;;;
 ;;; Specs for backend protocol
@@ -25,10 +25,10 @@
 (s/def ::backend-config map?)
 (s/def ::job-id string?)
 (s/def ::job-status #{:queued :running :completed :failed :cancelled})
-(s/def ::initial-state (s/nilable ::qs/state))
+(s/def ::initial-state (s/nilable ::state/state))
 (s/def ::shots pos-int?)
 (s/def ::measurement-results (s/map-of string? nat-int?))
-(s/def ::supported-gates ::gr/operation-set)
+(s/def ::supported-gates ::op-reg/operation-set)
 
 ;;
 ;; Enhanced specs for cloud backends
@@ -239,7 +239,7 @@
    (execute-circuit backend circuit {:shots 512}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
-          (s/valid? ::qc/circuit circuit)
+          (s/valid? ::circuit/circuit circuit)
           (s/valid? ::execution-options options)]}
 
    (if-not (is-available? backend)
@@ -283,7 +283,7 @@
    (execute-circuit-async backend circuit {:shots 1024}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
-          (s/valid? ::qc/circuit circuit)
+          (s/valid? ::circuit/circuit circuit)
           (s/valid? ::execution-options options)]}
 
    (submit-circuit backend circuit options)))
@@ -421,7 +421,7 @@
   Returns: Device ID of the best matching device, or nil if none suitable"
   [backend circuit & [options]]
   {:pre [(cloud-backend? backend)
-         (s/valid? ::qc/circuit circuit)]}
+         (s/valid? ::circuit/circuit circuit)]}
   (let [opts (merge {:prefer-online true} options)
         devices (list-available-devices backend)
         circuit-qubits (:num-qubits circuit)
@@ -571,25 +571,6 @@
   (let [compatible-backends (filter-backends-by-gate-support backends required-gates)]
     (when (seq compatible-backends)
       (apply min-key #(count (get-supported-gates %)) compatible-backends))))
-
-;; Circuit transformation for backend compatibility
-(defn transform-circuit-for-backend
-  "Transform a quantum circuit to use only gates supported by a given backend.
-   
-   Parameters:
-   - circuit: Quantum circuit to transform
-   - backend: Target backend for the transformation
-   - options: Optional map with transformation options:
-      :max-iterations - Maximum number of decomposition iterations (default: 100)
-      :transform-unsupported? - Whether to transform unsupported gates (default: true)
-   
-   Returns:
-   A map containing:
-   - :circuit - The transformed circuit
-   - :transformed-operation-count - Count of gates that were transformed
-   - :unsupported-gates - List of gate types that couldn't be transformed"
-  [circuit backend & [options]]
-  (ct/transform-circuit circuit (get-supported-gates backend) options))
 
 ;; Predefined quantum devices
 (def devices
@@ -931,10 +912,10 @@
 (s/fdef get-unsupported-operations
   :args (s/cat :backend #(satisfies? QuantumBackend %)
                :operations (s/coll-of keyword?))
-  :ret ::gr/operation-set)
+  :ret ::op-reg/operation-set)
 
 (s/fdef transform-circuit-for-backend
-  :args (s/cat :circuit ::qc/circuit
+  :args (s/cat :circuit ::circuit/circuit
                :backend #(satisfies? QuantumBackend %)
                :options (s/? map?))
   :ret map?)

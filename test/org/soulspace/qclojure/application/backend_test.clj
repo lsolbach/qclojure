@@ -110,38 +110,6 @@
                         :backend-name "Test"}]
       (is (not (s/valid? ::qb/backend-info invalid-info))))))
 
-(deftest test-circuit-transformer-integration
-  (testing "Integration with circuit transformer"
-    ;; Create a mock backend with limited gate support instead of using simulator
-    (let [mock-backend (reify qb/QuantumBackend
-                         (get-supported-gates [_] #{:x :h :cnot :rz})
-                         (get-backend-info [_]
-                           {:backend-type :simulator
-                            :backend-name "Mock Backend"
-                            :capabilities {:max-qubits 5}
-                            :supported-gates #{:x :h :cnot :rz}})
-                         (is-available? [_] true)
-                         (submit-circuit [_ _ _] "mock-job-id")
-                         (get-job-status [_ _] :completed)
-                         (get-job-result [_ _] {})
-                         (cancel-job [_ _] true)
-                         (get-queue-status [_] {}))
-
-          ;; Create a circuit with gates not directly supported
-          circuit (-> (qc/create-circuit 2 "Test Circuit")
-                      (qc/h-gate 0)
-                      (qc/y-gate 1)  ; Y gate decomposition needed
-                      (qc/s-gate 0)  ; S gate decomposition needed
-                      (qc/cnot-gate 0 1))
-
-          ;; Transform the circuit
-          result (qb/transform-circuit-for-backend circuit mock-backend)]
-
-      ;; Verify transformation was successful
-      (is (:circuit result))
-      (is (pos? (:transformed-operation-count result)))
-      (is (empty? (:unsupported-operations result))))))
-
 (comment
   ;; REPL examples for testing
   (run-tests)

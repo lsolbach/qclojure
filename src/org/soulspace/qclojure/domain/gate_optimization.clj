@@ -15,7 +15,8 @@
   changing the quantum computation."
   (:require [clojure.spec.alpha :as s]
             [clojure.set :as set]
-            [org.soulspace.qclojure.domain.circuit :as qc]))
+            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.domain.circuit :as circuit]))
 
 ;; TODO rotation gates with a combined rotation of multiples of 2 * PI
 
@@ -329,38 +330,49 @@
   - Resource requirements for simulation
   
   Parameters:
-  - circuit: Quantum circuit to optimize
-  
+  - ctx: Map containing:
+      :circuit - Quantum circuit to optimize
+      :options - Map with optimization options, including:
+          :optimize-gates? - Boolean to enable/disable gate optimization (default: true)  
+
   Returns:
-  Optimized quantum circuit with redundant gates removed
-  
+  Updated context map with optimized circuit under :circuit key
+
   Example:
-  (optimize-gates
-    {:operations [{:operation-type :h, :operation-params {:target 0}}
-                  {:operation-type :h, :operation-params {:target 0}}
-                  {:operation-type :x, :operation-params {:target 1}}
-                  {:operation-type :x, :operation-params {:target 1}}]
-     :num-qubits 2})
-  ;=> {:operations [], :num-qubits 2}  ; All gates cancelled"
-  [circuit]
-  {:pre [(s/valid? ::qc/circuit circuit)]}
-  (let [optimized-circuit (loop [current-circuit circuit
-                                 iteration 0]
-                            (let [operations (:operations current-circuit)
-                                  pairs (find-cancellation-pairs operations)]
-                              (if (empty? pairs)
-                                current-circuit  ; No more optimizations possible
-                                (let [optimized-ops (remove-cancellation-pairs operations pairs)
-                                      optimized-circuit (assoc current-circuit :operations optimized-ops)]
-                                  (recur optimized-circuit (inc iteration))))))]
-    (if (qc/empty-circuit? optimized-circuit)
-      (throw (ex-info "Optimization resulted in an empty circuit"
-                      {:circuit circuit
-                       :optimized optimized-circuit}))
-      optimized-circuit)))
+  (optimize-gates {:circuit my-circuit, :options {:optimize-gates? true}})
+  ;=> {:circuit <optimized-circuit>, :options {...}}"
+  [ctx]
+  {:pre [(s/valid? ::qc/circuit (:circuit ctx))]}
+  (if-not (get-in ctx [:options :optimize-gates?])
+    ; No optimization requested, return original context
+    ctx
+    ; Perform optimization and return updated context
+    (let [circuit (:circuit ctx)
+          optimized-circuit (loop [current-circuit circuit
+                                   iteration 0]
+                              (let [operations (:operations current-circuit)
+                                    _ (println operations)
+                                    pairs (find-cancellation-pairs operations)
+                                    _ (println "Iteration" iteration ": Found" (count pairs) "cancellation pairs")
+                                    _ (println pairs)]
+                                (if (empty? pairs)
+                                  (do
+                                    (println current-circuit)
+                                    current-circuit  ; No more optimizations possible
+                                   ;
+                                   )
+                                  (let [optimized-ops (remove-cancellation-pairs operations pairs)
+                                        optimized-circuit (assoc current-circuit :operations optimized-ops)]
+                                    (recur optimized-circuit (inc iteration))))))
+          _ (println optimized-circuit)]
+      (if (qc/empty-circuit? optimized-circuit)
+        (throw (ex-info "Optimization resulted in an empty circuit"
+                        {:circuit circuit
+                         :optimized optimized-circuit}))
+        (assoc ctx :circuit optimized-circuit)))))
+
 
 (comment
-
   ;; Example 1: Hadamard gate cancellation
   ;; H-H gates cancel because H² = I
   (def hadamard-test-circuit
@@ -368,12 +380,13 @@
         (qc/h-gate 0)
         (qc/h-gate 0)))
 
-  (def optimized-hadamard
-    (optimize-gates hadamard-test-circuit))
-
-  ;; Should result in empty circuit
-  (:operations optimized-hadamard)
-  ;=> []
+  ;; Should result in exception because circuit becomes empty
+  (try
+    (optimize-gates {:circuit hadamard-test-circuit
+                     :options {:optimize-gates? true}})
+    (catch Exception e
+      (println "Caught exception:" (.getMessage e))
+      (println "Data:" (ex-data e))))
 
   ;; Example 2: Circuit with multiple consecutive gate cancellations
   (def circuit-with-multiple-cancellations
@@ -386,7 +399,10 @@
         (qc/z-gate 0)      ; Z on qubit 0 - remains
         (qc/y-gate 2)))    ; Y on qubit 2 - cancels with first Y
 
-  (def optimized-multiple (optimize-gates circuit-with-multiple-cancellations))
+  ; Check optimization, should leave only Z gate on qubit 0
+  (def optimized-multiple
+    (:circuit (optimize-gates {:circuit circuit-with-multiple-cancellations
+                               :options {:optimize-gates? true}})))
   (println "Original operations:" (count (:operations circuit-with-multiple-cancellations)))
   (println "Optimized operations:" (count (:operations optimized-multiple)))
   (println "Final operations:" (:operations optimized-multiple))
@@ -400,12 +416,14 @@
         (qc/h-gate 0)      ; H on qubit 0 - cancels with first H
         (qc/x-gate 1)))    ; X on qubit 1 - cancels with first X
 
-  (def optimized-qubit-wise (optimize-gates circuit-with-qubit-wise-consecutive-gates))
-  (println "Original operations:" (count (:operations circuit-with-qubit-wise-consecutive-gates)))
-  (println "Optimized operations:" (count (:operations optimized-qubit-wise)))
-  (println "Final operations:" (:operations optimized-qubit-wise))
   ;; Expected: All gates cancelled because H gates on qubit 0 are consecutive 
   ;; and X gates on qubit 1 are consecutive (gates on different qubits can be reordered)
+  (try (def optimized-qubit-wise
+         (:circuit (optimize-gates {:circuit circuit-with-qubit-wise-consecutive-gates
+                                    :options {:optimize-gates? true}})))
+       (catch Exception e
+         (println "Caught exception:" (.getMessage e))
+         (println "Data:" (ex-data e))))
 
   ;; Example 4: Pauli gate cancellations with qubit-wise consecutive gates
   (def pauli-circuit
@@ -417,7 +435,8 @@
         (qc/y-gate 1)))    ; Y gate on qubit 1 - cancels with first Y
 
   (def optimized-pauli
-    (optimize-gates pauli-circuit))
+    (:circuit (optimize-gates {:circuit pauli-circuit
+                               :options {:optimize-gates? true}})))
 
   ;; Should have only Z gate remaining
   (:operations optimized-pauli)
@@ -429,7 +448,9 @@
   ;; Example 5: Complex circuit with Bell state preparation 
   ;; This should NOT be optimized away
   (def bell-circuit (qc/bell-state-circuit))
-  (def optimized-bell (optimize-gates bell-circuit))
+  (def optimized-bell
+    (:circuit (optimize-gates {:circuit bell-circuit
+                               :options {:optimize-gates? true}})))
 
   ;; Bell circuit should remain unchanged (H + CNOT are not self-canceling)
   (:operations optimized-bell)
@@ -466,7 +487,9 @@
                   {:operation-type :x :operation-params {:target 0}}  ; Interferes with H gates
                   {:operation-type :h :operation-params {:target 0}}]})
 
-  (def optimized-no-cancel (optimize-gates no-cancel-circuit))
+  (def optimized-no-cancel
+    (:circuit (optimize-gates {:circuit no-cancel-circuit
+                               :options {:optimize-gates? true}})))
   (:operations optimized-no-cancel)
   ;=> All 3 gates remain - H gates cannot cancel because X gate interferes
 
@@ -478,9 +501,12 @@
                                (qc/x-gate 0)
                                (qc/x-gate 0)))
 
-  (def optimized-consecutive (optimize-gates consecutive-circuit))
-  (:operations optimized-consecutive)
-  ;=> [] (empty - all gates cancelled)
+  (try
+    (:circuit (optimize-gates {:circuit consecutive-circuit
+                               :options {:optimize-gates? true}}))
+    (catch Exception e
+      (println "Caught exception:" (.getMessage e))
+      (println "Data:" (ex-data e))))
 
   ;; This will NOT be optimized (non-consecutive H gates)
   (def non-consecutive-circuit (-> (qc/create-circuit 1)
@@ -488,8 +514,10 @@
                                    (qc/x-gate 0)
                                    (qc/h-gate 0)
                                    (qc/x-gate 0)))
-
-  (def optimized-non-consecutive (optimize-gates non-consecutive-circuit))
+  
+  (def optimized-non-consecutive
+    (:circuit (optimize-gates {:circuit non-consecutive-circuit
+                               :options {:optimize-gates? true}})))
   (:operations optimized-non-consecutive)
   ;=> [{:operation-type :h, ...} {:operation-type :x, ...} 
   ;    {:operation-type :h, ...} {:operation-type :x, ...}] (unchanged)

@@ -15,7 +15,8 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-composition :as cc]))
+            [org.soulspace.qclojure.domain.circuit-composition :as cc]
+            [org.soulspace.qclojure.domain.gate-optimization :as opt]))
 
 ;;;
 ;;; Hardware Topology Creation Functions
@@ -692,30 +693,43 @@
 
 (defn topology-aware-transform
   "Transform circuit for topology while being aware of supported gates."
-  [circuit coupling supported-operations options]
+  [ctx]
+  (if-not (get-in ctx [:options :optimize-topology?])
+    ;; No optimization requested, return original context
+    ctx
+    ;; Perform topology-aware optimization
+    (let [circuit (:circuit ctx)
+          supported-operations (:supported-operations ctx)
+          coupling (:coupling ctx)
+          options (:options ctx)
 
-  ;; First, check what routing operations we can use
-  (let [has-native-swap? (contains? supported-operations :swap)
-        routing-strategy (if has-native-swap? :native-swap :cnot-swap)]
+          ;; First, check what routing operations we can use
+          has-native-swap? (contains? supported-operations :swap)
+          routing-strategy (if has-native-swap? :native-swap :cnot-swap)]
 
-    (println (str "Routing strategy: " routing-strategy))
+      (println (str "Routing strategy: " routing-strategy))
 
-    ;; Apply topology optimization
-    (let [topo-result (optimize-for-coupling circuit coupling options)
-          operations-with-swaps (:operations (:circuit topo-result))]
+      ;; Apply topology optimization
+      (let [topo-result (optimize-for-coupling circuit coupling options)
+            operations-with-swaps (:operations (:circuit topo-result))]
 
-      ;; Decompose any SWAPs if they're not native
-      (if has-native-swap?
-        topo-result  ; No decomposition needed
-        ;; Decompose all SWAP operations
-        (let [decomposed-ops (mapcat (fn [op]
-                                       (if (= (:operation-type op) :swap)
-                                         (gd/decompose-swap-if-needed op supported-operations)
-                                         [op]))
-                                     operations-with-swaps)
-              updated-circuit (assoc (:circuit topo-result)
-                                     :operations (vec decomposed-ops))]
-          (assoc topo-result :circuit updated-circuit))))))
+        ;; Decompose any SWAPs if they're not native
+        (if has-native-swap?
+          topo-result  ; No decomposition needed
+          ;; Decompose all SWAP operations
+          (let [decomposed-ops (mapcat (fn [op]
+                                         (if (= (:operation-type op) :swap)
+                                           (gd/decompose-swap-if-needed op supported-operations)
+                                           [op]))
+                                       operations-with-swaps)
+                updated-circuit (assoc (:circuit topo-result)
+                                       :operations (vec decomposed-ops))]
+            (assoc ctx
+                   :circuit updated-circuit
+                   :logical-to-physical (:logical-to-physical topo-result)
+                   :physical-to-logical (:physical-to-logical topo-result)
+                   :swap-count (:swap-count topo-result)
+                   :total-cost (:total-cost topo-result))))))))
 
 (comment
   ;; Example usage of topology optimization with the new clean API
@@ -787,7 +801,10 @@
   (def linear-coupling [[1] [0 2] [1]])        ; Linear: 0-1-2
 
   ;; Test the topology-aware transformation
-  (topology-aware-transform test-circuit linear-coupling supported-gates {})
+  (topology-aware-transform {:circuit test-circuit 
+                             :coupling linear-coupling
+                             :supported-gates supported-gates
+                             :options {:optimize-topology? true}})
 
 
   ;; Test Heavy-Hex topology (IBM-style)

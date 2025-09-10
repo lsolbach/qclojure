@@ -4,7 +4,7 @@
            [clojure.spec.alpha :as s]
            [clojure.string :as str]
            [org.soulspace.qclojure.domain.circuit :as qc]
-           [org.soulspace.qclojure.application.topology :as topo]))
+           [org.soulspace.qclojure.domain.topology :as topo]))
 
 ;;;
 ;;; Helper functions for testing

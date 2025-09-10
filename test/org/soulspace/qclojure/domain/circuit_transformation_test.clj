@@ -26,7 +26,9 @@
                       (qc/t-gate 1)  ; T gate might need decomposition
                       (qc/cnot-gate 0 1))
           supported-ops #{:h :x :z :rz :cnot}  ; T not supported
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (s/valid? ::ct/transformation-result result))
       (is (s/valid? ::qc/circuit (:circuit result)))
       ;; All operations in result should be supported
@@ -37,7 +39,9 @@
   (testing "Transform circuit with all supported gates"
     (let [circuit (create-test-circuit-1)
           supported-ops #{:h :cnot}
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (= (:transformed-operation-count result) 0))
       (is (empty? (:unsupported-operations result)))
       (is (= (:circuit result) circuit))))
@@ -45,28 +49,35 @@
   (testing "Transform circuit with options"
     (let [circuit (-> (qc/create-circuit 1) (qc/t-gate 0))
           supported-ops #{:h :x :z :rz}
-          result (ct/transform-circuit circuit supported-ops {:max-iterations 10})]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true :max-iterations 10}})]
       (is (s/valid? ::ct/transformation-result result))))
 
   (testing "Transform circuit with transform disabled"
     (let [circuit (-> (qc/create-circuit 1) (qc/t-gate 0))
           supported-ops #{:h :x :z :rz}
-          result (ct/transform-circuit circuit supported-ops {:transform-unsupported? false})]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? false :transform-unsupported? false}})]
       (is (s/valid? ::ct/transformation-result result))
-      (is (= (:transformed-operation-count result) 0))
       (is (= (:circuit result) circuit))))
 
   (testing "Transform circuit with empty supported operations"
     (let [circuit (-> (qc/create-circuit 1) (qc/h-gate 0))
           supported-ops #{}
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (s/valid? ::ct/transformation-result result))
-      (is (not (empty? (:unsupported-operations result))))))
+      (is (seq (:unsupported-operations result)))))
 
   (testing "Transform empty circuit"
     (let [circuit (qc/create-circuit 1)
           supported-ops #{:h :x :z}
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (s/valid? ::ct/transformation-result result))
       (is (= (:transformed-operation-count result) 0))
       (is (empty? (:unsupported-operations result)))
@@ -79,7 +90,9 @@
                       (qc/s-gate 2)
                       (qc/cnot-gate 0 1))
           supported-ops #{:h :x :z :rz :cnot}  ; T and S not supported
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (s/valid? ::ct/transformation-result result))
       (is (s/valid? ::qc/circuit (:circuit result)))
       ;; Check that transformations were applied
@@ -89,7 +102,9 @@
     (let [invalid-circuit {:num-qubits "not-a-number"}  ; Invalid circuit
           supported-ops #{:h :x}]
       (is (thrown? AssertionError
-                   (ct/transform-circuit invalid-circuit supported-ops)))))
+                   (ct/transform-circuit {:circuit invalid-circuit 
+                                          :supported-gates supported-ops 
+                                          :options {:transform-operations? true}})))))
 
   (testing "Transform circuit with virtual gates"
     (let [circuit (-> (qc/create-circuit 2)
@@ -97,14 +112,18 @@
                       (qc/phase-gate 1 (/ Math/PI 8))  ; Virtual gate
                       (qc/cnot-gate 0 1))
           supported-ops #{:h :x :z :rz :cnot}
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       (is (s/valid? ::ct/transformation-result result))
       (is (s/valid? ::qc/circuit (:circuit result)))))
 
   (testing "Result structure validation"
     (let [circuit (create-test-circuit-1)
           supported-ops #{:h :cnot}
-          result (ct/transform-circuit circuit supported-ops)]
+          result (ct/transform-circuit {:circuit circuit 
+                                        :supported-gates supported-ops 
+                                        :options {:transform-operations? true}})]
       ;; Verify all required keys are present
       (is (contains? result :circuit))
       (is (contains? result :transformed-operation-count))

@@ -1,5 +1,5 @@
 (ns org.soulspace.qclojure.domain.gate-optimization-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing run-tests]]
             [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-optimization :as opt]
             [org.soulspace.qclojure.domain.qubit-optimization :as qo]
@@ -95,18 +95,20 @@
 
 (deftest test-optimize-gates
   (testing "Empty circuit throws exception"
-    (let [empty-circuit (qc/create-circuit 2)]
+    (let [empty-circuit (qc/create-circuit 2)
+          ctx {:circuit empty-circuit :options {:optimize-gates? true}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates empty-circuit)))))
+                            (opt/optimize-gates ctx)))))
 
   (testing "Simple H-H cancellation throws exception"
     (let [circuit (-> (qc/create-circuit 1)
                       (qc/h-gate 0)
-                      (qc/h-gate 0))]
+                      (qc/h-gate 0))
+          ctx {:circuit circuit :options {:optimize-gates? true}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit)))))
+                            (opt/optimize-gates ctx)))))
 
   (testing "Multiple gate cancellations throw exception"
     (let [circuit (-> (qc/create-circuit 3)
@@ -115,10 +117,11 @@
                       (qc/x-gate 1)
                       (qc/x-gate 1)
                       (qc/y-gate 2)
-                      (qc/y-gate 2))]
+                      (qc/y-gate 2))
+          ctx {:circuit circuit :options {:optimize-gates? true}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit)))))
+                            (opt/optimize-gates ctx)))))
 
   (testing "Partial cancellation"
     (let [circuit (-> (qc/create-circuit 2)
@@ -127,7 +130,9 @@
                       (qc/x-gate 1)
                       (qc/y-gate 1)
                       (qc/y-gate 1))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 1 (count (:operations optimized))))
       (is (= :x (get-in optimized [:operations 0 :operation-type])))))
 
@@ -135,7 +140,9 @@
     (let [circuit (-> (qc/create-circuit 2)
                       (qc/h-gate 0)
                       (qc/cnot-gate 0 1))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 2 (count (:operations optimized))))
       (is (= :h (get-in optimized [:operations 0 :operation-type])))
       (is (= :cnot (get-in optimized [:operations 1 :operation-type])))))
@@ -145,7 +152,9 @@
                       (qc/h-gate 0)
                       (qc/x-gate 1)
                       (qc/y-gate 2))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 3 (count (:operations optimized))))))
 
   (testing "Iterative optimization throws exception"
@@ -154,10 +163,11 @@
                       (qc/h-gate 0)
                       (qc/h-gate 0)
                       (qc/x-gate 0)
-                      (qc/x-gate 0))]
+                      (qc/x-gate 0))
+          ctx {:circuit circuit :options {:optimize-gates? true}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))))))
+                            (opt/optimize-gates ctx))))))
 
 (deftest test-self-inverse-gates-set
   (testing "Known self-inverse gates are in set"
@@ -179,7 +189,9 @@
                       (qc/h-gate 0)
                       (qc/h-gate 0)
                       (qc/x-gate 1))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 2 (:num-qubits optimized)))
       (is (= 1 (count (:operations optimized))))
       (is (= :x (get-in optimized [:operations 0 :operation-type])))
@@ -196,10 +208,11 @@
                       (qc/x-gate 0)  ; These two X gates cancel
                       (qc/x-gate 0)
                       (qc/x-gate 1)  ; These two X gates cancel
-                      (qc/x-gate 1))]
+                      (qc/x-gate 1))
+          ctx {:circuit circuit :options {:optimize-gates? true}}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates ctx))
           "Complete cancellation should result in empty circuit exception"))))
 
 ;; Additional test cases for comprehensive coverage
@@ -210,7 +223,9 @@
                       (qc/h-gate 0)
                       (qc/cnot-gate 0 1)  ; CNOT shares qubit 0 with H gates
                       (qc/h-gate 0))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 3 (count (:operations optimized)))
           "H gates must not cancel across CNOT because they don't commute")
       (is (= :h (get-in optimized [:operations 0 :operation-type])))
@@ -222,7 +237,9 @@
                       (qc/x-gate 0)
                       (qc/cnot-gate 0 1)  ; Shares qubit 0
                       (qc/x-gate 0))
-          optimized (opt/optimize-gates circuit)]
+          ctx {:circuit circuit :options {:optimize-gates? true}}
+          result (opt/optimize-gates ctx)
+          optimized (:circuit result)]
       (is (= 3 (count (:operations optimized)))
           "X gates must not cancel across CNOT sharing the same qubit")))
 
@@ -231,7 +248,7 @@
                    :operations [{:operation-type :cz :operation-params {:control 0 :target 1}}
                                 {:operation-type :swap :operation-params {:qubit1 0 :qubit2 1}}
                                 {:operation-type :cz :operation-params {:control 0 :target 1}}]}
-          optimized (opt/optimize-gates circuit)]
+          optimized (:circuit (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))]
       (is (= 3 (count (:operations optimized)))
           "CZ gates must not cancel across SWAP that shares both qubits")))
 
@@ -241,7 +258,7 @@
                       (qc/x-gate 1)     ; Different qubit, should not interfere
                       (qc/y-gate 2)     ; Different qubit, should not interfere
                       (qc/h-gate 0))    ; Should cancel with first H
-          optimized (opt/optimize-gates circuit)]
+          optimized (:circuit (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))]
       (is (= 2 (count (:operations optimized)))
           "H gates should cancel when intervening gates are on different qubits")
       (is (= :x (get-in optimized [:operations 0 :operation-type])))
@@ -254,7 +271,7 @@
                                 {:operation-type :toffoli :operation-params {:control1 0 :control2 1 :target 2}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Adjacent Toffoli gates should cancel and result in empty circuit exception")))
 
   (testing "CCX (alias for Toffoli) gates should cancel and throw exception"
@@ -263,7 +280,7 @@
                                 {:operation-type :ccx :operation-params {:control1 0 :control2 1 :target 2}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Adjacent CCX gates should cancel and result in empty circuit exception")))
 
   (testing "Fredkin gates should cancel and throw exception"
@@ -272,7 +289,7 @@
                                 {:operation-type :fredkin :operation-params {:control 0 :target1 1 :target2 2}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Adjacent Fredkin gates should cancel and result in empty circuit exception")))
 
   (testing "CSWAP (alias for Fredkin) gates should cancel and throw exception"
@@ -281,7 +298,7 @@
                                 {:operation-type :cswap :operation-params {:control 0 :target1 1 :target2 2}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Adjacent CSWAP gates should cancel and result in empty circuit exception")))
 
   (testing "Three-qubit gates should NOT cancel across interfering gates"
@@ -289,7 +306,7 @@
                    :operations [{:operation-type :toffoli :operation-params {:control1 0 :control2 1 :target 2}}
                                 {:operation-type :x :operation-params {:target 0}}
                                 {:operation-type :toffoli :operation-params {:control1 0 :control2 1 :target 2}}]}
-          optimized (opt/optimize-gates circuit)]
+          optimized (:circuit (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))]
       (is (= 3 (count (:operations optimized)))
           "Toffoli gates should NOT cancel when X gate shares a qubit (0)"))))
 
@@ -300,7 +317,7 @@
                                 {:operation-type :swap :operation-params {:qubit1 1 :qubit2 0}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "SWAP(0,1) and SWAP(1,0) should cancel due to symmetry and result in empty circuit exception")))
 
   (testing "Multiple SWAP gates with mixed order"
@@ -311,7 +328,7 @@
                                 {:operation-type :swap :operation-params {:qubit1 1 :qubit2 0}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Multiple SWAP gates in different orders should cancel out completely"))))
 
 (deftest test-extended-self-inverse-gates
@@ -327,15 +344,15 @@
                                    {:operation-type :cz :operation-params {:control 0 :target 1}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates cx-circuit))
+                            (opt/optimize-gates {:circuit cx-circuit :options {:optimize-gates? true}}))
           "CX gates should cancel and result in empty circuit exception")
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates cy-circuit))
+                            (opt/optimize-gates {:circuit cy-circuit :options {:optimize-gates? true}}))
           "CY gates should cancel and result in empty circuit exception")
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates cz-circuit))
+                            (opt/optimize-gates {:circuit cz-circuit :options {:optimize-gates? true}}))
           "CZ gates should cancel and result in empty circuit exception")))
 
   (testing "SWAP gates should cancel and throw exception"
@@ -344,7 +361,7 @@
                                 {:operation-type :swap :operation-params {:qubit1 0 :qubit2 1}}]}]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates circuit))
+                            (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))
           "Adjacent SWAP gates should cancel and result in empty circuit exception")))
 
   (testing "All self-inverse gates are properly detected"
@@ -371,12 +388,15 @@
                       (qc/x-gate 2)  ; This will remain, using only qubit 2
                       (qc/y-gate 2))  ; Different gate type, won't cancel
           ;; First gate optimization should leave only X and Y on qubit 2
-          gate-optimized (opt/optimize-gates circuit)]
+          gate-optimized (:circuit (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))]
       (is (= 2 (count (:operations gate-optimized))))
       ;; Then qubit optimization should compact from 3 qubits to 1 qubit
-      (let [qubit-result (qo/optimize-qubit-usage gate-optimized)]
-        (is (= 1 (:optimized-qubits qubit-result)))
-        (is (= 2 (:qubits-saved qubit-result))))))
+      (let [qubit-result (qo/optimize-qubit-usage {:circuit gate-optimized :options {:optimize-qubits? true}})
+            optimized-qubits (:num-qubits (:circuit qubit-result))
+            original-qubits (:num-qubits gate-optimized)
+            qubits-saved (- original-qubits optimized-qubits)]
+        (is (= 1 optimized-qubits))
+        (is (= 2 qubits-saved)))))
 
   (testing "Circuit that survives gate optimization but would fail qubit optimization"
     ;; Create a circuit where gates don't all cancel but no qubits are actually used
@@ -385,12 +405,15 @@
                       (qc/h-gate 0)
                       (qc/x-gate 1))
           ;; Gate optimization should preserve the circuit
-          gate-optimized (opt/optimize-gates circuit)]
+          gate-optimized (:circuit (opt/optimize-gates {:circuit circuit :options {:optimize-gates? true}}))]
       (is (= 2 (count (:operations gate-optimized))))
       ;; Qubit optimization should also succeed (qubits are used)
-      (let [qubit-result (qo/optimize-qubit-usage gate-optimized)]
-        (is (= 2 (:optimized-qubits qubit-result)))
-        (is (= 0 (:qubits-saved qubit-result))))))
+      (let [qubit-result (qo/optimize-qubit-usage {:circuit gate-optimized :options {:optimize-qubits? true}})
+            optimized-qubits (:num-qubits (:circuit qubit-result))
+            original-qubits (:num-qubits gate-optimized)
+            qubits-saved (- original-qubits optimized-qubits)]
+        (is (= 2 optimized-qubits))
+        (is (= 0 qubits-saved)))))
 
   (testing "Exception propagation in optimization pipelines"
     ;; Test that exceptions from optimization functions are properly caught
@@ -402,5 +425,11 @@
                                       (qc/cnot-gate 0 1))]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (opt/optimize-gates self-cancelling-circuit))
+                            (opt/optimize-gates {:circuit self-cancelling-circuit :options {:optimize-gates? true}}))
           "Complete self-cancellation should throw exception"))))
+(comment
+  ;; Run all tests
+  (run-tests)
+
+  ;
+  )

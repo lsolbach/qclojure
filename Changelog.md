@@ -8,6 +8,7 @@
 * made current QASM 2/3 handling more robust
 * added EBNF grammars for OpenQASM 2/3 adapted from the ANTLR grammars
 * added OpenQASM 2/3 parsers with instaparse for improved compatibility including expression evaluation
+* moved topology namespace to domain
 * improved docstrings
 
 ## Version 0.15.0

@@ -1,4 +1,4 @@
-(ns org.soulspace.qclojure.application.topology
+(ns org.soulspace.qclojure.domain.topology
   "Hardware-specific optimization and topology management for quantum circuits.
    
    This namespace provides functions to create couplings for common hardware topologies

@@ -10,7 +10,7 @@
             [org.soulspace.qclojure.domain.gate-optimization :as go]
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.application.topology :as topo]))
+            [org.soulspace.qclojure.domain.topology :as topo]))
 
 (defn validate-result-context
   "Validate the optimization result context to ensure all gates are supported.

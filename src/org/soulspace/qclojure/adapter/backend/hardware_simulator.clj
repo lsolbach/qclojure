@@ -57,7 +57,7 @@
             [org.soulspace.qclojure.domain.noise :as noise]
             [org.soulspace.qclojure.application.backend :as qb]
             [org.soulspace.qclojure.application.hardware-optimization :as hwopt]
-            [org.soulspace.qclojure.application.topology :as topo]))
+            [org.soulspace.qclojure.domain.topology :as topo]))
 
 ;; Noisy simulator state management
 (defonce simulator-state (atom {:job-counter 0

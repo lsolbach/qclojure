@@ -60,25 +60,26 @@
     (let [empty-circuit (qc/create-circuit 1)]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Optimization resulted in an empty circuit"
-                            (qo/optimize-qubit-usage empty-circuit)))))
+                            (qo/optimize-qubit-usage {:circuit empty-circuit :options {:optimize-qubits? true}})))))
 
   (testing "Successful optimization maintains circuit validity"
     (let [circuit (create-test-circuit-with-gaps)
-          result (qo/optimize-qubit-usage circuit)
+          result (qo/optimize-qubit-usage {:circuit circuit :options {:optimize-qubits? true}})
           optimized-circuit (:circuit result)]
       (is (s/valid? ::qc/circuit optimized-circuit))
-      (is (> (:optimized-qubits result) 0))
+      (is (> (:num-qubits optimized-circuit) 0))
       (is (= (count (:operations optimized-circuit)) 
              (count (:operations circuit))))))
 
   (testing "Qubit mapping consistency"
     (let [circuit (create-test-circuit-with-gaps)
-          result (qo/optimize-qubit-usage circuit)
+          result (qo/optimize-qubit-usage {:circuit circuit :options {:optimize-qubits? true}})
           mapping (:qubit-mapping result)]
-      (is (= (count mapping) (:optimized-qubits result)))
-      (is (= (set (vals mapping)) (set (range (:optimized-qubits result))))))))
+      (is (= (count mapping) (:num-qubits (:circuit result))))
+      (is (= (set (vals mapping)) (set (range (:num-qubits (:circuit result)))))))))
 
 (comment
+  ;; Run all tests in this namespace
   (run-tests)
   ;
   )

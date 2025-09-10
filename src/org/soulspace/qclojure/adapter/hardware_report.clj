@@ -1,5 +1,5 @@
 (ns org.soulspace.qclojure.adapter.hardware-report
-  (:require [org.soulspace.qclojure.application.topology :as topo]
+  (:require [org.soulspace.qclojure.domain.topology :as topo]
             [org.soulspace.qclojure.application.visualization :as viz]
             [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
             [org.soulspace.qclojure.adapter.visualization.svg :as svg]

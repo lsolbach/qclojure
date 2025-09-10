@@ -56,7 +56,8 @@
             [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.domain.noise :as noise]
             [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.application.hardware-optimization :as hwopt]))
+            [org.soulspace.qclojure.application.hardware-optimization :as hwopt]
+            [org.soulspace.qclojure.application.topology :as topo]))
 
 ;; Noisy simulator state management
 (defonce simulator-state (atom {:job-counter 0
@@ -325,7 +326,11 @@
    
    Returns: Qubit coupling as vector of vectors"
   [backend]
-  (get-in backend [:device :coupling]))
+  (if-let [coupling (get-in backend [:device :coupling])]
+    coupling
+    ;; TODO derive coupling from topology if defined
+    ;; Default to fully connected topology
+    (topo/all-to-all-coupling (max-qubits backend))))
 
 (defn noise-model
   "Get the noise model of the backend.
@@ -372,7 +377,13 @@
         ;; Optimize circuit for hardware
         (let [hw-circuit (hwopt/optimize
                           circuit
-                          native-gates)
+                          native-gates
+                          (coupling this)
+                          {:optimize-gates? (get options :optimize-gates? true)
+                           :optimize-qubits? (get options :optimize-qubits? true)
+                           :optimize-topology? (get options :optimize-topology? false)
+                           :transform-operations? (get options :transform-operations? true)
+                           :max-iterations (get options :max-iterations 100)})
 ;;          optimized-circuit (hwopt/optimize circuit
 ;;                                            native-gates
 ;;                                            coupling)

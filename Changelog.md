@@ -1,10 +1,13 @@
 # Changelog
 
 ## Version (NEXT)
+* simplified circuit optimization pipeline code
+  * introduced optimization context
+* enabled topology optimizations to the hardware simulator
 * added statistics for circuits and optimizations
 * made current QASM 2/3 handling more robust
 * added EBNF grammars for OpenQASM 2/3 adapted from the ANTLR grammars
-* added OpenQASM 2/3 parsers with instaparse for improved compatibility
+* added OpenQASM 2/3 parsers with instaparse for improved compatibility including expression evaluation
 * improved docstrings
 
 ## Version 0.15.0

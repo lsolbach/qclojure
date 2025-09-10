@@ -9,9 +9,8 @@
    - Analyze qubit usage efficiency in a circuit
    - Remap qubit IDs to minimize total qubit count
    - Ensure circuit validity after optimization"
-  (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [clojure.set :as set]
+  (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as circuit]))
 
 ;;
@@ -50,7 +49,7 @@
   - :max-qubit-id - Highest qubit ID used
   - :qubit-usage-efficiency - Ratio of used qubits to total qubits"
   [circuit]
-  {:pre [(s/valid? ::qc/circuit circuit)]}
+  {:pre [(s/valid? ::circuit/circuit circuit)]}
 
   (let [operations (:operations circuit)
         total-qubits (:num-qubits circuit)
@@ -120,28 +119,31 @@
 (defn optimize-qubit-usage
   "Optimize a circuit to use the minimum number of qubits.
   
-  This function compacts qubit IDs to eliminate gaps and unused qubits,
-  reducing the total number of qubits required for the circuit.
+   This function compacts qubit IDs to eliminate gaps and unused qubits,
+   reducing the total number of qubits required for the circuit.
   
-  Parameters:
-  - circuit: Quantum circuit to optimize
-  
-  Returns:
-  Map containing:
-  - :circuit - Circuit with optimized qubit usage
-  - :qubit-mapping - Map from old qubit IDs to new qubit IDs
-  - :qubits-saved - Number of qubits saved by optimization
-  - :original-qubits - Original number of qubits
-  - :optimized-qubits - Final number of qubits after optimization
-  
-  Example:
-  ;; Circuit using qubits [0, 2, 5] out of 6 total qubits
-  ;; After optimization: uses qubits [0, 1, 2] out of 3 total qubits
-  (optimize-qubit-usage circuit)
-  ;=> {:circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 5 2}, 
-  ;    :qubits-saved 3, :original-qubits 6, :optimized-qubits 3}"
+   Parameters:
+   - ctx: Map containing:
+     - :circuit - Quantum circuit to optimize
+     - :options - Map with options:
+        :optimize-qubits? - Whether to perform qubit optimization (default: false)
+   
+   Returns:
+   Updated context with:
+   - :circuit - Optimized circuit with remapped qubit IDs
+   - :qubit-mapping - Map from old qubit IDs to new qubit IDs
+   
+   Throws an exception if the optimization results in an empty circuit.
+   
+   Example:
+   (optimize-qubit-usage
+    {:circuit my-circuit
+     :options {:optimize-qubits? true}})
+   
+   ;=> {:circuit <optimized-circuit>, :qubit-mapping {0 0, 2 1, 3 2}}
+   "
   [ctx]
-  {:pre [(s/valid? ::qc/circuit (:circuit ctx))]}
+  {:pre [(s/valid? ::circuit/circuit (:circuit ctx))]}
   (if-not (get-in ctx [:options :optimize-qubits?])
     ; No optimization requested, return original context
     ctx
@@ -162,7 +164,7 @@
           optimized-circuit (assoc circuit
                                    :num-qubits optimized-qubits
                                    :operations optimized-operations)]
-      (if (qc/empty-circuit? optimized-circuit)
+      (if (circuit/empty-circuit? optimized-circuit)
         (throw (ex-info "Optimization resulted in an empty circuit"
                         {:original-circuit circuit
                          :optimized-circuit optimized-circuit}))
@@ -171,11 +173,11 @@
 (comment
   ;; Empty circuit, but no optimization requested, should return original circuit
   (optimize-qubit-usage
-   {:circuit (qc/create-circuit 1)})
+   {:circuit (circuit/create-circuit 1)})
 
   ;; Empty circuit, qubit will get optimized away and the circuit is invalid
   (try (optimize-qubit-usage
-        {:circuit (qc/create-circuit 1)
+        {:circuit (circuit/create-circuit 1)
          :options {:optimize-qubits? true}})
        (catch Exception e
          (println "Caught exception:" (.getMessage e))

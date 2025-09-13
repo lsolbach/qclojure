@@ -1,1 +1,1 @@
-Use the calva tools for iterative development and to run tests. Use the human intelligence tool to discuss design decisions.
+Use the Calva Backseat Driver tools, especially the evaluate tool, for iterative development and to run tests. Use the Joyride human-intelligence tool to discuss design decisions with me. If you experience braket issues or corrupted files, ask me to fix them with the human-intelligence tool.

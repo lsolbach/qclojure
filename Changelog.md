@@ -13,6 +13,8 @@
 * simplified circuit optimization pipeline code
   * introduced optimization context
 * added statistics for circuits and optimizations
+* improved the operation registry
+  * added the measure operation
 * made current QASM 2/3 handling more robust
 * added EBNF grammars for OpenQASM 2/3 adapted from the ANTLR grammars
 * added OpenQASM 2/3 parsers with instaparse for

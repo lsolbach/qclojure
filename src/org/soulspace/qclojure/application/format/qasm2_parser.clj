@@ -9,7 +9,31 @@
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
-;; Result specs parsing utilities (adapted from qasm3_parser.clj)
+;;;
+;;; Comment removal functions
+;;;
+(defn remove-line-comments
+  "Remove C++-style line comments (// ...) from QASM code.
+   Preserves line structure to maintain line-based pragmas."
+  [qasm-code]
+  (str/replace qasm-code #"//.*?(?=\r?\n|$)" ""))
+
+(defn remove-block-comments
+  "Remove C-style block comments (/* ... */) from QASM code."
+  [qasm-code]
+  (str/replace qasm-code #"(?s)/\*.*?\*/" ""))
+
+(defn preprocess-qasm
+  "Remove comments from QASM code while preserving structure.
+   Removes both line comments (//) and block comments (/* */)."
+  [qasm-code]
+  (-> qasm-code
+      remove-block-comments
+      remove-line-comments))
+
+;;;
+;;; Result specs parsing utilities (adapted from qasm3_parser.clj)
+;;;
 (defn parse-result-pragma
   "Parse a QClojure result pragma from QASM 2.0 comment.
    
@@ -148,12 +172,16 @@
       (when (seq pragma-lines)
         (str "\n" (str/join "\n" pragma-lines) "\n")))))
 
-;; Parser using the EBNF grammar
+;;;
+;;; Parser using the EBNF grammar
+;;;
 (def qasm2-parser
   (insta/parser (io/resource "openqasm/qasm2.ebnf")
                 :auto-whitespace :standard))
 
-;; Helper functions for extracting data from parse trees
+;;;
+;;; Helper functions for extracting data from parse trees
+;;;
 (defn extract-number-from-expression
   "Extract a number from an expression parse tree."
   [expr]
@@ -405,46 +433,36 @@
     {:circuit circuit
      :result-specs result-specs}))
 
-;; Public API
-(defn qasm-to-circuit
-  "Parse OpenQASM 2.0 code into a quantum circuit.
-  
-  Returns a map with:
-  - :circuit - the quantum circuit object
-  - :result-specs - any measurement or result specifications"
-  [qasm-code]
-  (let [parse-result (qasm2-parser qasm-code)]
-    (if (insta/failure? parse-result)
-      (throw (ex-info "Parse error" {:error parse-result}))
-      (transform-parse-tree parse-result qasm-code))))
-
+;;;
+;;; QASM2 Emitter
+;;;
 (defn gate-to-qasm2
   "Convert a single gate operation to QASM2 syntax using operation registry information."
   [gate]
   (let [gate-type (:operation-type gate)
         params (:operation-params gate)
         gate-info (opreg/get-gate-info-with-alias gate-type)]
-    
+
     (if gate-info
       (let [operation-name (:operation-name gate-info)
             qasm-name (str/lower-case operation-name)]
         (case (:operation-type gate-info)
-          :single-qubit 
+          :single-qubit
           (let [target (:target params)]
             (case gate-type
               ;; Handle special QASM2 gate names
               :s-dag (str "sdg q[" target "];")
-              :t-dag (str "tdg q[" target "];") 
+              :t-dag (str "tdg q[" target "];")
               :i (str "id q[" target "];")  ; Identity gate uses "id" in QASM2
               (str qasm-name " q[" target "];")))
-          
+
           :parametric
           (let [target (:target params)
                 angle (:angle params)]
             (case gate-type
               :phase (str "p(" angle ") q[" target "];")  ; phase gate uses "p" in QASM2
               (str qasm-name "(" angle ") q[" target "];")))
-          
+
           :two-qubit
           (let [control (:control params)
                 target (:target params)
@@ -456,24 +474,41 @@
               :swap (str "swap q[" qubit1 "], q[" qubit2 "];")  ; swap uses qubit1/qubit2
               :iswap (str "iswap q[" qubit1 "], q[" qubit2 "];")  ; iswap uses qubit1/qubit2
               (str qasm-name " q[" control "], q[" target "];")))  ; default uses control/target
-          
+
           :multi-qubit
           (case gate-type
             :toffoli (let [control1 (:control1 params)
-                          control2 (:control2 params)
-                          target (:target params)]
-                      (str "ccx q[" control1 "], q[" control2 "], q[" target "];"))
+                           control2 (:control2 params)
+                           target (:target params)]
+                       (str "ccx q[" control1 "], q[" control2 "], q[" target "];"))
             :fredkin (let [control (:control params)
-                          target1 (:target1 params)
-                          target2 (:target2 params)]
-                      (str "cswap q[" control "], q[" target1 "], q[" target2 "];"))
+                           target1 (:target1 params)
+                           target2 (:target2 params)]
+                       (str "cswap q[" control "], q[" target1 "], q[" target2 "];"))
             (str "// Multi-qubit gate: " (name gate-type)))
-          
+
           ;; Default case
           (str "// Unsupported gate type: " (:operation-type gate-info))))
-      
+
       ;; Gate not found in registry
       (str "// Unknown gate: " (name gate-type)))))
+
+;;;
+;;; Public API
+;;;
+(defn qasm-to-circuit
+  "Parse OpenQASM 2.0 code into a quantum circuit.
+  
+  Returns a map with:
+  - :circuit - the quantum circuit object
+  - :result-specs - any measurement or result specifications"
+  [qasm-code]
+  (let [;; Preprocess to remove comments for parsing
+        preprocessed-code (preprocess-qasm qasm-code)
+        parse-result (qasm2-parser preprocessed-code)]
+    (if (insta/failure? parse-result)
+      (throw (ex-info "Parse error" {:error parse-result}))
+      (transform-parse-tree parse-result qasm-code))))
 
 (defn circuit-to-qasm
   "Convert a quantum circuit to OpenQASM 2.0 code with result type support.

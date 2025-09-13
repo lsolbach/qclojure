@@ -37,20 +37,20 @@
             [org.soulspace.qclojure.domain.device :as device]))
 
 ;; Predefined quantum devices
-(def devices
+(def device-list
   (edn/read-string
    (slurp (io/resource "simulator-devices.edn"))))
 
 (def device-map
-  (into {} (map (fn [d] [(:id d) d]) devices)))
+  (into {} (map (fn [d] [(:id d) d]) device-list)))
 
 ;;;
 ;;; Hardware simulator state management
 ;;;
 (defonce simulator-state (atom {:job-counter 0
                                 :active-jobs {}
-                                :devices devices
-                                :current-device (first devices)}))
+                                :devices device-list
+                                :current-device (first device-list)}))
 
 ;;
 ;; Job record for noisy simulations
@@ -117,7 +117,6 @@
   
   Returns: Simulation results including trajectory-based density matrix and extracted results"
   [circuit initial-state options noise-model]
-  (println "Executing circuit with noise model:" noise-model)
   (try
     (let [start-time (System/currentTimeMillis)
           shots (get options :shots 1024)
@@ -272,7 +271,7 @@
   (backend-info [_this]
     {:backend-type :hardware-simulator
      :backend-name "Hardware Simulator"
-     :devices devices
+     :devices device-list
      :device (:current-device @simulator-state)
      :config config
      :capabilities #{:multi-device}})
@@ -303,15 +302,11 @@
 
           ;; Execute immediately in future (async execution)
           (future
-            (let [_ (println "Starting execution of job" job-id)
-                  result (execute-circuit circuit device options)
-                  _ (println "Finished execution of job" job-id)
+            (let [result (execute-circuit circuit device options)
                   completed-job (assoc job
                                        :status (:job-status result)
                                        :result result
-                                       :completed-at (System/currentTimeMillis))
-                  _ (println "Completed execution of job" job-id)
-                  ]
+                                       :completed-at (System/currentTimeMillis))]
               (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
           job-id)
 
@@ -373,10 +368,11 @@
 
   backend/MultiDeviceBackend
   (devices [_this]
-    devices)
+    device-list)
 
   (select-device [_this device]
-    (swap! simulator-state assoc :current-device device)))
+    (swap! simulator-state assoc :current-device device)
+    (:current-device @simulator-state)))
 
 ;;;
 ;;; Factory functions for hardware simulators
@@ -409,7 +405,8 @@
   
   Returns: Updated state"
   []
-  (reset! simulator-state {:job-counter 0 :active-jobs {}}))
+  (reset! simulator-state {:job-counter 0 :active-jobs {} :devices device-list
+                           :current-device (first device-list)}))
 
 (defn simulator-statistics
   "Get statistics about the hardware simulator state.

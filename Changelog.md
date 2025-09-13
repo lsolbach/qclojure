@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.16.0
 * added `device` namespace in domain
   * all QPU specific information is captured in the device map
 * decoupled backend and device

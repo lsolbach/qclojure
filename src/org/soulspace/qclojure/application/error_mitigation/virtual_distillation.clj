@@ -84,10 +84,9 @@
   • Integration with quantum cloud services and hardware backends
   • Performance monitoring and optimization recommendations
   • Detailed diagnostic reporting for troubleshooting and validation"
-  (:require [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
-            [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [clojure.spec.alpha :as s]))
+  (:require  [clojure.spec.alpha :as s]
+             [org.soulspace.qclojure.application.backend :as backend]
+             [org.soulspace.qclojure.domain.circuit :as circuit]))
 
 ;;;
 ;;; Protocol-Compliant Circuit Execution
@@ -135,8 +134,8 @@
   - :perturbed-noise-model - Applied noise model for this copy
   - :backend-info - Backend configuration and capabilities"
   [backend circuit base-noise-model copy-index num-shots]
-  {:pre [(satisfies? qb/QuantumBackend backend)
-         (s/valid? ::qc/circuit circuit)
+  {:pre [(satisfies? backend/QuantumBackend backend)
+         (s/valid? ::circuit/circuit circuit)
          (integer? copy-index)
          (pos-int? num-shots)]}
   (try
@@ -175,11 +174,11 @@
                               perturbed-noise-model (assoc :noise-model perturbed-noise-model))
           
           ;; Submit circuit to backend using protocol
-          job-id (qb/submit-circuit backend circuit execution-options)
+          job-id (backend/submit-circuit backend circuit execution-options)
           
           ;; Wait for job completion with timeout protection
           _ (loop [attempts 0]
-              (let [status (qb/get-job-status backend job-id)]
+              (let [status (backend/job-status backend job-id)]
                 (cond
                   (= status :completed) :done
                   (= status :failed) (throw (ex-info "Virtual Distillation circuit copy execution failed" 
@@ -191,7 +190,7 @@
                           (recur (inc attempts))))))
           
           ;; Retrieve results using protocol
-          job-result (qb/get-job-result backend job-id)
+          job-result (backend/job-result backend job-id)
           end-time (System/currentTimeMillis)
           execution-time (- end-time start-time)
           
@@ -209,14 +208,14 @@
        :execution-time-ms execution-time
        :job-id job-id
        :perturbed-noise-model perturbed-noise-model
-       :backend-info (qb/get-backend-info backend)})
+       :backend-info (backend/backend-info backend)})
     
     (catch Exception e
       ;; Comprehensive error handling with diagnostic information
       {:error {:message (.getMessage e)
                :type (class e)
                :copy-index copy-index
-               :backend-type (try (:backend-type (qb/get-backend-info backend)) 
+               :backend-type (try (:backend-type (backend/backend-info backend)) 
                                   (catch Exception _ :unknown))}
        :measurement-results {}
        :copy-index copy-index
@@ -352,18 +351,18 @@
   - Apply before readout error mitigation for enhanced measurement accuracy
   - Integrate with variational optimization for improved algorithm convergence"
   [circuit backend num-copies num-shots]
-  {:pre [(s/valid? ::qc/circuit circuit)
-         (satisfies? qb/QuantumBackend backend)
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (satisfies? backend/QuantumBackend backend)
          (pos-int? num-copies)
          (pos-int? num-shots)]}
   (try
     ;; Validate backend availability before starting
-    (when-not (qb/is-available? backend)
+    (when-not (backend/available? backend)
       (throw (ex-info "Backend not available for Virtual Distillation execution"
-                      {:backend-info (qb/get-backend-info backend)})))
+                      {:backend-info (backend/backend-info backend)})))
     
     (let [start-time (System/currentTimeMillis)
-          backend-info (qb/get-backend-info backend)
+          backend-info (backend/backend-info backend)
 
           ;; Get base noise model from backend or use provided configuration
           ;; For protocol compliance, we rely on backend configuration
@@ -461,6 +460,6 @@
        :distillation-applied false
        :error {:message (.getMessage e)
                :type (class e)
-               :backend-type (try (:backend-type (qb/get-backend-info backend)) 
+               :backend-type (try (:backend-type (backend/backend-info backend)) 
                                   (catch Exception _ :unknown))}})))
 

@@ -14,13 +14,12 @@
   The mitigation pipeline analyzes circuits and noise models to automatically
   select and apply the most effective strategies for each use case."
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-transformation :as ct]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.application.error-mitigation.readout-error :as rem]
             [org.soulspace.qclojure.application.error-mitigation.zero-noise :as zne]
             [org.soulspace.qclojure.application.error-mitigation.symmetry-verification :as sym]
             [org.soulspace.qclojure.application.error-mitigation.virtual-distillation :as vds]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.application.backend :as backend]))
 
 ;;
 ;; Specifications for Error Mitigation
@@ -36,12 +35,12 @@
 (s/def ::noise-scale (s/and number? pos?))
 (s/def ::improvement-factor (s/and number? pos?))
 (s/def ::strategies (s/coll-of ::mitigation-strategy))
-(s/def ::num-shots pos-int?)
+(s/def ::shots pos-int?)
 (s/def ::noise-scales (s/coll-of ::noise-scale))
 (s/def ::optimization-level #{:minimal :moderate :aggressive})
 
 (s/def ::mitigation-config 
-  (s/keys :opt-un [::strategies ::num-shots ::noise-scales ::optimization-level]))
+  (s/keys :opt-un [::strategies ::shots ::noise-scales ::optimization-level]))
 
 (s/def ::measurement-counts (s/map-of string? nat-int?))
 (s/def ::mitigation-applied (s/coll-of ::mitigation-strategy))
@@ -119,7 +118,7 @@
 (defn analyze-circuit-noise-profile
   "Analyze circuit characteristics to recommend mitigation strategies."
   [circuit noise-model]
-  {:pre [(s/valid? ::qc/circuit circuit)]}
+  {:pre [(s/valid? ::circuit/circuit circuit)]}
   (let [operations (:operations circuit)
         gate-counts (frequencies (map :operation-type operations))
         circuit-depth (count operations)
@@ -226,34 +225,19 @@
 ;;
 ;; Main Error Mitigation Pipeline
 ;;
-(defn apply-circuit-optimization
-  "Apply circuit optimization as part of error mitigation."
-  [circuit supported-gates]
-  (try
-    (let [optimization-result (ct/transform-circuit circuit supported-gates)
-          optimized-circuit (:circuit optimization-result)]
-      {:optimized-circuit optimized-circuit
-       :optimization-applied true
-       :gates-reduced (:transformed-operation-count optimization-result)
-       :unsupported-operations (:unsupported-operations optimization-result)})
-    (catch Exception e
-      {:optimized-circuit circuit
-       :optimization-applied false
-       :error (.getMessage e)})))
-
 (defn apply-error-mitigation
   "Apply comprehensive error mitigation strategies to improve circuit fidelity.
   
   This is the main entry point for error mitigation. It analyzes the circuit
   and noise model, selects appropriate strategies, and orchestrates their application."
   [circuit backend mitigation-config]
-  {:pre [(s/valid? ::qc/circuit circuit)
-         (satisfies? qb/QuantumBackend backend)
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (satisfies? backend/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)
-        backend-info (qb/get-backend-info backend)
+        backend-info (backend/backend-info backend)
         noise-model (get-in backend-info [:backend-config :noise-model] {})
-        num-shots (get mitigation-config :num-shots 1000)
+        shots (get mitigation-config :shots 1000)
         constraints (get mitigation-config :constraints {:resource-limit :moderate
                                                          :priority :fidelity})
         ;; Select strategies - prioritize user-specified strategies over automatic selection
@@ -263,7 +247,7 @@
                               (get strategy-selection :selected-strategies [:readout-error-mitigation]))
 
         ;; Initialize result with actual backend execution
-        initial-execution (qb/execute-circuit backend circuit {:shots num-shots})
+        initial-execution (backend/execute-circuit backend circuit {:shots shots})
         initial-result {:measurement-counts (:measurement-results initial-execution)
                         :circuit circuit
                         :mitigation-applied []
@@ -273,17 +257,6 @@
         final-result
         (reduce (fn [result strategy]
                   (case strategy
-                    :circuit-optimization
-                    (let [supported-gates (qb/get-supported-gates backend)
-                          opt-result (apply-circuit-optimization
-                                      (:circuit result)
-                                      supported-gates)
-                          optimized-circuit (:optimized-circuit opt-result)]
-                      (-> result
-                          (assoc :circuit optimized-circuit)
-                          (update :mitigation-applied conj strategy)
-                          (assoc-in [:improvements :circuit-optimization] opt-result)))
-
                     :readout-error-mitigation
                     (let [readout-errors (get noise-model :readout-error
                                               {:prob-0-to-1 0.1  ; Default 10% readout errors
@@ -309,7 +282,7 @@
                                       backend
                                       (get mitigation-config :noise-scales [1.0 1.5 2.0])
                                       ["00" "11"] ; Ideal states
-                                      num-shots)]
+                                      shots)]
                       (-> result
                           (update :mitigation-applied conj strategy)
                           (assoc-in [:improvements :zero-noise-extrapolation] zne-result)))
@@ -327,7 +300,7 @@
                                                (:circuit result)
                                                backend
                                                3  ; num-copies
-                                               num-shots)]
+                                               shots)]
                       (-> result
                           (assoc :measurement-counts (:distilled-results distillation-result))
                           (update :mitigation-applied conj strategy)
@@ -369,41 +342,34 @@
 (defn execute-with-mitigation
   "Execute a circuit with comprehensive error mitigation applied.
   
-  This is the main integration point that combines circuit optimization,
-  error mitigation, and result post-processing in a single function."
+  This is the main integration point that combines error mitigation
+  and result post-processing in a single function."
   [circuit backend mitigation-config]
-  {:pre [(s/valid? ::qc/circuit circuit)
-         (satisfies? qb/QuantumBackend backend)
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (satisfies? backend/QuantumBackend backend)
          (s/valid? ::mitigation-config mitigation-config)]}
   (let [start-time (System/currentTimeMillis)
         
-        ;; Step 1: Circuit optimization (if requested)
-        optimized-circuit (if (contains? (set (:strategies mitigation-config)) :circuit-optimization)
-                            (let [supported-gates (qb/get-supported-gates backend)
-                                  opt-result (apply-circuit-optimization circuit supported-gates)]
-                              (:optimized-circuit opt-result))
-                            circuit)
+        ;; Step 1: Execute circuit using backend protocol
+        execution-result (backend/execute-circuit backend circuit 
+                                             {:shots (get mitigation-config :shots 1000)})
         
-        ;; Step 2: Execute circuit using backend protocol
-        execution-result (qb/execute-circuit backend optimized-circuit 
-                                             {:shots (get mitigation-config :num-shots 1000)})
+        ;; Step 2: Apply post-processing mitigation
+        mitigation-result (apply-error-mitigation circuit backend mitigation-config)
         
-        ;; Step 3: Apply post-processing mitigation
-        mitigation-result (apply-error-mitigation optimized-circuit backend mitigation-config)
-        
-        ;; Step 4: Combine results
+        ;; Step 3: Combine results
         execution-measurement-counts (:measurement-results execution-result)
         final-result (-> mitigation-result
                          (assoc :raw-measurement-counts execution-measurement-counts)
                          (assoc :shots-executed (:shots-executed execution-result 
-                                                  (get mitigation-config :num-shots 1000))))
+                                                  (get mitigation-config :shots 1000))))
         execution-time (- (System/currentTimeMillis) start-time)]
     
     (assoc final-result
            :total-execution-time-ms execution-time
            :mitigation-applied true
            :original-circuit circuit
-           :final-circuit optimized-circuit)))
+           :final-circuit (:circuit execution-result))))
 
 ;; Export main API functions
 (defn mitigate-errors
@@ -412,7 +378,7 @@
   This is the primary entry point for users of the error mitigation system."
   [circuit backend & [config]]
   (let [default-config {:strategies [:readout-error-mitigation]
-                        :num-shots 1000
+                        :shots 1000
                         :constraints {:resource-limit :moderate
                                       :priority :fidelity}}
         final-config (merge default-config config)]
@@ -421,7 +387,7 @@
 (comment
   ;; Create a simple Bell circuit
   (def bell-circuit
-    (qc/bell-state-circuit))
+    (circuit/bell-state-circuit))
   
   ;; Define a backend with noise
   (def noisy-backend
@@ -434,7 +400,7 @@
   ;; Apply error mitigation
   (def result (mitigate-errors bell-circuit noisy-backend
                                {:strategies [:readout-error-mitigation :zero-noise-extrapolation]
-                                :num-shots 1000}))
+                                :shots 1000}))
   
   ;; Check results
   (:overall-improvement-factor result)

@@ -72,9 +72,9 @@
   • Quantum error correction benchmarking
   • Hardware characterization and validation"
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.application.backend :as backend]))
 
 ;;
 ;; Zero Noise Extrapolation (ZNE)
@@ -206,8 +206,8 @@
   This enables ZNE to work seamlessly with real quantum hardware, cloud
   services, and various simulator implementations."
   [backend circuit noise-model scale-factor num-shots]
-  {:pre [(satisfies? qb/QuantumBackend backend)
-         (s/valid? ::qc/circuit circuit)
+  {:pre [(satisfies? backend/QuantumBackend backend)
+         (s/valid? ::circuit/circuit circuit)
          (number? scale-factor)
          (pos-int? num-shots)]}
   (try
@@ -225,11 +225,11 @@
                                    (not= scale-factor 1.0)) (assoc :noise-model scaled-noise-model))
           
           ;; Submit circuit to backend
-          job-id (qb/submit-circuit backend circuit execution-options)
+          job-id (backend/submit-circuit backend circuit execution-options)
           
           ;; Wait for job completion with timeout
           _ (loop [attempts 0]
-              (let [status (qb/get-job-status backend job-id)]
+              (let [status (backend/job-status backend job-id)]
                 (cond
                   (= status :completed) :done
                   (= status :failed) (throw (ex-info "Circuit execution failed" 
@@ -241,7 +241,7 @@
                           (recur (inc attempts))))))
           
           ;; Retrieve results
-          job-result (qb/get-job-result backend job-id)
+          job-result (backend/job-result backend job-id)
           end-time (System/currentTimeMillis)
           execution-time (- end-time start-time)]
       
@@ -250,7 +250,7 @@
        :job-id job-id
        :execution-time-ms execution-time
        :job-status (:job-status job-result)
-       :backend-info (qb/get-backend-info backend)
+       :backend-info (backend/backend-info backend)
        :scaled-noise-model scaled-noise-model
        :noise-scale-factor scale-factor})
     
@@ -258,7 +258,7 @@
       ;; Comprehensive error handling with diagnostic information
       {:error {:message (.getMessage e)
                :type (class e)
-               :backend-type (try (:backend-type (qb/get-backend-info backend)) 
+               :backend-type (try (:backend-type (backend/backend-info backend)) 
                                   (catch Exception _ :unknown))
                :noise-scale-factor scale-factor}
        :measurement-results {}
@@ -383,7 +383,7 @@
         error-state-prob (- 1.0 (* ideal-fidelity))
         
         ;; Generate state labels
-        state-labels (qs/basis-strings num-qubits)
+        state-labels (state/basis-strings num-qubits)
         all-zeros (first state-labels)  ; |00...0⟩
         all-ones (last state-labels)    ; |11...1⟩ 
         error-states (drop 1 (drop-last state-labels)) ; intermediate states
@@ -702,8 +702,8 @@
   - Memory usage scales with measurement data storage requirements
   - Parallelization opportunities for independent noise scale execution"
   [circuit backend noise-scales ideal-states num-shots]
-  {:pre [(s/valid? ::qc/circuit circuit)
-         (satisfies? qb/QuantumBackend backend)
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (satisfies? backend/QuantumBackend backend)
          (vector? noise-scales)
          (every? number? noise-scales)
          (vector? ideal-states)
@@ -712,13 +712,13 @@
     (let [start-time (System/currentTimeMillis)
           
           ;; Validate backend availability
-          _ (when-not (qb/is-available? backend)
-              (throw (ex-info "Backend is not available for circuit execution"
-                              {:backend-info (qb/get-backend-info backend)})))
+          _ (when-not (backend/available? backend)
+              (throw (ex-info "Device is not available for circuit execution"
+                              {:backend-info (backend/backend-info backend)})))
           
           ;; Get base noise model from backend info
-          backend-info (qb/get-backend-info backend)
-          base-noise-model (get-in backend-info [:backend-config :noise-model] {})
+          backend-info (backend/backend-info backend)
+          base-noise-model (get-in backend-info [:device :noise-model] {})
           
           ;; Execute circuit at different noise scales using backend protocol
           results (mapv (fn [scale]
@@ -774,7 +774,7 @@
       ;; Comprehensive error handling with backend diagnostic information
       {:error {:message (.getMessage e)
                :type (class e)
-               :backend-info (try (qb/get-backend-info backend) 
+               :backend-info (try (backend/backend-info backend) 
                                   (catch Exception _ {:error "Backend info unavailable"}))
                :timestamp (System/currentTimeMillis)}
        :extrapolated-value 0.0

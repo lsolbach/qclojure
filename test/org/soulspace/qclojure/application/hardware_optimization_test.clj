@@ -16,8 +16,11 @@
                       (qc/t-gate 1)  ; Virtual gate
                       (qc/cnot-gate 0 2))  ; Non-adjacent
           supported-gates #{:h :x :z :rz :cnot}
-          topology (topo/linear-coupling 3)
-          result (ho/optimize circuit supported-gates topology {:optimize-topology? true})]
+          coupling (topo/linear-coupling 3)
+          result (ho/optimize {:circuit circuit 
+                               :device {:supported-operations supported-gates
+                                        :coupling coupling}
+                               :options {:optimize-topology? true}})]
       (is (s/valid? ::qc/circuit (:circuit result)))
       (is (contains? result :pipeline-order))
       (is (contains? result :all-gates-supported?))
@@ -28,7 +31,8 @@
   (testing "Optimization without topology"
     (let [circuit (-> (qc/create-circuit 2) (qc/t-gate 0))
           supported-gates #{:h :x :z :rz}
-          result (ho/optimize circuit supported-gates)]
+          result (ho/optimize {:circuit circuit
+                               :device {:supported-operations supported-gates}})]
       (is (s/valid? ::qc/circuit (:circuit result)))
       (is (contains? result :all-gates-supported?)))))
 

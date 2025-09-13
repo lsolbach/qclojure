@@ -2,14 +2,21 @@
 
 ## Version (NEXT)
 * added device namespace in domain
-* simplified circuit optimization pipeline code
-  * introduced optimization context
+  * all QPU specific information is captured in the device map
+* decoupled backend and device
+  * restructured and refactured the backend protocols
+  * added MultiDeviceBackend protocol
+  * added BatchJobBackend protocol
+* updated ideal and hardware simulator for new backend protocols
 * moved topology namespace to domain
 * enabled topology optimizations to the hardware simulator
+* simplified circuit optimization pipeline code
+  * introduced optimization context
 * added statistics for circuits and optimizations
 * made current QASM 2/3 handling more robust
 * added EBNF grammars for OpenQASM 2/3 adapted from the ANTLR grammars
-* added OpenQASM 2/3 parsers with instaparse for improved compatibility including expression evaluation
+* added OpenQASM 2/3 parsers with instaparse for
+improved compatibility including expression evaluation
 * improved docstrings
 
 ## Version 0.15.0

@@ -17,21 +17,33 @@
   backend functionality, allowing it to be used in a cloud-like
   environment for testing purposes."
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.domain.operation-registry :as gr]))
+            [org.soulspace.qclojure.application.backend :as backend]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
-;; Specs for simulator
-(s/def ::max-qubits pos-int?)
+;;;
+;;; Specs for simulator
+;;;
 (s/def ::seed int?)
 
 (s/def ::simulator-config
-  (s/keys :opt-un [::max-qubits ::seed]))
+  (s/keys :opt-un [::num-qubits ::seed]))
 
-;; Simulator state management
+;;
+(def device
+  {:id "ideal-simulator"
+   :name "Ideal Simulator Device"
+   :num-qubits 20
+   :native-gates opreg/native-simulator-gate-set
+   :supported-operations opreg/native-simulator-gate-set
+   :topology :fully-connected})
+
+;;;
+;;; Simulator state management
+;;;
 (defonce ^:private simulator-state (atom {:job-counter 0
-                                :active-jobs {}}))
+                                          :active-jobs {}}))
 
 ;; Job state record
 (defrecord SimulatorJob
@@ -43,56 +55,6 @@
 (defn- generate-job-id []
   (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
     (str "sim_job_" new-counter "_" (System/currentTimeMillis))))
-
-;;;
-;;; Helper functions for measurement simulation
-;;;
-(defn- get-measurement-probabilities
-  "Get measurement probabilities for all basis states.
-  
-  Parameters:
-  - state: Quantum state
-  
-  Returns: Vector of probabilities for each basis state"
-  [state]
-  (let [num-states (count (:state-vector state))]
-    (mapv #(qs/probability state %) (range num-states))))
-
-(defn- measure-quantum-state
-  "Perform measurement simulation on a quantum state.
-  
-  Parameters:
-  - state: Quantum state
-  - shots: Number of measurement shots
-  - num-qubits: Number of qubits in the system
-  
-  Returns: Map of measurement outcomes to counts"
-  [state shots num-qubits]
-  (let [probabilities (get-measurement-probabilities state)
-        ;; Convert to computational basis state labels
-        basis-states (map #(qs/basis-string % num-qubits) 
-                         (range (count probabilities)))
-        outcomes (into {} (map vector basis-states probabilities))]
-    
-    ;; Simulate shot-by-shot measurement
-    (loop [shots-remaining shots
-           results {}]
-      (if (zero? shots-remaining)
-        results
-        (let [;; Sample from probability distribution
-              rand-val (rand)
-              ;; Find which outcome this sample corresponds to
-              outcome (loop [cumulative-prob 0.0
-                           remaining-outcomes (seq outcomes)]
-                       (if (empty? remaining-outcomes)
-                         (first basis-states) ; fallback
-                         (let [[outcome prob] (first remaining-outcomes)
-                               new-cumulative (+ cumulative-prob prob)]
-                           (if (< rand-val new-cumulative)
-                             outcome
-                             (recur new-cumulative (rest remaining-outcomes))))))]
-          (recur (dec shots-remaining)
-                (update results outcome (fnil inc 0))))))))
 
 (defn- execute-circuit-simulation
   "Execute a quantum circuit simulation.
@@ -106,19 +68,16 @@
   (try
     (let [start-time (System/currentTimeMillis)
           num-qubits (:num-qubits circuit)
-          shots (get options :shots 1024)
           result-specs (:result-specs options)
 
           ;; Create initial state and execute the circuit
           initial-state (if (:initial-state options)
                           (:initial-state options)
-                          (qs/zero-state num-qubits))
-          results (qc/execute-circuit circuit initial-state result-specs)]
+                          (state/zero-state num-qubits))
+          results (circuit/execute-circuit circuit initial-state result-specs)]
 
       {:job-status :completed
        :results results
-       ;:measurement-results measurement-results
-       ;:final-state final-state
        :execution-time-ms (- (System/currentTimeMillis) start-time)})
 
     (catch Exception e
@@ -129,50 +88,49 @@
 ;;; Simulator backend implementation
 ;;;
 (defrecord LocalQuantumSimulator [config]
-  qb/QuantumBackend
-  
-  (get-backend-info [_this]
+  backend/QuantumBackend
+
+  (backend-info [_this]
     {:backend-type :simulator
-     :backend-name "Local Quantum Simulator"
-     :description "Local simulator for quantum circuits using matrix operations"
+     :backend-name "Local Ideal Quantum Simulator"
+     :description "Local ideal simulator for quantum circuits using matrix operations"
      :backend-config config
-     :max-qubits (get config :max-qubits 20)
-     :capabilities #{:simulation :measurement :statevector :batch-execution}
-     :supported-gates gr/native-simulator-gate-set
+     :max-qubits (get config :max-qubits 16)
+     :capabilities #{:quantum-backend}
+     :device device
      :version "1.0.0"})
-  
-  (get-supported-gates [_this]
-    ;; Return the supported gates from config or default to all simulator gates
-    (get config :supported-gates gr/native-simulator-gate-set))
-  
-  (is-available? [_this]
-    true) ; Simulator is always available
-  
+
+  (device [_this]
+    device)
+
+  (available?
+    ; Always available for local simulation
+    [_this] true)
+
   (submit-circuit [_this circuit options]
     (let [job-id (generate-job-id)
-          job (->SimulatorJob job-id circuit options :queued nil 
-                             (System/currentTimeMillis) nil)]
-      
+          job (->SimulatorJob job-id circuit options :queued nil
+                              (System/currentTimeMillis) nil)]
+
       ;; Store job and start execution in background
       (swap! simulator-state assoc-in [:active-jobs job-id] job)
-      
+
       ;; Execute immediately (could be made async with future)
       (future
         (let [result (execute-circuit-simulation circuit options)
-              completed-job (assoc job 
-                                  :status (:job-status result)
-                                  :result result
-                                  :completed-at (System/currentTimeMillis))]
+              completed-job (assoc job
+                                   :status (:job-status result)
+                                   :result result
+                                   :completed-at (System/currentTimeMillis))]
           (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
-      
       job-id))
-  
-  (get-job-status [_this job-id]
+
+  (job-status [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (:status job)
       :not-found))
-  
-  (get-job-result [_this job-id]
+
+  (job-result [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
@@ -182,127 +140,30 @@
       {:job-id job-id
        :job-status :not-found
        :error-message "Job not found"}))
-  
+
   (cancel-job [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (if (#{:queued :running} (:status job))
         (do
-          (swap! simulator-state assoc-in [:active-jobs job-id] 
-                (assoc job :status :cancelled 
-                          :completed-at (System/currentTimeMillis)))
+          (swap! simulator-state assoc-in [:active-jobs job-id]
+                 (assoc job :status :cancelled
+                        :completed-at (System/currentTimeMillis)))
           :cancelled)
         :cannot-cancel)
       :not-found))
-  
-  (get-queue-status [_this]
+
+  (queue-status [_this]
     (let [jobs (vals (:active-jobs @simulator-state))
           queued (count (filter #(= (:status %) :queued) jobs))
           running (count (filter #(= (:status %) :running) jobs))
           completed (count (filter #(= (:status %) :completed) jobs))]
-      
+
       {:total-jobs (count jobs)
        :queued queued
        :running running
        :completed completed
        :backend-load 0.0 ; Simulator has no real load
-       :estimated-wait-time 0}))
-  
-  ;; Mock cloud backend implementation for testing
-  qb/CloudQuantumBackend
-  
-  (authenticate [_this _credentials]
-    ;; Mock authentication - always succeeds for simulator
-    {:status :authenticated
-     :session-id (str "sim_session_" (System/currentTimeMillis))
-     :expires-at (+ (System/currentTimeMillis) (* 24 60 60 1000))}) ; 24 hours
-  
-  (get-session-info [_this]
-    ;; Mock session - always authenticated
-    {:status :authenticated
-     :backend-type :simulator
-     :session-id "sim_session_mock"
-     :authenticated-at (System/currentTimeMillis)})
-  
-  (list-available-devices [_this]
-    ;; Mock device list for simulator
-    [{:device-id "simulator-1"
-      :device-name "Local Quantum Simulator"
-      :device-status :online
-      :max-qubits (get config :max-qubits 20)
-      :backend-type :simulator}])
-  
-  (get-device-topology [_this device-id]
-    ;; Mock topology - all-to-all connectivity for simulator
-    (let [max-qubits (get config :max-qubits 20)
-          coupling-map (for [i (range max-qubits)
-                            j (range max-qubits)
-                            :when (not= i j)]
-                        [i j])]
-      {:device-id device-id
-       :device-name "Local Quantum Simulator"
-       :coupling-map coupling-map
-       :max-qubits max-qubits
-       :gate-times {:hadamard 10 :cnot 20 :rotation 15}
-       :gate-errors {:hadamard 0.001 :cnot 0.01 :rotation 0.005}}))
-  
-  (get-calibration-data [_this device-id]
-    ;; Mock calibration data for simulator
-    {:device-id device-id
-     :timestamp (java.time.Instant/now)
-     :gate-times {:hadamard 10 :cnot 20 :rotation 15}
-     :gate-errors {:hadamard 0.001 :cnot 0.01 :rotation 0.005}
-     :readout-errors (vec (repeat (get config :max-qubits 20) 0.02))
-     :coherence-times (vec (repeat (get config :max-qubits 20) 100000))})
-  
-  (estimate-cost [_this _circuit _options]
-    ;; Mock cost estimation - free for simulator
-    {:total-cost 0.0
-     :currency "USD"
-     :cost-breakdown {:circuit-cost 0.0
-                     :shot-cost 0.0
-                     :device-cost 0.0}
-     :estimated-credits 0})
-  
-  (batch-submit [this circuits options]
-    ;; Submit each circuit individually and track as batch
-    (let [batch-id (str "batch_" (System/currentTimeMillis))
-          job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! simulator-state assoc-in [:active-jobs batch-id]
-             {:batch-id batch-id
-              :job-ids job-ids
-              :status :queued
-              :created-at (System/currentTimeMillis)})
-      batch-id))
-  
-  (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
-      (let [job-ids (:job-ids batch-info)
-            statuses (map #(qb/get-job-status this %) job-ids)
-            status-counts (frequencies statuses)]
-        {:batch-id batch-job-id
-         :total-jobs (count job-ids)
-         :status-counts status-counts
-         :overall-status (cond
-                          (every? #(= % :completed) statuses) :completed
-                          (some #(= % :failed) statuses) :partial-failure
-                          (some #(= % :running) statuses) :running
-                          :else :queued)})
-      {:batch-id batch-job-id
-       :status :not-found}))
-  
-  (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
-      (let [job-ids (:job-ids batch-info)
-            results (into {} (map (fn [job-id]
-                                   [job-id (qb/get-job-result this job-id)])
-                                 job-ids))]
-        {:batch-id batch-job-id
-         :results results
-         :completed-jobs (count (filter #(= (:job-status %) :completed) 
-                                       (vals results)))
-         :total-jobs (count job-ids)})
-      {:batch-id batch-job-id
-       :error-message "Batch not found"})))
+       :estimated-wait-time 0})))
 
 ;;;
 ;;; Factory functions
@@ -398,24 +259,24 @@
   (def sim (create-simulator {:max-qubits 10}))
   
   ;; Check backend info
-  (qb/get-backend-info sim)
+  (backend/backend-info sim)
   
   ;; Create a simple circuit
   (def bell-circuit 
-    (-> (qc/create-circuit 2 "Bell State")
-        (qc/h-gate 0)
-        (qc/cnot-gate 0 1)))
+    (-> (circuit/create-circuit 2 "Bell State")
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)))
   
   ;; Execute synchronously
-  (def result (qb/execute-circuit sim bell-circuit {:shots 1000}))
+  (def result (backend/execute-circuit sim bell-circuit {:shots 1000}))
   
   ;; Analyze results
-  (qb/analyze-measurement-results (:measurement-results result))
+  (backend/analyze-measurement-results (:measurement-results result))
   
   ;; Execute asynchronously
-  (def job-id (qb/execute-circuit-async sim bell-circuit))
-  (qb/get-job-status sim job-id)
-  (qb/get-job-result sim job-id)
+  (def job-id (backend/execute-circuit-async sim bell-circuit))
+  (backend/job-status sim job-id)
+  (backend/job-result sim job-id)
   
   ;; Test with different algorithms
   (require '[org.soulspace.qclojure.application.algorithm.deutsch :as deutsch])

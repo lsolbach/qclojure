@@ -98,7 +98,7 @@
                          "Ring" (topo/ring-coupling size)
                          "Star" (topo/star-coupling size)
                          "Grid-2x3" (topo/grid-coupling 2 3)
-                         "All-to-all" (topo/all-to-all-coupling size)
+                         "Fully connected" (topo/fully-connected-coupling size)
                          "Heavy-Hex" (topo/heavy-hex-coupling 7)}]
     
     (create-topology-comparison-report demo-topologies nil 

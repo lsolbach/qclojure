@@ -1,78 +1,69 @@
 (ns org.soulspace.qclojure.adapter.backend.hardware-simulator
-  "Noisy quantum simulator backend implementing realistic
-  quantum computing device simulation with comprehensive noise modeling.
-
-  This backend provides local simulation of quantum devices with noise
-  using the domain layer's quantum state and circuit functionality.
-  It serves as both a reference implementation and testing backend for
-  quantum algorithms under realistic noise conditions.
- 
-  The simulator can be initialized with a device map or with max-qubits
-  - max-qubits
-  - native-gates
-  - topology
-  - noise-model
-
-  This simulator models various types of quantum noise including:
-  - Depolarizing noise using Kraus operators
-  - Amplitude damping (T1 decay) modeling energy dissipation  
-  - Phase damping (T2 dephasing) modeling pure dephasing
-  - Readout errors with configurable bit-flip probabilities
-  - Coherent errors and systematic rotation biases
-  - Gate-specific noise parameters based on real device calibration
-  - Comprehensive Amazon Braket quantum hardware noise models
-
-  The noise model can be configured with parameters such as T1 and T2
-  times, gate operation times, and noise strengths. It supports
-  advanced noise configurations including correlated readout errors
-  and coherent errors with specific rotation angles and axes.
-  The simulator applies noise during gate operations and measurements,
-  simulating realistic quantum device behavior.
-
-  The noise model map has the following structure:
-  ```clojure
-  {:gate-noise {
-    :h {:noise-type :depolarizing :noise-strength 0.01}
-    :x {:noise-type :amplitude-damping :noise-strength 0.02}
-    :cnot {:noise-type :phase-damping :noise-strength 0.03}
-    ...}
-   :readout-error {:prob-0-to-1 0.05 :prob-1-to-0 0.02}}
-  ```
-  
-  Note: The simulator currently doesn't model crosstalk between qubits.
-
-  The simulator supports asynchronous job management, allowing
-  users to submit circuits and retrieve results later. It can be used
-  for testing algorithms, circuit designs, and quantum operations
-  without requiring access to actual quantum hardware.
+  "Quantum hardware simulator backend implementation with realistic noise modeling.
    
-  It also implements the CloudQuantumBackend protocol for mock cloud
-  backend functionality, allowing it to be used in a cloud-like
-  environment for testing purposes."
-  (:require [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
+   This backend simulates quantum circuits on a virtual quantum device,
+   incorporating various noise models to mimic real quantum hardware behavior.
+   It supports asynchronous job execution, job tracking, and comprehensive
+   result extraction including state trajectories and density matrix calculations.
+   The backend adheres to the QuantumBackend protocol, ensuring compatibility
+   with the broader QClojure framework.
+   
+   The simulator backend supports predefined quantum devices with specific topologies
+   and noise characteristics, as well as custom configurations.
+   Noise models can include gate errors, readout errors, and decoherence effects,
+   allowing for realistic simulation of quantum algorithms under noisy conditions.
+   
+   The simulator backend is stateful, managing job submissions and their execution status.
+   It also tracks the current device and allows for device selection.
+
+   Key Features:
+   - Realistic noise modeling (depolarizing, amplitude damping, phase damping, etc.)
+   - Asynchronous job submission and tracking
+   - Comprehensive result extraction (measurement results, expectation values, density matrices)
+   - Support for predefined quantum devices and custom configurations
+   - Integration with QClojure's optimization and circuit transformation pipelines
+   - Adherence to the QuantumBackend protocol for seamless integration
+   "
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.result :as result]
             [org.soulspace.qclojure.domain.operation-registry :as opreg]
-            [org.soulspace.qclojure.domain.channel :as channel]
             [org.soulspace.qclojure.domain.noise :as noise]
-            [org.soulspace.qclojure.application.backend :as qb]
+            [org.soulspace.qclojure.application.backend :as backend]
             [org.soulspace.qclojure.application.hardware-optimization :as hwopt]
-            [org.soulspace.qclojure.domain.topology :as topo]))
+            [org.soulspace.qclojure.domain.topology :as topo]
+            [org.soulspace.qclojure.domain.device :as device]))
 
-;; Noisy simulator state management
+;; Predefined quantum devices
+(def devices
+  (edn/read-string
+   (slurp (io/resource "simulator-devices.edn"))))
+
+(def device-map
+  (into {} (map (fn [d] [(:id d) d]) devices)))
+
+;;;
+;;; Hardware simulator state management
+;;;
 (defonce simulator-state (atom {:job-counter 0
-                                :active-jobs {}}))
+                                :active-jobs {}
+                                :devices devices
+                                :current-device (first devices)}))
 
+;;
 ;; Job record for noisy simulations
-(defrecord NoisySimulatorJob
+;;
+(defrecord HardwareSimulatorJob
            [job-id circuit options status result created-at completed-at])
 
-;;;
-;;; Helper functions for job management
-;;;
-(defn- generate-noisy-job-id []
+;;
+;; Helper functions for job management
+;;
+(defn- generate-job-id []
   (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
-    (str "noisy_job_" new-counter "_" (System/currentTimeMillis))))
+    (str "job_" new-counter "_" (System/currentTimeMillis))))
 
 ;;;
 ;;; Circuit execution 
@@ -86,7 +77,7 @@
    Returns: Function that applies a gate with noise to a quantum state"
   [noise-model]
   (fn [state gate]
-    (let [clean-state (qc/apply-operation-to-state state gate)]
+    (let [clean-state (circuit/apply-operation-to-state state gate)]
       (noise/apply-gate-noise clean-state gate noise-model))))
 
 (defn execute-single-noisy-shot-with-trajectory
@@ -99,7 +90,7 @@
   
   Returns: Map containing :outcome (measurement bitstring) and :final-state (quantum state)"
   ([circuit noise-model]
-   (execute-single-noisy-shot-with-trajectory circuit (qs/zero-state (:num-qubits circuit)) noise-model))
+   (execute-single-noisy-shot-with-trajectory circuit (state/zero-state (:num-qubits circuit)) noise-model))
   ([circuit initial-state noise-model]
    (let [num-qubits (:num-qubits circuit)
          ;; Apply all gates with noise
@@ -111,22 +102,8 @@
      {:outcome measurement
       :final-state final-state})))
 
-(defn execute-single-noisy-shot
-  "Execute a single shot of a noisy quantum circuit.
-  
-  Parameters:
-  - circuit: Quantum circuit to simulate
-  - noise-model: Noise model configuration
-  - num-qubits: Number of qubits in the circuit
-  
-  Returns: Single measurement outcome as a basis string"
-  ([circuit noise-model]
-   (execute-single-noisy-shot circuit (qs/zero-state (:num-qubits circuit)) noise-model))
-  ([circuit initial-state noise-model]
-   (:outcome (execute-single-noisy-shot-with-trajectory circuit initial-state noise-model))))
-
-(defn execute-noisy-circuit-simulation-with-trajectories
-  "Execute a noisy quantum circuit simulation collecting state trajectories.
+(defn execute-circuit-simulation-with-trajectories
+  "Execute a quantum circuit simulation collecting state trajectories.
   
   This enhanced version supports comprehensive result extraction similar to 
   the ideal simulator, including expectation values, variances, probabilities,
@@ -140,6 +117,7 @@
   
   Returns: Simulation results including trajectory-based density matrix and extracted results"
   [circuit initial-state options noise-model]
+  (println "Executing circuit with noise model:" noise-model)
   (try
     (let [start-time (System/currentTimeMillis)
           shots (get options :shots 1024)
@@ -162,7 +140,7 @@
                              :execution-time-ms (- (System/currentTimeMillis) start-time)}
                 ;; Add trajectory-based results if collected and apply result extraction
                 enhanced-result (if (and collect-trajectories? (seq trajectories))
-                                  (let [density-matrix-result (qs/trajectory-to-density-matrix trajectories)
+                                  (let [density-matrix-result (state/trajectory-to-density-matrix trajectories)
                                         density-matrix (:density-matrix density-matrix-result)]
                                     (assoc base-result
                                            :trajectories trajectories
@@ -200,7 +178,7 @@
        :error-message (.getMessage e)
        :exception-type (.getName (class e))})))
 
-(defn execute-noisy-circuit-with-results
+(defn execute-circuit
   "Execute a noisy quantum circuit with comprehensive result extraction.
   
   This function provides a high-level interface similar to the ideal simulator
@@ -220,70 +198,34 @@
   Returns: Comprehensive results with both raw simulation data and extracted observables
   
   Examples:
-    (execute-noisy-circuit-with-results bell-circuit
+    (execute-circuit bell-circuit
       {:shots 1000
        :result-specs {:measurement {:shots 1000}
                       :expectation {:observables [obs/pauli-z obs/pauli-x]}
                       :density-matrix true}})
     
-    (execute-noisy-circuit-with-results vqe-circuit qs/|00⟩ 
+    (execute-circuit vqe-circuit qs/|00⟩ 
       {:shots 2000
        :result-specs {:hamiltonian {:hamiltonian h2-hamiltonian}
                       :state-vector true}
        :noise-model {:depolarizing-rate 0.01}})"
-  ([circuit options]
-   (execute-noisy-circuit-with-results circuit (qs/zero-state (:num-qubits circuit)) options))
-  ([circuit initial-state options]
-   (let [result-specs (:result-specs options)
-         noise-model (or (:noise-model options) {:depolarizing-rate 0.01})
-         
-         ;; Auto-enable trajectory collection if density matrix operations are needed
-         needs-trajectories? (or (:collect-trajectories options)
+  [circuit device options]
+  (let [initial-state (or (:initial-state options)
+                          (state/zero-state (:num-qubits circuit)))
+        result-specs (:result-specs options)
+        noise-model (or (:noise-model device) {})
+
+        ;; Auto-enable trajectory collection if density matrix operations are needed
+        needs-trajectories? (or (:collect-trajectories options)
                                 (:density-matrix result-specs)
                                 (:hamiltonian result-specs)
                                 (:expectation result-specs))
-         
-         enhanced-options (cond-> options
-                                 needs-trajectories? (assoc :collect-trajectories true)
-                                 (not (:max-trajectories options)) (assoc :max-trajectories 100))]
-     
-     (execute-noisy-circuit-simulation-with-trajectories circuit initial-state enhanced-options noise-model))))
 
-(defn- execute-noisy-circuit-simulation
-  "Execute a noisy quantum circuit simulation with proper noise independence per shot.
-  
-  Parameters:
-  - circuit: Quantum circuit to simulate
-  - options: Execution options including shot count
-  - noise-model: Noise model configuration
-  
-  Returns: Noisy simulation results"
-  [circuit options noise-model]
-  (execute-noisy-circuit-simulation-with-trajectories circuit (qs/zero-state (:num-qubits circuit)) options noise-model))
+        enhanced-options (cond-> options
+                           needs-trajectories? (assoc :collect-trajectories true)
+                           (not (:max-trajectories options)) (assoc :max-trajectories 100))]
 
-;;;
-;;; Noise Model Management
-;;;
-(defn noise-model-for
-  "Get the noise model for a specific platform.
-  
-  Parameters:
-  - platform: Platform name (keyword)
-  
-  Returns: Noise model map or nil if not found"
-  ([platform]
-   (noise-model-for qb/devices platform))
-  ([devices platform]
-   (get-in devices [platform :noise-model])))
-
-(defn all-noise-models
-  "Get all available noise models.
-  
-  Returns: Map of platform names to noise models"
-  ([]
-   (all-noise-models qb/devices))
-  ([devices]
-   (into {} (map (fn [[k v]] [k (:noise-model v)]) devices))))
+    (execute-circuit-simulation-with-trajectories circuit initial-state enhanced-options noise-model)))
 
 ;;;
 ;;; Accessor functions for device properties
@@ -296,7 +238,7 @@
    
    Returns: Maximum qubit count (default: 16)"
   [backend]
-  (or (get-in backend [:device :max-qubits]) 16))
+  (or (get-in backend [:config :max-qubits]) 16))
 
 (defn native-gates
   "Get the set of native gates supported by the backend.
@@ -305,137 +247,103 @@
    - backend: Backend instance
    
    Returns: Set of native gate keywords (default: all QClojure gates)"
-  [backend]
-  (or (get-in backend [:device :native-gates]) opreg/native-simulator-gate-set))
-
-(defn topology
-  "Get the topology of the backend.
-  
-   Parameters:
-   - backend: Backend instance
-   
-   Returns: The topology key"
-  [backend]
-  (get-in backend [:device :topology]))
+  [device]
+  (or (get device :native-gates) opreg/native-simulator-gate-set))
 
 (defn coupling
-  "Get the qubit coupling of the backend.
+  "Get the qubit coupling of the device.
   
    Parameters:
-   - backend: Backend instance
-   
-   Returns: Qubit coupling as vector of vectors"
-  [backend]
-  (if-let [coupling (get-in backend [:device :coupling])]
-    coupling
-    ;; TODO derive coupling from topology if defined
-    ;; Default to fully connected topology
-    (topo/all-to-all-coupling (max-qubits backend))))
+   - device: Device map
 
-(defn noise-model
-  "Get the noise model of the backend.
-  
-   Parameters:
-   - backend: Backend instance
-   
-   Returns: Noise model map or empty map if none defined"
-  [backend]
-  (or (get-in backend [:device :noise-model]) {}))
+   Returns: Qubit coupling as vector of vectors"
+  ([device]
+   (let [coupling (:coupling device)]
+     (if coupling
+       coupling
+       (topo/fully-connected-coupling (:num-qubits device))))))
 
 ;;;
 ;;; Hardware Simulator Implementation
 ;;;
-(defrecord QuantumHardwareSimulator [device config]
-  qb/QuantumBackend
+(defrecord QuantumHardwareSimulator [config]
+  backend/QuantumBackend
 
-  (get-backend-info [this]
-    {:backend-type :quantum-hardware-simulator
-     :backend-name "Noisy QPU Simulator"
-     :description "Realistic quantum simulator with comprehensive noise modeling"
-     :max-qubits (max-qubits this)
-     :native-gates (native-gates this)
-     :topology (topology this)
-     :noise-model (noise-model this)
+  (backend-info [_this]
+    {:backend-type :hardware-simulator
+     :backend-name "Hardware Simulator"
+     :devices devices
+     :device (:current-device @simulator-state)
      :config config
-     :capabilities #{:topology-optimization :gate-cancellation
-                     :gate-decomposition :circuit-transformation
-                     :depolarizing-noise :amplitude-damping :phase-damping
-                     :coherent-errors :readout-errors :decoherence-modeling}
-     :version "1.0.0"})
+     :capabilities #{:multi-device}})
 
-  (get-supported-gates [this] (native-gates this))
-  (is-available? [_this] true)
+  (device [_this] (:current-device @simulator-state))
 
-  (submit-circuit [this circuit options]
-    (let [job-id (generate-noisy-job-id)
-          max-qubits (max-qubits this)
-          native-gates (native-gates this)
-          topology (topology this)
-          noise-model (noise-model this)]
-  
+  (available? [_this] true)
+
+  (submit-circuit [_this circuit options]
+    (let [device (:current-device @simulator-state)
+          job-id (generate-job-id)]
       (try
         ;; Optimize circuit for hardware
         (let [hw-circuit (hwopt/optimize
-                          circuit
-                          native-gates
-                          (coupling this)
-                          {:optimize-gates? (get options :optimize-gates? true)
-                           :optimize-qubits? (get options :optimize-qubits? true)
-                           :optimize-topology? (get options :optimize-topology? false)
-                           :transform-operations? (get options :transform-operations? true)
-                           :max-iterations (get options :max-iterations 100)})
-;;          optimized-circuit (hwopt/optimize circuit
-;;                                            native-gates
-;;                                            coupling)
-              job (->NoisySimulatorJob job-id hw-circuit options :queued nil
-                                       (System/currentTimeMillis) nil)]
+                          {:circuit circuit
+                           :device device
+                           :options (merge {:optimize-gates? (get options :optimize-gates? true)
+                                            :optimize-qubits? (get options :optimize-qubits? true)
+                                            :optimize-topology? (get options :optimize-topology? false)
+                                            :transform-operations? (get options :transform-operations? true)
+                                            :max-iterations (get options :max-iterations 100)}
+                                           options)})
+              job (->HardwareSimulatorJob job-id hw-circuit options :queued nil
+                                          (System/currentTimeMillis) nil)]
 
           ;; Store job and start execution in background
           (swap! simulator-state assoc-in [:active-jobs job-id] job)
 
           ;; Execute immediately in future (async execution)
           (future
-            (let [result (if (:result-specs options)
-                          ;; Use enhanced execution with result extraction
-                          (execute-noisy-circuit-with-results circuit options)
-                          ;; Fall back to basic execution
-                          (execute-noisy-circuit-simulation circuit options noise-model))
+            (let [_ (println "Starting execution of job" job-id)
+                  result (execute-circuit circuit device options)
+                  _ (println "Finished execution of job" job-id)
                   completed-job (assoc job
                                        :status (:job-status result)
                                        :result result
-                                       :completed-at (System/currentTimeMillis))]
+                                       :completed-at (System/currentTimeMillis))
+                  _ (println "Completed execution of job" job-id)
+                  ]
               (swap! simulator-state assoc-in [:active-jobs job-id] completed-job)))
           job-id)
-        
+
         (catch clojure.lang.ExceptionInfo e
           ;; Handle optimization errors (including empty circuits)
-          (let [failed-job (->NoisySimulatorJob 
+          (let [failed-job (->HardwareSimulatorJob
                             job-id
                             circuit
                             options
                             :failed
                             {:job-status :failed
                              :error-message (.getMessage e)}
-                            (System/currentTimeMillis) 
+                            (System/currentTimeMillis)
                             (System/currentTimeMillis))]
             ;; Store the failed job for tracking
             (swap! simulator-state assoc-in [:active-jobs job-id] failed-job)
             job-id)))))
 
-  (get-job-status [_this job-id]
+  (job-status [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (:status job)
       :not-found))
 
-  (get-job-result [_this job-id]
+  (job-result [_this job-id]
     (if-let [job (get (:active-jobs @simulator-state) job-id)]
       (cond
         (= (:status job) :completed)
         (assoc (:result job) :job-id job-id)
-        
+
         (= (:status job) :failed)
         (:result job) ; Return the failure result directly
-        
+
         :else
         {:job-id job-id
          :job-status (:status job)
@@ -455,7 +363,7 @@
         :already-completed)
       :not-found))
 
-  (get-queue-status [_this]
+  (queue-status [_this]
     (let [jobs (vals (:active-jobs @simulator-state))
           active-count (count (filter #(#{:queued :running} (:status %)) jobs))
           completed-count (count (filter #(= :completed (:status %)) jobs))]
@@ -463,89 +371,12 @@
        :active-jobs active-count
        :completed-jobs completed-count}))
 
-  ;; Add CloudQuantumBackend implementation
-  qb/CloudQuantumBackend
+  backend/MultiDeviceBackend
+  (devices [_this]
+    devices)
 
-  (authenticate [_this _credentials]
-    {:status :authenticated
-     :session-id (str "hardware_sim_session_" (System/currentTimeMillis))
-     :expires-at (+ (System/currentTimeMillis) (* 24 60 60 1000))})
-
-  (get-session-info [_this]
-    {:status :authenticated
-     :backend-type :quantum-hardware-simulator
-     :session-id "hardware_sim_session_mock"
-     :authenticated-at (System/currentTimeMillis)})
-
-  (list-available-devices [this]
-    [{:device-id "hardware-simulator-1"
-      :device-name "Quantum Hardware Simulator"
-      :device-status :online
-      :backend-type :quantum-hardware-simulator
-      :max-qubits (max-qubits this)
-      :noise-model (noise-model this)}])
-
-  (get-device-topology [this device-id]
-    (let [max-qubits (max-qubits this)
-          coupling-map (for [i (range max-qubits)
-                             j (range max-qubits)
-                             :when (not= i j)]
-                         [i j])]
-      {:device-id device-id
-       :device-name "Quantum Hardware Simulator"
-       :coupling-map coupling-map
-       :max-qubits (max-qubits this)
-       :noise-model (noise-model this)}))
-
-  (get-calibration-data [this device-id]
-    {:device-id device-id
-     :timestamp (java.time.Instant/now)
-     :noise-model (noise-model this)
-     :coherence-times (vec (repeat (get config :max-qubits 20) 100000))})
-
-  (estimate-cost [_this _circuit _options]
-    {:total-cost 0.0
-     :currency "USD"
-     :cost-breakdown {:circuit-cost 0.0 :shot-cost 0.0 :device-cost 0.0}
-     :estimated-credits 0})
-
-  (batch-submit [this circuits options]
-    (let [batch-id (str "noisy_batch_" (System/currentTimeMillis))
-          job-ids (mapv #(qb/submit-circuit this % options) circuits)]
-      (swap! simulator-state assoc-in [:active-jobs batch-id]
-             {:batch-id batch-id
-              :job-ids job-ids
-              :status :queued
-              :created-at (System/currentTimeMillis)})
-      batch-id))
-
-  (get-batch-status [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
-      (let [job-ids (:job-ids batch-info)
-            statuses (map #(qb/get-job-status this %) job-ids)
-            status-counts (frequencies statuses)]
-        {:batch-id batch-job-id
-         :total-jobs (count job-ids)
-         :status-counts status-counts
-         :overall-status (cond
-                           (every? #(= % :completed) statuses) :completed
-                           (some #(= % :failed) statuses) :partial-failure
-                           (some #(= % :running) statuses) :running
-                           :else :queued)})
-      {:batch-id batch-job-id :status :not-found}))
-
-  (get-batch-results [this batch-job-id]
-    (if-let [batch-info (get (:active-jobs @simulator-state) batch-job-id)]
-      (let [job-ids (:job-ids batch-info)
-            results (into {} (map (fn [job-id]
-                                    [job-id (qb/get-job-result this job-id)])
-                                  job-ids))]
-        {:batch-id batch-job-id
-         :results results
-         :completed-jobs (count (filter #(= (:job-status %) :completed)
-                                        (vals results)))
-         :total-jobs (count job-ids)})
-      {:batch-id batch-job-id :error-message "Batch not found"})))
+  (select-device [_this device]
+    (swap! simulator-state assoc :current-device device)))
 
 ;;;
 ;;; Factory functions for hardware simulators
@@ -554,14 +385,21 @@
   "Create a hardware simulator for a specific device.
   
    Parameters:
-   - device: Device map with max-qubits, native-gates, topology and/or coupling and noise-model
    - config: Optional simulator configuration
+      - :max-qubits - Maximum number of qubits to simulate (default: 16)
+   - device: Optional device map with max-qubits, native-gates, topology and/or coupling and noise-model
   
    Returns: QuantumHardwareSimulator instance"
-  ([device]
-   (create-hardware-simulator device {}))
-  ([device config]
-   (->QuantumHardwareSimulator device config)))
+  ([]
+   (->QuantumHardwareSimulator {:max-qubits 16}))
+  ([config]
+   (->QuantumHardwareSimulator config))
+  ([config device]
+   (let [backend (->QuantumHardwareSimulator config)
+         ;; add device to devices if not already present
+         device (device/validate-device device)]
+     (swap! simulator-state assoc :devices (conj (:devices @simulator-state) device))
+     (backend/select-device backend device))))
 
 ;;;
 ;;; Utility functions for hardware simulator state management
@@ -573,7 +411,7 @@
   []
   (reset! simulator-state {:job-counter 0 :active-jobs {}}))
 
-(defn get-simulator-stats
+(defn simulator-statistics
   "Get statistics about the hardware simulator state.
   
   Returns: Map with job counts and statistics"
@@ -633,98 +471,5 @@
 
 
 (comment
-
-  (require '[org.soulspace.qclojure.application.noise-analysis :as analysis])
-
-  (noise-model-for :ibm-lagos)
-
-  ;; Create advanced simulators with different noise characteristics
-  (def ibm-sim (create-hardware-simulator (noise-model-for :ibm-lagos)))
-  (keys ibm-sim)
-  (:device ibm-sim)
-  (max-qubits ibm-sim)
-  (noise-model ibm-sim)
-  (def rigetti-sim (create-hardware-simulator (noise-model-for :rigetti-aspen)))
-  (def ideal-sim (create-hardware-simulator {}))
-
-  ;; === Amazon Braket Hardware Models ===
-
-  ;; IonQ trapped ion systems (high fidelity, slow gates)
-  (def ionq-harmony-sim (create-hardware-simulator (noise-model-for :ionq-harmony)))
-  (def ionq-aria-sim (create-hardware-simulator (noise-model-for :ionq-aria)))
-  (def ionq-forte-sim (create-hardware-simulator (noise-model-for :ionq-forte)))
-
-  ;; Rigetti superconducting systems (fast gates, moderate fidelity)
-  (def rigetti-m3-sim (create-hardware-simulator (noise-model-for :rigetti-aspen-m3)))
-
-  ;; Photonic and neutral atom systems (unique characteristics)
-  (def xanadu-sim (create-hardware-simulator (noise-model-for :xanadu-x-series)))
-  (def quera-sim (create-hardware-simulator (noise-model-for :quera-aquila)))
-
-  ;; Test Bell circuit across all platforms
-  (def bell-circuit
-    (-> (qc/create-circuit 2 "Bell State")
-        (qc/h-gate 0)
-        (qc/cnot-gate 0 1)))
-
-  (execute-single-noisy-shot bell-circuit (noise-model-for :ibm-lagos))
-  (execute-noisy-circuit-simulation bell-circuit {:shots 1000} (noise-model-for :ibm-lagos))
-
-  ;; Compare all Amazon Braket platforms
-  (def all-models (all-noise-models))
-  (def bell-comparison (analysis/compare-hardware-platforms bell-circuit all-models))
-
-  (println "=== Amazon Braket Platform Comparison (Bell Circuit) ===")
-  (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > bell-comparison)]
-    (println (format "%s (% s):"
-                     (name platform)
-                     (name (:platform-type data))))
-    (println (format "  Fidelity: %.4f (%.2f%% error)"
-                     (:estimated-fidelity data)
-                     (* 100 (:total-estimated-error data))))
-    (println (format "  T1: %s μs, T2: %s μs"
-                     (get-in data [:coherence-times :t1-time])
-                     (get-in data [:coherence-times :t2-time])))
-    (println (format "  Readout errors: 0→1: %.3f, 1→0: %.3f"
-                     (get-in data [:readout-fidelity :prob-0-to-1])
-                     (get-in data [:readout-fidelity :prob-1-to-0]))))
-
-  ;; Test more complex circuit to see platform differences
-  (def grover-circuit
-    (-> (qc/create-circuit 3 "3-qubit Grover")
-        (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)  ; Superposition
-        (qc/cnot-gate 0 1) (qc/cnot-gate 1 2)      ; Oracle simulation
-        (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)  ; Diffusion
-        (qc/z-gate 0) (qc/z-gate 1) (qc/z-gate 2)
-        (qc/cnot-gate 0 1) (qc/cnot-gate 1 2)
-        (qc/h-gate 0) (qc/h-gate 1) (qc/h-gate 2)))
-
-  (def grover-comparison (analysis/compare-hardware-platforms grover-circuit all-models))
-
-  (println "\n=== Platform Comparison (Complex Grover Circuit) ===")
-  (doseq [[platform data] (sort-by (comp :estimated-fidelity second) > grover-comparison)]
-    (println (format "%s: %.4f fidelity (%.1f%% total error)"
-                     (name platform)
-                     (:estimated-fidelity data)
-                     (* 100 (:total-estimated-error data)))))
-
-  ;; Individual noise channel testing
-  (def test-state (qs/plus-state))
-
-  ;; Depolarizing noise
-  (def depol-ops (channel/depolarizing-kraus-operators 0.1))
-  (def simulator-state (channel/apply-quantum-channel test-state depol-ops 0))
-  (println "\nDepolarizing noise result:" (:state-vector simulator-state))
-
-  ;; Amplitude damping
-  (def amp-ops (channel/amplitude-damping-kraus-operators 0.1))
-  (def damped-state (channel/apply-quantum-channel test-state amp-ops 0))
-  (println "Amplitude damping result:" (:state-vector damped-state))
-
-  ;; Decoherence parameters for different platforms
-  (def ionq-decoherence (channel/calculate-decoherence-params 15000.0 7000.0 40000.0))
-  (def rigetti-decoherence (channel/calculate-decoherence-params 45.0 35.0 200.0))
-
-  (println "\nDecoherence comparison:")
-  (println "  IonQ Aria (T1=15ms, T2=7ms, gate=40μs):" ionq-decoherence)
-  (println "  Rigetti M3 (T1=45μs, T2=35μs, gate=200ns):" rigetti-decoherence))
+  ;; Create a hardware simulator
+  )

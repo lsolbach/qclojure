@@ -51,42 +51,47 @@
     - circuit: Quantum circuit to optimize
     - supported-operations: Set of natively supported operations
     - coupling: Qubit coupling for hardware topology (optional)
-    - options: Optimization options
+    - options: optional Optimization options (defaults shown)
       - :optimize-gates? (default true) - Enable gate cancellation optimization
       - :optimize-qubits? (default true) - Enable qubit usage optimization
-      - :optimize-topology? (default false) - Enable topology-aware optimization
+      - :optimize-topology? (default true) - Enable topology-aware optimization
       - :transform-operations? (default true) - Enable final gate decomposition
       - Additional options passed to sub-functions
     
     Returns:
     Complete optimization result with corrected pipeline"
-  [circuit supported-operations & [coupling options]]
-  (-> {:circuit circuit
-       :device {:supported-operations supported-operations
-                :coupling coupling}
-       :options options}
+  ([ctx]
+   (-> ctx
+       ;; STEP 1: Gate cancellation optimization (after qubit optimization)
+       (go/optimize-gates)
 
-      ;; STEP 1: Gate cancellation optimization (after qubit optimization)
-      (go/optimize-gates)
+       ;; STEP 2: Qubit optimization FIRST (before topology constraints)
+       (qo/optimize-qubit-usage)
 
-      ;; STEP 2: Qubit optimization FIRST (before topology constraints)
-      (qo/optimize-qubit-usage)
+       ;; STEP 3: Topology optimization with decomposition-aware routing
+       (topo/topology-aware-transform)
 
-      ;; STEP 3: Topology optimization with decomposition-aware routing
-      (topo/topology-aware-transform)
+       ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
+       (ct/transform-circuit)
 
-      ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
-      (ct/transform-circuit)
+       ;; STEP 5: Final validation
+       (validate-result-context)
 
-      ;; STEP 5: Final validation
-      (validate-result-context)
-
-      (assoc :pipeline-order
-             [:gate-cancellation
-              :qubit-optimization
-              :topology-optimization
-              :gate-decomposition
-              :validation])))
+       (assoc :pipeline-order
+              [:gate-cancellation
+               :qubit-optimization
+               :topology-optimization
+               :gate-decomposition
+               :validation])))
+  ([circuit device]
+   (optimize circuit device {:optimize-gates? true
+                             :optimize-qubits? true
+                             :optimize-topology? true
+                             :transform-operations? true}))
+  ([circuit device options]
+   (optimize {:circuit circuit
+              :device device
+              :options options})))
 
 (defn optimization-statistics
   "Analyze original and optimized circuits and provide
@@ -161,10 +166,12 @@
                   {:operation-type :cnot :operation-params {:control 0 :target 2}}]}) ; Non-adjacent
 
   (def supported-gates #{:h :x :z :rz :cnot})  ; SWAP is NOT supported
-  (def linear-topology [[1] [0 2] [1]])        ; Linear: 0-1-2
+  (def linear-coupling [[1] [0 2] [1]])        ; Linear: 0-1-2
 
   ;; Test the corrected pipeline
-  (optimize test-circuit supported-gates linear-topology
+  (optimize test-circuit
+            {:native-gates supported-gates
+             :coupling linear-coupling}
             {:optimize-gates? true
              :optimize-qubits? true
              :optimize-topology? true
@@ -173,7 +180,9 @@
 
   (optimization-statistics
    test-circuit
-   (:circuit (optimize test-circuit supported-gates linear-topology
+   (:circuit (optimize test-circuit 
+                       {:native-gates supported-gates
+                        :coupling linear-coupling}
                        {:optimize-gates? true
                         :optimize-qubits? true
                         :optimize-topology? true

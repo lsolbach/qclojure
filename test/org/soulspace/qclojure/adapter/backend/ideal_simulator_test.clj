@@ -4,8 +4,8 @@
    These tests verify that the quantum simulator correctly implements the
    QuantumBackend protocol and accurately simulates quantum circuits."
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [org.soulspace.qclojure.application.backend :as qb]
-            [org.soulspace.qclojure.domain.circuit :as qc]
+            [org.soulspace.qclojure.application.backend :as backend]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]))
 
 ;; Test fixtures
@@ -23,67 +23,57 @@
 (defn- bell-circuit
   "Create a Bell state preparation circuit (entangled state)"
   []
-  (qc/bell-state-circuit))
+  (circuit/bell-state-circuit))
 
 (defn- ghz-circuit
   "Create a GHZ state preparation circuit for n qubits"
   [n]
-  (qc/ghz-state-circuit n))
+  (circuit/ghz-state-circuit n))
 
 ;; Test cases for the quantum simulator backend
 (deftest test-simulator-creation
   (testing "Basic simulator creation"
     (let [sim1 (sim/create-simulator)]
-      (is (satisfies? qb/QuantumBackend sim1))))
+      (is (satisfies? backend/QuantumBackend sim1))))
   
   (testing "Simulator creation with config"
     (let [config {:max-qubits 10 :seed 42}
           sim2 (sim/create-simulator config)
-          info (qb/get-backend-info sim2)]
+          info (backend/backend-info sim2)]
       (is (= 10 (:max-qubits info)))
       (is (= 42 (get-in info [:backend-config :seed]))))))
 
 (deftest test-backend-protocol-implementation
   (testing "Backend info"
     (let [simulator (sim/create-simulator)
-          info (qb/get-backend-info simulator)]
+          info (backend/backend-info simulator)]
       (is (= :simulator (:backend-type info)))
       (is (string? (:backend-name info)))
       (is (contains? info :capabilities))
-      (is (contains? info :supported-gates))
       (is (contains? info :max-qubits))))
-  
-  (testing "Supported gates"
-    (let [simulator (sim/create-simulator)
-          supported-gates (qb/get-supported-gates simulator)]
-      (is (set? supported-gates))
-      (is (>= (count supported-gates) 10))
-      (is (contains? supported-gates :h))
-      (is (contains? supported-gates :cnot))
-      (is (contains? supported-gates :x))))
   
   (testing "Availability check"
     (let [simulator (sim/create-simulator)]
-      (is (true? (qb/is-available? simulator))))))
+      (is (true? (backend/available? simulator))))))
 
 (deftest test-job-submission-and-tracking
   (testing "Circuit submission"
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
           options {:result-specs {:measurements {:shots 100}}}
-          job-id (qb/submit-circuit simulator circuit options)]
+          job-id (backend/submit-circuit simulator circuit options)]
       (is (string? job-id))
       
       ;; Wait a bit for the job to complete (since it runs in a future)
       (Thread/sleep 100)
       
       (testing "Job status retrieval"
-        (let [status (qb/get-job-status simulator job-id)]
+        (let [status (backend/job-status simulator job-id)]
           (is (contains? #{:queued :running :completed} status))))
       
       (testing "Job result retrieval"
         (let [_ (Thread/sleep 100) ;; Ensure job completes
-              execution-result (qb/get-job-result simulator job-id)
+              execution-result (backend/job-result simulator job-id)
               result (:results execution-result)]
           (is (= job-id (:job-id execution-result)))
           (is (contains? result :measurement-results))
@@ -99,7 +89,7 @@
     (let [simulator (sim/create-simulator)
           circuit (bell-circuit)
           options {:result-specs {:measurements {:shots 50}}}
-          execution-result (qb/execute-circuit simulator circuit options)
+          execution-result (backend/execute-circuit simulator circuit options)
           result (:results execution-result)
           measurements (:measurement-results result)
           freqs (:frequencies measurements)]
@@ -111,10 +101,10 @@
 (deftest test-circuit-simulations
   (testing "Hadamard gate simulation"
     (let [simulator (sim/create-simulator)
-          h-circuit (-> (qc/create-circuit 1 "Hadamard Test")
-                         (qc/h-gate 0))
+          h-circuit (-> (circuit/create-circuit 1 "Hadamard Test")
+                         (circuit/h-gate 0))
           options {:result-specs {:measurements {:shots 1000}}}
-          execution-result (qb/execute-circuit simulator h-circuit options)
+          execution-result (backend/execute-circuit simulator h-circuit options)
           result (:results execution-result)
           measurements (:measurement-results result)
           freqs (:frequencies measurements)]
@@ -131,7 +121,7 @@
     (let [simulator (sim/create-simulator)
           bell (bell-circuit)
           options {:result-specs {:measurements {:shots 1000}}}
-          execution-result (qb/execute-circuit simulator bell options)
+          execution-result (backend/execute-circuit simulator bell options)
           result (:results execution-result)
           measurements (:measurement-results result)
           freqs (:frequencies measurements)]
@@ -150,7 +140,7 @@
     (let [simulator (sim/create-simulator)
           ghz (ghz-circuit 3)  ;; 3-qubit GHZ state
           options {:result-specs {:measurements {:shots 1000}}}
-          execution-result (qb/execute-circuit simulator ghz options)
+          execution-result (backend/execute-circuit simulator ghz options)
           result (:results execution-result)
           measurements (:measurement-results result)
           freqs (:frequencies measurements)]
@@ -167,10 +157,10 @@
 (deftest test-multiple-gate-circuits
   (testing "X-gate followed by measurement"
     (let [simulator (sim/create-simulator)
-          x-circuit (-> (qc/create-circuit 1 "X Gate Test")
-                         (qc/x-gate 0))
+          x-circuit (-> (circuit/create-circuit 1 "X Gate Test")
+                         (circuit/x-gate 0))
           options {:result-specs {:measurements {:shots 100}}}
-          execution-result (qb/execute-circuit simulator x-circuit options)
+          execution-result (backend/execute-circuit simulator x-circuit options)
           result (:results execution-result)
           measurements (:measurement-results result) 
           freqs (:frequencies measurements)]
@@ -181,12 +171,12 @@
   
   (testing "Controlled-X gate test"
     (let [simulator (sim/create-simulator)
-          cx-circuit (-> (qc/create-circuit 2 "CNOT Test")
+          cx-circuit (-> (circuit/create-circuit 2 "CNOT Test")
                          ;; Control=1, Target=0
-                         (qc/x-gate 0)
-                         (qc/cnot-gate 0 1))
+                         (circuit/x-gate 0)
+                         (circuit/cnot-gate 0 1))
           options {:result-specs {:measurements {:shots 100}}}
-          execution-result (qb/execute-circuit simulator cx-circuit options)
+          execution-result (backend/execute-circuit simulator cx-circuit options)
           result (:results execution-result)
           measurements (:measurement-results result)
           freqs (:frequencies measurements)]
@@ -198,16 +188,16 @@
   (testing "Job cancellation"
     (let [simulator (sim/create-simulator)
           circuit (ghz-circuit 5)  ;; Create a larger circuit
-          job-id (qb/submit-circuit simulator circuit {:shots 5000})
-          cancel-result (qb/cancel-job simulator job-id)]
+          job-id (backend/submit-circuit simulator circuit {:shots 5000})
+          cancel-result (backend/cancel-job simulator job-id)]
       ;; Might already be completed depending on timing
       (is (contains? #{:cancelled :cannot-cancel} cancel-result))))
   
   (testing "Queue status"
     (let [simulator (sim/create-simulator)
-          _ (qb/submit-circuit simulator (bell-circuit) {})
-          _ (qb/submit-circuit simulator (ghz-circuit 3) {})
-          queue-status (qb/get-queue-status simulator)]
+          _ (backend/submit-circuit simulator (bell-circuit) {})
+          _ (backend/submit-circuit simulator (ghz-circuit 3) {})
+          queue-status (backend/queue-status simulator)]
       (is (map? queue-status))
       (is (contains? queue-status :total-jobs))
       (is (<= 2 (:total-jobs queue-status)))
@@ -218,7 +208,7 @@
 (deftest test-simulator-statistics
   (testing "Simulator stats"
     (let [simulator (sim/create-simulator)
-          _ (qb/execute-circuit simulator (bell-circuit) {:shots 100})
+          _ (backend/execute-circuit simulator (bell-circuit) {:shots 100})
           stats (sim/get-simulator-stats)]
       (is (map? stats))
       (is (contains? stats :total-jobs))
@@ -229,12 +219,12 @@
 (deftest test-error-handling
   (testing "Not found job"
     (let [simulator (sim/create-simulator)
-          result (qb/get-job-result simulator "non-existent-id")]
+          result (backend/job-result simulator "non-existent-id")]
       (is (= :not-found (:job-status result)))
       (is (= "non-existent-id" (:job-id result)))
       (is (contains? result :error-message))))
   
   (testing "Missing job ID for cancel"
     (let [simulator (sim/create-simulator)
-          result (qb/cancel-job simulator "non-existent-id")]
+          result (backend/cancel-job simulator "non-existent-id")]
       (is (= :not-found result)))))

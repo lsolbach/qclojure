@@ -18,6 +18,10 @@
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.domain.gate-optimization :as opt]))
 
+(def supported-topologies
+  "Set of supported hardware topologies."
+  #{:fully-connected :linear :ring :star :grid :heavy-hex :custom})
+
 ;;;
 ;;; Hardware Topology Creation Functions
 ;;;
@@ -41,14 +45,19 @@
                          j))]
              (vec (sort (remove #(= % i) symmetric-neighbors))))))))
 
-(defn all-to-all-coupling
-  "Create the coupling for an all-to-all hardware topology where every qubit is connected to every other qubit.
+(comment
+  (ensure-symmetric-coupling [[1] [0 2] [1 3] [2]])
+  ;
+  )
+
+(defn fully-connected-coupling
+  "Create the coupling for an fully-connected hardware topology where every qubit is connected to every other qubit.
   
   Parameters:
   - num-qubits: Number of qubits in the topology
   
   Returns:
-  Vector of vectors representing adjacency list for all-to-all topology"
+  Vector of vectors representing adjacency list for fully-connected topology"
   [num-qubits]
   (vec (for [i (range num-qubits)]
          (vec (remove #(= % i) (range num-qubits))))))
@@ -68,9 +77,14 @@
     :else
     (vec (for [i (range num-qubits)]
            (vec (cond
-                  (= i 0) [1]                     ; First qubit connects to second
-                  (= i (dec num-qubits)) [(dec i)] ; Last qubit connects to second-to-last
-                  :else [(dec i) (inc i)]))))))   ; Middle qubits connect to neighbors
+                  ; First qubit connects to second
+                  (= i 0) [1]
+
+                  ; Last qubit connects to second-to-last
+                  (= i (dec num-qubits)) [(dec i)]
+                  
+                  ; Middle qubits connect to neighbors
+                  :else [(dec i) (inc i)]))))))
 
 (defn ring-coupling
   "Create the coupling for a ring hardware topology where qubits are connected in a circle.
@@ -88,6 +102,18 @@
            (let [prev (mod (dec i) num-qubits)
                  next (mod (inc i) num-qubits)]
              [prev next])))))
+
+(defn octagonal-coupling
+  "Create the coupling for an octagonal hardware topology.
+  
+  Parameters:
+  - num-qubits: Number of qubits in the topology (must be 8)
+  
+  Returns:
+  Vector of vectors representing adjacency list for octagonal topology"
+  [num-qubits]
+  {:pre [(= num-qubits 8)]} ; Octagonal topology requires exactly 8 qubits
+  (ring-coupling 8))
 
 (defn star-coupling
   "Create the coupling for a star hardware topology with one central qubit connected to all others.
@@ -154,8 +180,8 @@
   [num-qubits]
   {:pre [(pos-int? num-qubits)
          (#{7} num-qubits)]}  ; Currently only support 7 and 27 qubit versions
-  
-  (case num-qubits 
+
+  (case num-qubits
     7
     ;; 7-qubit heavy-hex unit cell (single hexagon with edge qubits)
     ;; Based on IBM's actual heavy-hex topology where qubits have degree 1, 2 or 3
@@ -182,7 +208,7 @@
   
    Parameters:
    - topology: Keyword identifying the topology type
-               :all-to-all, :linear, :ring, :star, :grid, :heavy-hex
+               :fully-connected, :linear, :ring, :star, :grid, :heavy-hex
    - num-qubits: Number of qubits in the topology (ignored for heavy-hex)
   
    Returns:
@@ -190,19 +216,20 @@
   [topology num-qubits]
   {:pre [(keyword? topology)
          (nat-int? num-qubits)]}
-    (case topology
-        :all-to-all (all-to-all-coupling num-qubits)
-        :linear (linear-coupling num-qubits)
-        :ring (ring-coupling num-qubits)
-        :star (star-coupling num-qubits)
-        :grid (let [side (int (Math/sqrt num-qubits))
-                    rows side
-                    cols (if (zero? side) 0 (int (Math/ceil (/ num-qubits side))))]
-                (grid-coupling rows cols))
-        :heavy-hex (heavy-hex-coupling num-qubits)
-        (throw (ex-info "Unsupported topology type"
-                        {:topology topology
-                         :supported [:all-to-all :linear :ring :star :grid :heavy-hex]}))))
+  (case topology
+    :fully-connected (fully-connected-coupling num-qubits)
+    :linear (linear-coupling num-qubits)
+    :ring (ring-coupling num-qubits)
+    :octagonal (octagonal-coupling num-qubits)
+    :star (star-coupling num-qubits)
+    :grid (let [side (int (Math/sqrt num-qubits))
+                rows side
+                cols (if (zero? side) 0 (int (Math/ceil (/ num-qubits side))))]
+            (grid-coupling rows cols))
+    :heavy-hex (heavy-hex-coupling num-qubits)
+    (throw (ex-info "Unsupported topology type"
+                    {:topology topology
+                     :supported [:fully-connected :linear :ring :star :grid :heavy-hex]}))))
 
 ;;;
 ;;; Hardware Topology Optimization Functions
@@ -802,7 +829,7 @@
   (def linear-coupling [[1] [0 2] [1]])        ; Linear: 0-1-2
 
   ;; Test the topology-aware transformation
-  (topology-aware-transform {:circuit test-circuit 
+  (topology-aware-transform {:circuit test-circuit
                              :coupling linear-coupling
                              :supported-gates supported-gates
                              :options {:optimize-topology? true}})

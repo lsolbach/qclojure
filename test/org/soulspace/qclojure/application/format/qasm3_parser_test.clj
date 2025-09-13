@@ -275,8 +275,60 @@ qubit[1] q;"
       (is (< emit-time 100000000))  ;; Less than 100ms
       (is (str/includes? emitted "h q[0];")))))
 
+;;;
+;;; Comment handling tests
+;;;
+(deftest test-line-comments
+  (testing "Line comments should be ignored during parsing"
+    (let [qasm "OPENQASM 3.0;
+// This is a line comment
+include \"stdgates.inc\";
+qubit[2] q;
+// Another comment
+h q[0]; // End-of-line comment
+cx q[0], q[1];"
+          result (qasm3/qasm-to-circuit qasm)]
+      (is (= 2 (count (:operations result))))
+      ;; Verify the operations were parsed correctly despite comments
+      (is (= :h (-> result :operations first :operation-type)))
+      (is (= :cnot (-> result :operations second :operation-type))))))
+
+(deftest test-block-comments
+  (testing "Block comments should be ignored during parsing"
+    (let [qasm "OPENQASM 3.0;
+/* This is a block comment */
+include \"stdgates.inc\";
+qubit[2] q;
+/* Multi-line
+   block comment
+   with multiple lines */
+h q[0];
+/* Another block comment */ cx q[0], q[1]; /* Final comment */"
+          result (qasm3/qasm-to-circuit qasm)]
+      (is (= 2 (count (:operations result))))
+      (is (= :h (-> result :operations first :operation-type)))
+      (is (= :cnot (-> result :operations second :operation-type))))))
+
+(deftest test-mixed-comments
+  (testing "Mixed line and block comments"
+    (let [qasm "OPENQASM 3.0;
+// Line comment at start
+/* Block comment */ include \"stdgates.inc\"; // End-of-line comment
+qubit[3] q;
+// Before gate operations
+h q[0]; /* Inline block */ y q[1]; // Another line comment
+/* Multi-line block
+   comment here */
+cx q[0], q[1]; // Final comment"
+          result (qasm3/qasm-to-circuit qasm)]
+      (is (= 3 (count (:operations result))))
+      (is (= :h (-> result :operations (nth 0) :operation-type)))
+      (is (= :y (-> result :operations (nth 1) :operation-type)))
+      (is (= :cnot (-> result :operations (nth 2) :operation-type))))))
+
 (comment
   ;; Run all tests
   (run-tests)
-  ;
+  
+  ;  
   )

@@ -137,12 +137,38 @@
       (when (seq pragma-lines)
         (str "\n" (str/join "\n" pragma-lines) "\n")))))
 
-;; Parser using the EBNF grammar
+;;;
+;;; Comment removal functions
+;;;
+(defn remove-line-comments
+  "Remove C++-style line comments (// ...) from QASM code.
+   Preserves line structure to maintain line-based pragmas."
+  [qasm-code]
+  (str/replace qasm-code #"//.*?(?=\r?\n|$)" ""))
+
+(defn remove-block-comments
+  "Remove C-style block comments (/* ... */) from QASM code."
+  [qasm-code]
+  (str/replace qasm-code #"(?s)/\*.*?\*/" ""))
+
+(defn preprocess-qasm
+  "Remove comments from QASM code while preserving structure.
+   Removes both line comments (//) and block comments (/* */)."
+  [qasm-code]
+  (-> qasm-code
+      remove-block-comments
+      remove-line-comments))
+
+;;;
+;;; Parser using the EBNF grammar
+;;;
 (def ^:private qasm3-parser
   (insta/parser (io/resource "openqasm/qasm3.ebnf")
                 :auto-whitespace :standard))
 
-;; Helper functions
+;;;
+;;; Helper functions
+;;;
 (defn parse-simple-integer
   "Parse a simple integer from parse tree tokens.
    Only handles DecimalIntegerLiteral, not complex expressions."
@@ -706,10 +732,17 @@
   - :circuit - the quantum circuit object
   - :result-specs - any measurement or result specifications"
   [qasm-code]
-  (let [parse-result (qasm3-parser qasm-code)]
+  (let [;; Extract result specs from original code (before comment removal)
+        qasm-lines (str/split-lines qasm-code)
+        result-specs (collect-result-specs-from-qasm qasm-lines)
+        ;; Preprocess to remove comments for parsing
+        preprocessed-code (preprocess-qasm qasm-code)
+        parse-result (qasm3-parser preprocessed-code)]
     (if (insta/failure? parse-result)
       (throw (ex-info "Parse error" {:error parse-result}))
-      (transform-parse-tree parse-result qasm-code))))
+      (let [circuit (transform-parse-tree parse-result preprocessed-code)]
+        ;; Merge result specs from original code
+        (assoc circuit :result-specs (merge (:result-specs circuit) result-specs))))))
 
 (defn gate-to-qasm3
   "Convert a single gate operation to QASM3 syntax using operation registry information."

@@ -17,12 +17,14 @@
   #{:single-qubit
     :two-qubit
     :multi-qubit
-    :parametric})
+    :parametric
+    :global
+    :global-parametric})
 
 (def operation-params
   "Set of operation parameters."
   #{:target :target1 :target2 :control :control1 :control2
-    :angle})
+    :angle :theta :phi})
 
 ;; Specs for operation definitions
 (s/def ::operation-kind keyword?)
@@ -39,7 +41,7 @@
 (s/def ::decomposition ::decomposition-spec)
 
 (s/def ::operation-definition
-  (s/keys :req-un [::operation-id ::operation-type ::description]
+  (s/keys :req-un [::operation-kind ::operation-id ::operation-type ::description]
           :opt-un [::parameter-count ::decomposition]))
 
 (s/def ::operation-set (s/coll-of ::operation-id :kind set?))
@@ -371,7 +373,11 @@
                                                  (for [i (range n)] [:z :target i]))}}
    
    ;; Measurement operations
-   ;; TODO add measurement ops
+   :measure {:operation-kind :measurement
+             :operation-id :measure
+             :operation-name "Measure"
+             :operation-type :single-qubit
+             :description "Computational basis measurement (Z-basis) - collapses qubit to |0⟩ or |1⟩"}
    })
 
 ;; Predefined gate sets for common hardware
@@ -391,7 +397,7 @@
 (def native-simulator-gate-set
   "Gates typically supported natively by quantum simulators."
   #{:i :x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase
-    :cnot :cx :cz :cy :swap :crx :cry :crz :toffoli :fredkin})
+    :cnot :cz :cy :swap :crx :cry :crz :toffoli :fredkin})
 
 ;; Utility functions
 ;; Gate alias system

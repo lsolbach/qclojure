@@ -20,6 +20,7 @@
 * added OpenQASM 2/3 parsers with instaparse for
 improved compatibility including expression evaluation
 * improved docstrings
+* updated the tutorial to reflect the backend changes
 
 ## Version 0.15.0
 * extracted `topology` namespace from `hardware-optimization`

@@ -162,9 +162,7 @@
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.adapter.visualization.html :as html]
-   [org.soulspace.qclojure.application.backend :as qb]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]))
 
 ;; Some namespaces, like visualization namespaces contain multimethod
 ;; implementations. To make sure that the implementations are loaded, we
@@ -726,7 +724,7 @@ gate/t-dag-gate
 ;; The *application.backend* namespace contains the protocols to be implemented by a
 ;; specific backend. A backend can be used to execute a quantum circuit.
 
-(require '[org.soulspace.qclojure.application.backend :as qb])
+(require '[org.soulspace.qclojure.application.backend :as backend])
 
 ;; QClojure comes with two simulator backends in the *adapter.backend* that can be used to
 ;; simulate quantum circuits on a classical computer.
@@ -751,7 +749,7 @@ gate/t-dag-gate
 ;; Therefore, simulating quantum circuits with a large number of qubits or a deep
 ;; circuit can take a long time.
 ;;
-;; ### Ideal Simulator Backend
+;; ## Ideal Simulator Backend
 ;; Let's try the ideal simulator first by requiring the `ideal-simulator` namespace.
 
 (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
@@ -762,16 +760,16 @@ gate/t-dag-gate
 
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
 
-(qb/execute-circuit simulator (circuit/ghz-state-circuit 3))
+(backend/execute-circuit simulator (circuit/ghz-state-circuit 3))
 
 ;; When executing a circuit on a backend, it will be executed multiple times,
 ;; because of the probabilistic nature of quantum computing. One execution of the
 ;; circuit is called a *shot*. The default number of shots is 512, but it can be
 ;; configured via an options map.
 
-(qb/execute-circuit simulator (circuit/ghz-state-circuit 3) {:shots 10})
+(backend/execute-circuit simulator (circuit/ghz-state-circuit 3) {:shots 10})
 
-;; ### Hardware Simulator Backend
+;; ## Hardware Simulator Backend
 ;; Currently existing real quantum hardware has a set of limitations compared
 ;; to what our ideal simulator supports:
 ;;
@@ -781,24 +779,33 @@ gate/t-dag-gate
 ;;
 ;; This has some consequences for running quantum circuits on real quantum
 ;; hardware, also known as Quantum Processing Units (QPUs).
-;; The limited native gate set means that our circuit has to be transformed to
-;; only use those native gates. This is done by decomposing unsupported gates
-;; to supported gates.
 ;; The limited topology means that not all qubits can be used freely in 
 ;; a multi-qubit gate, e.g. a CNOT gate. If a CNOT gate should be applied to
 ;; qubits which are not coupled in the topology, represente by a coupling map,
 ;; Swap gates have to be introduced to 'move' the information to qubits that
 ;; are coupled, so that the CNOT gate can be applied. 
+;;
+;; The limited native gate set means that our circuit has to be transformed to
+;; only use those native gates. This is done by decomposing unsupported gates
+;; to supported gates.
+;;
+;; The hardware simulator backend optimizes and transforms a quantum circuit
+;; on submission to the backend, so that it can be executed on the
+;; simulated quantum hardware.
+;; It optimizes the circuit by reducing the number of gates and the depth
+;; of the circuit. It transforms the circuit by decomposing unsupported gates
+;; to supported gates and by adding Swap gates to respect the coupling map.
+;;
 ;; The various kinds of noise affect the results of quantum computations.
 ;; They can be addressed by error correction, which uses a number of
 ;; physical qubits to form a logical qubit. On current QPUs with limited
 ;; qubit counts this is not always an option. Error mitigation strategies try 
 ;; to address the problem mathematically or with more executions.
 ;; 
-;; The hardware simulator backend simulates a quantum computer with noise,
+;; The hardware simulator backend also simulates the noise of a given
+;; quantum device, based on a device map provided to the backend,
 ;; allowing us to study the effects of noise on quantum circuits.
-;;
-;; The hardware simulator backend simulates these kinds of noise:
+;; It simulates these kinds of noise:
 ;;
 ;; * depolarizing noise is a type of noise that randomly flips the state of a
 ;;   qubit with a certain probability.
@@ -818,26 +825,27 @@ gate/t-dag-gate
 ;;
 ;; Let's try the hardware simulator first by requiring the `hardware-similator` namespace.
 
-(require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as noisy])
+(require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as hwsim])
 
-;; We can instantiate the hardware simulator with the `create-noisy-simulator` function
+;; We can instantiate the hardware simulator with the `create-hardware-simulator` function
 ;; and provide a provide a device map. The device map we use here is derived from the
 ;; IBM Lagos Quantum Computer.
 
-(qb/devices :ibm-lagos)
+(def hardware-simulator (hwsim/create-hardware-simulator))
 
-;; The noise profile shows configurations for the different types of noise,
+(backend/select-device hardware-simulator (:ibm-lagos hwsim/device-map))
+
+;; The device map shows configurations for the different types of noise,
 ;; a physical quantum computer can have. All different types of noise contribute
 ;; to the errors in the measurement.
+;; The device map also shows the native gate set and the coupling map of the
+;; qubits, which defines the topology of coupled qubits.
 ;;
-;; Let's instantiate the noisy simulator with the IBM Lagos profile.
-
-(def lagos-simulator (noisy/create-hardware-simulator (qb/devices :ibm-lagos)))
-
 ;; Now we can use the simulator to execute the ghz circuit on the simulator.
-;; Because we use a noisy simulator, we may measure wrong answers.
+;; Because we use a hardware simulator simulating noise, we may measure wrong
+;; answers.
 
-(def lagos-50-result (qb/execute-circuit lagos-simulator (circuit/ghz-state-circuit 3) {:shots 50}))
+(def lagos-50-result (backend/execute-circuit hardware-simulator (circuit/ghz-state-circuit 3) {:shots 50}))
 
 lagos-50-result
 
@@ -850,7 +858,7 @@ lagos-50-result
 ;; could be unlucky and measure the wrong answers. The probability to measure
 ;; the wrong answers gets lower by increasing the number of shots.
 
-(def lagos-10k-result (qb/execute-circuit lagos-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
+(def lagos-10k-result (backend/execute-circuit hardware-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
 
 lagos-10k-result
 
@@ -862,17 +870,14 @@ lagos-10k-result
 
 ;; We can also use the hardware simulator with a different device map, e.g.
 ;; for an IonQ Forte quantum computer.
+;; Let's select IonQ Forte device for the simulation.
 
-(qb/devices :ionq-forte)
-
-;; Let's instantiate the noisy simulator with the IonQ Forte profile.
-
-(def forte-simulator (noisy/create-hardware-simulator (qb/devices :ionq-forte)))
+(backend/select-device hardware-simulator (:ionq-forte hwsim/device-map))
 
 ;; We now execute the GHZ circuit on this simulator with 10000 shots and
 ;; compare the results with the IBM Lagos simulation.
 
-(def forte-10k-result (qb/execute-circuit forte-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
+(def forte-10k-result (backend/execute-circuit hardware-simulator (circuit/ghz-state-circuit 3) {:shots 10000}))
 
 forte-10k-result
 
@@ -1368,7 +1373,7 @@ grover-result
 ;; frequency domain representation.
 
 (def qft-result
-  (qb/execute-circuit (sim/create-simulator) qft-circuit {:shots 1}))
+  (backend/execute-circuit (sim/create-simulator) qft-circuit {:shots 1}))
 
 qft-result
 

@@ -26,8 +26,7 @@
 
     (testing "backend info"
       (let [simulator (sim/create-hardware-simulator)
-            info (backend/backend-info simulator)
-            _ (println "Hardware Simulator Info:" info)]
+            info (backend/backend-info simulator)]
         
         (is (= :hardware-simulator (:backend-type info)) "Should have correct backend type")))))
 
@@ -58,9 +57,8 @@
             job-id (backend/submit-circuit simulator circuit {:shots 1000})]
 
         ; Wait for completion
-        (Thread/sleep 2000)
+        (Thread/sleep 500)
         (let [result (backend/job-result simulator job-id)
-              _ (println result)
               measurements (:measurement-results result)
               ideal-states (+ (get measurements "000" 0) (get measurements "111" 0))
               total-shots (reduce + (vals measurements))

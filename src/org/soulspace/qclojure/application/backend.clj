@@ -193,9 +193,7 @@
     - circuit: Quantum circuit to estimate cost for
     - options: Execution options including shots and device
     
-    Returns: Cost estimation information")
-
-)
+    Returns: Cost estimation information"))
 
 ;;;
 ;;; High-level execution functions

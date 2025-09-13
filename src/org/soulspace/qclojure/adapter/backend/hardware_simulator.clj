@@ -47,10 +47,11 @@
 ;;;
 ;;; Hardware simulator state management
 ;;;
-(defonce simulator-state (atom {:job-counter 0
-                                :active-jobs {}
-                                :devices device-list
-                                :current-device (first device-list)}))
+(defonce simulator-state
+  (atom {:job-counter 0
+         :active-jobs {}
+         :devices device-list
+         :current-device (first device-list)}))
 
 ;;
 ;; Job record for noisy simulations
@@ -271,7 +272,7 @@
   (backend-info [_this]
     {:backend-type :hardware-simulator
      :backend-name "Hardware Simulator"
-     :devices device-list
+     :devices (:devices @simulator-state)
      :device (:current-device @simulator-state)
      :config config
      :capabilities #{:multi-device}})
@@ -371,8 +372,11 @@
     device-list)
 
   (select-device [_this device]
-    (swap! simulator-state assoc :current-device device)
-    (:current-device @simulator-state)))
+    (let [device (if (keyword? device)
+                   (:device device-map)
+                   device)]
+      (swap! simulator-state assoc :current-device device)
+      (:current-device @simulator-state))))
 
 ;;;
 ;;; Factory functions for hardware simulators

@@ -1,14 +1,14 @@
 # Changelog
 
 ## Version (NEXT)
-* added device namespace in domain
+* added `device` namespace in domain
   * all QPU specific information is captured in the device map
 * decoupled backend and device
   * restructured and refactured the backend protocols
-  * added MultiDeviceBackend protocol
-  * added BatchJobBackend protocol
+  * added `MultiDeviceBackend` protocol
+  * added `BatchJobBackend` protocol
 * updated ideal and hardware simulator for new backend protocols
-* moved topology namespace to domain
+* moved `topology` namespace to domain
 * enabled topology optimizations to the hardware simulator
 * simplified circuit optimization pipeline code
   * introduced optimization context

@@ -57,7 +57,7 @@
             job-id (backend/submit-circuit simulator circuit {:shots 1000})]
 
         ; Wait for completion
-        (Thread/sleep 500)
+        (Thread/sleep 1000)
         (let [result (backend/job-result simulator job-id)
               measurements (:measurement-results result)
               ideal-states (+ (get measurements "000" 0) (get measurements "111" 0))

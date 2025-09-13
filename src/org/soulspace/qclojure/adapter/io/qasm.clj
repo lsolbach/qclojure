@@ -4,8 +4,8 @@
    Contains implementations of the `io/export-quantum-circuit` and `io/import-quantum-circuit`
    multimethods for the `:qasm2` and `:qasm3` formats."
   (:require [org.soulspace.qclojure.adapter.io :as io]
-            [org.soulspace.qclojure.application.format.qasm2 :as qasm2]
-            [org.soulspace.qclojure.application.format.qasm3 :as qasm3]))
+            [org.soulspace.qclojure.application.format.qasm2-parser :as qasm2]
+            [org.soulspace.qclojure.application.format.qasm3-parser :as qasm3]))
 
 ;; QASM 2.0 methods
 (defmethod io/export-quantum-circuit :qasm2

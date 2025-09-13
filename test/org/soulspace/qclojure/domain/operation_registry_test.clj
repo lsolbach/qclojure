@@ -153,9 +153,9 @@
     (let [expanded (opreg/expand-gate-set #{:s})]
       (is (set? expanded))
       (is (contains? expanded :s))
-      ;; S decomposes to T gates, so T should be in expanded set
+      ;; S decomposes to RZ gates via parametric function (preferred over T gates)
       (when (not-empty (opreg/get-gate-dependencies :s))
-        (is (contains? expanded :t))))))
+        (is (contains? expanded :rz))))))
 
 (deftest pauli-gates-test
   (testing "Pauli gates are properly defined"

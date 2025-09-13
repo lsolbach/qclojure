@@ -35,8 +35,9 @@
 ;; Enhanced decomposition system supporting multiple backends and parameterization
 (s/def ::decomposition-spec 
   (s/or :simple-vector (s/coll-of ::operation-id :kind vector?)
-        :backend-map (s/map-of keyword? (s/coll-of any?))
-        :function-map (s/map-of keyword? fn?)))
+        :backend-map (s/map-of keyword? (s/or :vector (s/coll-of any?) 
+                                             :function fn? 
+                                             :boolean boolean?))))
 
 (s/def ::decomposition ::decomposition-spec)
 
@@ -187,25 +188,7 @@
           :description "SWAP gate - exchanges two qubits"
           :decomposition {:cnot [[:cnot :target1 :target2] 
                                 [:cnot :target2 :target1] 
-                                [:cnot :target1 :target2]]
-                         :cz-h [{:gate :h :target :target2}
-                                {:gate :cz :control :target1 :target :target2}
-                                {:gate :h :target :target2}
-                                {:gate :h :target :target1}
-                                {:gate :cz :control :target2 :target :target1}
-                                {:gate :h :target :target1}
-                                {:gate :h :target :target2}
-                                {:gate :cz :control :target1 :target :target2}
-                                {:gate :h :target :target2}]
-                         :braket-rigetti [{:gate :h :target :target2}
-                                         {:gate :cz :control :target1 :target :target2}
-                                         {:gate :h :target :target2}
-                                         {:gate :h :target :target1}
-                                         {:gate :cz :control :target2 :target :target1}
-                                         {:gate :h :target :target1}
-                                         {:gate :h :target :target2}
-                                         {:gate :cz :control :target1 :target :target2}
-                                         {:gate :h :target :target2}]}}
+                                [:cnot :target1 :target2]]}}
 
    :iswap {:operation-kind :gate
            :operation-id :iswap

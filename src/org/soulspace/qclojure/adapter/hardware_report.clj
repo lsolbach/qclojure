@@ -8,19 +8,6 @@
 ;;;
 ;;; Topology Visualization Integration
 ;;;
-(defn visualize-topology
-  "Visualize a hardware topology using the visualization system.
-  
-  Parameters:
-  - topology: Hardware topology (vector of vectors)
-  - format: Visualization format (:ascii or :svg)
-  - options: Visualization options (passed to visualizer)
-  
-  Returns:
-  String containing the visualization"
-  [topology format & [options]]
-  (viz/visualize-hardware-topology format topology (or options {})))
-
 (defn compare-topologies-visually
   "Create visual comparison of different hardware topologies.
   
@@ -33,7 +20,7 @@
   Map of topology name to visualization string"
   [topologies format & [options]]
   (into {} (map (fn [[name topology]]
-                  [name (visualize-topology topology format options)])
+                  [name (viz/visualize-topology format topology options)])
                 topologies)))
 
 (defn create-topology-comparison-report
@@ -81,7 +68,7 @@
                 (str/join "\n\n"
                           (map (fn [[name topology]]
                                  (str "--- " name " ---\n"
-                                      (visualize-topology topology format options)))
+                                      (viz/visualize-topology format topology options)))
                                topologies)))))))
 
 (defn demonstrate-topologies
@@ -124,10 +111,10 @@
 
   ;; Basic topology visualization
   (def linear-5 (topo/linear-coupling 5))
-  (println (visualize-topology linear-5 :ascii))
+  (println (viz/visualize-topology :ascii linear-5))
 
   ;; Create SVG visualization and save to file
-  (def ring-svg (visualize-topology (topo/ring-coupling 6) :svg {:layout :circular}))
+  (def ring-svg (viz/visualize-topology :svg (topo/ring-coupling 6) {:layout :circular}))
   ;; (spit "ring-topology.svg" ring-svg)
 
   ;; Compare multiple topologies visually

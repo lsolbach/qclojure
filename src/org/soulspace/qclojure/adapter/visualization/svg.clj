@@ -1496,11 +1496,11 @@
   (def hhex-65 (hw/heavy-hex-topology 65))
 
   ;; Generate SVG visualizations
-  (def linear-svg (viz/visualize-hardware-topology :svg linear-5))
-  (def ring-svg (viz/visualize-hardware-topology :svg ring-6))
-  (def star-svg (viz/visualize-hardware-topology :svg star-7))
-  (def grid-svg (viz/visualize-hardware-topology :svg grid-3x3))
-  (def hhex-svg (viz/visualize-hardware-topology :svg hhex-65))
+  (def linear-svg (viz/visualize-topology :svg linear-5))
+  (def ring-svg (viz/visualize-topology :svg ring-6))
+  (def star-svg (viz/visualize-topology :svg star-7))
+  (def grid-svg (viz/visualize-topology :svg grid-3x3))
+  (def hhex-svg (viz/visualize-topology :svg hhex-65))
 
   ;; Save to files
   (qio/save-file linear-svg "linear-topology.svg")

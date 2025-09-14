@@ -162,7 +162,9 @@
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
+   [org.soulspace.qclojure.application.hardware-optimization :as hwopt]
+   [fastmath.optimization :as optim]))
 
 ;; Some namespaces, like visualization namespaces contain multimethod
 ;; implementations. To make sure that the implementations are loaded, we
@@ -795,6 +797,9 @@ gate/t-dag-gate
 ;; It optimizes the circuit by reducing the number of gates and the depth
 ;; of the circuit. It transforms the circuit by decomposing unsupported gates
 ;; to supported gates and by adding Swap gates to respect the coupling map.
+;; Details about the optimization and transformation process are described
+;; in the [Circuit Optimization and Transformation](#circuit-optimization-and-transformation)
+;; section below.
 ;;
 ;; The various kinds of noise affect the results of quantum computations.
 ;; They can be addressed by error correction, which uses a number of
@@ -909,7 +914,10 @@ forte-10k-result
 ;; Gate optimization can be applied to quantum circuits to improve their
 ;; performance and to reduce the effects of noise.
 ;; For example, consecutive Pauli and Hadamard gates can be eliminated, as they
-;; are self-inverse.
+;; are self-inverse. QClojure implements some gate optimization techniques:
+;;
+;; * Gate Cancellation - eliminates consecutive gates that cancel each other out.
+;; * Rotation Folding - combines consecutive rotation gates into a single rotation gate.
 ;; 
 ;; ### Qubit Optimization
 ;; Qubit optimization is a technique used to reduce the number of qubits in
@@ -943,9 +951,54 @@ forte-10k-result
 ;; The optimization pipeline will apply the techniques in a specific order
 ;; to optimize and transform the quantum circuit for a specific hardware.
 ;; 
-;; The optimization pipeline is used in the hardware simulator backend
-;; to optimize and transform the quantum circuit before executing it on
-;; the simulator.
+;; The optimization pipeline is used in the backends, e.g. the hardware
+;; simulator backend, on circuit submission to optimize and transform the
+;; quantum circuit before executing it on the backend. So normally there is no
+;; need to call the optimization pipeline directly.
+;;
+;; To see how the optimization pipeline works, let's call it directly. First
+;; we need to require the `hardware-optimization` namespace.
+
+(require '[org.soulspace.qclojure.application.hardware-optimization :as hwopt])
+
+;; Now we can create a quantum circuit that we want to optimize and transform.
+
+(def opt-test-circuit
+  (-> (circuit/create-circuit 4 "Optimization Test Circuit")
+      (circuit/h-gate 0)
+      (circuit/s-gate 0)
+      (circuit/h-gate 1)
+      (circuit/h-gate 3)
+      (circuit/t-gate 3)
+      (circuit/rx-gate 1 fm/HALF_PI)
+      (circuit/rx-gate 1 fm/PI)
+      (circuit/rx-gate 1 fm/HALF_PI)
+      (circuit/h-gate 1)
+      (circuit/s-dag-gate 0)
+      (circuit/cnot-gate 0 1)
+      (circuit/t-gate 1)
+      (circuit/cnot-gate 1 2)
+      (circuit/ry-gate 2 fm/TAU)
+      (circuit/t-dag-gate 3)
+      (circuit/h-gate 3)))
+
+;; This circuit looks reasonably complex.
+
+^kind/html
+(viz/visualize-circuit :svg opt-test-circuit)
+
+;; Now we can optimize and transform the circuit for the IonQ Forte device.
+
+(def optimization-result
+  (hwopt/optimize opt-test-circuit (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
+
+(def optimized-circuit (:circuit optimization-result))
+
+;; The optimized circuit is a lot simpler than the original circuit.
+
+^kind/html
+(viz/visualize-circuit :svg optimized-circuit)
+
 ;;
 ;; ## Error Mitigation
 ;; Error mitigation is a collection of techniques used to reduce the effects

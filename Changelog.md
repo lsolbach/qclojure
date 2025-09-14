@@ -5,8 +5,10 @@
 * enhanced gate optimizations
   * added inverse gate cancellation
   * added rotation folding
+* fixed flag checks in optimization functions 
 * enhanced the tutorial
-* fixed optimize-qubits? check 
+  * added examples for the optimization pipeline
+* updated clay version 
 
 ## Version 0.16.0
 * added `device` namespace in domain

@@ -222,7 +222,7 @@ state/|0⟩
 ;; The ASCII format is useful for quick visualizations in the REPL,
 ;; while the SVG format is more suitable for embedding in documents like
 ;; tutorials, papers or presentations. We tag the code blocks with
-;; `^kind/code` and `^kind/html` to indicate the type of content.
+;; `^kind/code` and `^kind/hiccup` to indicate the type of content.
 ;; With these tags, the Clay notebook renderer can render the output
 ;; appropriately.
 ;;
@@ -233,7 +233,7 @@ state/|0⟩
 
 ;; And this is the SVG representation of the same quantum state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg state/|0⟩)
 
 ;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
@@ -250,7 +250,7 @@ state/|0⟩
 
 ;; And now the Bloch sphere in SVG format of the same quantum state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg state/|0⟩)
 
 ;; The Bloch sphere representation shows that the state |0⟩ is at the north pole
@@ -262,7 +262,7 @@ state/|1⟩
 
 ;; We can visualize the probability distribution of the quantum state |1⟩.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg state/|1⟩)
 
 ;; It shows that the probability of measuring the state |1⟩ results in 1 is 1,
@@ -270,7 +270,7 @@ state/|1⟩
 ;; The Bloch sphere representation shows that the state |1⟩ is at the south pole
 ;; of the sphere.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg state/|1⟩)
 
 ;; ### Superposition States
@@ -286,14 +286,14 @@ state/|+⟩
 
 ;; We can visualize the probability distribution of the quantum state |+⟩.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg state/|+⟩)
 
 ;; The Bloch sphere representation shows that the state |+⟩ is on the
 ;; equator of the sphere, which means, that the probabilities for
 ;; measuring 0 or 1 are the same.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg state/|+⟩)
 
 ;; The quantum state |-⟩ is another superposition of the ground and
@@ -303,13 +303,13 @@ state/|-⟩
 
 ;; We can visualize the probability distribution of the quantum state |-⟩.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg state/|-⟩)
 
 ;; The Bloch sphere representation shows that the state |-⟩ is also on the
 ;; equator of the sphere, but pointing in the opposite direction.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg state/|-⟩)
 
 ;; ### Multi-Qubit States and Quantum Registers
@@ -320,7 +320,7 @@ state/|00⟩
 
 ;; We can visualize the probability distribution of the quantum state |00⟩.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; ## Quantum Gates
@@ -366,13 +366,13 @@ gate/hadamard
 
 ;; We can visualize the probability distribution of the Hadamard state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg hadamard-state)
 
 ;; The probability distribution shows that the Hadamard state is in a
 ;; superposition of the ground and excited states.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg hadamard-state)
 
 ;; The Bloch sphere representation shows that the Hadamard state is on the
@@ -466,7 +466,7 @@ gate/t-dag-gate
 
 ;; And this is the SVG representation of the same quantum circuit.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg simple-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the qubit 0.
@@ -479,7 +479,7 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the Hadamard circuit state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (:final-state hadamard-circuit-result))
 
 ;; The probability distribution shows that the Hadamard circuit state is
@@ -487,7 +487,7 @@ gate/t-dag-gate
 ;; Hadamard state we created earlier, but now created by a quantum circuit, not
 ;; just the application of a single gate on a quantum state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-bloch-sphere :svg (:final-state hadamard-circuit-result))
 
 ;; The *circuit* namespace also has some predefined circuits.
@@ -500,7 +500,7 @@ gate/t-dag-gate
 
 ;; We can visualize the Bell circuit.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg bell-circuit)
 
 ;; The Bell circuit shows that the Hadamard gate is applied to the first qubit,
@@ -513,7 +513,7 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the Bell state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (:final-state bell-result))
 
 ;; The *circuit* namespace also has a predefined circuit for multi-qubit states.
@@ -529,7 +529,7 @@ gate/t-dag-gate
 
 ;; We can visualize the GHZ circuit.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg ghz-circuit)
 
 ;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit,
@@ -543,7 +543,7 @@ gate/t-dag-gate
 
 ;; We can visualize the probability distribution of the GHZ state.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (:final-state ghz-result))
 
 ;; The probability distribution shows that the GHZ state is in a superposition
@@ -854,7 +854,7 @@ gate/t-dag-gate
 
 lagos-50-result
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (:final-state lagos-50-result))
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
@@ -870,7 +870,7 @@ lagos-10k-result
 ;; With 10000 shots, the difference of the counts of the correct answers
 ;; and the counts of the wrong answers should be quite significant.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result))
 
 ;; We can also use the hardware simulator with a different device map, e.g.
@@ -889,7 +889,7 @@ forte-10k-result
 ;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
-(kind/html (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
+(kind/hiccup (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
 
 ;; You can also create your own device profiles by defining a device map
 ;; with the required parameters. You can then use this device map to create
@@ -903,9 +903,9 @@ forte-10k-result
 ;;
 ;; ## Circuit Optimization and Transformation
 ;; Quantum circuits can be optimized and transformed to improve their performance
-;; and to run on specific quantum hardware.
-;; QClojure provides a set of optimization and transformation techniques
-;; that can be applied to quantum circuits.
+;; and to run on specific quantum hardware. This transformation is also called
+;; *transpilation*. QClojure provides a set of optimization and transformation
+;; techniques that can be applied to quantum circuits.
 ;;
 ;; ### Gate Optimization
 ;; Gate optimization is a technique used to reduce the number of gates in a
@@ -963,13 +963,13 @@ forte-10k-result
 
 ;; Now we can create a quantum circuit that we want to optimize and transform.
 
-(def opt-test-circuit
-  (-> (circuit/create-circuit 4 "Optimization Test Circuit")
+(def opt-test-circuit1
+  (-> (circuit/create-circuit 5 "Optimization Test Circuit")
       (circuit/h-gate 0)
       (circuit/s-gate 0)
       (circuit/h-gate 1)
-      (circuit/h-gate 3)
-      (circuit/t-gate 3)
+      (circuit/h-gate 4)
+      (circuit/t-gate 4)
       (circuit/rx-gate 1 fm/HALF_PI)
       (circuit/rx-gate 1 fm/PI)
       (circuit/rx-gate 1 fm/HALF_PI)
@@ -979,25 +979,77 @@ forte-10k-result
       (circuit/t-gate 1)
       (circuit/cnot-gate 1 2)
       (circuit/ry-gate 2 fm/TAU)
-      (circuit/t-dag-gate 3)
-      (circuit/h-gate 3)))
+      (circuit/t-dag-gate 4)
+      (circuit/h-gate 4)))
 
 ;; This circuit looks reasonably complex.
 
-^kind/html
-(viz/visualize-circuit :svg opt-test-circuit)
+^kind/hiccup
+(viz/visualize-circuit :svg opt-test-circuit1)
 
 ;; Now we can optimize and transform the circuit for the IonQ Forte device.
 
-(def optimization-result
-  (hwopt/optimize opt-test-circuit (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
+(def opt-result1
+  (hwopt/optimize opt-test-circuit1 (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
 
-(def optimized-circuit (:circuit optimization-result))
+(def opt-circuit1 (:circuit opt-result1))
 
-;; The optimized circuit is a lot simpler than the original circuit.
+;; The optimized circuit is a lot simpler than the original circuit, but it
+;; produces the same results. As the number of qubits, the number of gates
+;; and the depth of the circuit are relevant for the performance of the circuit
+;; on real quantum hardware and on simulators, this optimization is useful,
+;; sometimes even necessary, to be able to run the circuit.
 
-^kind/html
-(viz/visualize-circuit :svg optimized-circuit)
+^kind/hiccup
+(viz/visualize-circuit :svg opt-circuit1)
+
+;; The optimized circuit could be reduced so much, because after gate and
+;; qubit optimization, the circuit is compatible with the native gates and
+;; the topology of the IonQ Forte, which supports the following native gates.
+
+(:native-gates (:ionq-forte hwsim/device-map))
+
+;; Now we add a toffoli gate, which is a multi-qubit gate involving two control
+;; qubits and one target qubit. This gate is not in the native gate set of
+;; the IonQ Forte device, so it has to be decomposed into supported gates.
+
+(def opt-test-circuit2
+  (-> (circuit/create-circuit 5 "Optimization Test Circuit")
+      (circuit/h-gate 0)
+      (circuit/s-gate 0)
+      (circuit/h-gate 1)
+      (circuit/h-gate 4)
+      (circuit/t-gate 4)
+      (circuit/rx-gate 1 fm/HALF_PI)
+      (circuit/rx-gate 1 fm/PI)
+      (circuit/rx-gate 1 fm/HALF_PI)
+      (circuit/h-gate 1)
+      (circuit/s-dag-gate 0)
+      (circuit/cnot-gate 0 1)
+      (circuit/t-gate 1)
+      (circuit/cnot-gate 1 2)
+      (circuit/toffoli-gate 0 1 3)
+      (circuit/ry-gate 2 fm/TAU)
+      (circuit/t-dag-gate 4)
+      (circuit/h-gate 4)))
+
+^kind/hiccup
+(viz/visualize-circuit :svg opt-test-circuit2)
+
+;; Now we can optimize and transform the circuit for the IonQ Forte device.
+
+(def opt-result2
+  (hwopt/optimize opt-test-circuit2 (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
+
+(def optimized-circuit2 (:circuit opt-result2))
+
+;; This time, the optimized circuit has a greater depth and more gates than
+;; before, because the toffoli gate had to be decomposed to the native gates
+;; supported by the IonQ Forte device. The process of decomposing the toffoli gate
+;; into native gates increases the number of gates and the depth of the circuit.
+
+^kind/hiccup
+(viz/visualize-circuit :svg optimized-circuit2)
 
 ;;
 ;; ## Error Mitigation
@@ -1096,7 +1148,7 @@ forte-10k-result
 
 ;; We can visualize the circuit for the constant oracle.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg constant-deutsch-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubit, followed
@@ -1119,7 +1171,7 @@ deutsch-constant-result
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the constant function. It is contained in the execution result of the algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :results :final-state]))
 
 ;; For the balanced function, we can create the circuit for the Deutsch algorithm.
@@ -1129,7 +1181,7 @@ deutsch-constant-result
 
 ;; We can visualize the circuit for the balanced oracle.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg balanced-deutsch-circuit)
 
 ;; Execute the Deutsch algorithm with the balanced function.
@@ -1145,7 +1197,7 @@ deutsch-balanced-result
 
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the balanced function.
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :results :final-state]))
 
 ;; ### Bernstein-Vazirani Algorithm
@@ -1199,7 +1251,7 @@ deutsch-balanced-result
 
 ;; We can visualize the circuit for the Bernstein-Vazirani algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg bv-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
@@ -1223,7 +1275,7 @@ bv-result
 ;; The measurement outcome is the hidden binary string, which is 110.
 ;; Let's visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly
@@ -1278,7 +1330,7 @@ bv-result
 
 ;; We can visualize the circuit for Simon's algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg simon-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
@@ -1303,7 +1355,7 @@ simon-result
 ;; As Simon's algorithm can return multiple results, depending on the size of the hidden
 ;; string, we visualize the final states.
 
-(mapv #(kind/html (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
+(mapv #(kind/hiccup (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
 
 ;; ### Grover's Search Algorithm
 ;;
@@ -1357,7 +1409,7 @@ simon-result
 
 ;; Let's visualize the circuit for Grover's search algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg grover-circuit)
 
 ;; Now we can execute Grover's search algorithm with the defined oracle.
@@ -1418,7 +1470,7 @@ grover-result
 
 ;; We can visualize the circuit for the Quantum Fourier Transform.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg qft-circuit)
 
 ;; The circuit shows that the QFT applies a series of controlled phase gates
@@ -1438,7 +1490,7 @@ qft-result
 
 ;; We can visualize the circuit for the inverse Quantum Fourier Transform.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg inverse-qft-circuit)
 
 ;; The inverse QFT circuit applies the inverse operations of the controlled phase gates
@@ -1653,7 +1705,7 @@ qft-result
 
 ;; We can visualize the circuit for the HHL algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg hhl-circuit)
 
 ;; The circuit shows that the HHL algorithm applies a series of controlled-U gates
@@ -1686,7 +1738,7 @@ qft-result
 ;;
 ;; Let's visualize the final quantum state after executing the HHL algorithm.
 
-^kind/html
+^kind/hiccup
 (viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows the approximation of the solution of the
@@ -1877,7 +1929,7 @@ vqe-result
 
 ;; The final circuit with the optimal parameters is
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg (:circuit vqe-result))
 
 ;; ### Quantum Approximation Optimization Algorithm (QAOA)
@@ -1991,12 +2043,12 @@ triangle-qaoa-result
 
 ;; The final circuit with the optimal parameters is
 
-^kind/html
+^kind/hiccup
 (viz/visualize-circuit :svg (:circuit triangle-qaoa-result))
 
 ;; Let's visualize the final quantum state after executing the QAOA algorithm.
 
-; (kind/html (viz/visualize-quantum-state :svg (get-in triangle-qaoa-result [:execution-result :final-state])))
+; (kind/hiccup (viz/visualize-quantum-state :svg (get-in triangle-qaoa-result [:execution-result :final-state])))
 
 ;; The final quantum state shows the approximation of the optimal solution
 ;; to the Max-Cut problem for the triangular graph. The final quantum state

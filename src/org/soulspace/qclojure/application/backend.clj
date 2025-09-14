@@ -196,6 +196,14 @@
     Returns: Cost estimation information"))
 
 ;;;
+;;; Utility functions for working with backends and devices
+;;;
+(defn device-entry
+  "Create a map of device ID to device map entry."
+  [device]
+  [(:id device) device])
+
+;;;
 ;;; High-level execution functions
 ;;;
 (defn execute-circuit

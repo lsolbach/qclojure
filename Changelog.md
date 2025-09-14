@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* moved device management functions from hardware-simulator to backend
+
 ## Version 0.16.0
 * added `device` namespace in domain
   * all QPU specific information is captured in the device map

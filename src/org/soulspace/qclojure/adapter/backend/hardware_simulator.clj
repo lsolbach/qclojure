@@ -42,7 +42,7 @@
    (slurp (io/resource "simulator-devices.edn"))))
 
 (def device-map
-  (into {} (map (fn [d] [(:id d) d]) device-list)))
+  (into {} (map backend/device-entry device-list)))
 
 ;;;
 ;;; Hardware simulator state management

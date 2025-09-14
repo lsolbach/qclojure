@@ -43,13 +43,11 @@
   ([ctx]
    {:pre [(s/valid? ::qc/circuit (:circuit ctx))]}
 
-   (if-not (get-in ctx [:options :transform-operations?])
-     ;; No transformation requested, return original context
-     ctx
+   (if (get-in ctx [:options :transform-operations?] true)
      ;; Perform transformation and return updated context
      (let [circuit (:circuit ctx)
            device (:device ctx)
-           supported-operations (:supported-operations device)
+           supported-operations (or (:supported-operations device) (:native-gates device))
            options (:options ctx {})
            max-iterations (get options :max-iterations 100)
            transform-unsupported? (get options :transform-unsupported? true)
@@ -74,7 +72,9 @@
        (assoc ctx
               :circuit transformed-circuit
               :transformed-operation-count (- (count transformed-operations) original-operation-count)
-              :unsupported-operations remaining-unsupported)))))
+              :unsupported-operations remaining-unsupported))
+     ;; No transformation requested, return original context
+     ctx)))
 
 (comment
   ;; Example usage of circuit transformation

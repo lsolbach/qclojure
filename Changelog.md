@@ -8,6 +8,7 @@
 * fixed flag checks in optimization functions 
 * enhanced the tutorial
   * added examples for the optimization pipeline
+* added `:hiccup` format for svg visualizations
 * updated clay version 
 
 ## Version 0.16.0

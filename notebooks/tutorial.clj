@@ -218,7 +218,7 @@ state/|0⟩
 ;; `org.soulspace.qclojure.application.visualization` namespace.
 ;; They all take the desired output format as the first argument.
 ;; We can use the `:ascii` format to generate an ASCII art representation
-;; and `:svg` format to generate an SVG image.
+;; and `:hiccup` format to generate an SVG image.
 ;; The ASCII format is useful for quick visualizations in the REPL,
 ;; while the SVG format is more suitable for embedding in documents like
 ;; tutorials, papers or presentations. We tag the code blocks with
@@ -234,7 +234,7 @@ state/|0⟩
 ;; And this is the SVG representation of the same quantum state.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg state/|0⟩)
+(viz/visualize-quantum-state :hiccup state/|0⟩)
 
 ;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
 ;; which is certain.
@@ -251,7 +251,7 @@ state/|0⟩
 ;; And now the Bloch sphere in SVG format of the same quantum state.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg state/|0⟩)
+(viz/visualize-bloch-sphere :hiccup state/|0⟩)
 
 ;; The Bloch sphere representation shows that the state |0⟩ is at the north pole
 ;; of the sphere.
@@ -263,7 +263,7 @@ state/|1⟩
 ;; We can visualize the probability distribution of the quantum state |1⟩.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg state/|1⟩)
+(viz/visualize-quantum-state :hiccup state/|1⟩)
 
 ;; It shows that the probability of measuring the state |1⟩ results in 1 is 1,
 ;; which is also certain.
@@ -271,7 +271,7 @@ state/|1⟩
 ;; of the sphere.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg state/|1⟩)
+(viz/visualize-bloch-sphere :hiccup state/|1⟩)
 
 ;; ### Superposition States
 ;; Quantum states can also be in a superposition of the ground and excited
@@ -287,14 +287,14 @@ state/|+⟩
 ;; We can visualize the probability distribution of the quantum state |+⟩.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg state/|+⟩)
+(viz/visualize-quantum-state :hiccup state/|+⟩)
 
 ;; The Bloch sphere representation shows that the state |+⟩ is on the
 ;; equator of the sphere, which means, that the probabilities for
 ;; measuring 0 or 1 are the same.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg state/|+⟩)
+(viz/visualize-bloch-sphere :hiccup state/|+⟩)
 
 ;; The quantum state |-⟩ is another superposition of the ground and
 ;; excited states. The state |-⟩ is defined as (|0⟩ - |1⟩) / √2.
@@ -304,13 +304,13 @@ state/|-⟩
 ;; We can visualize the probability distribution of the quantum state |-⟩.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg state/|-⟩)
+(viz/visualize-quantum-state :hiccup state/|-⟩)
 
 ;; The Bloch sphere representation shows that the state |-⟩ is also on the
 ;; equator of the sphere, but pointing in the opposite direction.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg state/|-⟩)
+(viz/visualize-bloch-sphere :hiccup state/|-⟩)
 
 ;; ### Multi-Qubit States and Quantum Registers
 ;; Tensor products can be used to create multi-qubit states from single-qubit
@@ -321,7 +321,7 @@ state/|00⟩
 ;; We can visualize the probability distribution of the quantum state |00⟩.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg state/|00⟩)
+(viz/visualize-quantum-state :hiccup state/|00⟩)
 
 ;; ## Quantum Gates
 ;; Quantum gates are operations that can be applied to quantum states.
@@ -367,13 +367,13 @@ gate/hadamard
 ;; We can visualize the probability distribution of the Hadamard state.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg hadamard-state)
+(viz/visualize-quantum-state :hiccup hadamard-state)
 
 ;; The probability distribution shows that the Hadamard state is in a
 ;; superposition of the ground and excited states.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg hadamard-state)
+(viz/visualize-bloch-sphere :hiccup hadamard-state)
 
 ;; The Bloch sphere representation shows that the Hadamard state is on the
 ;; equator of the sphere.
@@ -467,7 +467,7 @@ gate/t-dag-gate
 ;; And this is the SVG representation of the same quantum circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg simple-circuit)
+(viz/visualize-circuit :hiccup simple-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the qubit 0.
 ;;
@@ -480,7 +480,7 @@ gate/t-dag-gate
 ;; We can visualize the probability distribution of the Hadamard circuit state.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (:final-state hadamard-circuit-result))
+(viz/visualize-quantum-state :hiccup (:final-state hadamard-circuit-result))
 
 ;; The probability distribution shows that the Hadamard circuit state is
 ;; in a superposition of the ground and excited states. It is the same as the
@@ -488,7 +488,7 @@ gate/t-dag-gate
 ;; just the application of a single gate on a quantum state.
 
 ^kind/hiccup
-(viz/visualize-bloch-sphere :svg (:final-state hadamard-circuit-result))
+(viz/visualize-bloch-sphere :hiccup (:final-state hadamard-circuit-result))
 
 ;; The *circuit* namespace also has some predefined circuits.
 ;;
@@ -501,7 +501,7 @@ gate/t-dag-gate
 ;; We can visualize the Bell circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg bell-circuit)
+(viz/visualize-circuit :hiccup bell-circuit)
 
 ;; The Bell circuit shows that the Hadamard gate is applied to the first qubit,
 ;; followed by a CNOT gate between the first and second qubits.
@@ -514,7 +514,7 @@ gate/t-dag-gate
 ;; We can visualize the probability distribution of the Bell state.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (:final-state bell-result))
+(viz/visualize-quantum-state :hiccup (:final-state bell-result))
 
 ;; The *circuit* namespace also has a predefined circuit for multi-qubit states.
 ;; This circuit can be used to create entangled states with more than two
@@ -530,7 +530,7 @@ gate/t-dag-gate
 ;; We can visualize the GHZ circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg ghz-circuit)
+(viz/visualize-circuit :hiccup ghz-circuit)
 
 ;; The GHZ circuit shows that the Hadamard gate is applied to the first qubit,
 ;; followed by CNOT gates between the first and second qubits, and between the
@@ -544,7 +544,7 @@ gate/t-dag-gate
 ;; We can visualize the probability distribution of the GHZ state.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (:final-state ghz-result))
+(viz/visualize-quantum-state :hiccup (:final-state ghz-result))
 
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.
@@ -877,7 +877,7 @@ gate/t-dag-gate
 lagos-50-result
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (:final-state lagos-50-result))
+(viz/visualize-quantum-state :hiccup (:final-state lagos-50-result))
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
 ;; even though those states should have the highest counts. The other states
@@ -893,7 +893,7 @@ lagos-10k-result
 ;; and the counts of the wrong answers should be quite significant.
 
 ^kind/hiccup
-(viz/visualize-measurement-histogram :svg (:measurement-results lagos-10k-result))
+(viz/visualize-measurement-histogram :hiccup (:measurement-results lagos-10k-result))
 
 ;; We can also use the hardware simulator with a different device map, e.g.
 ;; for an IonQ Forte quantum computer.
@@ -912,7 +912,7 @@ forte-10k-result
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
 ^kind/hiccup 
-(viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result))
+(viz/visualize-measurement-histogram :hiccup (:measurement-results forte-10k-result))
 
 ;; You can also create your own device profiles by defining a device map
 ;; with the required parameters. You can then use this device map to create
@@ -1008,7 +1008,7 @@ forte-10k-result
 ;; This circuit looks reasonably complex.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg opt-test-circuit1)
+(viz/visualize-circuit :hiccup opt-test-circuit1)
 
 ;; Now we can optimize and transform the circuit for the IonQ Forte device.
 
@@ -1024,7 +1024,7 @@ forte-10k-result
 ;; sometimes even necessary, to be able to run the circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg opt-circuit1)
+(viz/visualize-circuit :hiccup opt-circuit1)
 
 ;; The optimized circuit could be reduced so much, because after gate and
 ;; qubit optimization, the circuit is compatible with the native gates and
@@ -1057,7 +1057,7 @@ forte-10k-result
       (circuit/h-gate 4)))
 
 ^kind/hiccup
-(viz/visualize-circuit :svg opt-test-circuit2)
+(viz/visualize-circuit :hiccup opt-test-circuit2)
 
 ;; Now we can optimize and transform the circuit for the IonQ Forte device.
 
@@ -1072,7 +1072,7 @@ forte-10k-result
 ;; into native gates increases the number of gates and the depth of the circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg optimized-circuit2)
+(viz/visualize-circuit :hiccup optimized-circuit2)
 
 ;;
 ;; ## Error Mitigation
@@ -1196,7 +1196,7 @@ forte-10k-result
 ;; We can visualize the circuit for the constant oracle.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg constant-deutsch-circuit)
+(viz/visualize-circuit :hiccup constant-deutsch-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubit, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -1219,7 +1219,7 @@ deutsch-constant-result
 ;; with the constant function. It is contained in the execution result of the algorithm.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (get-in deutsch-constant-result [:execution-result :results :final-state]))
+(viz/visualize-quantum-state :hiccup (get-in deutsch-constant-result [:execution-result :results :final-state]))
 
 ;; For the balanced function, we can create the circuit for the Deutsch algorithm.
 
@@ -1229,7 +1229,7 @@ deutsch-constant-result
 ;; We can visualize the circuit for the balanced oracle.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg balanced-deutsch-circuit)
+(viz/visualize-circuit :hiccup balanced-deutsch-circuit)
 
 ;; Execute the Deutsch algorithm with the balanced function.
 (def deutsch-balanced-result
@@ -1245,7 +1245,7 @@ deutsch-balanced-result
 ;; Let's visualize the final quantum state after executing the Deutsch algorithm
 ;; with the balanced function.
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (get-in deutsch-balanced-result [:execution-result :results :final-state]))
+(viz/visualize-quantum-state :hiccup (get-in deutsch-balanced-result [:execution-result :results :final-state]))
 
 ;; ### Bernstein-Vazirani Algorithm
 ;; The [Bernstein-Vazirani algorithm](https://en.wikipedia.org/wiki/Bernstein%E2%80%93Vazirani_algorithm)
@@ -1299,7 +1299,7 @@ deutsch-balanced-result
 ;; We can visualize the circuit for the Bernstein-Vazirani algorithm.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg bv-circuit)
+(viz/visualize-circuit :hiccup bv-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -1323,7 +1323,7 @@ bv-result
 ;; Let's visualize the final quantum state after executing the Bernstein-Vazirani algorithm.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (get-in bv-result [:execution-result :results :final-state]))
+(viz/visualize-quantum-state :hiccup (get-in bv-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows that the Bernstein-Vazirani algorithm correctly
 ;; identifies the hidden binary string. The final quantum state is a superposition
@@ -1378,7 +1378,7 @@ bv-result
 ;; We can visualize the circuit for Simon's algorithm.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg simon-circuit)
+(viz/visualize-circuit :hiccup simon-circuit)
 
 ;; The circuit shows that the Hadamard gate is applied to the input qubits, followed
 ;; by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -1402,7 +1402,7 @@ simon-result
 ;; As Simon's algorithm can return multiple results, depending on the size of the hidden
 ;; string, we visualize the final states.
 
-(mapv #(kind/hiccup (viz/visualize-quantum-state :svg (:final-state %))) (:execution-results simon-result))
+(mapv #(kind/hiccup (viz/visualize-quantum-state :hiccup (:final-state %))) (:execution-results simon-result))
 
 ;; ### Grover's Search Algorithm
 ;;
@@ -1457,7 +1457,7 @@ simon-result
 ;; Let's visualize the circuit for Grover's search algorithm.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg grover-circuit)
+(viz/visualize-circuit :hiccup grover-circuit)
 
 ;; Now we can execute Grover's search algorithm with the defined oracle.
 
@@ -1518,7 +1518,7 @@ grover-result
 ;; We can visualize the circuit for the Quantum Fourier Transform.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg qft-circuit)
+(viz/visualize-circuit :hiccup qft-circuit)
 
 ;; The circuit shows that the QFT applies a series of controlled phase gates
 ;; and Hadamard gates to the qubits, transforming the quantum state into its
@@ -1538,7 +1538,7 @@ qft-result
 ;; We can visualize the circuit for the inverse Quantum Fourier Transform.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg inverse-qft-circuit)
+(viz/visualize-circuit :hiccup inverse-qft-circuit)
 
 ;; The inverse QFT circuit applies the inverse operations of the controlled phase gates
 ;; and Hadamard gates to the qubits, transforming the quantum state back to its
@@ -1753,7 +1753,7 @@ qft-result
 ;; We can visualize the circuit for the HHL algorithm.
 
 ^kind/hiccup
-(viz/visualize-circuit :svg hhl-circuit)
+(viz/visualize-circuit :hiccup hhl-circuit)
 
 ;; The circuit shows that the HHL algorithm applies a series of controlled-U gates
 ;; to the qubits, which represent the matrix A, and applies the inverse quantum
@@ -1786,7 +1786,7 @@ qft-result
 ;; Let's visualize the final quantum state after executing the HHL algorithm.
 
 ^kind/hiccup
-(viz/visualize-quantum-state :svg (get-in hhl-result [:execution-result :results :final-state]))
+(viz/visualize-quantum-state :hiccup (get-in hhl-result [:execution-result :results :final-state]))
 
 ;; The final quantum state shows the approximation of the solution of the
 ;; system of linear equations Ax = b. The final quantum state is a superposition
@@ -1977,7 +1977,7 @@ vqe-result
 ;; The final circuit with the optimal parameters is
 
 ^kind/hiccup
-(viz/visualize-circuit :svg (:circuit vqe-result))
+(viz/visualize-circuit :hiccup (:circuit vqe-result))
 
 ;; ### Quantum Approximation Optimization Algorithm (QAOA)
 ;; The [Quantum Approximation Optimization Algorithm (QAOA)](https://en.wikipedia.org/wiki/Quantum_approximate_optimization_algorithm)
@@ -2091,7 +2091,7 @@ triangle-qaoa-result
 ;; The final circuit with the optimal parameters is
 
 ^kind/hiccup
-(viz/visualize-circuit :svg (:circuit triangle-qaoa-result))
+(viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
 
 ;; The circuit shows that the QAOA algorithm applies a series of parameterized
 ;; quantum gates to the qubits, which represent the trial state for the Max-Cut problem.

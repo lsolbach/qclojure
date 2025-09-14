@@ -116,7 +116,7 @@
   String containing formatted measurement histogram"
   visualization-format)
 
-(defmulti visualize-hardware-topology
+(defmulti visualize-topology
   "Visualize hardware topology in specified format.
   
   Dispatches on format keyword (:ascii, :svg).

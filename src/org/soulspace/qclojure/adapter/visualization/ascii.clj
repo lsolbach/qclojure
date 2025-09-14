@@ -930,7 +930,7 @@
       ;; Vertical layout
       (str/join "\n│\n" (map str (range num-qubits))))))
 
-(defmethod viz/visualize-hardware-topology :ascii
+(defmethod viz/visualize-topology :ascii
   [_format topology & {:keys [layout show-info] 
                        :or {layout :auto show-info true}}]
   (let [topology-type (common/detect-topology-type topology)

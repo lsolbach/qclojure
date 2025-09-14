@@ -2095,10 +2095,6 @@ triangle-qaoa-result
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
 
-^kind/hiccup
-[:svg {:width 600}
- [:circle {:r 50}]]
-
 ;; The circuit shows that the QAOA algorithm applies a series of parameterized
 ;; quantum gates to the qubits, which represent the trial state for the Max-Cut problem.
 ;; The circuit also applies the cost function as a quantum gate and measures

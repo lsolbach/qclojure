@@ -144,9 +144,7 @@
    "
   [ctx]
   {:pre [(s/valid? ::circuit/circuit (:circuit ctx))]}
-  (if-not (get-in ctx [:options :optimize-qubits?])
-    ; No optimization requested, return original context
-    ctx
+  (if (get-in ctx [:options :optimize-qubits?] true)
     ; Perform optimization and return updated context
     (let [circuit (:circuit ctx)
           usage-analysis (analyze-qubit-usage circuit)
@@ -168,7 +166,9 @@
         (throw (ex-info "Optimization resulted in an empty circuit"
                         {:original-circuit circuit
                          :optimized-circuit optimized-circuit}))
-        (assoc ctx :circuit optimized-circuit :qubit-mapping qubit-mapping)))))
+        (assoc ctx :circuit optimized-circuit :qubit-mapping qubit-mapping)))
+    ; No optimization requested, return original context
+    ctx))
 
 (comment
   ;; Empty circuit, but no optimization requested, should return original circuit
@@ -183,5 +183,15 @@
          (println "Caught exception:" (.getMessage e))
          (println "Data" (ex-data e))))
 
+  ;; Circuit with unused qubits, should get optimized
+  (def test-circuit
+    (-> (circuit/create-circuit 4)
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)
+        (circuit/x-gate 2)))
+
+  (optimize-qubit-usage
+   {:circuit test-circuit
+    :options {:optimize-qubits? true}})
   ;
   )

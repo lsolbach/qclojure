@@ -15,8 +15,7 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.gate-decomposition :as gd]
             [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.circuit-composition :as cc]
-            [org.soulspace.qclojure.domain.gate-optimization :as opt]))
+            [org.soulspace.qclojure.domain.circuit-composition :as cc]))
 
 (def supported-topologies
   "Set of supported hardware topologies."
@@ -218,6 +217,7 @@
          (nat-int? num-qubits)]}
   (case topology
     :fully-connected (fully-connected-coupling num-qubits)
+    :all-to-all (fully-connected-coupling num-qubits)
     :linear (linear-coupling num-qubits)
     :ring (ring-coupling num-qubits)
     :octagonal (octagonal-coupling num-qubits)
@@ -243,6 +243,8 @@
   Returns:
   Boolean indicating if coupling is valid"
   [coupling]
+  {:pre [(sequential? coupling)
+         (every? sequential? coupling)]}
   (and (vector? coupling)
        (every? vector? coupling)
        ;; Check that no qubit connects to itself
@@ -728,7 +730,7 @@
     (let [circuit (:circuit ctx)
           device (:device ctx)
           supported-operations (:supported-operations device)
-          coupling (:coupling device)
+          coupling (or (:coupling device) (coupling-for-topology (:topology device) (:num-qubits device)))
           options (:options ctx)
 
           ;; First, check what routing operations we can use

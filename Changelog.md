@@ -2,6 +2,11 @@
 
 ## Version (NEXT)
 * moved device management functions from hardware-simulator to backend
+* enhanced gate optimizations
+  * added inverse gate cancellation
+  * added rotation folding
+* enhanced the tutorial
+* fixed optimize-qubits? check 
 
 ## Version 0.16.0
 * added `device` namespace in domain

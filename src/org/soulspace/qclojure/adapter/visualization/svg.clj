@@ -1,6 +1,6 @@
 (ns org.soulspace.qclojure.adapter.visualization.svg
   "SVG-based visualization for quantum states and circuits.
-  
+
   This namespace provides scalable vector graphics (SVG) generation using
   Hiccup for high-quality quantum visualization that can be embedded in
   web pages or saved as standalone files."
@@ -18,11 +18,11 @@
 ;;;
 (defn format-gate-parameters
   "Format gate parameters for tooltip display with appropriate symbols and formatting.
-  
+
   Parameters:
   - gate-type: Keyword identifying the gate type
   - params: Operation parameters map containing :angle
-  
+
   Returns:
   Formatted string for tooltip display, or nil if no parameters"
   [gate-type params]
@@ -34,7 +34,7 @@
       :rz (str "φ=" (common/format-angle-value angle))
       :phase (str "φ=" (common/format-angle-value angle))
 
-      ;; Controlled rotation gates  
+      ;; Controlled rotation gates
       :crx (str "θ=" (common/format-angle-value angle))
       :cry (str "θ=" (common/format-angle-value angle))
       :crz (str "φ=" (common/format-angle-value angle))
@@ -51,17 +51,17 @@
       (str "param=" (common/format-angle-value angle)))))
 
 ;;;
-;;; Bar Chart Common SVG Components  
+;;; Bar Chart Common SVG Components
 ;;;
 (defn generate-bar-chart-layout
   "Generate layout parameters for bar charts.
-  
+
   Parameters:
   - data-count: Number of data points (bars)
   - width: Chart width
   - height: Chart height
   - options: Layout options
-  
+
   Returns:
   Map with layout parameters including margins, bar dimensions, rotation settings"
   [data-count width height & {:keys [force-rotation] :or {force-rotation false}}]
@@ -81,7 +81,7 @@
 
 (defn generate-svg-bars
   "Generate SVG bar elements for charts.
-  
+
   Parameters:
   - values: Vector of bar values (probabilities or counts)
   - labels: Vector of bar labels
@@ -91,7 +91,7 @@
     - :value-formatter - Function to format values for display
     - :tooltip-formatter - Function to format tooltips
     - :unit-suffix - Unit suffix for values (e.g., '%', 'shots')
-  
+
   Returns:
   Vector of SVG bar group elements"
   [values labels layout & {:keys [max-value value-formatter tooltip-formatter unit-suffix]
@@ -129,13 +129,13 @@
 
 (defn generate-svg-y-axis
   "Generate SVG Y-axis with ticks and labels.
-  
+
   Parameters:
   - layout: Layout parameters
   - max-value: Maximum value for scaling
   - unit-label: Unit label for axis (e.g., 'Probability (%)', 'Count')
   - tick-formatter: Function to format tick labels
-  
+
   Returns:
   SVG Y-axis group element"
   [layout max-value unit-label & {:keys [tick-formatter] :or {tick-formatter str}}]
@@ -168,14 +168,14 @@
 
 (defn generate-svg-chart-labels
   "Generate SVG chart title and axis labels.
-  
+
   Parameters:
   - width: Chart width
   - height: Chart height
   - title: Chart title
   - y-label: Y-axis label
   - x-label: X-axis label
-  
+
   Returns:
   Vector of SVG text elements [title y-label x-label]"
   [width height title y-label x-label]
@@ -192,10 +192,10 @@
 
 (defn generate-svg-x-axis
   "Generate SVG X-axis line.
-  
+
   Parameters:
   - layout: Layout parameters
-  
+
   Returns:
   SVG line element"
   [layout]
@@ -209,12 +209,12 @@
 ;;;
 (defn calculate-topology-layout
   "Calculate optimal layout positions for topology visualization.
-  
+
   Parameters:
   - topology: Vector of vectors representing qubit connectivity
   - layout-type: Layout algorithm (:force, :grid, :circular, :hierarchical)
   - canvas-size: [width height] of the canvas
-  
+
   Returns:
   Vector of [x y] positions for each qubit"
   [topology layout-type canvas-size]
@@ -249,7 +249,7 @@
                   (= n-qubits 7)
                   [[1 2]   ; qubit 0 - center
                    [0 1]   ; qubit 1
-                   [0 2]   ; qubit 2  
+                   [0 2]   ; qubit 2
                    [0 3]   ; qubit 3
                    [1 3]   ; qubit 4
                    [2 2]   ; qubit 5
@@ -1163,17 +1163,15 @@
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }"]])]
 
-    (str
-     (h/html
-      [:svg {:width final-width :height final-height
-             :xmlns "http://www.w3.org/2000/svg"
-             :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
-       styles
-       title
-       qubit-lines
-       gate-elements
-       measurements
-       circuit-info]))))
+    [:svg {:width final-width :height final-height
+           :xmlns "http://www.w3.org/2000/svg"
+           :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
+     styles
+     title
+     qubit-lines
+     gate-elements
+     measurements
+     circuit-info]))
 
 (defn render-measurement-histogram
   [measurements & {:keys [width height threshold max-bars normalize show-percentages]
@@ -1511,7 +1509,7 @@
 
   ;; Test auto layout selection
   (common/auto-select-layout linear-5)  ;=> :grid
-  (common/auto-select-layout ring-6)    ;=> :circular  
+  (common/auto-select-layout ring-6)    ;=> :circular
   (common/auto-select-layout star-7)    ;=> :hierarchical
   (common/auto-select-layout grid-3x3)  ;=> :grid
   (common/auto-select-layout hhex-65)   ;=> :hexagonal

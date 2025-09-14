@@ -29,7 +29,7 @@
 ;; to various formats like PDF, revealjs presentations or Github flavoured markdown.
 ;; Quarto also supports articles, books and websites, so you can easily create an
 ;; article, book or website from your notebooks.
-;; 
+;;
 ;; Generating notebooks with Clay always produces **reproducible** results, as
 ;; the code is in the namespace is executed during the rendering process
 ;; in a deterministic way. Even with quarto, the code is executed by Clay,
@@ -63,7 +63,7 @@
 ;; For a general introduction to quantum computing, take a look at
 ;;
 ;; * [Quantum Computing](https://en.wikipedia.org/wiki/Quantum_computing)
-;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU) 
+;; * [But what is quantum computing? (Grover's Algorithm) - 3blue1brown](https://www.youtube.com/watch?v=RQWpF2Gb-gU)
 ;;
 ;; ## QClojure
 ;; The QClojure library provides a Clojure interface to quantum computing concepts.
@@ -106,9 +106,9 @@
 ;; QClojure provides extensive API documentation, which is available on [CljDoc](https://cljdoc.org/d/org.soulspace/qclojure).
 ;;
 ;; [![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure)
-;; 
+;;
 ;; ### License
-;; QClojure is open source and licensed under the Eclipse Public License 1.0. 
+;; QClojure is open source and licensed under the Eclipse Public License 1.0.
 ;;
 ;; ![GitHub](https://img.shields.io/github/license/lsolbach/QClojure)
 ;;
@@ -170,7 +170,7 @@
 ;; implementations. To make sure that the implementations are loaded, we
 ;; require the namespaces. They will not be used directly in the code, only
 ;; indirectly by calling the multimethod, so a warning might be shown by
-;; your IDE. 
+;; your IDE.
 ;;
 ;; ## Quantum States
 ;; A quantum state is a mathematical object that describes the state of a
@@ -331,7 +331,7 @@ state/|00⟩
 ;; ### Pauli Gates
 ;; The [Pauli gates](https://en.wikipedia.org/wiki/Pauli_matrices) are a set of
 ;; quantum gates that can be applied to single qubits.
-;; 
+;;
 ;; The Pauli-X gate is a quantum gate that flips the state of a qubit around
 ;; the X axis which swaps the amplitudes of |0⟩ and |1⟩.
 
@@ -358,7 +358,7 @@ gate/pauli-z
 
 gate/hadamard
 
-;; We can apply the Hadamard gate to the state |0⟩ to create the superposition 
+;; We can apply the Hadamard gate to the state |0⟩ to create the superposition
 ;; state |+⟩.
 
 (def hadamard-state
@@ -492,7 +492,7 @@ gate/t-dag-gate
 
 ;; The *circuit* namespace also has some predefined circuits.
 ;;
-;; For example, the 'qc/bell-state-circuit' creates a circuit that prepares 
+;; For example, the 'qc/bell-state-circuit' creates a circuit that prepares
 ;; Bell state, which is a two-qubit entangled state.
 
 (def bell-circuit
@@ -548,14 +548,14 @@ gate/t-dag-gate
 
 ;; The probability distribution shows that the GHZ state is in a superposition
 ;; of the states |000⟩ and |111⟩.
-;; 
+;;
 ;; ## Data Format and I/O
 ;; Sometimes we want to save quantum circuits or quantum states to disk
 ;; or read them from disk.
 ;; This is especially useful if we want to share quantum circuits or states
 ;; with others or if we want to use quantum circuits or states created
 ;; in other quantum computing frameworks.
-;; 
+;;
 ;; QClojure supports various input and output formats for quantum circuits
 ;; and quantum states. This allows users to easily import and export quantum
 ;; circuits and states between different quantum computing frameworks and tools.
@@ -563,7 +563,7 @@ gate/t-dag-gate
 ;; * Extensible Data Notation (EDN)
 ;; * JSON (JavaScript Object Notation)
 ;; * QASM (Quantum Assembly Language)
-;; 
+;;
 ;; Let's import the I/O namespace providing the API for reading and writing
 ;; quantum circuits and quantum states.
 
@@ -591,6 +591,8 @@ gate/t-dag-gate
 
 ;; Let's first write a simple quantum state to disk in EDN format.
 
+(require '[clojure.java.io :as java.io])
+(java.io/make-parents "export/plus-state.edn")
 (io/export-quantum-state :edn state/|+⟩ "export/plus-state.edn")
 
 ;; We can read the quantum state in EDN form back from disk.
@@ -689,7 +691,7 @@ gate/t-dag-gate
 ;;   algebra operations based on Apache Commons Math.
 ;; * Pure Clojure Math Backend (`:pure`), based on Clojure Math, a pure Clojure implementation
 ;;   of complex linear algebra operations for educational purpose only.
-;; 
+;;
 ;; The Fastmath backend is the default backend used by QClojure, as it provides
 ;; better performance for large quantum states and circuits. The Clojure Math
 ;; backend should be used only for educational purposes or for small quantum states and
@@ -803,11 +805,11 @@ gate/t-dag-gate
 ;;
 ;; This has some consequences for running quantum circuits on real quantum
 ;; hardware, also known as Quantum Processing Units (QPUs).
-;; The limited topology means that not all qubits can be used freely in 
+;; The limited topology means that not all qubits can be used freely in
 ;; a multi-qubit gate, e.g. a CNOT gate. If a CNOT gate should be applied to
 ;; qubits which are not coupled in the topology, represente by a coupling map,
 ;; Swap gates have to be introduced to 'move' the information to qubits that
-;; are coupled, so that the CNOT gate can be applied. 
+;; are coupled, so that the CNOT gate can be applied.
 ;;
 ;; The limited native gate set means that our circuit has to be transformed to
 ;; only use those native gates. This is done by decomposing unsupported gates
@@ -826,9 +828,9 @@ gate/t-dag-gate
 ;; The various kinds of noise affect the results of quantum computations.
 ;; They can be addressed by error correction, which uses a number of
 ;; physical qubits to form a logical qubit. On current QPUs with limited
-;; qubit counts this is not always an option. Error mitigation strategies try 
+;; qubit counts this is not always an option. Error mitigation strategies try
 ;; to address the problem mathematically or with more executions.
-;; 
+;;
 ;; The hardware simulator backend also simulates the noise of a given
 ;; quantum device, based on a device map provided to the backend,
 ;; allowing us to study the effects of noise on quantum circuits.
@@ -911,7 +913,7 @@ forte-10k-result
 ;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
-^kind/hiccup 
+^kind/hiccup
 (viz/visualize-measurement-histogram :hiccup (:measurement-results forte-10k-result))
 
 ;; You can also create your own device profiles by defining a device map
@@ -941,7 +943,7 @@ forte-10k-result
 ;;
 ;; * Gate Cancellation - eliminates consecutive gates that cancel each other out.
 ;; * Rotation Folding - combines consecutive rotation gates into a single rotation gate.
-;; 
+;;
 ;; ### Qubit Optimization
 ;; Qubit optimization is a technique used to reduce the number of qubits in
 ;; a quantum circuit. It is based on the idea that some qubits can be eliminated
@@ -973,7 +975,7 @@ forte-10k-result
 ;; these optimization and transformation techniques to a quantum circuit.
 ;; The optimization pipeline will apply the techniques in a specific order
 ;; to optimize and transform the quantum circuit for a specific hardware.
-;; 
+;;
 ;; The optimization pipeline is used in the backends, e.g. the hardware
 ;; simulator backend, on circuit submission to optimize and transform the
 ;; quantum circuit before executing it on the backend. So normally there is no
@@ -1097,7 +1099,7 @@ forte-10k-result
 ;; zero noise. It is based on the idea that the results of the computation can
 ;; be extrapolated to zero noise by measuring the results of the computation
 ;; with different noise levels and fitting a curve to the results.
-;; 
+;;
 ;; ### Symmetry Verification
 ;; Symmetry verification is a technique used to reduce the effects of noise in
 ;; quantum computations by verifying the symmetry of the quantum circuit.
@@ -1638,7 +1640,7 @@ qft-result
 ;; #### Quantum Circuit
 ;; The Shor's algorithm can be implemented using a quantum circuit with
 ;; the following steps:
-;; 
+;;
 ;; 1. Choose a random integer a such that 1 < a < N.
 ;; 2. Use the quantum period-finding algorithm to find the order r of a modulo N.
 ;;    This involves:
@@ -1732,9 +1734,9 @@ qft-result
 ;; We can use the HHL algorithm to solve a system of linear equations.
 ;; For example, let's solve the system of equations represented by the
 ;; positive definite matrix A and the vector b.
-;; 
+;;
 ;; IMPORTANT: HHL works best with positive definite hermitian matrices
-;; (all eigenvalues > 0). 
+;; (all eigenvalues > 0).
 
 ;; Positive definite matrix A
 
@@ -1844,7 +1846,7 @@ qft-result
 ;; The VQE algorithm is also used in quantum machine learning and optimization problems,
 ;; where it can be used to find the optimal parameters for a quantum circuit
 ;; that represents a trial state.
-;; 
+;;
 ;; The VQE algorithm uses a parameterized quantum circuit to prepare a trial state,
 ;; and a classical optimization algorithm to minimize the expectation value of
 ;; the Hamiltonian with respect to the trial state.
@@ -1949,10 +1951,10 @@ h2-hamiltonian
 ;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
 ;;
 ;; For gradient-free optimizers, we can use the following methods: `:nelder-mead`,
-;; `:powell`, `:cmaes` and `:bobyqa`. 
+;; `:powell`, `:cmaes` and `:bobyqa`.
 ;;
 ;; Here we use the adam optimizer, which is a gradient-based optimization method
-;; that uses the parameter shift rule to compute gradients. 
+;; that uses the parameter shift rule to compute gradients.
 
 (def vqe-result
   (vqe/variational-quantum-eigensolver
@@ -1988,7 +1990,7 @@ vqe-result
 ;; The QAOA algorithm uses a parameterized quantum circuit to prepare a trial state,
 ;; and a classical optimization algorithm to maximize the expectation value of
 ;; the cost function with respect to the trial state.
-;; 
+;;
 ;; * Max-Cut Problem - a combinatorial optimization problem that can be
 ;;   represented as a graph. The goal is to partition the vertices of the graph
 ;;   into two subsets such that the number of edges between the subsets is maximized.
@@ -2010,7 +2012,7 @@ vqe-result
 ;;   starting vertex. The TSP can be represented as a cost function, where the
 ;;   cost function is the total distance of the route. The QAOA algorithm can
 ;;   be used to find an approximate solution to the TSP.
-;; 
+;;
 ;; The QAOA algorithm is also used in quantum machine learning and other optimization problems,
 ;; where it can be used to find the optimal parameters for a quantum circuit
 ;; that represents a trial state.
@@ -2092,6 +2094,10 @@ triangle-qaoa-result
 
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
+
+^kind/hiccup
+[:svg {:width 600}
+ [:circle {:r 50}]]
 
 ;; The circuit shows that the QAOA algorithm applies a series of parameterized
 ;; quantum gates to the qubits, which represent the trial state for the Max-Cut problem.

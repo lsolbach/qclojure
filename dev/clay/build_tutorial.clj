@@ -33,10 +33,10 @@
           :live-reload false
           :browse false }))
 
-(def tutorial-quarto-gfm-config
+(def tutorial-gfm-config
   "Quarto Github flavoured markdown configuration for building the tutorial."
   (merge tutorial-base-config
-         {:format [:quarto :gfm]
+         {:format [:gfm]
           :base-target-path "generated/gfm"
           :clean-up-target-dir true
           :hide-ui-header true
@@ -64,7 +64,7 @@
    (println "Rendering the tutorial...")
    (clay/make! config)))
 
-(comment ; Clay 
+(comment ; Clay
 
   (clay/stop!)
 
@@ -72,7 +72,7 @@
 
   (make-tutorial-notebook)
   (make-tutorial-notebook tutorial-quarto-html-config)
-  (make-tutorial-notebook tutorial-quarto-gfm-config)
+  (make-tutorial-notebook tutorial-gfm-config)
   (make-tutorial-notebook tutorial-quarto-pdf-config)
   ;
   )

@@ -718,13 +718,35 @@ gate/t-dag-gate
 
 (cla/set-backend! :fastmath)
 
-;; A BLAS/LAPACK (CPU) and OpenCL/CUDA (GPU) enabled backend would be desirable for simulating
-;; larger quantum states and circuits, but is not yet available.
+;; A BLAS/LAPACK (CPU) and OpenCL/CUDA (GPU) enabled backend would be desirable
+;; for simulating larger quantum states and circuits, but is not yet available.
 ;;
-;; ## Quantum Computing Backends
-;; QClojure can be extended with backends to run quantum circuits on real quantum hardware.
-;; The *application.backend* namespace contains the protocols to be implemented by a
-;; specific backend. A backend can be used to execute a quantum circuit.
+;; ## Quantum Devices and Quantum Computing Backends
+;; A device represents a quantum computer,also known as a Quantum Processing
+;; Unit (QPU), with a certain number of qubits,
+;; a native gate set, a topology of coupled qubits and various kinds of noise.
+;;
+;; Devices are handled by backends, which are responsible for executing
+;; quantum circuits on a specific quantum computer or a simulator.
+;; Some backends may only support a single device, while others may support
+;; multiple devices. A device can represent a real quantum computer or a
+;; simulator.
+;; Backends that support multiple devices are called multi-device backends.
+;; For multi-device backends a specific device can be selected on a backend
+;; for the execution of quantum circuits. An example will be shown in the
+;; [Hardware Simulator Backend](#hardware-simulator-backend) section below.
+;;
+;; A quantum backend is an adapter for one or more devices to QClojure.
+;; Each backend implements the QuantumBackend protocol. A backend may also
+;; implement more specific protocols, like the CloudQuantumBackend, the
+;; MultiDeviceBackend or the BatchJobBackend protocol.
+;; Backends also provide additional functionality, like optimizing
+;; and transforming quantum circuits to run on a specific quantum device.
+;;
+;; QClojure can be extended with backend implementations to run quantum
+;; circuits on real quantum hardware.
+;; The *application.backend* namespace contains the protocols to be implemented
+;; by a specific backend. A backend can be used to execute a quantum circuit.
 
 (require '[org.soulspace.qclojure.application.backend :as backend])
 
@@ -889,7 +911,8 @@ forte-10k-result
 ;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
-(kind/hiccup (viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result)))
+^kind/hiccup 
+(viz/visualize-measurement-histogram :svg (:measurement-results forte-10k-result))
 
 ;; You can also create your own device profiles by defining a device map
 ;; with the required parameters. You can then use this device map to create
@@ -1087,6 +1110,30 @@ forte-10k-result
 ;; by running multiple copies of quantum circuits and applying sophisticated
 ;; post-processing to extract high-fidelity results through probabilistic error
 ;; cancellation.
+;;
+;; ## Advanced Quantum Topics
+;; ### Observables
+;; Observables are used to measure specific properties of a quantum state.
+;; They are represented as Hermitian operators, which have real eigenvalues
+;; and orthogonal eigenvectors. Observables can be used to measure various
+;; properties of a quantum state, such as the energy, spin, or position of
+;; a particle.
+;; In QClojure, observables can be represented using Pauli strings and
+;; Hamiltonians, which are described in the next section.
+;;
+;; ### Pauli Strings and Hamiltonians
+;; Pauli strings and Hamiltonians are used to represent quantum operators
+;; in a compact and efficient way. They are used in various quantum algorithms,
+;; e.g. the Variational Quantum Eigensolver (VQE) and the Quantum Approximate
+;; Optimization (QAOA) algorithm.
+;;
+;; A Pauli string is a product of Pauli operators (I, X, Y, Z) applied to
+;; different qubits. For example, the Pauli string "XIZY" represents the
+;; operator X on qubit 0, I on qubit 1, Z on qubit 2, and Y on qubit 3.
+;; A Hamiltonian is a sum of Pauli strings with associated coefficients.
+;; For example, the Hamiltonian H = 0.5 * XIZY + 1.0 * ZIXX represents
+;; the operator 0.5 * X on qubit 0, I on qubit 1, Z on qubit 2, Y on qubit 3
+;; plus 1.0 * Z on qubit 0, I on qubit 1, X on qubit 2, X on qubit 3.
 ;;
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used
@@ -2046,12 +2093,14 @@ triangle-qaoa-result
 ^kind/hiccup
 (viz/visualize-circuit :svg (:circuit triangle-qaoa-result))
 
-;; Let's visualize the final quantum state after executing the QAOA algorithm.
-
-; (kind/hiccup (viz/visualize-quantum-state :svg (get-in triangle-qaoa-result [:execution-result :final-state])))
-
-;; The final quantum state shows the approximation of the optimal solution
-;; to the Max-Cut problem for the triangular graph. The final quantum state
-;; is a superposition of the states that represent the optimal solution to
-;; the Max-Cut problem.
+;; The circuit shows that the QAOA algorithm applies a series of parameterized
+;; quantum gates to the qubits, which represent the trial state for the Max-Cut problem.
+;; The circuit also applies the cost function as a quantum gate and measures
+;; the qubits to obtain the expectation value ⟨C⟩, which is maximized using
+;; a classical optimization algorithm.
 ;;
+;; The circuit is composed of alternating layers of problem unitary and mixer unitary gates,
+;; where the problem unitary encodes the cost function and the mixer unitary
+;; introduces superposition and entanglement among the qubits.
+;; The number of layers determines the depth of the circuit and the expressibility
+;; of the trial state.

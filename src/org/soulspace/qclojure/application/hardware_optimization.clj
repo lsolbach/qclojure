@@ -126,8 +126,8 @@
         swaps-reduction-percent (if (zero? orig-swaps) 0
                                     (double (* 100 (/ swaps-delta orig-swaps))))
 
-        orig-circuit-depth (:circuit-depth original-stats 0)
-        opt-circuit-depth (:circuit-depth optimized-stats 0)
+        orig-circuit-depth (:depth original-stats 0)
+        opt-circuit-depth (:depth optimized-stats 0)
         depth-delta (- opt-circuit-depth orig-circuit-depth)
         depth-reduction-percent (if (zero? orig-circuit-depth) 0
                                     (double (* 100 (/ depth-delta orig-circuit-depth))))

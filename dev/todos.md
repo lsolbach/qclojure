@@ -22,7 +22,6 @@
 * optimize shor's algorithm implementation and quantum period finding
 * integrate gate and qubit optimization into ideal simulator workflow
 * enhance circuit optimizations
-  * check for rotation folding in gate optimization
   * check topology mapping before inserting SWAP gates
   * apply gate optimization and qubit optimization again after gate decomposition
   * check RESET operation usage to minimize ancilla qubits

@@ -82,6 +82,32 @@
   [device]
   (get device :noise-model {}))
 
+(defn gate-fidelity
+  "Get the average gate fidelity of the device.
+  
+   Parameters:
+   - device: Device map containing performance metrics
+   
+   Returns: Average gate fidelity (0.0 to 1.0) or nil if not defined"
+  [device]
+  ; we have single-qubit-gate-fidelity, two-qubit-gate-fidelity or just gate-fidelity
+  (or (get-in device [:performance :gate-fidelity])
+      (get-in device [:performance :two-qubit-gate-fidelity])
+      (get-in device [:performance :single-qubit-gate-fidelity])))
+
+(defn estimated-fidelity
+  "Estimate the fidelity of a circuit on the device based on gate fidelities.
+  
+   Parameters:
+   - device: Device map containing performance metrics
+   - gate-count: Total number of gates in the circuit
+   
+   Returns: Estimated fidelity (0.0 to 1.0) or nil if data is insufficient"
+  [device gate-count]
+  (when-let [gate-fidelity (gate-fidelity device)]
+    (when (and device gate-count (> gate-count 0))
+      (Math/pow gate-fidelity gate-count))))
+
 ;;;
 ;;; Device Validation
 ;;;

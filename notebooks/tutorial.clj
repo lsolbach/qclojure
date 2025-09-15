@@ -226,7 +226,10 @@ state/|0⟩
 ;; With these tags, the Clay notebook renderer can render the output
 ;; appropriately.
 ;;
-;; Here is the ascii representation of the quantum state |0⟩.
+;; Here is the ascii representation of the quantum state |0⟩, which is useful, when you
+;; are working in the REPL.
+;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
+;; which is certain.
 
 ^kind/code
 (viz/visualize-quantum-state :ascii state/|0⟩)
@@ -236,9 +239,6 @@ state/|0⟩
 ^kind/hiccup
 (viz/visualize-quantum-state :hiccup state/|0⟩)
 
-;; It shows that the probability of measuring the state |0⟩ results in 0 is 1,
-;; which is certain.
-;;
 ;; The [Bloch sphere](https://en.wikipedia.org/wiki/Bloch_sphere) is a
 ;; geometrical representation of quantum states.
 ;; We can visualize the quantum state |0⟩ as a vector on the Bloch sphere.

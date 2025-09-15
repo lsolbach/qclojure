@@ -32,12 +32,23 @@
 
 ;;
 (def device
-  {:id "ideal-simulator"
-   :name "Ideal Simulator Device"
-   :num-qubits 20
+  {:id :ideal-simulator
+   :name "Ideal Quantum Simulator"
+   :provider "QClojure"
+   :platform "Local"
+   :technology :simulator
+   :num-qubits 20  ; Limited by classical memory
+   :topology :all-to-all
+   :connectivity :full
    :native-gates opreg/native-simulator-gate-set
+   :virtual-gates #{}
    :supported-operations opreg/native-simulator-gate-set
-   :topology :fully-connected})
+   :measurement-basis :any
+   :noise-model {}
+   :performance {:gate-fidelity 1.0
+                 :readout-fidelity 1.0
+                 :gate-times {:all 0}    ; Instantaneous
+                 :simulation-time {:exponential-scaling true}}})
 
 ;;;
 ;;; Simulator state management

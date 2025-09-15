@@ -24,7 +24,12 @@
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.ansatz :as ansatz]
-            [org.soulspace.qclojure.application.algorithm.variational-algorithm :as va]))
+            [org.soulspace.qclojure.application.algorithm.variational-algorithm :as va]
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            ;[fastmath.complex :as fc]
+            [org.soulspace.qclojure.application.backend :as backend]
+            [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
+            [org.soulspace.qclojure.domain.device :as device]))
 
 (s/def ::ansatz-type
   #{:hardware-efficient :uccsd :symmetry-preserving :chemistry-inspired :custom})
@@ -332,7 +337,7 @@
   
   Returns:
   VQE-specific analysis report to complement standard variational analysis"
-  [vqe-result analysis-options]
+  [backend vqe-result analysis-options]
   (let [optimal-params (:optimal-parameters (:results vqe-result))
         optimal-energy (:optimal-energy (:results vqe-result))
         config (:config vqe-result)
@@ -342,7 +347,7 @@
       (let [;; VQE-specific quantum state analysis
             ansatz-fn (vqe-circuit-constructor config)
             final-circuit (ansatz-fn optimal-params)
-            
+
             ;; Extract quantum state if available from result
             quantum-state (get-in vqe-result [:results :quantum-state])
             state-analysis (when quantum-state
@@ -352,37 +357,39 @@
                               :state-type "pure-state"})
 
             ;; Hardware compatibility assessment for quantum chemistry
-            circuit-depth (:circuit-depth (:circuit-metadata (:results vqe-result)) 0)
-            gate-count (:circuit-gate-count (:circuit-metadata (:results vqe-result)) 0)
-            estimated-fidelity (when (> gate-count 0)
-                                 (Math/pow 0.99 gate-count))  ; Rough estimate
-            
+            circuit-stats (when final-circuit (circuit/statistics final-circuit))
+            circuit-depth (:depth circuit-stats 0)
+            gate-count (:gate-count circuit-stats 0)
+            device (backend/device backend)
+            estimated-fidelity (when device
+                                 (device/estimated-fidelity device gate-count))
+
             ;; Chemical accuracy assessment
             initial-energy (:initial-energy (:analysis vqe-result))
             energy-improvement (when initial-energy (- initial-energy optimal-energy))
             chemical-accuracy-achieved? (and energy-improvement
                                              (> energy-improvement chemical-accuracy))
-            
+
             ;; VQE-specific convergence recommendations
             convergence-quality (:convergence-quality (:convergence-analysis (:optimization vqe-result)))
             gradient-norm (get-in vqe-result [:landscape-analysis :gradient-norm])
-            
+
             recommendations (cond
                               (and (< (or gradient-norm 1.0) 1e-6) chemical-accuracy-achieved?)
                               ["Excellent VQE convergence with chemical accuracy achieved"
                                "Results suitable for quantum chemistry applications"]
-                              
+
                               (< (or gradient-norm 1.0) 1e-4)
                               ["Good VQE convergence achieved"
                                "Consider checking if chemical accuracy threshold is met"
-                               (format "Current improvement: %.6f Ha (threshold: %.6f Ha)" 
+                               (format "Current improvement: %.6f Ha (threshold: %.6f Ha)"
                                        (or energy-improvement 0.0) chemical-accuracy)]
-                              
+
                               (= convergence-quality :poor)
                               ["Poor VQE convergence detected"
                                "Consider: different ansatz, more parameters, or better initialization"
                                "Check Hamiltonian definition and qubit mapping"]
-                              
+
                               :else
                               ["VQE optimization completed with moderate success"
                                "Consider additional iterations or parameter tuning"])]
@@ -393,11 +400,11 @@
                              :energy-improvement energy-improvement
                              :achieved chemical-accuracy-achieved?}
          :hardware-compatibility {:circuit-depth circuit-depth
-                                   :gate-count gate-count
-                                   :qubit-count (:num-qubits config)
-                                   :estimated-fidelity estimated-fidelity
-                                   :hardware-efficiency (when (> gate-count 0)
-                                                          (/ optimal-energy gate-count))}
+                                  :gate-count gate-count
+                                  :qubit-count (:num-qubits config)
+                                  :estimated-fidelity estimated-fidelity
+                                  :hardware-efficiency (when (> gate-count 0)
+                                                         (/ optimal-energy gate-count))}
          :molecular-analysis {:ansatz-type (:ansatz-type config)
                               :hamiltonian-terms (count (:hamiltonian config))
                               :final-circuit final-circuit}
@@ -428,7 +435,7 @@
   
   Returns:
   Comprehensive analysis combining generic variational and VQE-specific insights"
-  [vqe-result analysis-options]
+  [backend vqe-result analysis-options]
   (let [optimization-result (:optimization vqe-result)
         
         ;; Standard variational algorithm analysis
@@ -439,8 +446,7 @@
         
         ;; Optional expensive landscape analysis
         landscape-analysis (when (:landscape-analysis? analysis-options false)
-                             (let [backend (:backend analysis-options)
-                                   config (:config vqe-result)
+                             (let [config (:config vqe-result)
                                    optimal-params (:optimal-parameters (:results vqe-result))]
                                (when (and backend optimal-params)
                                  (let [hamiltonian (:hamiltonian config)
@@ -456,7 +462,7 @@
                                (va/analyze-parameter-sensitivity (:sensitivities landscape-analysis)))
         
         ;; VQE-specific analysis
-        vqe-specific (vqe-specific-analysis vqe-result analysis-options)]
+        vqe-specific (vqe-specific-analysis backend vqe-result analysis-options)]
     
     (merge
      {:analysis-type "Comprehensive VQE Analysis"
@@ -519,11 +525,12 @@
   ;; Comprehensive analysis
   
   ;; Basic VQE-specific analysis (fast)
-  (def vqe-analysis (vqe-specific-analysis uccsd-result 
+  (def vqe-analysis ((sim/create-simulator) vqe-specific-analysis uccsd-result 
                                            {:chemical-accuracy-threshold 0.0016}))
   
   ;; Comprehensive analysis including expensive landscape analysis (slower but complete)
-  (def full-analysis (comprehensive-vqe-analysis uccsd-result 
+  (def full-analysis (comprehensive-vqe-analysis (sim/create-simulator)
+                                                 uccsd-result 
                                                   {:backend (sim/create-simulator)
                                                    :landscape-analysis? true
                                                    :chemical-accuracy-threshold 0.0016

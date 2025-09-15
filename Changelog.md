@@ -2,9 +2,11 @@
 
 ## Version (NEXT)
 * unified and improved variational algorithms
-  * unified and streamlined variational algorithms analysis
+  * unified and improved variational algorithms analysis
   * refactored VQE to use the variational-algorithm template
   * refactored QAOA to use the variational-algorithm template
+* added fidelity estimation functions to the `device` namespace
+* updated device in ideal simulator 
 
 ## Version 0.17.0
 * moved device management functions from hardware-simulator to backend
@@ -16,7 +18,7 @@
   * added examples for the optimization pipeline
 * added `:hiccup` format for svg visualizations
 * updated clay version 
-* updated the tutorial published it to cljdoc
+* published the tutorial to cljdoc alongside the API doc
 
 ## Version 0.16.0
 * added `device` namespace in domain

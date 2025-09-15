@@ -1392,7 +1392,7 @@
 
 (defmethod viz/visualize-quantum-state :svg
   [_format state & options]
-  (str (h/html (viz/visualize-bar-chart :svg state options))))
+  (viz/visualize-bar-chart :svg state options)) ; returns SVG string already
 
 (defmethod viz/visualize-bloch-sphere :hiccup
   [_format state & options]
@@ -1410,17 +1410,6 @@
   [_format circuit & options]
   (str (h/html (render-circuit circuit options))))
 
-(defmethod viz/visualize-state-evolution :svg
-  [_format circuit initial-state & options]
-  ;; For now, delegate to HTML which can handle SVG evolution
-  ;; In the future, could create animated SVG
-  (viz/visualize-state-evolution :html circuit initial-state options))
-
-(defmethod viz/visualize-algorithm-summary :svg
-  [_format algorithm-result & options]
-  ;; Algorithm summaries are primarily textual, delegate to HTML
-  (viz/visualize-algorithm-summary :html algorithm-result options))
-
 (defmethod viz/visualize-measurement-histogram :hiccup
   [_format measurements & options]
   (render-measurement-histogram measurements options))
@@ -1436,6 +1425,17 @@
 (defmethod viz/visualize-topology :svg
   [_format topology & options]
   (str (h/html (render-topology topology options))))
+
+(defmethod viz/visualize-state-evolution :svg
+  [_format circuit initial-state & options]
+  ;; For now, delegate to HTML which can handle SVG evolution
+  ;; In the future, could create animated SVG
+  (viz/visualize-state-evolution :html circuit initial-state options))
+
+(defmethod viz/visualize-algorithm-summary :svg
+  [_format algorithm-result & options]
+  ;; Algorithm summaries are primarily textual, delegate to HTML
+  (viz/visualize-algorithm-summary :html algorithm-result options))
 
 (comment
   ;; REPL examples for SVG visualization

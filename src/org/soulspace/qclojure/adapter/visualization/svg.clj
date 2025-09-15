@@ -1163,17 +1163,15 @@
                          .gate-group:hover circle { stroke-width: 3; }
                          text { font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; }"]])]
 
-    (str
-     (h/html
-      [:svg {:width final-width :height final-height
-             :xmlns "http://www.w3.org/2000/svg"
-             :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
-       styles
-       title
-       qubit-lines
-       gate-elements
-       measurements
-       circuit-info]))))
+    [:svg {:width final-width :height final-height
+           :xmlns "http://www.w3.org/2000/svg"
+           :style "background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px;"}
+     styles
+     title
+     qubit-lines
+     gate-elements
+     measurements
+     circuit-info]))
 
 (defn render-measurement-histogram
   [measurements & {:keys [width height threshold max-bars normalize show-percentages]

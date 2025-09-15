@@ -1,5 +1,11 @@
 # Changelog
 
+## Version (NEXT)
+* unified and improved variational algorithms
+  * unified and streamlined variational algorithms analysis
+  * refactored VQE to use the variational-algorithm template
+  * refactored QAOA to use the variational-algorithm template
+
 ## Version 0.17.0
 * moved device management functions from hardware-simulator to backend
 * enhanced gate optimizations

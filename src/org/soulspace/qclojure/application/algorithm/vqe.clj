@@ -7,9 +7,7 @@
   
   Key Features:
   - Multiple ansatz types (hardware-efficient, UCCSD-inspired, symmetry-preserving)
-  - Pau      ;; Fallback to standard optimization without convergence monitoring for non-enhanced objectives
-      (va/run-variational-optimization objective-fn initial-parameters options))))   ;; Fallback to standard optimization without convergence monitoring for non-enhanced objectives
-      (va/run-variational-optimization objective-fn initial-parameters options)))) string Hamiltonian representation with measurement grouping
+  - Pauli string Hamiltonian representation with measurement grouping
   - Integration with fastmath optimization for classical optimization
   - Comprehensive analysis and convergence monitoring
   - Support for both gate-based and measurement-based implementations
@@ -23,7 +21,6 @@
   
   This implementation targets production use with real quantum hardware."
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.circuit :as qc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.ansatz :as ansatz]
@@ -118,15 +115,140 @@
          (ham/pauli-term coupling pauli-string))))))
 
 ;;;
+;;; VQE Template Support Functions
+;;;
+(defn vqe-hamiltonian-constructor
+  "Construct Hamiltonian for VQE from configuration options.
+  
+  This function extracts the Hamiltonian setup logic from the main VQE algorithm,
+  allowing it to be used with the variational algorithm template.
+  
+  Parameters:
+  - config: VQE configuration map containing :hamiltonian
+  
+  Returns:
+  Hamiltonian (collection of Pauli terms) for VQE"
+  [config]
+  (:hamiltonian config))
+
+(defn vqe-circuit-constructor
+  "Create ansatz circuit constructor function for VQE from configuration.
+  
+  This function creates the appropriate ansatz function based on VQE configuration,
+  handling all supported ansatz types and their parameters.
+  
+  Parameters:
+  - config: VQE configuration map with ansatz settings
+  
+  Returns:
+  Function that takes parameters and returns a quantum circuit"
+  [config]
+  (let [ansatz-type (:ansatz-type config)
+        num-qubits (:num-qubits config)]
+    (case ansatz-type
+      :hardware-efficient
+      (ansatz/hardware-efficient-ansatz num-qubits
+                                        (:num-layers config 1)
+                                        (:entangling-gate config :cnot))
+      :chemistry-inspired
+      (ansatz/chemistry-inspired-ansatz num-qubits (:num-excitation-layers config 1))
+      :uccsd
+      (ansatz/uccsd-inspired-ansatz num-qubits (:num-excitations config 2))
+      :symmetry-preserving
+      (ansatz/symmetry-preserving-ansatz num-qubits
+                                         (:num-particles config 2)
+                                         (:num-layers config 1))
+      :custom
+      (:custom-ansatz config))))
+
+(defn vqe-parameter-count
+  "Calculate required parameter count for VQE ansatz configuration.
+  
+  This function determines how many parameters are needed for the specified
+  ansatz type and configuration.
+  
+  Parameters:
+  - config: VQE configuration map with ansatz settings
+  
+  Returns:
+  Number of parameters required for the ansatz"
+  [config]
+  (let [ansatz-type (:ansatz-type config)
+        num-qubits (:num-qubits config)]
+    (case ansatz-type
+      :hardware-efficient (* (:num-layers config 1) num-qubits 3)
+      :chemistry-inspired (let [num-excitation-layers (:num-excitation-layers config 1)
+                                num-electron-pairs (/ num-qubits 2)
+                                params-per-layer (+ num-qubits
+                                                    num-electron-pairs
+                                                    (/ (* num-electron-pairs (dec num-electron-pairs)) 2))]
+                            (* num-excitation-layers params-per-layer))
+      :uccsd (:num-excitations config 2)
+      :symmetry-preserving (* (:num-layers config 1) (dec num-qubits))
+      :custom (count (:initial-parameters config)))))
+
+(defn vqe-result-processor
+  "Process and format VQE-specific results from optimization.
+  
+  This function takes the base optimization results and adds VQE-specific
+  analysis, formatting, and metadata to create the final VQE result map.
+  
+  Parameters:
+  - optimization-result: Base optimization result from template
+  - config: Original VQE configuration
+  
+  Returns:
+  VQE-specific result map with analysis and metadata"
+  [optimization-result config]
+  (let [optimal-params (:optimal-parameters optimization-result)
+        optimal-energy (:optimal-energy optimization-result)
+        hamiltonian (:hamiltonian optimization-result)
+        initial-energy (:initial-energy optimization-result)
+        
+        ;; Create final circuit
+        ansatz-fn (vqe-circuit-constructor config)
+        final-circuit (when optimal-params (ansatz-fn optimal-params))
+        
+        ;; VQE-specific analysis
+        grouped-terms (when (:measurement-grouping config)
+                        (ham/group-commuting-terms hamiltonian))
+        
+        classical-energy (when (:calculate-classical-bound config)
+                           ;; Simple estimation: sum of absolute coefficients
+                           (reduce + (map #(abs (:coefficient %)) hamiltonian)))]
+    
+    {:algorithm "Variational Quantum Eigensolver"
+     :config config
+     :success (:success optimization-result)
+     :result optimal-energy
+     :circuit final-circuit
+     :parameter-count (vqe-parameter-count config)
+     :ansatz-type (:ansatz-type config)
+     :results {:optimal-energy optimal-energy
+               :optimal-parameters optimal-params
+               :success (:success optimization-result)
+               :iterations (:iterations optimization-result)
+               :function-evaluations (:function-evaluations optimization-result)}
+     :hamiltonian {:pauli-terms (count hamiltonian)
+                   :grouped-pauli-terms (when grouped-terms (count grouped-terms))
+                   :classical-bound classical-energy}
+     :timing {:execution-time-ms (:total-runtime-ms optimization-result)
+              :start-time (- (System/currentTimeMillis) (:total-runtime-ms optimization-result))
+              :end-time (System/currentTimeMillis)}
+     :analysis {:initial-energy initial-energy
+                :energy-improvement (when initial-energy (- initial-energy optimal-energy))
+                :convergence-achieved (:success optimization-result)}
+     :optimization optimization-result}))
+
+;;;
 ;;; VQE algorithm
 ;;;
 (defn variational-quantum-eigensolver
-  "Main VQE algorithm implementation.
+  "Main VQE algorithm implementation using enhanced variational algorithm template.
 
-  This function orchestrates the VQE process, including ansatz creation,
-  optimization, and execution on a quantum backend.
-  It supports various ansatz types and optimization methods, allowing
-  for flexible configuration based on the problem and available resources.
+  This function orchestrates the VQE process using the enhanced template,
+  supporting all ansatz types and optimization methods while maintaining
+  backward compatibility with the original interface.
   
   Supported ansatz types:
   - :hardware-efficient - Hardware-efficient ansatz with configurable layers and entangling gates
@@ -177,222 +299,174 @@
      :shots 2048})"
   [backend options]
   {:pre [(s/valid? ::vqe-config options)]}
-  (let [hamiltonian (:hamiltonian options)
-        ansatz-type (:ansatz-type options)
-        num-qubits (:num-qubits options)
-        max-iter (:max-iterations options 500)  ; Higher default for gradient-based methods
-        tolerance (:tolerance options 1e-6)
-        opt-method (:optimization-method options :adam)  ; Default to Adam optimizer for speed
-        shots (:shots options 1024)
-
-        ;; Create ansatz function
-        ansatz-fn (case ansatz-type
-                    :hardware-efficient
-                    (ansatz/hardware-efficient-ansatz num-qubits
-                                                      (:num-layers options 1)
-                                                      (:entangling-gate options :cnot))
-                    :chemistry-inspired
-                    (ansatz/chemistry-inspired-ansatz num-qubits (:num-excitation-layers options 1))
-                    :uccsd
-                    (ansatz/uccsd-inspired-ansatz num-qubits (:num-excitations options 2))
-                    :symmetry-preserving
-                    (ansatz/symmetry-preserving-ansatz num-qubits
-                                                       (:num-particles options 2)
-                                                       (:num-layers options 1))
-                    :custom
-                    (:custom-ansatz options))
-
-        ;; Determine parameter count and initial values
-        param-count (case ansatz-type
-                      :hardware-efficient (* (:num-layers options 1) num-qubits 3)
-                      :chemistry-inspired (let [num-excitation-layers (:num-excitation-layers options 1)
-                                                num-electron-pairs (/ num-qubits 2)
-                                                params-per-layer (+ num-qubits
-                                                                    num-electron-pairs
-                                                                    (/ (* num-electron-pairs (dec num-electron-pairs)) 2))]
-                                            (* num-excitation-layers params-per-layer))
-                      :uccsd (:num-excitations options 2)
-                      :symmetry-preserving (* (:num-layers options 1) (dec num-qubits))
-                      :custom (count (:initial-parameters options)))
-
-        initial-params (or (:initial-parameters options)
-                           (vec (repeatedly param-count #(* 0.1 (- (rand) 0.5)))))
-
-        ;; Create objective function - use gradient-enhanced by default for gradient-based methods
-        exec-options {:shots shots}
-        use-gradients? (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method)
-        objective-fn (if use-gradients?
-                       (va/enhanced-variational-objective hamiltonian ansatz-fn backend exec-options)
-                       (va/variational-objective hamiltonian ansatz-fn backend exec-options))
-
-        ;; Run optimization with convergence monitoring
-        opt-options {:optimization-method opt-method
-                     :max-iterations max-iter
-                     :tolerance tolerance
-                     :gradient-tolerance (:gradient-tolerance options 1e-4)
-                     :min-iterations (:min-iterations options 10)
-                     :patience (:patience options 20)
-                     :learning-rate (:learning-rate options 0.01)
-                     :gradient-method :parameter-shift  ; Use parameter shift for quantum VQE
-                     ;; Add QNG-specific parameters
-                     :ansatz-fn ansatz-fn
-                     :backend backend
-                     :exec-options exec-options}
-
-        start-time (System/currentTimeMillis)
-        opt-result (va/enhanced-variational-optimization objective-fn initial-params opt-options)
-        end-time (System/currentTimeMillis)
-
-        ;; Initial value - handle both standard and gradient-enhanced objectives
-        initial-result (objective-fn initial-params)
-        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
-
-        ;; Calculate final results
-        optimal-params (:optimal-parameters opt-result)
-        optimal-energy (:optimal-energy opt-result)
-        final-circuit (ansatz-fn optimal-params)
-
-        ;; Analysis
-        grouped-terms (when (:measurement-grouping options)
-                        (ham/group-commuting-terms hamiltonian))
-
-        classical-energy (when (:calculate-classical-bound options)
-                           ;; Simple estimation: sum of absolute coefficients
-                           (reduce + (map #(abs (:coefficient %)) hamiltonian)))]
-
-    {:algorithm "Variational Quantum Eigensolver"
-     :config options
-     :success (:success opt-result)
-     :result optimal-energy
-     :circuit final-circuit
-     :parameter-count param-count
-     :ansatz-type ansatz-type
-     :results {:optimal-energy optimal-energy
-               :optimal-parameters optimal-params
-               :success (:success opt-result)
-               :iterations (:iterations opt-result)
-               :function-evaluations (:function-evaluations opt-result)}
-     :hamiltonian {:pauli-terms (count hamiltonian)
-                   :grouped-pauli-terms (when grouped-terms (count grouped-terms))
-                   :classical-bound classical-energy}
-     :timing {:execution-time-ms (- end-time start-time)
-              :start-time start-time
-              :end-time end-time}
-     :analysis {:initial-energy initial-energy
-                :energy-improvement (- initial-energy optimal-energy)
-                :convergence-achieved (:success opt-result)}
-     :optimization opt-result}))
+  ;; Use enhanced variational algorithm template with VQE-specific functions
+  (va/variational-algorithm backend
+                            options
+                            {:hamiltonian-constructor vqe-hamiltonian-constructor
+                             :circuit-constructor vqe-circuit-constructor
+                             :parameter-count vqe-parameter-count
+                             :result-processor vqe-result-processor}))
 
 ;;;
-;;; Analysis and Utilities  
+;;; Analysis and Utilities
 ;;;
-(defn post-optimization-analysis
-  "Comprehensive post-optimization analysis using result framework.
+(defn vqe-specific-analysis
+  "VQE-specific analysis that complements the generic variational algorithm analysis.
   
-  This function performs detailed analysis of VQE results, including:
-  - Energy landscape analysis around optimal point
-  - Quantum state characterization
-  - Measurement statistics and confidence intervals
-  - Hardware compatibility assessment
+  This function focuses on quantum chemistry and VQE-specific metrics that are not
+  covered by the generic variational algorithm analysis functions. It should be used
+  in combination with the standard variational analysis tools.
+  
+  VQE-Specific Features:
+  - Quantum state characterization and validation
+  - Molecular energy analysis and chemical accuracy assessment
+  - Hardware compatibility metrics for quantum chemistry applications
+  - VQE-specific convergence recommendations
   
   Parameters:
   - vqe-result: Complete VQE result map
-  - analysis-options: Options for analysis depth and methods
+  - analysis-options: Options for VQE-specific analysis
+    - :backend - Quantum backend for additional state analysis
+    - :confidence-level - Statistical confidence level (default: 0.95)
+    - :chemical-accuracy-threshold - Threshold for chemical accuracy (default: 0.0016 Ha)
   
   Returns:
-  Comprehensive analysis report"
+  VQE-specific analysis report to complement standard variational analysis"
   [vqe-result analysis-options]
   (let [optimal-params (:optimal-parameters (:results vqe-result))
         optimal-energy (:optimal-energy (:results vqe-result))
         config (:config vqe-result)
+        chemical-accuracy (:chemical-accuracy-threshold analysis-options 0.0016)]  ; 1 kcal/mol in Hartree
 
-        ;; Extract backend and create enhanced objective for analysis
-        backend (:backend analysis-options)
-        hamiltonian (:hamiltonian config)
-        ansatz-type (:ansatz-type config)
-
-        ;; Analysis parameters
-        landscape-radius (:landscape-radius analysis-options 0.1)
-        confidence-level (:confidence-level analysis-options 0.95)]
-
-    (when (and backend hamiltonian optimal-params)
-      (let [;; Create ansatz function for analysis
-            ansatz-fn (case ansatz-type
-                        :hardware-efficient
-                        (ansatz/hardware-efficient-ansatz (:num-qubits config)
-                                                          (:num-layers config 1)
-                                                          (:entangling-gate config :cnot))
-                        :chemistry-inspired
-                        (ansatz/chemistry-inspired-ansatz (:num-qubits config)
-                                                          (:num-excitation-layers config 1))
-                        :uccsd
-                        (ansatz/uccsd-inspired-ansatz (:num-qubits config)
-                                                      (:num-excitations config 2))
-                        :symmetry-preserving
-                        (ansatz/symmetry-preserving-ansatz (:num-qubits config)
-                                                           (:num-particles config 2)
-                                                           (:num-layers config 1)))
-
-            ;; Enhanced analysis using result framework and existing optimization tools
-            enhanced-obj-fn (va/enhanced-variational-objective hamiltonian ansatz-fn backend
-                                                         {:shots (:shots analysis-options 1024)
-                                                          :parallel? false})  ; Sequential for analysis
-
-            ;; Analyze optimal point
-            optimal-analysis (enhanced-obj-fn optimal-params)
-
-            ;; Landscape analysis - sample points around optimum  
-            landscape-points (for [i (range (count optimal-params))
-                                   delta [landscape-radius (- landscape-radius)]]
-                               (let [perturbed-params (assoc optimal-params i
-                                                             (+ (nth optimal-params i) delta))]
-                                 {:parameters perturbed-params
-                                  :analysis (enhanced-obj-fn perturbed-params)}))
-
-            ;; Quantum state analysis
-            optimal-state (:quantum-state optimal-analysis)
-            state-analysis (when optimal-state
-                             {:trace-valid (qs/trace-one? optimal-state)
-                              :state-fidelity-self 1.0  ; Perfect fidelity with itself
-                              :num-qubits (:num-qubits optimal-state)
+    (when optimal-params
+      (let [;; VQE-specific quantum state analysis
+            ansatz-fn (vqe-circuit-constructor config)
+            final-circuit (ansatz-fn optimal-params)
+            
+            ;; Extract quantum state if available from result
+            quantum-state (get-in vqe-result [:results :quantum-state])
+            state-analysis (when quantum-state
+                             {:trace-valid (qs/trace-one? quantum-state)
+                              :state-fidelity-self 1.0
+                              :num-qubits (:num-qubits quantum-state)
                               :state-type "pure-state"})
 
-            ;; Statistical analysis of energy estimates
-            energy-estimates (map #(:energy (:analysis %)) landscape-points)
-            energy-std (when (seq energy-estimates)
-                         (let [mean (/ (reduce + energy-estimates) (count energy-estimates))
-                               variance (/ (reduce + (map #(* (- % mean) (- % mean)) energy-estimates))
-                                           (count energy-estimates))]
-                           (Math/sqrt variance)))
-
-            ;; Gradient analysis
-            gradient-norm (Math/sqrt (reduce + (map #(* % %) (:gradients optimal-analysis))))
-
-            ;; Hardware assessment
+            ;; Hardware compatibility assessment for quantum chemistry
             circuit-depth (:circuit-depth (:circuit-metadata (:results vqe-result)) 0)
-            gate-count (:circuit-gate-count (:circuit-metadata (:results vqe-result)) 0)]
+            gate-count (:circuit-gate-count (:circuit-metadata (:results vqe-result)) 0)
+            estimated-fidelity (when (> gate-count 0)
+                                 (Math/pow 0.99 gate-count))  ; Rough estimate
+            
+            ;; Chemical accuracy assessment
+            initial-energy (:initial-energy (:analysis vqe-result))
+            energy-improvement (when initial-energy (- initial-energy optimal-energy))
+            chemical-accuracy-achieved? (and energy-improvement
+                                             (> energy-improvement chemical-accuracy))
+            
+            ;; VQE-specific convergence recommendations
+            convergence-quality (:convergence-quality (:convergence-analysis (:optimization vqe-result)))
+            gradient-norm (get-in vqe-result [:landscape-analysis :gradient-norm])
+            
+            recommendations (cond
+                              (and (< (or gradient-norm 1.0) 1e-6) chemical-accuracy-achieved?)
+                              ["Excellent VQE convergence with chemical accuracy achieved"
+                               "Results suitable for quantum chemistry applications"]
+                              
+                              (< (or gradient-norm 1.0) 1e-4)
+                              ["Good VQE convergence achieved"
+                               "Consider checking if chemical accuracy threshold is met"
+                               (format "Current improvement: %.6f Ha (threshold: %.6f Ha)" 
+                                       (or energy-improvement 0.0) chemical-accuracy)]
+                              
+                              (= convergence-quality :poor)
+                              ["Poor VQE convergence detected"
+                               "Consider: different ansatz, more parameters, or better initialization"
+                               "Check Hamiltonian definition and qubit mapping"]
+                              
+                              :else
+                              ["VQE optimization completed with moderate success"
+                               "Consider additional iterations or parameter tuning"])]
 
-        {:analysis-type "Post-Optimization VQE Analysis"
-         :optimal-point {:energy optimal-energy
-                         :parameters optimal-params
-                         :gradients (:gradients optimal-analysis)
-                         :gradient-norm gradient-norm}
+        {:analysis-type "VQE-Specific Analysis"
          :quantum-state state-analysis
-         :energy-landscape {:local-points landscape-points
-                            :energy-std energy-std
-                            :landscape-radius landscape-radius}
-         :statistical-analysis {:confidence-level confidence-level
-                                :energy-uncertainty energy-std}
-         :hardware-metrics {:circuit-depth circuit-depth
-                            :gate-count gate-count
-                            :qubit-count (:num-qubits config)
-                            :estimated-fidelity (when (> gate-count 0)
-                                                  (Math/pow 0.99 gate-count))}
-         :convergence-assessment (:convergence-assessment vqe-result)
-         :recommendations (cond
-                            (< gradient-norm 1e-6) ["Excellent convergence achieved"]
-                            (< gradient-norm 1e-4) ["Good convergence, consider more iterations"]
-                            :else ["Poor convergence, check ansatz and Hamiltonian"])}))))
+         :chemical-accuracy {:threshold-hartree chemical-accuracy
+                             :energy-improvement energy-improvement
+                             :achieved chemical-accuracy-achieved?}
+         :hardware-compatibility {:circuit-depth circuit-depth
+                                   :gate-count gate-count
+                                   :qubit-count (:num-qubits config)
+                                   :estimated-fidelity estimated-fidelity
+                                   :hardware-efficiency (when (> gate-count 0)
+                                                          (/ optimal-energy gate-count))}
+         :molecular-analysis {:ansatz-type (:ansatz-type config)
+                              :hamiltonian-terms (count (:hamiltonian config))
+                              :final-circuit final-circuit}
+         :vqe-recommendations recommendations}))))
+
+(defn comprehensive-vqe-analysis
+  "Comprehensive VQE analysis combining generic variational analysis with VQE-specific insights.
+  
+  This function orchestrates a complete analysis of VQE results by combining:
+  1. Standard variational algorithm analysis (convergence, performance, landscape)
+  2. VQE-specific analysis (quantum state, chemical accuracy, hardware metrics)
+  
+  This approach eliminates code duplication while providing both generic and specialized analysis.
+  
+  Use Cases:
+  - Complete post-optimization assessment of VQE runs
+  - Research analysis combining algorithmic and domain-specific insights
+  - Benchmarking VQE against other variational algorithms
+  - Production monitoring of VQE quantum chemistry workflows
+  
+  Parameters:
+  - vqe-result: Complete VQE result map from variational-quantum-eigensolver
+  - analysis-options: Comprehensive analysis options
+    - :backend - Backend for additional analysis computations
+    - :landscape-analysis? - Whether to perform expensive landscape analysis (default: false)
+    - :confidence-level - Statistical confidence level (default: 0.95)
+    - :chemical-accuracy-threshold - Chemical accuracy threshold (default: 0.0016 Ha)
+  
+  Returns:
+  Comprehensive analysis combining generic variational and VQE-specific insights"
+  [vqe-result analysis-options]
+  (let [optimization-result (:optimization vqe-result)
+        
+        ;; Standard variational algorithm analysis
+        convergence-analysis (va/analyze-convergence optimization-result)
+        performance-summary (va/summarize-algorithm-performance 
+                             (assoc vqe-result :convergence-analysis convergence-analysis)
+                             "VQE")
+        
+        ;; Optional expensive landscape analysis
+        landscape-analysis (when (:landscape-analysis? analysis-options false)
+                             (let [backend (:backend analysis-options)
+                                   config (:config vqe-result)
+                                   optimal-params (:optimal-parameters (:results vqe-result))]
+                               (when (and backend optimal-params)
+                                 (let [hamiltonian (:hamiltonian config)
+                                       ansatz-fn (vqe-circuit-constructor config)
+                                       objective-fn (va/variational-objective hamiltonian ansatz-fn backend
+                                                                               {:shots (:shots analysis-options 1024)})]
+                                   (va/analyze-variational-landscape objective-fn optimal-params
+                                                                     :perturbation-size (:perturbation-size analysis-options 0.01)
+                                                                     :compute-gradients? true)))))
+        
+        ;; Parameter sensitivity analysis (if landscape analysis was performed)
+        sensitivity-analysis (when landscape-analysis
+                               (va/analyze-parameter-sensitivity (:sensitivities landscape-analysis)))
+        
+        ;; VQE-specific analysis
+        vqe-specific (vqe-specific-analysis vqe-result analysis-options)]
+    
+    (merge
+     {:analysis-type "Comprehensive VQE Analysis"
+      :convergence-analysis convergence-analysis
+      :performance-summary performance-summary
+      :vqe-specific vqe-specific}
+     (when landscape-analysis
+       {:landscape-analysis landscape-analysis})
+     (when sensitivity-analysis
+       {:parameter-sensitivity sensitivity-analysis}))))
 
 (comment
   (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
@@ -440,4 +514,34 @@
                    (get-in uccsd-result [:analysis :initial-energy])))
   (println (format "Correlation Energy:      %.8f Ha"
                    (- (get-in uccsd-result [:results :optimal-energy])
-                      (get-in uccsd-result [:analysis :initial-energy])))))
+                      (get-in uccsd-result [:analysis :initial-energy]))))
+
+  ;; Comprehensive analysis
+  
+  ;; Basic VQE-specific analysis (fast)
+  (def vqe-analysis (vqe-specific-analysis uccsd-result 
+                                           {:chemical-accuracy-threshold 0.0016}))
+  
+  ;; Comprehensive analysis including expensive landscape analysis (slower but complete)
+  (def full-analysis (comprehensive-vqe-analysis uccsd-result 
+                                                  {:backend (sim/create-simulator)
+                                                   :landscape-analysis? true
+                                                   :chemical-accuracy-threshold 0.0016
+                                                   :perturbation-size 0.01}))
+  
+  ;; The comprehensive analysis provides:
+  ;; - Standard convergence analysis (from variational-algorithm namespace)
+  ;; - Performance summary (from variational-algorithm namespace)  
+  ;; - Parameter landscape analysis (from variational-algorithm namespace)
+  ;; - Parameter sensitivity ranking (from variational-algorithm namespace)
+  ;; - VQE-specific quantum state analysis
+  ;; - Chemical accuracy assessment
+  ;; - Hardware compatibility metrics
+  ;; - VQE-specific recommendations
+  
+  (println "Convergence Quality:" (:convergence-quality (:convergence-analysis full-analysis)))
+  (println "Chemical Accuracy Achieved:" (:achieved (:chemical-accuracy (:vqe-specific full-analysis))))
+  (println "Most Sensitive Parameters:" (:high-sensitivity-params (:parameter-sensitivity full-analysis)))
+  
+  ;
+  )

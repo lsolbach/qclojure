@@ -7,12 +7,10 @@
   - Integration testing with molecular systems
   - Analysis and landscape exploration functions"
   (:require [clojure.test :refer [deftest is testing run-tests]]
-            [fastmath.core :as fm]
             [org.soulspace.qclojure.application.algorithm.vqe :as vqe]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.ansatz :as ansatz]
             [org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim]
-            [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.application.algorithm.variational-algorithm :as va]))
 
 ;;
@@ -111,7 +109,7 @@
   (testing "VQE convergence analysis"
     (let [energy-history [-1.5 -1.6 -1.65 -1.67 -1.675]
           optimization-result {:history (map (fn [e] {:energy e}) energy-history)}
-          analysis (va/analyze-convergence-history optimization-result)]
+          analysis (va/analyze-convergence optimization-result)]
       
       (is (map? analysis) "Should return analysis map")
       (is (contains? analysis :total-iterations) "Should count iterations")
@@ -262,6 +260,7 @@
               (is true (str "Method " method " attempted optimization")))))))))
 
 (comment
+  ;; Run all tests in the namespace
   (run-tests)
   ;
   )

@@ -67,67 +67,147 @@
 ;;;
 ;;; Common Result Analysis Functions
 ;;;
-(defn analyze-optimization-convergence
-  "Analyze convergence properties of optimization results.
+(defn analyze-convergence
+  "Comprehensive convergence analysis for variational quantum algorithms.
+  
+  This function provides unified convergence analysis by examining both the 
+  optimization result metadata and the detailed optimization history. It serves
+  as the primary convergence analysis tool for all variational algorithms.
+  
+  Use Cases:
+  - Post-optimization assessment of convergence quality
+  - Debugging optimization problems and parameter tuning
+  - Comparing different optimization methods or hyperparameters
+  - Research analysis of algorithm behavior across different problems
   
   Parameters:
-  - optimization-result: Result map from optimization
+  - optimization-result: Complete result map from optimization containing:
+    - :success, :reason, :iterations, :function-evaluations (metadata)
+    - :convergence-history or :history (energy trajectory data)
+    - :optimal-energy, :optimal-parameters (final results)
   
   Returns:
-  Map with convergence analysis"
+  Comprehensive map with convergence analysis including:
+  - Basic convergence status and metadata
+  - Energy improvement metrics and statistics
+  - Convergence rate and trajectory analysis
+  - Gradient-based convergence indicators (when available)"
   [optimization-result]
-  (let [history (:convergence-history optimization-result [])
+  (let [;; Extract metadata
         success (:success optimization-result false)
         reason (:reason optimization-result)
-        iterations (:iterations optimization-result 0)]
+        iterations (:iterations optimization-result 0)
+        function-evals (:function-evaluations optimization-result 0)
+        
+        ;; Extract energy history from multiple possible sources
+        convergence-history (:convergence-history optimization-result [])
+        detailed-history (:history optimization-result [])
+        energy-history (if (seq convergence-history)
+                         convergence-history
+                         (map :energy detailed-history))
+        
+        ;; Basic convergence info
+        base-analysis {:converged success
+                       :final-reason reason
+                       :total-iterations iterations
+                       :function-evaluations function-evals}]
     
-    (merge
-     {:converged success
-      :final-reason reason
-      :total-iterations iterations
-      :function-evaluations (:function-evaluations optimization-result 0)}
-     
-     (when (seq history)
-       (let [initial-energy (first history)
-             final-energy (last history)
-             energy-improvement (- initial-energy final-energy)
-             relative-improvement (when (not= initial-energy 0.0)
-                                    (/ energy-improvement (abs initial-energy)))]
-         {:initial-energy initial-energy
-          :final-energy final-energy
-          :energy-improvement energy-improvement
-          :relative-improvement relative-improvement
-          :energy-std (when (> (count history) 1)
-                        (let [mean (/ (reduce + history) (count history))
-                              variances (map #(* (- % mean) (- % mean)) history)]
-                          (Math/sqrt (/ (reduce + variances) (count history)))))})))))
+    (if (seq energy-history)
+      ;; Enhanced analysis with energy trajectory
+      (let [initial-energy (first energy-history)
+            final-energy (last energy-history)
+            energy-improvement (- initial-energy final-energy)
+            relative-improvement (when (not= initial-energy 0.0)
+                                   (/ energy-improvement (abs initial-energy)))
+            num-energy-points (count energy-history)
+            
+            ;; Statistical analysis
+            energy-mean (/ (reduce + energy-history) num-energy-points)
+            energy-std (when (> num-energy-points 1)
+                         (let [variances (map #(* (- % energy-mean) (- % energy-mean)) energy-history)]
+                           (Math/sqrt (/ (reduce + variances) num-energy-points))))
+            
+            ;; Trajectory analysis
+            monotonic-decrease? (every? (fn [[e1 e2]] (<= e2 e1))
+                                        (partition 2 1 energy-history))
+            convergence-rate (when (> num-energy-points 1)
+                               (/ energy-improvement num-energy-points))
+            
+            ;; Gradient analysis (from detailed history if available)
+            final-gradient-norm (when-let [last-step (last detailed-history)]
+                                  (when-let [gradients (:gradients last-step)]
+                                    (Math/sqrt (reduce + (map #(* % %) gradients)))))
+            
+            ;; Quality assessment
+            convergence-quality (cond
+                                  (< energy-improvement 1e-8) :poor
+                                  (< energy-improvement 1e-6) :fair  
+                                  (< energy-improvement 1e-4) :good
+                                  :else :excellent)]
+        
+        (merge base-analysis
+               {:initial-energy initial-energy
+                :final-energy final-energy
+                :energy-improvement energy-improvement
+                :relative-improvement relative-improvement
+                :energy-std energy-std
+                :monotonic-decrease? monotonic-decrease?
+                :convergence-rate convergence-rate
+                :final-gradient-norm final-gradient-norm
+                :convergence-quality convergence-quality
+                :energy-trajectory-length num-energy-points}))
+      
+      ;; Basic analysis without energy history
+      base-analysis)))
 
 (defn summarize-algorithm-performance
-  "Create a summary of variational algorithm performance.
+  "Create a high-level performance summary for variational quantum algorithms.
+  
+  This function provides a concise, standardized summary focused on practical
+  performance metrics and overall algorithm assessment. It's designed for
+  benchmarking, reporting, and quick performance comparison across runs.
+  
+  Use Cases:
+  - Benchmarking different algorithms (VQE vs QAOA) or configurations
+  - Performance reporting for research papers or technical documentation
+  - Quick assessment of whether an optimization run was successful
+  - Comparative analysis across different quantum backends or hardware
+  - Automated performance monitoring in production quantum workflows
   
   Parameters:
-  - algorithm-result: Complete result map from algorithm execution
-  - algorithm-name: Name of the algorithm (e.g., 'VQE', 'QAOA')
+  - algorithm-result: Complete result map from algorithm execution containing:
+    - :convergence-analysis (from analyze-convergence)
+    - :optimal-energy, :success, :iterations (optimization results)
+    - :total-runtime-ms (timing information)
+  - algorithm-name: Name of the algorithm (e.g., 'VQE', 'QAOA', 'QAOA-MaxCut')
   
   Returns:
-  Map with performance summary"
+  Standardized performance summary with:
+  - Algorithm identification and success status
+  - Key performance metrics (energy, runtime, efficiency)
+  - Qualitative assessments (convergence quality, efficiency score)"
   [algorithm-result algorithm-name]
   (let [convergence (:convergence-analysis algorithm-result)
-        timing (:total-runtime-ms algorithm-result 0)]
-    
+        timing (:total-runtime-ms algorithm-result 0)
+        iterations (:iterations algorithm-result 0)]
+
     {:algorithm algorithm-name
      :success (:success algorithm-result false)
      :final-energy (:optimal-energy algorithm-result)
-     :iterations (:iterations algorithm-result 0)
+     :iterations iterations
      :runtime-seconds (/ timing 1000.0)
-     :convergence-quality (cond
-                            (:converged convergence) :excellent
-                            (and (> (:iterations algorithm-result 0) 50)
-                                 (< (:final-energy algorithm-result Double/POSITIVE_INFINITY) 1e-3)) :good
-                            (> (:iterations algorithm-result 0) 10) :fair
-                            :else :poor)
-     :efficiency-score (when (and (> timing 0) (> (:iterations algorithm-result 0) 0))
-                         (/ 1000.0 (/ timing (:iterations algorithm-result))))}))  ; iterations per second
+     :convergence-quality (or (:convergence-quality convergence)
+                              ;; Fallback quality assessment
+                              (cond
+                                (:converged convergence) :excellent
+                                (and (> iterations 50)
+                                     (< (:final-energy algorithm-result Double/POSITIVE_INFINITY) 1e-3)) :good
+                                (> iterations 10) :fair
+                                :else :poor))
+     :efficiency-score (when (and (> timing 0) (> iterations 0))
+                         (/ 1000.0 (/ timing iterations)))  ; iterations per second
+     :energy-improvement (:energy-improvement convergence)
+     :function-evaluations (:function-evaluations convergence 0)}))
 
 ;;;
 ;;; Convergence Monitoring
@@ -203,7 +283,7 @@
                            :else :continue)}))))
 
 ;;;
-;;; Generic Objective Function Creation
+;;; Objective Function Creation
 ;;;
 (defn variational-objective
   "Create a generic objective function for variational quantum algorithms.
@@ -261,13 +341,10 @@
           (println "Variational objective evaluation failed:" (.getMessage e))
           Double/POSITIVE_INFINITY)))))
 
-;;;
-;;; Enhanced Objective Functions
-;;;
-(defn enhanced-variational-objective
-  "Create enhanced variational objective function that provides gradients.
+(defn gradient-based-variational-objective
+  "Create a variational objective function that provides gradients.
   
-  This function creates an enhanced objective that computes both energy and gradients
+  This function creates an objective that computes both energy and gradients
   efficiently using the parameter shift rule. The gradient computation is integrated 
   with the result framework to enable sophisticated gradient-based optimization methods.
   
@@ -307,7 +384,7 @@
            :quantum-state base-state})
 
         (catch Exception e
-          (println "Enhanced variational objective evaluation failed:" (.getMessage e))
+          (println "Gradient variational objective evaluation failed:" (.getMessage e))
           {:energy 1000.0
            :gradients (vec (repeat (count parameters) 0.0))})))))
 
@@ -488,28 +565,47 @@
       (variational-optimization objective-fn initial-parameters options))))
 
 ;;;
-;;; Analysis Functions for Variational Algorithms
+;;; Parameter Landscape Analysis Functions
 ;;;
 (defn analyze-variational-landscape
-  "Analyze the energy landscape around optimal parameters for any variational algorithm.
+  "Analyze the energy landscape around optimal parameters for variational algorithms.
   
-  This function performs parameter sensitivity analysis by perturbing each parameter
-  and measuring the energy change. It provides insights into which parameters have
-  the most impact on the objective function.
+  This function performs computational analysis of the parameter space by evaluating
+  the objective function at perturbed parameter values. It provides insights into
+  the local structure of the energy landscape and parameter sensitivity.
+  
+  Use Cases:
+  - Understanding which parameters most affect the objective function
+  - Identifying optimization challenges (flat vs steep landscapes)
+  - Validating that optimization found a reasonable local minimum
+  - Research into ansatz design and parameter initialization strategies
+  - Debugging optimization convergence issues
+  
+  Computational Cost: Medium to High - requires n additional circuit evaluations for
+  finite difference sensitivities, plus optionally 2×n evaluations for gradients.
   
   Parameters:
-  - objective-fn: Objective function to analyze
+  - objective-fn: Objective function to analyze (typically the same used in optimization)
   - optimal-params: Optimal parameters found by optimization
   - perturbation-size: Size of parameter perturbations for analysis (default: 0.01)
+  - compute-gradients?: Whether to compute gradients via parameter shift (default: true)
   
   Returns:
-  Map with landscape analysis including gradient norms and parameter sensitivities"
-  [objective-fn optimal-params & {:keys [perturbation-size] :or {perturbation-size 0.01}}]
+  Map with comprehensive landscape analysis:
+  - :optimal-energy - Energy at optimal parameters
+  - :sensitivities - Finite difference sensitivities for each parameter
+  - :most/least-sensitive-parameter - Indices of extreme sensitivity parameters
+  - :gradients - Parameter shift gradients (if compute-gradients? true)
+  - :gradient-norm - L2 norm of gradient vector (if gradients computed)
+  - Metadata about analysis parameters and parameter count"
+  [objective-fn optimal-params & {:keys [perturbation-size compute-gradients?] 
+                                   :or {perturbation-size 0.01 compute-gradients? true}}]
   (let [num-params (count optimal-params)
         optimal-energy (objective-fn optimal-params)
 
-        ;; Calculate gradients using parameter shift rule
-        gradients (qopt/calculate-parameter-shift-gradient objective-fn optimal-params)
+        ;; Calculate gradients using parameter shift rule (optional for performance)
+        gradients (when compute-gradients?
+                    (qopt/calculate-parameter-shift-gradient objective-fn optimal-params))
 
         ;; Calculate parameter sensitivities via finite differences
         sensitivities (mapv (fn [i]
@@ -519,69 +615,47 @@
                                 (abs (- energy-perturbed optimal-energy))))
                             (range num-params))
 
-        ;; Compute gradient norm
-        gradient-norm (Math/sqrt (reduce + (map #(* % %) gradients)))]
+        ;; Compute gradient norm (only if gradients computed)
+        gradient-norm (when gradients
+                        (Math/sqrt (reduce + (map #(* % %) gradients))))]
 
-    {:optimal-energy optimal-energy
-     :gradients gradients
-     :gradient-norm gradient-norm
-     :sensitivities sensitivities
-     :most-sensitive-parameter (apply max-key #(nth sensitivities %) (range num-params))
-     :least-sensitive-parameter (apply min-key #(nth sensitivities %) (range num-params))
-     :perturbation-size perturbation-size
-     :parameter-count num-params}))
-
-(defn analyze-convergence-history
-  "Analyze convergence from optimization history for any variational algorithm.
-  
-  This function analyzes the optimization trajectory to provide insights into
-  convergence behavior, energy improvement, and optimization quality.
-  
-  Parameters:
-  - optimization-result: Result map from optimization containing :history
-  
-  Returns:
-  Map with convergence analysis"
-  [optimization-result]
-  (let [history (:history optimization-result [])
-        energies (map :energy history)]
-
-    (when (seq energies)
-      (let [initial-energy (first energies)
-            final-energy (last energies)
-            energy-improvement (- initial-energy final-energy)
-            num-iterations (count energies)]
-        
-        {:total-iterations num-iterations
-         :initial-energy initial-energy
-         :final-energy final-energy
-         :energy-improvement energy-improvement
-         :relative-improvement (when (not= initial-energy 0.0)
-                                 (/ energy-improvement (abs initial-energy)))
-         :convergence-rate (when (> num-iterations 1)
-                             (/ energy-improvement num-iterations))
-         :monotonic-decrease? (every? (fn [[e1 e2]] (<= e2 e1))
-                                      (partition 2 1 energies))
-         :final-gradient-norm (when-let [last-step (last history)]
-                                (when-let [gradients (:gradients last-step)]
-                                  (Math/sqrt (reduce + (map #(* % %) gradients)))))
-         :convergence-quality (cond
-                                (< energy-improvement 1e-8) :poor
-                                (< energy-improvement 1e-6) :fair  
-                                (< energy-improvement 1e-4) :good
-                                :else :excellent)}))))
+    (merge
+     {:optimal-energy optimal-energy
+      :sensitivities sensitivities
+      :most-sensitive-parameter (apply max-key #(nth sensitivities %) (range num-params))
+      :least-sensitive-parameter (apply min-key #(nth sensitivities %) (range num-params))
+      :perturbation-size perturbation-size
+      :parameter-count num-params}
+     (when gradients
+       {:gradients gradients
+        :gradient-norm gradient-norm}))))
 
 (defn analyze-parameter-sensitivity
-  "Analyze parameter sensitivity for variational algorithms.
+  "Process and rank parameter sensitivities from landscape analysis.
   
-  This function identifies which parameters have the most impact on the objective
-  function by computing normalized sensitivities and providing ranking.
+  This function takes raw sensitivity data (typically from analyze-variational-landscape)
+  and provides normalized analysis, ranking, and categorization of parameter importance.
+  It's designed to be used as a post-processing step after landscape analysis.
+  
+  Use Cases:
+  - Identifying the most important parameters for optimization focus
+  - Reducing parameter space dimension by eliminating low-sensitivity parameters
+  - Ansatz design guidance - understanding which parameter placements matter most
+  - Adaptive optimization strategies based on parameter importance
+  - Research into parameter efficiency and circuit expressivity
+  
+  Computational Cost: Low - pure data processing, no additional circuit evaluations.
   
   Parameters:
-  - sensitivities: Vector of parameter sensitivities from landscape analysis
+  - sensitivities: Vector of parameter sensitivities (from analyze-variational-landscape)
   
   Returns:
-  Map with sensitivity analysis"
+  Map with processed sensitivity analysis:
+  - :sensitivities - Original sensitivity values
+  - :normalized-sensitivities - Normalized to [0,1] range
+  - :sensitivity-range - Range between max and min sensitivities
+  - :ranked-parameters - Parameters sorted by sensitivity (index, value pairs)
+  - :high/low-sensitivity-params - Top/bottom 3 most important parameters"
   [sensitivities]
   (let [max-sensitivity (apply max sensitivities)
         min-sensitivity (apply min sensitivities)
@@ -608,15 +682,22 @@
 ;;;
 ;;; Algorithm Structure Template
 ;;;
-(defn variational-algorithm-template
-  "Template for implementing variational quantum algorithms.
+(defn variational-algorithm
+  "Enhanced template for variational quantum algorithms with advanced features.
   
-  This function provides a common structure that can be used to implement
-  new variational algorithms or refactor existing ones. It handles the
-  common workflow and delegates algorithm-specific tasks to provided functions.
+  This enhanced version supports gradient-enhanced objectives, advanced convergence
+  monitoring, and sophisticated optimization strategies required by algorithms like VQE.
   
   Parameters:
-  - config: Algorithm configuration map
+  - backend: Quantum backend for circuit execution
+  - options: Algorithm options map including advanced optimization settings
+    - :optimization-method - Optimization method (default: :adam)
+    - :max-iterations - Maximum iterations (default: 500)
+    - :tolerance - Convergence tolerance (default: 1e-6)
+    - :gradient-tolerance - Gradient norm tolerance (default: 1e-4)
+    - :use-enhanced-objective - Whether to use gradient-enhanced objectives (default: auto-detect)
+    - :shots - Number of shots for execution (default: 1024)
+    - Other algorithm-specific options
   - algorithm-fns: Map of algorithm-specific functions:
     - :hamiltonian-constructor - (fn [config] -> hamiltonian)
     - :circuit-constructor - (fn [config] -> circuit-construction-fn)
@@ -624,9 +705,9 @@
     - :result-processor - (fn [optimization-result config] -> final-result)
   
   Returns:
-  Complete algorithm result map"
-  [config algorithm-fns]
-  {:pre [(map? config) (map? algorithm-fns)]}
+  Complete algorithm result map with enhanced analysis"
+  [backend options algorithm-fns]
+  {:pre [(map? options) (map? algorithm-fns)]}
   (let [{:keys [hamiltonian-constructor circuit-constructor 
                 parameter-count result-processor]} algorithm-fns
         
@@ -634,35 +715,54 @@
         start-time (System/currentTimeMillis)
         
         ;; Algorithm-specific construction
-        hamiltonian (hamiltonian-constructor config)
-        circuit-construction-fn (circuit-constructor config)
-        num-params (parameter-count config)
+        hamiltonian (hamiltonian-constructor options)
+        circuit-construction-fn (circuit-constructor options)
+        num-params (parameter-count options)
         
-        ;; Common parameter initialization
-        initial-parameters (or (:initial-parameters config)
+        ;; Enhanced parameter initialization
+        initial-parameters (or (:initial-parameters options)
                                (random-parameter-initialization num-params))
         
-        ;; Common objective creation and optimization
-        backend (:backend config)
-        execution-options {:shots (:shots config 1024)}
-        objective-fn (variational-objective hamiltonian circuit-construction-fn 
-                                                    backend execution-options)
+        ;; Enhanced objective creation with auto-detection of gradient support
+        execution-options {:shots (:shots options 1024)}
+        opt-method (:optimization-method options :adam)
+        use-gradients? (or (:use-enhanced-objective options)
+                           (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))
         
-        optimization-options (merge config {:gradient-method :parameter-shift})
-        optimization-result (variational-optimization objective-fn initial-parameters optimization-options)
+        objective-fn (if use-gradients?
+                       (gradient-based-variational-objective hamiltonian circuit-construction-fn backend execution-options)
+                       (variational-objective hamiltonian circuit-construction-fn backend execution-options))
+        
+        ;; Enhanced optimization with convergence monitoring
+        optimization-options (merge options {:gradient-method :parameter-shift
+                                             :ansatz-fn circuit-construction-fn
+                                             :backend backend
+                                             :exec-options execution-options})
+        
+        optimization-result (if use-gradients?
+                              (enhanced-variational-optimization objective-fn initial-parameters optimization-options)
+                              (variational-optimization objective-fn initial-parameters optimization-options))
         
         end-time (System/currentTimeMillis)
         
-        ;; Common analysis
-        convergence-analysis (analyze-optimization-convergence optimization-result)
+        ;; Enhanced analysis
+        convergence-analysis (analyze-convergence optimization-result)
+        
+        ;; Calculate initial energy for analysis
+        initial-result (objective-fn initial-parameters)
+        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
+        
         base-result (merge optimization-result
                            {:hamiltonian hamiltonian
                             :initial-parameters initial-parameters
                             :convergence-analysis convergence-analysis
-                            :total-runtime-ms (- end-time start-time)})]
+                            :initial-energy initial-energy
+                            :total-runtime-ms (- end-time start-time)
+                            :enhanced-features {:gradient-enhanced use-gradients?
+                                                :convergence-monitored true}})]
     
     ;; Algorithm-specific result processing
-    (result-processor base-result config)))
+    (result-processor base-result options)))
 
 #_
 (comment

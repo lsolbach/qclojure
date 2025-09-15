@@ -39,11 +39,12 @@
   (s/coll-of (s/tuple pos-int? pos-int? number?)))  ; [(i j weight), ...]
 
 (s/def ::qaoa-config
-  (s/keys :req-un [::problem-hamiltonian ::num-qubits ::num-layers]
-          :opt-un [::mixer-hamiltonian ::initial-parameters ::max-iterations
-                   ::tolerance ::optimization-method ::shots ::graph
+  (s/keys :req-un [::num-qubits ::num-layers]
+          :opt-un [::problem-hamiltonian ::mixer-hamiltonian ::initial-parameters ::max-iterations
+                   ::tolerance ::optimization-method ::shots ::graph ::problem-type
                    ::problem-instance ::parameter-strategy]))
 
+(s/def ::problem-type #{:max-cut :max-sat :tsp :custom})
 (s/def ::num-layers pos-int?)
 (s/def ::problem-instance any?)  ; Problem-specific data structure
 (s/def ::parameter-strategy #{:theoretical :adiabatic :random-smart})
@@ -615,6 +616,167 @@
                      :valid-strategies #{:theoretical :adiabatic :random-smart}}))))
 
 ;;;
+;;; Template Integration Functions for Variational Algorithm Framework
+;;;
+(defn qaoa-hamiltonian-constructor
+  "Create problem Hamiltonian for QAOA based on the problem type and configuration.
+  
+  This function serves as the hamiltonian-constructor for the variational-algorithm template.
+  It handles all supported QAOA problem types and creates the appropriate Hamiltonian.
+  
+  Parameters:
+  - options: QAOA configuration map containing:
+    - :problem-type - Type of problem (:max-cut, :max-sat, :tsp, :custom)
+    - :problem-instance - Problem-specific data structure
+    - :num-qubits - Number of qubits (for some problem types)
+    - :problem-hamiltonian - Pre-constructed Hamiltonian (for :custom type)
+  
+  Returns:
+  Collection of Pauli terms representing the problem Hamiltonian"
+  [options]
+  (let [problem-type (:problem-type options)
+        problem-instance (:problem-instance options)
+        num-qubits (:num-qubits options)]
+    (case problem-type
+      :max-cut (max-cut-hamiltonian problem-instance num-qubits)
+      :max-sat (max-sat-hamiltonian problem-instance num-qubits)
+      :tsp (travelling-salesman-hamiltonian problem-instance)
+      :custom (:problem-hamiltonian options)
+      (throw (ex-info "Unknown problem type for QAOA" 
+                      {:problem-type problem-type
+                       :supported-types [:max-cut :max-sat :tsp :custom]})))))
+
+(defn qaoa-mixer-hamiltonian-constructor
+  "Create mixer Hamiltonian for QAOA.
+  
+  This function creates the mixer Hamiltonian, defaulting to the standard X mixer
+  but allowing for custom mixers based on the configuration.
+  
+  Parameters:
+  - options: QAOA configuration map containing:
+    - :num-qubits - Number of qubits
+    - :mixer-hamiltonian - Custom mixer Hamiltonian (optional)
+    - :mixer-type - Type of mixer (:standard, :xy) (optional, default: :standard)
+  
+  Returns:
+  Collection of Pauli terms representing the mixer Hamiltonian"
+  [options]
+  (let [num-qubits (:num-qubits options)
+        mixer-type (:mixer-type options :standard)]
+    (or (:mixer-hamiltonian options)
+        (case mixer-type
+          :standard (standard-mixer-hamiltonian num-qubits)
+          :xy (xy-mixer-hamiltonian num-qubits (:periodic-xy options true))
+          (standard-mixer-hamiltonian num-qubits)))))
+
+(defn qaoa-circuit-constructor
+  "Create circuit construction function for QAOA.
+  
+  This function serves as the circuit-constructor for the variational-algorithm template.
+  It captures the problem and mixer Hamiltonians and returns a function that constructs
+  QAOA circuits given parameters.
+  
+  Parameters:
+  - options: QAOA configuration map containing all necessary configuration
+  
+  Returns:
+  Function that takes parameters and returns a QAOA circuit"
+  [options]
+  (let [problem-hamiltonian (qaoa-hamiltonian-constructor options)
+        mixer-hamiltonian (qaoa-mixer-hamiltonian-constructor options)
+        num-qubits (:num-qubits options)]
+    (fn [parameters]
+      (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian parameters num-qubits))))
+
+(defn qaoa-parameter-count
+  "Calculate the number of parameters for QAOA.
+  
+  This function serves as the parameter-count function for the variational-algorithm template.
+  QAOA requires 2 parameters per layer: γ (gamma) and β (beta).
+  
+  Parameters:
+  - options: QAOA configuration map containing :num-layers
+  
+  Returns:
+  Number of parameters (2 * num-layers)"
+  [options]
+  (* 2 (:num-layers options)))
+
+(defn qaoa-parameter-initialization
+  "Initialize QAOA parameters using sophisticated strategies.
+  
+  This function provides QAOA-specific parameter initialization that's more sophisticated
+  than the generic random initialization in the template.
+  
+  Parameters:
+  - options: QAOA configuration map
+  
+  Returns:
+  Vector of initial parameters [γ₁ β₁ γ₂ β₂ ...]"
+  [options]
+  (let [num-layers (:num-layers options)
+        problem-type (:problem-type options)
+        strategy (:parameter-strategy options :theoretical)]
+    (smart-parameter-initialization num-layers problem-type strategy)))
+
+(defn qaoa-result-processor
+  "Process and enhance QAOA results with algorithm-specific analysis.
+  
+  This function serves as the result-processor for the variational-algorithm template.
+  It adds QAOA-specific analysis including parameter extraction, approximation ratios,
+  and problem-specific solution quality metrics.
+  
+  Parameters:
+  - base-result: Base optimization result from the template
+  - options: QAOA configuration options
+  
+  Returns:
+  Enhanced result map with QAOA-specific analysis"
+  [base-result options]
+  (let [optimal-params (:optimal-parameters base-result)
+        problem-type (:problem-type options)
+        num-layers (:num-layers options)
+        
+        ;; Extract γ and β parameters
+        gamma-params (vec (take-nth 2 optimal-params))
+        beta-params (vec (take-nth 2 (rest optimal-params)))
+        
+        ;; Build final circuit for inspection
+        problem-hamiltonian (qaoa-hamiltonian-constructor options)
+        mixer-hamiltonian (qaoa-mixer-hamiltonian-constructor options)
+        final-circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian
+                                           optimal-params (:num-qubits options))
+        
+        ;; Calculate approximation ratio if classical optimum is known
+        approximation-ratio (when (:classical-optimum options)
+                              (/ (:optimal-energy base-result) (:classical-optimum options)))]
+    
+    (merge base-result
+           {:algorithm "QAOA"
+            :problem-type problem-type
+            :num-qubits (:num-qubits options)
+            :num-layers num-layers
+            :problem-hamiltonian problem-hamiltonian
+            :mixer-hamiltonian mixer-hamiltonian
+            :circuit final-circuit
+            :approximation-ratio approximation-ratio
+            :gamma-parameters gamma-params
+            :beta-parameters beta-params
+            
+            ;; Add QAOA-specific performance analysis
+            :qaoa-analysis {:parameter-summary
+                            {:gamma-range [(apply min gamma-params) (apply max gamma-params)]
+                             :beta-range [(apply min beta-params) (apply max beta-params)]
+                             :gamma-mean (/ (reduce + gamma-params) (count gamma-params))
+                             :beta-mean (/ (reduce + beta-params) (count beta-params))
+                             :total-parameters (count optimal-params)}
+                            :convergence-analysis (:convergence-analysis base-result)
+                            :performance-metrics
+                            {:function-evaluations (:function-evaluations base-result 0)
+                             :total-runtime-ms (:total-runtime-ms base-result)
+                             :approximation-ratio approximation-ratio}}})))
+
+;;;
 ;;; QAOA Algorithm Implementation
 ;;;
 (defn qaoa-objective
@@ -648,10 +810,19 @@
     (va/variational-objective problem-hamiltonian circuit-construction-fn backend options)))
 
 (defn quantum-approximate-optimization-algorithm
-  "Main QAOA algorithm implementation.
+  "Main QAOA algorithm implementation using the variational algorithm template.
 
-  This function orchestrates the QAOA process, including circuit construction,
-  optimization, and execution on a quantum backend.
+  This function orchestrates the QAOA process using the enhanced variational-algorithm
+  template, providing improved optimization features, convergence monitoring, and
+  standardized result analysis while maintaining full backward compatibility.
+  
+  Key Enhancements from Template Integration:
+  - Advanced convergence monitoring with intelligent stopping criteria
+  - Enhanced optimization methods with gradient support where applicable
+  - Standardized result analysis and performance metrics
+  - Consistent error handling and timing across all variational algorithms
+  - Parameter landscape analysis capabilities
+  - Future extensibility for new optimization methods
   
   Supported problem types:
   - :max-cut - Maximum cut problem on graphs
@@ -678,15 +849,21 @@
     - :optimization-method - Optimization method to use (default: :adam)
     - :max-iterations - Maximum iterations for optimization (default: 500)
     - :tolerance - Convergence tolerance (default: 1e-6)
+    - :gradient-tolerance - Gradient norm tolerance (default: 1e-4)
+    - :min-iterations - Minimum iterations before convergence (default: 10)
+    - :patience - Convergence analysis window (default: 20)
     - :shots - Number of shots for circuit execution (default: 1024)
     - :initial-parameters - Custom initial parameters (optional)
     - :parameter-strategy - Parameter initialization strategy (default: :theoretical)
       * :theoretical - Literature-based optimal values for small p (recommended)
       * :adiabatic - Linear interpolation schedule inspired by adiabatic evolution
       * :random-smart - Random sampling in theoretically good parameter ranges
+    - :classical-optimum - Known classical optimum for approximation ratio calculation
+    - :mixer-hamiltonian - Custom mixer Hamiltonian (optional)
+    - :mixer-type - Type of mixer (:standard, :xy) (optional, default: :standard)
   
   Returns:
-  Map containing QAOA results and analysis
+  Enhanced map containing QAOA results and comprehensive analysis
   
   Example:
   (quantum-approximate-optimization-algorithm backend
@@ -695,68 +872,24 @@
      :num-qubits 3
      :num-layers 2
      :optimization-method :adam
-     :max-iterations 100})"
+     :max-iterations 100
+     :tolerance 1e-6})"
   [backend options]
   {:pre [(s/valid? ::qaoa-config options)]}
-  (let [problem-type (:problem-type options)
-        problem-instance (:problem-instance options)
-        num-qubits (:num-qubits options)
-        num-layers (:num-layers options)
-
-        ;; Create problem Hamiltonian based on type
-        problem-hamiltonian
-        (case problem-type
-          :max-cut (max-cut-hamiltonian problem-instance num-qubits)
-          :max-sat (max-sat-hamiltonian problem-instance num-qubits)
-          :tsp (travelling-salesman-hamiltonian problem-instance)
-          :custom (:problem-hamiltonian options)
-          (throw (ex-info "Unknown problem type" {:problem-type problem-type})))
-
-        ;; Create mixer Hamiltonian (default: standard X mixer)
-        mixer-hamiltonian (or (:mixer-hamiltonian options)
-                              (standard-mixer-hamiltonian num-qubits))
-
-        ;; Initial parameters: use smart initialization strategies
-        initial-parameters (or (:initial-parameters options)
-                               (smart-parameter-initialization num-layers
-                                                               problem-type
-                                                               (:parameter-strategy options :theoretical)))
-
-        ;; Create objective function
-        exec-options {:shots (:shots options 1024)}
-        objective-fn (qaoa-objective problem-hamiltonian mixer-hamiltonian
-                                            num-qubits backend exec-options)
-
-        ;; Run optimization
-        optimization-options (merge options {:gradient-method :parameter-shift})
-        start-time (System/currentTimeMillis)
-        optimization-result (va/enhanced-variational-optimization objective-fn initial-parameters optimization-options)
-        end-time (System/currentTimeMillis)
-
-        ;; Build final circuit with optimal parameters
-        optimal-params (:optimal-parameters optimization-result)
-        final-circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian
-                                           optimal-params num-qubits)
-
-        ;; Calculate final energy and additional metrics
-        final-energy (:optimal-energy optimization-result)
-        approximation-ratio (when (:classical-optimum options)
-                              (/ final-energy (:classical-optimum options)))]
-
-    (merge optimization-result
-           {:algorithm "QAOA"
-            :problem-type problem-type
-            :num-qubits num-qubits
-            :num-layers num-layers
-            :problem-hamiltonian problem-hamiltonian
-            :mixer-hamiltonian mixer-hamiltonian
-            :result final-energy
-            :circuit final-circuit
-            :total-runtime-ms (- end-time start-time)
-            :approximation-ratio approximation-ratio
-            :gamma-parameters (vec (take-nth 2 optimal-params))      ; [γ₁ γ₂ ...]
-            :beta-parameters (vec (take-nth 2 (rest optimal-params))) ; [β₁ β₂ ...]
-            })))
+  ;; Use QAOA-specific parameter initialization if not provided
+  (let [enhanced-options (if (:initial-parameters options)
+                           options
+                           (assoc options :initial-parameters 
+                                  (qaoa-parameter-initialization options)))
+        
+        ;; Define QAOA-specific functions for the template
+        algorithm-fns {:hamiltonian-constructor qaoa-hamiltonian-constructor
+                       :circuit-constructor qaoa-circuit-constructor
+                       :parameter-count qaoa-parameter-count
+                       :result-processor qaoa-result-processor}]
+    
+    ;; Delegate to the variational algorithm template
+    (va/variational-algorithm backend enhanced-options algorithm-fns)))
 
 ;;;
 ;;; Analysis and Utilities
@@ -782,8 +915,8 @@
       :total-parameters (count optimal-params)}
 
      :convergence-analysis
-     ;; Use the generic convergence history analysis
-     (va/analyze-convergence-history optimization-result)
+     ;; Use the generic convergence analysis
+     (va/analyze-convergence optimization-result)
 
      :performance-metrics
      {:function-evaluations (:function-evaluations optimization-result 0)

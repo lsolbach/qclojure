@@ -457,7 +457,7 @@
   Quantum circuit implementing the evolution"
   [hamiltonian evolution-time num-qubits]
   {:pre [(ham/validate-hamiltonian hamiltonian) (number? evolution-time) (pos-int? num-qubits)]}
-  (let [circuit (qc/create-circuit num-qubits "Hamiltonian Evolution")]
+  (let [circuit (qc/create-circuit num-qubits "Hamiltonian Evo")]
     (reduce (fn [circ term]
               (let [coeff (:coefficient term)
                     pauli-str (:pauli-string term)

@@ -21,6 +21,17 @@
           ;:live-reload true
           :browse true}))
 
+(def tutorial-gfm-config
+  "Quarto Github flavoured markdown configuration for building the tutorial."
+  (merge tutorial-base-config
+         {:format [:gfm]
+          :base-target-path "generated/gfm"
+          :clean-up-target-dir true
+          :hide-ui-header true
+          :hide-info-line false
+          :live-reload false
+          :browse false}))
+
 (def tutorial-quarto-html-config
   "Quarto HTML configuration for building the tutorial."
   (merge tutorial-base-config
@@ -32,17 +43,6 @@
           :hide-info-line false
           :live-reload false
           :browse false }))
-
-(def tutorial-quarto-gfm-config
-  "Quarto Github flavoured markdown configuration for building the tutorial."
-  (merge tutorial-base-config
-         {:format [:quarto :gfm]
-          :base-target-path "generated/gfm"
-          :clean-up-target-dir true
-          :hide-ui-header true
-          :hide-info-line false
-          :live-reload false
-          :browse false}))
 
 (def tutorial-quarto-pdf-config
   "Quarto PDF configuration for building the tutorial."
@@ -71,8 +71,8 @@
   (clay/browse!)
 
   (make-tutorial-notebook)
+  (make-tutorial-notebook tutorial-gfm-config)
   (make-tutorial-notebook tutorial-quarto-html-config)
-  (make-tutorial-notebook tutorial-quarto-gfm-config)
   (make-tutorial-notebook tutorial-quarto-pdf-config)
   ;
   )

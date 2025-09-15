@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.17.0
 * moved device management functions from hardware-simulator to backend
 * enhanced gate optimizations
   * added inverse gate cancellation

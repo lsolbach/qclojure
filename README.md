@@ -159,7 +159,7 @@ images of the circuit and the final state.
 ![Visualization of the probabilities of the Bell state](/doc/images/bv-state.svg)
 
 ## Tutorial
-To learn about quantum computing with QClojure and to see a 'namespace as a notebook' please take a look at the [tutorial](/notebooks/tutorial.clj) for the source code and at [![cljdoc badge](https://cljdoc.org/badge/org.soulspace/qclojure)](https://cljdoc.org/d/org.soulspace/qclojure) for rendered version in the the documentation.
+To learn about quantum computing with QClojure and to see a 'namespace as a notebook' please take a look at the [tutorial](/notebooks/tutorial.clj) for the source code and at [cljdoc](https://cljdoc.org/d/org.soulspace/qclojure) for rendered version in the the documentation.
 
 ## Build
 QClojure is currently build with [Leiningen](https://leiningen.org/).

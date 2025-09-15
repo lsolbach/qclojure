@@ -1069,7 +1069,7 @@ forte-10k-result
 (def opt-result2
   (hwopt/optimize opt-test-circuit2 (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
 
-(def optimized-circuit2 (:circuit opt-result2))
+(def opt-circuit2 (:circuit opt-result2))
 
 ;; This time, the optimized circuit has a greater depth and more gates than
 ;; before, because the toffoli gate had to be decomposed to the native gates
@@ -1077,7 +1077,11 @@ forte-10k-result
 ;; into native gates increases the number of gates and the depth of the circuit.
 
 ^kind/hiccup
-(viz/visualize-circuit :hiccup optimized-circuit2)
+(viz/visualize-circuit :hiccup opt-circuit2)
+
+;; Let's also print the statistics for the optimization to see the numbers.
+
+(hwopt/optimization-statistics opt-test-circuit2 opt-circuit2)
 
 ;;
 ;; ## Error Mitigation

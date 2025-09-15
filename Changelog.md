@@ -10,7 +10,7 @@
   * added examples for the optimization pipeline
 * added `:hiccup` format for svg visualizations
 * updated clay version 
-* publishing tutorial to cljdoc
+* updated the tutorial published it to cljdoc
 
 ## Version 0.16.0
 * added `device` namespace in domain

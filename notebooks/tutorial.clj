@@ -162,9 +162,7 @@
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
-   [org.soulspace.qclojure.application.hardware-optimization :as hwopt]
-   [fastmath.optimization :as optim]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]))
 
 ;; Some namespaces, like visualization namespaces contain multimethod
 ;; implementations. To make sure that the implementations are loaded, we
@@ -1987,6 +1985,31 @@ vqe-result
 
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit vqe-result))
+
+;; We can do a comprehensive analysis of the VQE result, including:
+;;
+;; * Performance summary - shows the final energy, number of iterations,
+;;   and optimization method used
+;; * Convergence analysis - shows how the energy converges over iterations
+;; * Parameter sensitivity analysis - shows how sensitive the energy is to changes
+;;   in the parameters
+;; * Parameter landscape analysis - shows the energy landscape as a function
+;;   of the parameters
+;; * Chemical accuracy assessment - compares the calculated energy to
+;;   the exact energy
+;; * Hardware compability metrics - analyzes the circuit for
+;;   depth, number of gates, and qubit connectivity
+;; * VQE-specific quantum state analysis - analyzes the final quantum state
+;;   for entanglement and other properties
+;; * VQE-specific recommendations - provides recommendations for
+;;   improving the VQE performance
+;;
+;; The comprehensive analysis can help to understand the performance of
+;; the VQE algorithm and identify areas for improvement.
+
+(vqe/comprehensive-vqe-analysis (sim/create-simulator)
+                                vqe-result
+                                {:landscape-analysis? true})
 
 ;; ### Quantum Approximation Optimization Algorithm (QAOA)
 ;; The [Quantum Approximation Optimization Algorithm (QAOA)](https://en.wikipedia.org/wiki/Quantum_approximate_optimization_algorithm)

@@ -1032,6 +1032,11 @@ forte-10k-result
 
 (:native-gates (:ionq-forte hwsim/device-map))
 
+;; To assess the quality of the optimization, we can compare the number of
+;; qubits, gates and the depth of the original and the optimized circuit.
+
+(hwopt/optimization-statistics opt-test-circuit1 opt-circuit1)
+
 ;; Now we add a toffoli gate, which is a multi-qubit gate involving two control
 ;; qubits and one target qubit. This gate is not in the native gate set of
 ;; the IonQ Forte device, so it has to be decomposed into supported gates.

@@ -1,12 +1,12 @@
 (ns org.soulspace.qclojure.application.algorithm.optimization
-  "Quantum optimization algorithms and gradient computation for variational quantum algorithms.
+  "Pure optimization algorithms and gradient computation for variational quantum algorithms.
   
-  This namespace provides a comprehensive suite of optimization methods specifically designed
-  for quantum variational algorithms like VQE, QAOA, and quantum machine learning. It combines
-  quantum-aware gradient computation with classical optimization techniques to achieve efficient
-  parameter optimization on quantum circuits.
+  This namespace provides the core mathematical optimization algorithms specifically designed
+  for quantum variational algorithms like VQE, QAOA, and quantum machine learning. It focuses
+  on efficient parameter optimization with quantum-aware gradient computation and robust
+  classical optimization techniques.
   
-  Core features
+  Core Features:
    
   Quantum Gradient Computation:
   - **Parameter Shift Rule**: Exact gradients for parameterized quantum circuits
@@ -25,7 +25,7 @@
   - **Natural Gradient Updates**: Optimal parameter space metrics
   - **Matrix Operations**: Linear algebra utilities for quantum optimization
   - **Regularization**: Numerical stability for ill-conditioned systems
-  
+
   Optimization Method Selection Guide
   
   For Quantum Variational Algorithms (VQE, QAOA):

@@ -149,10 +149,10 @@
      :gates-delta gates-delta
      :depth-delta depth-delta
      :swaps-delta swaps-delta
-     :qubits-reduction-percent qubits-reduction-percent
-     :gates-reduction-percent gates-reduction-percent
-     :depth-reduction-percent depth-reduction-percent
-     :swaps-reduction-percent swaps-reduction-percent
+     :qubits-delta-percent qubits-reduction-percent
+     :gates-delta-percent gates-reduction-percent
+     :depth-delta-percent depth-reduction-percent
+     :swaps-delta-percent swaps-reduction-percent
      :operation-type-difference operation-type-difference
      ;
      }))

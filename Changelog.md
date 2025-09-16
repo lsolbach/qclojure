@@ -7,7 +7,9 @@
   * refactored QAOA to use the variational-algorithm template
   * enhanced the QAOA result extraction
 * added fidelity estimation functions to the `device` namespace
-* updated device in ideal simulator 
+* updated device in ideal simulator
+* renamed percent properties of optimization-statistics result
+* updated the tutorial
 
 ## Version 0.17.0
 * moved device management functions from hardware-simulator to backend

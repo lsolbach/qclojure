@@ -1,14 +1,12 @@
 # TODOs
 
 ## Next steps
-* integrate optional error mitigation in the hardware simulator workflow
+* check for result handling based on final states
+  * replace with hardware compatible result processing
+* integrate optional error mitigation in the hardware simulator workflow (template for hardware backends)
 * integrate unified result types in all algorithms
   * missing in QFT/iQFT and QPE
-  * check Shor, VQE and QAOA
-* extraxt relevant results from QAOA
-  * edges in Max-CUT and TSP
-  * boolean assignments in Max-SAT
-* add reset operation (Measure and conditional X)
+  * check Shor
 * enhance single qubit gate functions to take a qubit vector and add the gate for all qubits
 * new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all) 
 * check for inconsistant usage of "operation"/"gate"
@@ -24,7 +22,8 @@
 * enhance circuit optimizations
   * check topology mapping before inserting SWAP gates
   * apply gate optimization and qubit optimization again after gate decomposition
-  * check RESET operation usage to minimize ancilla qubits
+  * check reset operation usage to minimize ancilla qubits
+  * add reset operation (Measure and conditional X), if useful
 * use :operation-registry/operation-id instead of ::operation-type in circuit and other namespaces
 * check for missing type hints in calculations to improve simulator performance
 * extract formatting/styling information for SVG to edn

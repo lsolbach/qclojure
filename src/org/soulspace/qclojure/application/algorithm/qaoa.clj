@@ -27,6 +27,7 @@
             [org.soulspace.qclojure.domain.circuit-composition :as cc]
             [org.soulspace.qclojure.domain.state :as qs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
+            [org.soulspace.qclojure.application.backend :as backend]
             [org.soulspace.qclojure.application.algorithm.variational-algorithm :as va]))
 
 ;;;
@@ -48,6 +49,61 @@
 (s/def ::num-layers pos-int?)
 (s/def ::problem-instance any?)  ; Problem-specific data structure
 (s/def ::parameter-strategy #{:theoretical :adiabatic :random-smart})
+
+;;;
+;;; QAOA-specific result specs (moved from domain.result)
+;;;
+(s/def ::clauses (s/coll-of (s/coll-of any? :min-count 1)))      ; Boolean clauses
+(s/def ::distance-matrix (s/coll-of (s/coll-of number? :min-count 1) :min-count 1))
+(s/def ::cut-edges (s/coll-of (s/tuple pos-int? pos-int? number?)))
+(s/def ::cut-weight number?)
+(s/def ::partition (s/map-of pos-int? #{0 1}))  ; {vertex-id -> partition}
+(s/def ::boolean-assignment (s/map-of pos-int? boolean?))  ; {variable-id -> value}
+(s/def ::satisfied-clauses pos-int?)
+(s/def ::tour (s/coll-of pos-int? :kind vector? :min-count 1))
+(s/def ::tour-distance number?)
+(s/def ::solution-probability number?)
+(s/def ::approximation-ratio number?)
+
+(s/def ::max-cut-solution
+  (s/keys :req-un [::graph ::problem-type] :opt-un [::shots]))
+(s/def ::max-sat-solution
+  (s/keys :req-un [::clauses ::problem-type] :opt-un [::shots]))
+(s/def ::tsp-solution
+  (s/keys :req-un [::distance-matrix ::problem-type] :opt-un [::shots]))
+(s/def ::approximation-ratio-spec
+  (s/keys :req-un [::problem-type] :opt-un [::classical-optimum]))
+(s/def ::solution-distribution
+  (s/keys :req-un [::problem-type] :opt-un [::top-solutions ::shots]))
+
+(s/def ::classical-optimum number?)
+(s/def ::top-solutions pos-int?)
+
+;; QAOA-specific result types
+(s/def ::max-cut-solution-result
+  (s/keys :req-un [::cut-edges ::cut-weight ::partition ::solution-probability]
+          :opt-un [::approximation-ratio]))
+
+(s/def ::max-sat-solution-result
+  (s/keys :req-un [::boolean-assignment ::satisfied-clauses ::solution-probability]
+          :opt-un [::approximation-ratio]))
+
+(s/def ::tsp-solution-result
+  (s/keys :req-un [::tour ::tour-distance ::solution-probability]
+          :opt-un [::approximation-ratio]))
+
+(s/def ::approximation-ratio-result
+  (s/keys :req-un [::approximation-ratio ::problem-type]
+          :opt-un [::classical-optimum]))
+
+(s/def ::solution-distribution-result
+  (s/keys :req-un [::solutions ::total-count]
+          :opt-un [::top-solutions]))
+
+(s/def ::solutions (s/coll-of (s/keys :req-un [::solution-string ::probability ::decoded-solution])))
+(s/def ::solution-string string?)
+(s/def ::decoded-solution any?)  ; Problem-specific decoded solution
+(s/def ::total-count pos-int?)
 
 ;;;
 ;;; Problem Hamiltonian Construction
@@ -304,54 +360,6 @@
           (concat quadratic-terms linear-terms [constant-term])))))))
 
 ;; Add TSP solution decoder
-(defn decode-tsp-solution
-  "Decode a quantum state measurement into a TSP tour.
-  
-  Parameters:
-  - index: Integer index from measurement
-  - num-qubits: Number of qubits (should be n²)
-  - distance-matrix: Distance matrix for cost calculation
-  
-  Returns:
-  Map with decoded tour information"
-  [index num-qubits distance-matrix]
-  (let [n (count distance-matrix)
-        qubit-values (qs/index-to-bits index num-qubits)
-
-        ;; Build assignment matrix: city i at time j
-        assignment-matrix
-        (for [i (range n)]
-          (for [j (range n)]
-            (nth qubit-values (+ (* i n) j))))
-
-        ;; Extract tour by finding which city is visited at each time
-        tour (for [t (range n)]
-               (let [cities-at-time-t (keep-indexed
-                                       (fn [i _]
-                                         (when (= 1 (nth (nth assignment-matrix i) t)) i))
-                                       (range n))]
-                 (if (= 1 (count cities-at-time-t))
-                   (first cities-at-time-t)
-                   :invalid)))  ; Multiple or no cities at this time
-
-        ;; Check tour validity
-        valid-tour? (and (every? #(not= % :invalid) tour)
-                         (= (set tour) (set (range n))))  ; All cities visited exactly once
-
-        ;; Calculate tour cost if valid
-        tour-cost (when valid-tour?
-                    (reduce + (map-indexed
-                               (fn [idx _]
-                                 (let [current-city (nth tour idx)
-                                       next-city (nth tour (mod (inc idx) n))]
-                                   (nth (nth distance-matrix current-city) next-city)))
-                               tour)))]
-
-    {:tour tour
-     :valid valid-tour?
-     :cost tour-cost
-     :assignment-matrix assignment-matrix}))
-
 (defn custom-ising-hamiltonian
   "Create a custom Ising model Hamiltonian.
   
@@ -642,7 +650,7 @@
       :max-sat (max-sat-hamiltonian problem-instance num-qubits)
       :tsp (travelling-salesman-hamiltonian problem-instance)
       :custom (:problem-hamiltonian options)
-      (throw (ex-info "Unknown problem type for QAOA" 
+      (throw (ex-info "Unknown problem type for QAOA"
                       {:problem-type problem-type
                        :supported-types [:max-cut :max-sat :tsp :custom]})))))
 
@@ -719,6 +727,283 @@
         strategy (:parameter-strategy options :theoretical)]
     (smart-parameter-initialization num-layers problem-type strategy)))
 
+;;;
+;;; QAOA-Specific Helper Functions and Result Extraction (moved from domain.result)
+;;;
+
+(defn decode-max-cut-solution
+  "Decode measurement outcomes for MaxCut problem.
+  
+  Parameters:
+  - index: Integer index from measurement
+  - num-qubits: Number of qubits to determine bit vector length
+  - graph: Collection of edges as [vertex1 vertex2 weight] tuples
+  
+  Returns:
+  Map with decoded MaxCut solution information"
+  [index num-qubits graph]
+  (let [bits (qs/index-to-bits index num-qubits)
+        partition (zipmap (range num-qubits) bits)
+        cut-edges (filter (fn [[i j _weight]]
+                            (not= (get partition i) (get partition j)))
+                          graph)
+        cut-weight (reduce + (map #(nth % 2) cut-edges))]
+    {:partition partition
+     :cut-edges cut-edges
+     :cut-weight cut-weight}))
+
+(defn decode-max-sat-solution
+  "Decode measurement outcomes for MaxSAT problem.
+  
+  Parameters:
+  - index: Integer index from measurement
+  - num-qubits: Number of qubits to determine bit vector length
+  - clauses: Collection of Boolean clauses
+  
+  Returns:
+  Map with decoded MaxSAT solution information"
+  [index num-qubits clauses]
+  (let [bits (qs/index-to-bits index num-qubits)
+        assignment (zipmap (range num-qubits) (map #(= % 1) bits))
+
+        ;; Function to evaluate a literal given the assignment
+        eval-literal (fn [literal]
+                       (cond
+                         ;; Positive integer literal
+                         (and (integer? literal) (>= literal 0))
+                         (get assignment literal false)
+
+                         ;; Keyword :not-X format
+                         (and (keyword? literal) (.startsWith (name literal) "not-"))
+                         (let [var-str (subs (name literal) 4)]
+                           (not (get assignment (Integer/parseInt var-str) false)))
+
+                         ;; Map format {:variable X :negated boolean}
+                         (map? literal)
+                         (let [var-idx (:variable literal)
+                               negated? (:negated literal false)
+                               var-value (get assignment var-idx false)]
+                           (if negated? (not var-value) var-value))
+
+                         :else false))
+
+        ;; Evaluate each clause (OR of literals)
+        clause-results (map (fn [clause]
+                              (some eval-literal clause))
+                            clauses)
+
+        satisfied-count (count (filter true? clause-results))]
+
+    {:boolean-assignment assignment
+     :satisfied-clauses satisfied-count
+     :total-clauses (count clauses)
+     :satisfaction-ratio (/ satisfied-count (count clauses))}))
+
+(defn decode-tsp-solution
+  "Decode measurement outcomes for TSP problem.
+  
+  Parameters:
+  - index: Integer index from measurement
+  - num-qubits: Number of qubits to determine bit vector length (should be n²)
+  - distance-matrix: n×n matrix of distances between cities
+  
+  Returns:
+  Map with decoded TSP solution information"
+  [index num-qubits distance-matrix]
+  (let [n (count distance-matrix)
+
+        ;; Decode index to bit vector
+        bits (qs/index-to-bits index num-qubits)
+
+        ;; Build assignment matrix: assignment[i][j] = 1 if city i visited at time j
+        assignment-matrix (partition n bits)
+
+        ;; Extract tour by finding which city is visited at each time step
+        tour (vec (for [time-step (range n)]
+                    (let [cities-at-time (keep-indexed
+                                          (fn [city bit]
+                                            (when (= bit 1) city))
+                                          (map #(nth % time-step) assignment-matrix))]
+                      (if (= (count cities-at-time) 1)
+                        (first cities-at-time)
+                        -1))))  ; Invalid assignment
+
+        ;; Calculate tour distance if valid
+        tour-distance (if (and (every? #(>= % 0) tour)
+                               (= (count (set tour)) n))  ; All cities visited exactly once
+                        (reduce + (map (fn [i]
+                                         (let [from-city (nth tour i)
+                                               to-city (nth tour (mod (inc i) n))]
+                                           (nth (nth distance-matrix from-city) to-city)))
+                                       (range n)))
+                        Double/POSITIVE_INFINITY)]  ; Invalid tour
+
+    {:tour tour
+     :tour-distance tour-distance
+     :valid-tour? (not= tour-distance Double/POSITIVE_INFINITY)
+     :assignment-matrix assignment-matrix}))
+
+(defn calculate-approximation-ratio
+  "Calculate approximation ratio for optimization problems.
+  
+  Parameters:
+  - qaoa-solution: Solution value from QAOA
+  - classical-optimum: Known or estimated classical optimum
+  - problem-type: Type of problem (:max-cut, :max-sat, :tsp)
+  
+  Returns:
+  Approximation ratio (for maximization: qaoa/classical, for minimization: classical/qaoa)"
+  [qaoa-solution classical-optimum problem-type]
+  (when (and qaoa-solution classical-optimum (pos? classical-optimum))
+    (case problem-type
+      (:max-cut :max-sat) (/ qaoa-solution classical-optimum)
+      :tsp (/ classical-optimum qaoa-solution)
+      nil)))
+
+(defn extract-best-solution
+  "Extract the best solution from a collection of decoded solutions.
+  
+  Parameters:
+  - solutions: Collection of solution maps with objective values
+  - problem-type: Type of problem to determine maximization vs minimization
+  
+  Returns:
+  Best solution according to the problem objective"
+  [solutions problem-type]
+  (when (seq solutions)
+    (case problem-type
+      (:max-cut :max-sat) (apply max-key :objective-value solutions)
+      :tsp (first (filter #(not= (:objective-value %) Double/POSITIVE_INFINITY)
+                          (sort-by :objective-value solutions)))
+      (first solutions))))
+
+
+
+
+
+
+
+
+
+;;;
+;;; Measurement-based Solution Extraction (Hardware Compatible)
+;;;
+
+
+
+
+
+
+(defn extract-solution-from-frequencies
+  "Extract problem-specific solutions from measurement frequency data.
+  
+  This function provides a hardware-compatible way to extract QAOA solutions
+  using measurement frequencies directly from the backend results, which is
+  more efficient than converting to individual outcome strings.
+  
+  Parameters:
+  - measurement-frequencies: Map of {outcome-index count} from backend
+  - problem-type: Type of problem (:max-cut, :max-sat, :tsp)
+  - problem-instance: Problem-specific data (graph, clauses, distance matrix)
+  - shots: Total number of measurement shots
+  - num-qubits: Number of qubits
+  - classical-optimum: Known classical optimum (optional)
+  
+  Returns:
+  Map with problem-specific solution analysis"
+  [measurement-frequencies problem-type problem-instance shots num-qubits & {:keys [classical-optimum]}]
+  (case problem-type
+    :max-cut
+    (let [;; Process frequencies into solution analyses
+          solution-analyses (map (fn [[index count]]
+                                   (let [probability (/ count shots)
+                                         decoded (decode-max-cut-solution index num-qubits problem-instance)]
+                                     (assoc decoded
+                                            :index index
+                                            :count count
+                                            :probability probability
+                                            :objective-value (:cut-weight decoded))))
+                                 measurement-frequencies)
+          best-solution (extract-best-solution solution-analyses :max-cut)
+          ;; Calculate classical optimum for small instances
+          computed-classical-optimum (or classical-optimum
+                                         (when (<= num-qubits 12)
+                                           (let [all-partitions (range (bit-shift-left 1 num-qubits))
+                                                 all-cuts (map (fn [partition]
+                                                                 (:cut-weight (decode-max-cut-solution partition num-qubits problem-instance)))
+                                                               all-partitions)]
+                                             (apply max all-cuts))))
+          approx-ratio (calculate-approximation-ratio (:cut-weight best-solution) computed-classical-optimum :max-cut)]
+      {:solution-type :max-cut
+       :cut-edges (:cut-edges best-solution)
+       :cut-weight (:cut-weight best-solution)
+       :partition (:partition best-solution)
+       :solution-probability (:probability best-solution)
+       :approximation-ratio approx-ratio
+       :classical-optimum computed-classical-optimum
+       :all-solutions solution-analyses
+       :measurement-distribution (into {} measurement-frequencies)})
+
+    :max-sat
+    (let [solution-analyses (map (fn [[index count]]
+                                   (let [probability (/ count shots)
+                                         decoded (decode-max-sat-solution index num-qubits problem-instance)]
+                                     (assoc decoded
+                                            :index index
+                                            :count count
+                                            :probability probability
+                                            :objective-value (:satisfied-clauses decoded))))
+                                 measurement-frequencies)
+          best-solution (extract-best-solution solution-analyses :max-sat)
+          computed-classical-optimum (or classical-optimum (count problem-instance))
+          approx-ratio (calculate-approximation-ratio (:satisfied-clauses best-solution) computed-classical-optimum :max-sat)]
+      {:solution-type :max-sat
+       :boolean-assignment (:boolean-assignment best-solution)
+       :satisfied-clauses (:satisfied-clauses best-solution)
+       :solution-probability (:probability best-solution)
+       :approximation-ratio approx-ratio
+       :classical-optimum computed-classical-optimum
+       :all-solutions solution-analyses
+       :measurement-distribution (into {} measurement-frequencies)})
+
+    :tsp
+    (let [solution-analyses (map (fn [[index count]]
+                                   (let [probability (/ count shots)
+                                         decoded (decode-tsp-solution index num-qubits problem-instance)]
+                                     (assoc decoded :index index
+                                            :count count
+                                            :probability probability)))
+                                 measurement-frequencies)
+          valid-solutions (filter :valid-tour? solution-analyses)
+          best-solution (when (seq valid-solutions)
+                          (apply min-key :tour-distance valid-solutions))]
+      (if best-solution
+        {:solution-type :tsp
+         :tour (:tour best-solution)
+         :tour-distance (:tour-distance best-solution)
+         :solution-probability (:probability best-solution)
+         :valid-tour? true
+         :approximation-ratio (when classical-optimum (/ classical-optimum (:tour-distance best-solution)))
+         :classical-optimum classical-optimum
+         :all-solutions solution-analyses
+         :valid-solutions-count (count valid-solutions)
+         :measurement-distribution (into {} measurement-frequencies)}
+
+        {:solution-type :tsp
+         :tour nil
+         :tour-distance Double/POSITIVE_INFINITY
+         :solution-probability 0.0
+         :valid-tour? false
+         :approximation-ratio nil
+         :classical-optimum classical-optimum
+         :all-solutions solution-analyses
+         :valid-solutions-count 0
+         :measurement-distribution (into {} measurement-frequencies)}))
+
+    ;; Unknown problem type
+    {:solution-type problem-type
+     :error (str "Unknown problem type: " problem-type)}))
+
 (defn qaoa-result-processor
   "Process and enhance QAOA results with algorithm-specific analysis.
   
@@ -726,35 +1011,66 @@
   It adds QAOA-specific analysis including parameter extraction, approximation ratios,
   and problem-specific solution quality metrics.
   
+  Enhanced to include hardware-compatible solution extraction using measurement outcomes.
+  
   Parameters:
   - base-result: Base optimization result from the template
-  - options: QAOA configuration options
+  - options: QAOA configuration options (including :backend for measurement-based solutions)
   
   Returns:
-  Enhanced result map with QAOA-specific analysis"
+  Enhanced result map with QAOA-specific analysis and problem-specific solutions"
   [base-result options]
   (let [optimal-params (:optimal-parameters base-result)
         problem-type (:problem-type options)
         num-layers (:num-layers options)
-        
+        num-qubits (:num-qubits options)
+        backend (:backend options)
+
         ;; Extract γ and β parameters
         gamma-params (vec (take-nth 2 optimal-params))
         beta-params (vec (take-nth 2 (rest optimal-params)))
-        
+
         ;; Build final circuit for inspection
         problem-hamiltonian (qaoa-hamiltonian-constructor options)
         mixer-hamiltonian (qaoa-mixer-hamiltonian-constructor options)
         final-circuit (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian
-                                           optimal-params (:num-qubits options))
-        
+                                           optimal-params num-qubits)
+
         ;; Calculate approximation ratio if classical optimum is known
         approximation-ratio (when (:classical-optimum options)
-                              (/ (:optimal-energy base-result) (:classical-optimum options)))]
-    
+                              (/ (:optimal-energy base-result) (:classical-optimum options)))
+
+        ;; Hardware-compatible solution extraction using measurement result-specs
+        problem-solutions (when (and backend problem-type (:problem-instance options))
+                            (try
+                              (let [shots (get options :shots 1024)
+                                    ;; Use result-specs to request measurements - no manual circuit modification needed
+                                    measurement-options {:shots shots
+                                                         :result-specs {:measurements {:shots shots}}}
+                                    ;; Execute final circuit with measurement result-specs
+                                    measurement-result (backend/execute-circuit backend final-circuit measurement-options)
+                                    ;; Extract measurement frequencies directly - more efficient than individual outcomes
+                                    measurement-results (get-in measurement-result [:results :measurement-results])
+                                    measurement-frequencies (:frequencies measurement-results)]
+
+                                ;; Extract problem-specific solutions from measurement frequencies
+                                (extract-solution-from-frequencies
+                                 measurement-frequencies
+                                 problem-type
+                                 (:problem-instance options)
+                                 shots
+                                 num-qubits
+                                 :classical-optimum (:classical-optimum options)))
+                              (catch Exception e
+                                ;; Handle measurement execution errors gracefully
+                                {:solution-type problem-type
+                                 :error (str "Failed to extract solutions from measurements: " (.getMessage e))
+                                 :measurement-extraction-available false})))]
+
     (merge base-result
            {:algorithm "QAOA"
             :problem-type problem-type
-            :num-qubits (:num-qubits options)
+            :num-qubits num-qubits
             :num-layers num-layers
             :problem-hamiltonian problem-hamiltonian
             :mixer-hamiltonian mixer-hamiltonian
@@ -762,7 +1078,10 @@
             :approximation-ratio approximation-ratio
             :gamma-parameters gamma-params
             :beta-parameters beta-params
-            
+
+            ;; Add problem-specific solutions from measurements
+            :problem-solutions problem-solutions
+
             ;; Add QAOA-specific performance analysis
             :qaoa-analysis {:parameter-summary
                             {:gamma-range [(apply min gamma-params) (apply max gamma-params)]
@@ -774,7 +1093,8 @@
                             :performance-metrics
                             {:function-evaluations (:function-evaluations base-result 0)
                              :total-runtime-ms (:total-runtime-ms base-result)
-                             :approximation-ratio approximation-ratio}}})))
+                             :approximation-ratio approximation-ratio
+                             :measurement-based-solutions (some? problem-solutions)}}})))
 
 ;;;
 ;;; QAOA Algorithm Implementation
@@ -804,7 +1124,7 @@
          (pos-int? num-qubits)]}
   ;; Create circuit construction function that captures QAOA-specific structure
   (let [circuit-construction-fn (fn [parameters]
-                                  (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian 
+                                  (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian
                                                        parameters num-qubits))]
     ;; Use the common variational objective
     (va/variational-objective problem-hamiltonian circuit-construction-fn backend options)))
@@ -877,17 +1197,21 @@
   [backend options]
   {:pre [(s/valid? ::qaoa-config options)]}
   ;; Use QAOA-specific parameter initialization if not provided
-  (let [enhanced-options (if (:initial-parameters options)
-                           options
-                           (assoc options :initial-parameters 
-                                  (qaoa-parameter-initialization options)))
-        
+  (let [enhanced-options (-> options
+                             ;; Add backend for result processing
+                             (assoc :backend backend)
+                             ;; Add initial parameters if not provided
+                             (#(if (:initial-parameters %)
+                                 %
+                                 (assoc % :initial-parameters
+                                        (qaoa-parameter-initialization %)))))
+
         ;; Define QAOA-specific functions for the template
         algorithm-fns {:hamiltonian-constructor qaoa-hamiltonian-constructor
                        :circuit-constructor qaoa-circuit-constructor
                        :parameter-count qaoa-parameter-count
                        :result-processor qaoa-result-processor}]
-    
+
     ;; Delegate to the variational algorithm template
     (va/variational-algorithm backend enhanced-options algorithm-fns)))
 
@@ -962,9 +1286,9 @@
   ;; SAT formula: (x₀ ∨ x₁) ∧ (¬x₀ ∨ x₂) ∧ (x₁ ∨ ¬x₂) ∧ (¬x₀ ∨ ¬x₁ ∨ x₂)
   ;; Using proper literal encoding: keywords :not-X for negated variables
   (def sat-clauses [[0 1]           ; (x₀ ∨ x₁)
-                               [:not-0 2]      ; (¬x₀ ∨ x₂) 
-                               [1 :not-2]      ; (x₁ ∨ ¬x₂)
-                               [:not-0 :not-1 2]]) ; (¬x₀ ∨ ¬x₁ ∨ x₂)
+                    [:not-0 2]      ; (¬x₀ ∨ x₂) 
+                    [1 :not-2]      ; (x₁ ∨ ¬x₂)
+                    [:not-0 :not-1 2]]) ; (¬x₀ ∨ ¬x₁ ∨ x₂)
 
   (def maxsat-config
     {:problem-type :max-sat

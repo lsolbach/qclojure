@@ -5,6 +5,7 @@
   * unified and improved variational algorithms analysis
   * refactored VQE to use the variational-algorithm template
   * refactored QAOA to use the variational-algorithm template
+  * enhanced the QAOA result extraction
 * added fidelity estimation functions to the `device` namespace
 * updated device in ideal simulator 
 

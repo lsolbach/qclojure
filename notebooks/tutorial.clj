@@ -33,7 +33,7 @@
 ;; Generating notebooks with Clay always produces **reproducible** results, as
 ;; the code is in the namespace is executed during the rendering process
 ;; in a deterministic way. Even with quarto, the code is executed by Clay,
-;; not by Quarto or yupiter, so the results are always the same, no matter how often
+;; not by Quarto or jupyter, so the results are always the same, no matter how often
 ;; you render the notebook.
 ;;
 ;; ## Introduction to Quantum Computing

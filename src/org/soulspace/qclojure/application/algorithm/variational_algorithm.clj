@@ -565,6 +565,93 @@
       (variational-optimization objective-fn initial-parameters options))))
 
 ;;;
+;;; Algorithm Structure Template
+;;;
+
+;; TODO Enhance for VQC/QNN (non-hamiltonian optimization, ...)
+(defn variational-algorithm
+  "Enhanced template for variational quantum algorithms with advanced features.
+  
+  This enhanced version supports gradient-enhanced objectives, advanced convergence
+  monitoring, and sophisticated optimization strategies required by algorithms like VQE.
+  
+  Parameters:
+  - backend: Quantum backend for circuit execution
+  - options: Algorithm options map including advanced optimization settings
+    - :optimization-method - Optimization method (default: :adam)
+    - :max-iterations - Maximum iterations (default: 500)
+    - :tolerance - Convergence tolerance (default: 1e-6)
+    - :gradient-tolerance - Gradient norm tolerance (default: 1e-4)
+    - :use-enhanced-objective - Whether to use gradient-enhanced objectives (default: auto-detect)
+    - :shots - Number of shots for execution (default: 1024)
+    - Other algorithm-specific options
+  - algorithm-fns: Map of algorithm-specific functions:
+    - :hamiltonian-constructor - (fn [config] -> hamiltonian)
+    - :circuit-constructor - (fn [config] -> circuit-construction-fn)
+    - :parameter-count - (fn [config] -> number)
+    - :result-processor - (fn [optimization-result config] -> final-result)
+  
+  Returns:
+  Complete algorithm result map with enhanced analysis"
+  [backend options algorithm-fns]
+  {:pre [(map? options) (map? algorithm-fns)]}
+  (let [{:keys [hamiltonian-constructor circuit-constructor 
+                parameter-count result-processor]} algorithm-fns
+        
+        ;; Timing
+        start-time (System/currentTimeMillis)
+        
+        ;; Algorithm-specific construction
+        hamiltonian (hamiltonian-constructor options)
+        circuit-construction-fn (circuit-constructor options)
+        num-params (parameter-count options)
+        
+        ;; Enhanced parameter initialization
+        initial-parameters (or (:initial-parameters options)
+                               (random-parameter-initialization num-params))
+        
+        ;; Enhanced objective creation with auto-detection of gradient support
+        execution-options {:shots (:shots options 1024)}
+        opt-method (:optimization-method options :adam)
+        use-gradients? (or (:use-enhanced-objective options)
+                           (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))
+        
+        objective-fn (if use-gradients?
+                       (gradient-based-variational-objective hamiltonian circuit-construction-fn backend execution-options)
+                       (variational-objective hamiltonian circuit-construction-fn backend execution-options))
+        
+        ;; Enhanced optimization with convergence monitoring
+        optimization-options (merge options {:gradient-method :parameter-shift
+                                             :ansatz-fn circuit-construction-fn
+                                             :backend backend
+                                             :exec-options execution-options})
+        
+        optimization-result (if use-gradients?
+                              (enhanced-variational-optimization objective-fn initial-parameters optimization-options)
+                              (variational-optimization objective-fn initial-parameters optimization-options))
+        
+        end-time (System/currentTimeMillis)
+        
+        ;; Enhanced analysis
+        convergence-analysis (analyze-convergence optimization-result)
+        
+        ;; Calculate initial energy for analysis
+        initial-result (objective-fn initial-parameters)
+        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
+        
+        base-result (merge optimization-result
+                           {:hamiltonian hamiltonian
+                            :initial-parameters initial-parameters
+                            :convergence-analysis convergence-analysis
+                            :initial-energy initial-energy
+                            :total-runtime-ms (- end-time start-time)
+                            :enhanced-features {:gradient-enhanced use-gradients?
+                                                :convergence-monitored true}})]
+    
+    ;; Algorithm-specific result processing
+    (result-processor base-result options)))
+
+;;;
 ;;; Parameter Landscape Analysis Functions
 ;;;
 (defn analyze-variational-landscape
@@ -679,108 +766,4 @@
      :high-sensitivity-params (map first (take 3 ranked-parameters))
      :low-sensitivity-params (map first (take-last 3 ranked-parameters))}))
 
-;;;
-;;; Algorithm Structure Template
-;;;
-(defn variational-algorithm
-  "Enhanced template for variational quantum algorithms with advanced features.
-  
-  This enhanced version supports gradient-enhanced objectives, advanced convergence
-  monitoring, and sophisticated optimization strategies required by algorithms like VQE.
-  
-  Parameters:
-  - backend: Quantum backend for circuit execution
-  - options: Algorithm options map including advanced optimization settings
-    - :optimization-method - Optimization method (default: :adam)
-    - :max-iterations - Maximum iterations (default: 500)
-    - :tolerance - Convergence tolerance (default: 1e-6)
-    - :gradient-tolerance - Gradient norm tolerance (default: 1e-4)
-    - :use-enhanced-objective - Whether to use gradient-enhanced objectives (default: auto-detect)
-    - :shots - Number of shots for execution (default: 1024)
-    - Other algorithm-specific options
-  - algorithm-fns: Map of algorithm-specific functions:
-    - :hamiltonian-constructor - (fn [config] -> hamiltonian)
-    - :circuit-constructor - (fn [config] -> circuit-construction-fn)
-    - :parameter-count - (fn [config] -> number)
-    - :result-processor - (fn [optimization-result config] -> final-result)
-  
-  Returns:
-  Complete algorithm result map with enhanced analysis"
-  [backend options algorithm-fns]
-  {:pre [(map? options) (map? algorithm-fns)]}
-  (let [{:keys [hamiltonian-constructor circuit-constructor 
-                parameter-count result-processor]} algorithm-fns
-        
-        ;; Timing
-        start-time (System/currentTimeMillis)
-        
-        ;; Algorithm-specific construction
-        hamiltonian (hamiltonian-constructor options)
-        circuit-construction-fn (circuit-constructor options)
-        num-params (parameter-count options)
-        
-        ;; Enhanced parameter initialization
-        initial-parameters (or (:initial-parameters options)
-                               (random-parameter-initialization num-params))
-        
-        ;; Enhanced objective creation with auto-detection of gradient support
-        execution-options {:shots (:shots options 1024)}
-        opt-method (:optimization-method options :adam)
-        use-gradients? (or (:use-enhanced-objective options)
-                           (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))
-        
-        objective-fn (if use-gradients?
-                       (gradient-based-variational-objective hamiltonian circuit-construction-fn backend execution-options)
-                       (variational-objective hamiltonian circuit-construction-fn backend execution-options))
-        
-        ;; Enhanced optimization with convergence monitoring
-        optimization-options (merge options {:gradient-method :parameter-shift
-                                             :ansatz-fn circuit-construction-fn
-                                             :backend backend
-                                             :exec-options execution-options})
-        
-        optimization-result (if use-gradients?
-                              (enhanced-variational-optimization objective-fn initial-parameters optimization-options)
-                              (variational-optimization objective-fn initial-parameters optimization-options))
-        
-        end-time (System/currentTimeMillis)
-        
-        ;; Enhanced analysis
-        convergence-analysis (analyze-convergence optimization-result)
-        
-        ;; Calculate initial energy for analysis
-        initial-result (objective-fn initial-parameters)
-        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
-        
-        base-result (merge optimization-result
-                           {:hamiltonian hamiltonian
-                            :initial-parameters initial-parameters
-                            :convergence-analysis convergence-analysis
-                            :initial-energy initial-energy
-                            :total-runtime-ms (- end-time start-time)
-                            :enhanced-features {:gradient-enhanced use-gradients?
-                                                :convergence-monitored true}})]
-    
-    ;; Algorithm-specific result processing
-    (result-processor base-result options)))
 
-#_
-(comment
-  ;; Example usage for VQE:
-  (defn vqe-using-template [backend config]
-    (variational-algorithm-template
-     (assoc config :backend backend)
-     {:hamiltonian-constructor (fn [cfg] (:hamiltonian cfg))
-      :circuit-constructor (fn [cfg] (create-vqe-ansatz cfg))
-      :parameter-count (fn [cfg] (count-vqe-parameters cfg))
-      :result-processor (fn [result cfg] (add-vqe-specific-analysis result cfg))}))
-  
-  ;; Example usage for QAOA:
-  (defn qaoa-using-template [backend config]
-    (variational-algorithm-template
-     (assoc config :backend backend)
-     {:hamiltonian-constructor (fn [cfg] (create-qaoa-hamiltonian cfg))
-      :circuit-constructor (fn [cfg] (create-qaoa-circuit-fn cfg))
-      :parameter-count (fn [cfg] (* 2 (:num-layers cfg)))
-      :result-processor (fn [result cfg] (add-qaoa-solution-analysis result cfg))}))
-  )

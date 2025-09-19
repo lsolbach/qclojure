@@ -1127,7 +1127,7 @@
                                   (qaoa-ansatz-circuit problem-hamiltonian mixer-hamiltonian
                                                        parameters num-qubits))]
     ;; Use the common variational objective
-    (va/variational-objective problem-hamiltonian circuit-construction-fn backend options)))
+    (va/variational-hamiltonian-objective problem-hamiltonian circuit-construction-fn backend options)))
 
 (defn quantum-approximate-optimization-algorithm
   "Main QAOA algorithm implementation using the variational algorithm template.

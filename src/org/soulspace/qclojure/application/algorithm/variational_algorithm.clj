@@ -295,7 +295,7 @@
 ;;;
 ;;; Objective Function Creation
 ;;;
-(defn variational-objective
+(defn variational-hamiltonian-objective
   "Create a generic objective function for variational quantum algorithms.
   
   This function provides a common interface for creating objective functions
@@ -351,7 +351,7 @@
           (println "Variational objective evaluation failed:" (.getMessage e))
           Double/POSITIVE_INFINITY)))))
 
-(defn gradient-based-variational-objective
+(defn gradient-based-variational-hamiltonian-objective
   "Create a variational objective function that provides gradients.
   
   This function creates an objective that computes both energy and gradients
@@ -373,7 +373,7 @@
         run-options (merge execution-options base-result-specs)
 
         ;; Create standard objective function for gradient computation
-        standard-objective (variational-objective hamiltonian circuit-construction-fn backend run-options)]
+        standard-objective (variational-hamiltonian-objective hamiltonian circuit-construction-fn backend run-options)]
 
     (fn enhanced-objective [parameters]
       (try
@@ -647,8 +647,8 @@
                            (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))
 
         objective-fn (if use-gradients?
-                       (gradient-based-variational-objective hamiltonian circuit-construction-fn backend execution-options)
-                       (variational-objective hamiltonian circuit-construction-fn backend execution-options))
+                       (gradient-based-variational-hamiltonian-objective hamiltonian circuit-construction-fn backend execution-options)
+                       (variational-hamiltonian-objective hamiltonian circuit-construction-fn backend execution-options))
 
         ;; Enhanced optimization with convergence monitoring
         optimization-options (merge options {:gradient-method :parameter-shift

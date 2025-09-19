@@ -451,7 +451,7 @@
                                (when (and backend optimal-params)
                                  (let [hamiltonian (:hamiltonian config)
                                        ansatz-fn (vqe-circuit-constructor config)
-                                       objective-fn (va/variational-objective hamiltonian ansatz-fn backend
+                                       objective-fn (va/variational-hamiltonian-objective hamiltonian ansatz-fn backend
                                                                                {:shots (:shots analysis-options 1024)})]
                                    (va/analyze-variational-landscape objective-fn optimal-params
                                                                      :perturbation-size (:perturbation-size analysis-options 0.01)

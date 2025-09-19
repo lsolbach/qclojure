@@ -45,7 +45,7 @@
           ansatz-fn (ansatz/hardware-efficient-ansatz 2 1)
           backend (sim/create-simulator)
           options {}
-          objective-fn (va/variational-objective hamiltonian ansatz-fn backend options)
+          objective-fn (va/variational-hamiltonian-objective hamiltonian ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]]
       
       (is (fn? objective-fn) "Should return a function")
@@ -62,7 +62,7 @@
           initial-params [0.1 0.2 0.3 0.4 0.5 0.6]
           backend (sim/create-simulator)
           options {:shots 100}
-          objective-fn (va/variational-objective hamiltonian ansatz-fn backend options)]
+          objective-fn (va/variational-hamiltonian-objective hamiltonian ansatz-fn backend options)]
       
       ;; Test that the objective function works
       (is (fn? objective-fn) "Should return a function")
@@ -121,7 +121,7 @@
           ansatz-fn (ansatz/hardware-efficient-ansatz 2 1)
           backend (sim/create-simulator)
           options {}
-          objective-fn (va/variational-objective hamiltonian ansatz-fn backend options)
+          objective-fn (va/variational-hamiltonian-objective hamiltonian ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]
           perturbation-size 0.01
           analysis (va/analyze-variational-landscape objective-fn params :perturbation-size perturbation-size)]
@@ -183,7 +183,7 @@
           ansatz-fn (ansatz/hardware-efficient-ansatz 2 1)
           backend (sim/create-simulator)
           options {}
-          objective-fn (va/variational-objective empty-h ansatz-fn backend options)
+          objective-fn (va/variational-hamiltonian-objective empty-h ansatz-fn backend options)
           params [0.1 0.2 0.3 0.4 0.5 0.6]]
       
       (is (= 0 (objective-fn params)) "Empty Hamiltonian should give zero energy")))
@@ -193,7 +193,7 @@
           ansatz-fn (ansatz/hardware-efficient-ansatz 1 1)
           backend (sim/create-simulator)
           options {}
-          objective-fn (va/variational-objective single-h ansatz-fn backend options)
+          objective-fn (va/variational-hamiltonian-objective single-h ansatz-fn backend options)
           params [0.0 0.0 0.0]]  ; Correct number of parameters for 1 qubit, 1 layer
       
       (is (number? (objective-fn params)) "Single Pauli term should work"))))
@@ -244,7 +244,7 @@
           initial-params [0.1 0.2 0.3 0.4 0.5 0.6]
           backend (sim/create-simulator)
           options {}
-          objective-fn (va/variational-objective simple-h ansatz-fn backend options)]
+          objective-fn (va/variational-hamiltonian-objective simple-h ansatz-fn backend options)]
       
       ;; Test different optimization methods work
       (doseq [method [:nelder-mead :powell]]

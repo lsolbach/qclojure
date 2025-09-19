@@ -20,18 +20,28 @@
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.application.algorithm.optimization :as qopt]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.application.backend :as backend]))
 
 ;;;
 ;;; Specs for common variational algorithm components
 ;;;
-(s/def ::circuit-construction-fn fn?)
-(s/def ::hamiltonian ::ham/hamiltonian)
-(s/def ::backend any?) ; Backend satisfying QuantumBackend protocol
-(s/def ::execution-options map?)
-(s/def ::optimization-method
-  #{:gradient-descent :adam :quantum-natural-gradient
-    :nelder-mead :powell :cmaes :bobyqa :gradient :lbfgsb})
+(s/def ::objective-kind #{:hamiltonian :classification :regression
+                          :combinatorial :custom})
+(s/def ::circuit-constructor-fn fn?)
+(s/def ::parameter-count-fn fn?)
+(s/def ::initial-parameters-fn fn?)
+(s/def ::execution-plan-fn fn?)
+(s/def ::loss-fn fn?)
+(s/def ::result-processor-fn fn?)
+(s/def ::hamiltonian-constructor-fn fn?)
+(s/def ::dataset-fn fn?)
+(s/def ::batch-sampler-fn fn?)
+(s/def ::prediction-extractor-fn fn?)
+(s/def ::gradient-fn fn?)
+(s/def ::early-stopping-fn fn?)
+(s/def ::regularization-fn fn?)
+(s/def ::constraints-fn fn?)
+(s/def ::parameter-structure map?)
 
 ;;;
 ;;; Common Parameter Initialization Strategies
@@ -329,7 +339,7 @@
               ;; Create circuit with current parameters
               circuit (circuit-construction-fn params-vec)
               ;; Execute circuit and extract Hamiltonian expectation via result-specs
-              execution-result (qb/execute-circuit backend circuit run-options)
+              execution-result (backend/execute-circuit backend circuit run-options)
               results (:results execution-result)
               hamiltonian-result (:hamiltonian-result results)
               ;; Extract energy from hamiltonian result
@@ -371,7 +381,7 @@
 
               ;; Compute energy at current parameters using result framework
               base-circuit (circuit-construction-fn params-vec)
-              base-result (qb/execute-circuit backend base-circuit run-options)
+              base-result (backend/execute-circuit backend base-circuit run-options)
               base-energy (:energy-expectation (:hamiltonian-result (:results base-result)))
               base-state (:final-state (:results base-result))
 
@@ -567,8 +577,28 @@
 ;;;
 ;;; Algorithm Structure Template
 ;;;
-
 ;; TODO Enhance for VQC/QNN (non-hamiltonian optimization, ...)
+#_{;; required keys for algorithm definition
+ :algorithm :vqc
+ :objective-kind :classifiction
+ :parameter-count-fn nil
+ :initial-parameters-fn nil
+ :circuit-constructor-fn nil ; caching for static circuits needed
+ :execution-plan-fn nil
+ :loss-fn nil
+ :result-processor-fn nil
+ ;; optional keys
+ :hamiltonian-constructor-fn nil
+ :dataset-fn nil
+ :batch-sampler-fn nil
+ :prediction-extractor-fn nil
+ :gradient-fn nil
+ :parameter-structure {}
+ :early-stopping-fn nil
+ :regularization-fn nil
+ :constraints-fn nil
+ }
+
 (defn variational-algorithm
   "Enhanced template for variational quantum algorithms with advanced features.
   
@@ -595,50 +625,50 @@
   Complete algorithm result map with enhanced analysis"
   [backend options algorithm-fns]
   {:pre [(map? options) (map? algorithm-fns)]}
-  (let [{:keys [hamiltonian-constructor circuit-constructor 
+  (let [{:keys [hamiltonian-constructor circuit-constructor
                 parameter-count result-processor]} algorithm-fns
-        
+
         ;; Timing
         start-time (System/currentTimeMillis)
-        
+
         ;; Algorithm-specific construction
         hamiltonian (hamiltonian-constructor options)
         circuit-construction-fn (circuit-constructor options)
         num-params (parameter-count options)
-        
+
         ;; Enhanced parameter initialization
         initial-parameters (or (:initial-parameters options)
                                (random-parameter-initialization num-params))
-        
+
         ;; Enhanced objective creation with auto-detection of gradient support
         execution-options {:shots (:shots options 1024)}
         opt-method (:optimization-method options :adam)
         use-gradients? (or (:use-enhanced-objective options)
                            (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))
-        
+
         objective-fn (if use-gradients?
                        (gradient-based-variational-objective hamiltonian circuit-construction-fn backend execution-options)
                        (variational-objective hamiltonian circuit-construction-fn backend execution-options))
-        
+
         ;; Enhanced optimization with convergence monitoring
         optimization-options (merge options {:gradient-method :parameter-shift
                                              :ansatz-fn circuit-construction-fn
                                              :backend backend
                                              :exec-options execution-options})
-        
+
         optimization-result (if use-gradients?
                               (enhanced-variational-optimization objective-fn initial-parameters optimization-options)
                               (variational-optimization objective-fn initial-parameters optimization-options))
-        
+
         end-time (System/currentTimeMillis)
-        
+
         ;; Enhanced analysis
         convergence-analysis (analyze-convergence optimization-result)
-        
+
         ;; Calculate initial energy for analysis
         initial-result (objective-fn initial-parameters)
         initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
-        
+
         base-result (merge optimization-result
                            {:hamiltonian hamiltonian
                             :initial-parameters initial-parameters
@@ -647,7 +677,7 @@
                             :total-runtime-ms (- end-time start-time)
                             :enhanced-features {:gradient-enhanced use-gradients?
                                                 :convergence-monitored true}})]
-    
+
     ;; Algorithm-specific result processing
     (result-processor base-result options)))
 

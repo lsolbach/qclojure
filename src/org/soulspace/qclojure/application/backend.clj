@@ -349,3 +349,8 @@
   Returns: True if the backend implements CloudQuantumBackend protocol"
   [backend]
   (satisfies? CloudQuantumBackend backend))
+
+(s/def ::quantum-backend (satisfies? QuantumBackend)) ; Backend satisfying QuantumBackend protocol
+(s/def ::cloud-quantum-backend (satisfies? CloudQuantumBackend)) ; Backend satisfying QuantumBackend protocol
+(s/def ::multi-device-backend (satisfies? MultiDeviceBackend)) ; Backend satisfying MultiDeviceBackend protocol
+(s/def ::batch-job-backend (satisfies? BatchJobBackend)) ; Backend satisfying BatchJobBackend protocol

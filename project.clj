@@ -6,6 +6,7 @@
                  [org.clojure/data.json "2.5.1"]
                  [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
+                 [org.clojure/core.memoize "1.1.266"]
                  [generateme/fastmath "3.0.0-alpha3"]
                  [hiccup/hiccup "2.0.0"]
                  [instaparse/instaparse "1.5.0"]]

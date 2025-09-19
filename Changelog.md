@@ -1,5 +1,7 @@
 # Changelog
 
+## Version (NEXT)
+
 ## Version 0.18.0
 * unified and improved variational algorithms
   * unified and improved variational algorithms analysis

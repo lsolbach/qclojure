@@ -125,6 +125,8 @@
           max-trajectories (get options :max-trajectories 100)
           result-specs (:result-specs options)] ; Extract result specifications
 
+      ;; TODO check result specs/extraction
+
       ;; Execute each shot independently with fresh noise
       (loop [shot-count 0
              accumulated-results {}

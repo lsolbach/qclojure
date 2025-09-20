@@ -480,6 +480,7 @@
 
   (let [final-state (:final-state result)]
 
+    ;; TODO align with extract-noisy-results structure
     ;; Extract each requested result type systematically
     (cond-> result
 
@@ -582,6 +583,8 @@
           shots (:shots-executed base-result)
           enhanced-result (assoc base-result :result-types (set (keys result-specs)))]
 
+      ;; TODO align with extract-results structure
+      ;; Systematic extraction of each requested result type
       (reduce-kv
        (fn [acc-result result-type spec]
          (try

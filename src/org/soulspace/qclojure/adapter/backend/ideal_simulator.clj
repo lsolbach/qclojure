@@ -67,7 +67,7 @@
   (let [new-counter (:job-counter (swap! simulator-state update :job-counter inc))]
     (str "sim_job_" new-counter "_" (System/currentTimeMillis))))
 
-(defn- execute-circuit-simulation
+(defn- execute-circuit
   "Execute a quantum circuit simulation.
   
   Parameters:
@@ -86,7 +86,7 @@
                           (:initial-state options)
                           (state/zero-state num-qubits))
           results (circuit/execute-circuit circuit initial-state result-specs)]
-
+;; FIXME: Add support for shots and multiple result specs
       {:job-status :completed
        :results results
        :execution-time-ms (- (System/currentTimeMillis) start-time)})
@@ -128,7 +128,7 @@
 
       ;; Execute immediately (could be made async with future)
       (future
-        (let [result (execute-circuit-simulation circuit options)
+        (let [result (execute-circuit circuit options)
               completed-job (assoc job
                                    :status (:job-status result)
                                    :result result

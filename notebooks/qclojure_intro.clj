@@ -42,26 +42,26 @@
 ;; * Fundamental basis state in quantum computing
 ;; * Represents the binary value 0 in a qubit
 ;; * Represented as a state vector
-(state/|0⟩)
+state/|0⟩
 ;; 
-(viz/visualize-quantum-state :ascii (state/|0⟩))
+(viz/visualize-quantum-state :ascii state/|0⟩)
 ;;
-(viz/visualize-quantum-state :svg (state/|0⟩))
+(viz/visualize-quantum-state :svg state/|0⟩)
 
 ;; ## One State
-(state/|1⟩)
+state/|1⟩
 
 ;; ## Plus State
-(state/|+⟩)
+state/|+⟩
 
 ;; ## Minus State
-(state/|-⟩)
+state/|-⟩
 
 ;; ## i State
-(state/|+i⟩)
+state/|+i⟩
 
 ;; ## -i State
-(state/|-i⟩)
+state/|-i⟩
 
 ;; # Quantum Gates
 ;; ## Pauli-X Gate
@@ -90,3 +90,4 @@ gate/cnot
 ;; ## Simulating the Circuit
 (def result (circuit/execute-circuit test-circuit))
 
+result

@@ -1,1 +1,1 @@
-Thoroughly assess the @workspace to answer the following question:
+Thoroughly assess the #codebase to answer the following question:

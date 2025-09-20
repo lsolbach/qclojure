@@ -1782,6 +1782,7 @@
    (let [final-state (reduce apply-operation-to-state initial-state (:operations circuit))
          results {:final-state final-state
                   :result-types (set (keys result-specs))
+                  :circuit circuit
                   :circuit-metadata {:circuit-depth (circuit-depth circuit)
                                      :circuit-operation-count (circuit-operation-count circuit)
                                      :circuit-gate-count (circuit-gate-count circuit)

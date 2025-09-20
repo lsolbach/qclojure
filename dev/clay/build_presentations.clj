@@ -10,7 +10,15 @@
   "Revealjs configuration for building the presentations."
   (merge presentations-base-config
          {:format [:quarto :revealjs]
-          :quarto {:format {:revealjs {:theme :serif}}}
+          :quarto {:format {:revealjs {:theme :night
+                                       :transition :fade
+                                       :incremental false 
+                                       :navigation-mode :linear ; :linear :vertical :grid
+                                       :controls true
+                                       :progress true
+                                       :center true
+                                       :width 1080
+                                       :height 720}}}
           :clean-up-target-dir true
           :hide-ui-header true
           :hide-info-line false

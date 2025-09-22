@@ -2,8 +2,7 @@
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
-   [scicloj.kindly.v4.kind :as kind]
-   [org.soulspace.qclojure.domain.circuit :as circuit]))
+   [scicloj.kindly.v4.kind :as kind]))
 
 ;; ## Quantum Computing Basics
 ;;
@@ -90,12 +89,14 @@ gate/cnot
 ;; * Hardware Abstraction Layer
 ;; * Multiple Backend Implementations
 (require '[org.soulspace.qclojure.application.backend :as backend])
+(require '[org.soulspace.qclojure.domain.result :as result])
+(require '[clojure.spec.alpha :as s])
+(require '[fastmath.complex :as fc])
 
 ;; ## Result Extraction
 ;;
-(def result-specs {:measurements {:type :measurement
-                               :qubits [0 1 2]
-                               :shots 1024}})
+(def result-specs {:measurements {:qubits [0 1 2]
+                                  :shots 64}})
 ;; ## Ideal Simulator Backend
 ;; * Noiseless simulation of quantum circuits
 ;; * Suitable for testing and debugging quantum algorithms
@@ -106,10 +107,36 @@ gate/cnot
                    ideal-simulator
                    (circuit/ghz-state-circuit 3)
                    {:result-specs result-specs}))
+
+
+(s/explain ::state/state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
+                                         (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                         (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                         (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
+                          :num-qubits 3})
+
+(result/extract-results {:final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
+                                                      (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                                      (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                                      (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
+                                       :num-qubits 3},
+                         :result-types #{:measurements},
+                         :circuit {:operations [{:operation-type :h, :operation-params {:target 0}}
+                                                {:operation-type :cnot, :operation-params {:control 0, :target 1}}
+                                                {:operation-type :cnot, :operation-params {:control 0, :target 2}}],
+                                   :num-qubits 3,
+                                   :name "GHZ State",
+                                   :description "Prepares 3-qubit GHZ state"},
+                         :circuit-metadata {:circuit-depth 3,
+                                            :circuit-operation-count 3,
+                                            :circuit-gate-count 3,
+                                            :num-qubits 3}}
+                        {:measurements {:qubits [0 1 2], :shots 64}})
+
 ideal-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
-^kind/hiccup
+#_^kind/hiccup
 (viz/visualize-measurement-histogram
  :hiccup
  (get-in ideal-result [:results :frequencies]))
@@ -123,11 +150,26 @@ ideal-result
 (def noisy-result (backend/execute-circuit
                    hw-simulator
                    (circuit/ghz-state-circuit 3)
-                   {:result-specs result-specs}))
+                   {:shots 128
+                    :result-specs result-specs}))
+
+(result/extract-noisy-results {:job-status :completed,
+                               :measurement-results {111 451, 000 501, 011 17, 001 16, 100 5, 110 17, 101 14, 010 3},
+                               :final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
+                                                            (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                                            (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                                                            (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
+                                             :num-qubits 3},
+                               :noise-applied true,
+                               :shots-executed 1024,
+                               :execution-time-ms 395}
+                              {:measurements {:qubits [0 1 2], :shots 64}}
+                              (circuit/ghz-state-circuit 3))
+
 noisy-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
-^kind/hiccup
+#_^kind/hiccup
 (viz/visualize-measurement-histogram
  :hiccup 
  (get-in noisy-result [:measurement-results]))

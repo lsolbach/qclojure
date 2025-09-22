@@ -10,7 +10,8 @@
   "Revealjs configuration for building the presentations."
   (merge presentations-base-config
          {:format [:quarto :revealjs]
-          :quarto {:format {:revealjs {:theme :night
+          :quarto {:format {:revealjs {:author "Ludger Solbach"
+                                       :theme :night
                                        :transition :fade
                                        :incremental false 
                                        :navigation-mode :linear ; :linear :vertical :grid

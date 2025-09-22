@@ -44,7 +44,7 @@
     :sample {:observables [obs/pauli-z] :shots 1000 :targets [0]}
    "
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.state :as qs]
+            [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.math :as qmath]))
@@ -77,7 +77,7 @@
 (s/def ::fidelities (s/map-of string? ::fidelity))
 (s/def ::reference-states (s/coll-of any? :kind vector? :min-count 1)) ;; Placeholder
 (s/def ::sample-outcomes (s/coll-of string? :kind vector? :min-count 1))
-(s/def ::final-state ::qs/state)
+(s/def ::final-state ::state/state)
 (s/def ::execution-metadata (s/map-of keyword? any?))
 (s/def ::result-types (s/coll-of ::result-type :kind set? :min-count 1))
 (s/def ::measurement-results (s/coll-of ::measurement-result :kind vector? :min-count 1))
@@ -154,13 +154,13 @@
    Returns:
    Map with measurement outcomes and probabilities (Braket Sample format)"
   [final-state & {:keys [measurement-qubits shots] :or {shots 1}}]
-  {:pre [(s/valid? ::qs/state final-state)]}
+  {:pre [(s/valid? ::state/state final-state)]}
   (let [num-qubits (:num-qubits final-state)
         measured-qubits (or measurement-qubits (range num-qubits))
         ;; Perform multiple shots for statistical results
-        shot-results (repeatedly shots #(qs/measure-state final-state))
+        shot-results (repeatedly shots #(state/measure-state final-state))
         outcomes (mapv :outcome shot-results)
-        theoretical-probs (qs/measurement-probabilities final-state)
+        theoretical-probs (state/measurement-probabilities final-state)
         frequencies (frequencies outcomes)
         empirical-probs (into {} (map (fn [[outcome count]]
                                        [outcome (/ count shots)])
@@ -185,7 +185,7 @@
    Returns:
    Vector of expectation value results (Braket Expectation format)"
   [final-state observables & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (coll? observables)]}
   (let [num-qubits (:num-qubits final-state)]
     (mapv (fn [observable target-qubit]
@@ -221,7 +221,7 @@
    Returns:
    Vector of variance results (Braket Variance format)"
   [final-state observables & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (coll? observables)]}
   (let [num-qubits (:num-qubits final-state)]
     (mapv (fn [observable target-qubit]
@@ -257,7 +257,7 @@
    Returns:
    Map with energy expectation value and measurement optimization info"
   [final-state hamiltonian]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (ham/validate-hamiltonian hamiltonian)]}
   {:energy-expectation (ham/hamiltonian-expectation hamiltonian final-state)
    :hamiltonian hamiltonian
@@ -277,7 +277,7 @@
    Returns:
    Map with probabilities (Braket Probability format)"
   [final-state & {:keys [target-qubits target-states]}]
-  {:pre [(s/valid? ::qs/state final-state)]}
+  {:pre [(s/valid? ::state/state final-state)]}
   (let [num-qubits (:num-qubits final-state)]
     (if target-states
       ;; Specific target states requested
@@ -285,9 +285,9 @@
             (into {} (map (fn [target]
                            (let [prob (if (vector? target)
                                        ;; Target is bit pattern like [1 0 1]
-                                       (qs/probability final-state (qs/bits-to-index target))
+                                       (state/probability final-state (state/bits-to-index target))
                                        ;; Target is basis state index
-                                       (qs/probability final-state target))]
+                                       (state/probability final-state target))]
                              [target prob]))
                          target-states))]
         {:probability-outcomes probability-outcomes
@@ -295,7 +295,7 @@
          :target-qubits target-qubits})
       ;; All probabilities for specified qubits (or all qubits)
       (let [used-qubits (or target-qubits (range num-qubits))
-            all-probs (qs/measurement-probabilities final-state)]
+            all-probs (state/measurement-probabilities final-state)]
         {:probability-outcomes (into {} (map-indexed vector all-probs))
          :target-qubits used-qubits
          :all-probabilities all-probs}))))
@@ -312,7 +312,7 @@
    Returns:
    Map with complex amplitudes (Braket Amplitude format)"
   [final-state basis-states]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (vector? basis-states)]}
   (let [state-vector (:state-vector final-state)
         amplitude-values
@@ -333,10 +333,10 @@
    Returns:
    Complete state vector representation (Braket StateVector format)"
   [final-state]
-  {:pre [(s/valid? ::qs/state final-state)]}
+  {:pre [(s/valid? ::state/state final-state)]}
   {:state-vector (:state-vector final-state)
    :num-qubits (:num-qubits final-state)
-   :basis-labels (qs/basis-labels (:num-qubits final-state))})
+   :basis-labels (state/basis-labels (:num-qubits final-state))})
 
 (defn extract-density-matrix-result  
   "Extract density matrix representation (simulation only).
@@ -349,11 +349,11 @@
    Returns:
    Density matrix representation (Braket style)"
   [final-state]
-  {:pre [(s/valid? ::qs/state final-state)]}
-  (let [rho (qs/density-matrix final-state)]
+  {:pre [(s/valid? ::state/state final-state)]}
+  (let [rho (state/density-matrix final-state)]
     {:density-matrix rho
      :num-qubits (:num-qubits final-state)
-     :trace-valid (qs/trace-one? rho)}))
+     :trace-valid (state/trace-one? rho)}))
 
 (defn extract-fidelity-result
   "Extract fidelity between final state and reference states.
@@ -367,12 +367,12 @@
    Returns:
    Map with fidelity values for each reference state"
   [final-state reference-states]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (coll? reference-states)]}
   (let [fidelities
         (into {} (map-indexed (fn [idx ref-state]
                                [(str "reference-" idx) 
-                                (qs/state-fidelity final-state ref-state)])
+                                (state/state-fidelity final-state ref-state)])
                              reference-states))]
     {:fidelities fidelities
      :reference-states reference-states}))
@@ -391,7 +391,7 @@
    Returns:
    Vector of sample results (Braket Sample format)"
   [final-state observables shots & {:keys [target-qubits]}]
-  {:pre [(s/valid? ::qs/state final-state)
+  {:pre [(s/valid? ::state/state final-state)
          (coll? observables)
          (pos-int? shots)]}
   (mapv (fn [observable]
@@ -475,7 +475,7 @@
    Returns:
    Map of extracted results based on requested types"
   [result result-specs]
-  {:pre [(s/valid? ::qs/state (:final-state result))
+  {:pre [(s/valid? ::state/state (:final-state result))
          (map? result-specs)]}
 
   (let [final-state (:final-state result)]
@@ -589,7 +589,7 @@
        (fn [acc-result result-type spec]
          (try
            (case result-type
-             :measurement
+             :measurements
              (let [measurement-data (extract-measurement-results
                                      final-state
                                      :measurement-qubits (:measurement-qubits spec)

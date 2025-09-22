@@ -86,7 +86,6 @@
                           (:initial-state options)
                           (state/zero-state num-qubits))
           results (circuit/execute-circuit circuit initial-state result-specs)]
-;; FIXME: Add support for shots and multiple result specs
       {:job-status :completed
        :results results
        :execution-time-ms (- (System/currentTimeMillis) start-time)})

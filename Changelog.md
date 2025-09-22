@@ -1,6 +1,10 @@
 # Changelog
 
 ## Version (NEXT)
+* circuit execution improvements
+  * reduced default shots to 128 and raised timeout in backend
+  * added circuit to result in circuit/execute-circuit
+  * fixed noisy measurement result extraction
 
 ## Version 0.18.0
 * unified and improved variational algorithms

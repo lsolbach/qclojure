@@ -1785,10 +1785,13 @@
                   :circuit circuit
                   :circuit-metadata {:circuit-depth (circuit-depth circuit)
                                      :circuit-operation-count (circuit-operation-count circuit)
-                                     :circuit-gate-count (circuit-gate-count circuit)
-                                     :num-qubits (:num-qubits circuit)}}]
+                                     :circuit-gate-count (circuit-gate-count circuit)}}]
      (if (seq result-specs)
-       (merge results (result/extract-results results result-specs))
+       (let [extracted-results (result/extract-results results result-specs)]
+         (println "Result Specs: " result-specs)
+         (println "Results: " results)
+         (println "Extracted results:\n" extracted-results)
+         (merge results extracted-results))
        results))))
 
 ;;;

@@ -163,7 +163,7 @@
                 (println "Result Specs: " result-specs)
                 (println "Results: " enhanced-result)
                 (println "Extracted results:\n" extracted-results)
-                extracted-results)
+                (merge enhanced-result extracted-results))
               enhanced-result))
 
           ;; Execute single shot with fresh noise

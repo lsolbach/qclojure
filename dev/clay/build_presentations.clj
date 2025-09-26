@@ -35,6 +35,15 @@
                         :branch "main"}
           :title "Functional Quantum Computing with QClojure"}))
 
+(def ai-assist-qclojure-config
+  "Configuration for building the 'Building QClojure with AI Assistance' presentation."
+  (merge presentations-revealjs-config
+         {:source-path ["qclojure_ai.clj"]
+          :base-target-path "generated/presentation/AIAssist_QClojure"
+          :remote-repo {:git-url "https://github.com/lsolbach/qclojure"
+                        :branch "main"}
+          :title "Building QClojure with AI Assistance"}))
+
   (defn make-presentations
     "Render the QClojure presentations."
     ([])
@@ -49,5 +58,6 @@
     (clay/browse!)
     
     (make-presentations fqc-qclojure-config)
+    (make-presentations ai-assist-qclojure-config)
 
     )

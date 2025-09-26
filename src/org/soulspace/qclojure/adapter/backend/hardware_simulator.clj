@@ -134,7 +134,12 @@
              last-final-state nil]
 
         (if (>= shot-count shots)
+          ;; All shots completed, compile final results
           (let [base-result {:job-status :completed
+                             :circuit circuit
+                             :circuit-metadata {:circuit-depth (circuit/circuit-depth circuit)
+                                                :circuit-operation-count (circuit/circuit-operation-count circuit)
+                                                :circuit-gate-count (circuit/circuit-gate-count circuit)}
                              :measurement-results accumulated-results
                              :final-state last-final-state
                              :noise-applied true
@@ -154,7 +159,11 @@
 
             ;; Apply result extraction if result specs are provided
             (if result-specs
-              (result/extract-noisy-results enhanced-result result-specs circuit)
+              (let [extracted-results (result/extract-noisy-results enhanced-result result-specs circuit)]
+                (println "Result Specs: " result-specs)
+                (println "Results: " enhanced-result)
+                (println "Extracted results:\n" extracted-results)
+                extracted-results)
               enhanced-result))
 
           ;; Execute single shot with fresh noise

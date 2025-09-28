@@ -12,19 +12,18 @@
 ;; * Get experience with AI assisted programming
 ;; * Learn about quantum computing
 ;;
-;; # Tools
+;; # Project Setup
+;; ## IDE
 ;;
-;; * VS Code
-;; * GitHub Copilot Pro (Agent/Ask modes)
+;; * VS Code - Editor
 ;; * Calva - Clojure IDE for VSCode
+;; * GitHub Copilot Pro - multiple AI models
 ;; * Calva Backseat Driver - MCP server with Clojure Tools
 ;; * Joyride
 ;;
-;; # AI Assisted Process
-;;
-;; ## Ask vs. Agent
-;; * Ask: Research and planning
-;; * Agent: Implementation, testing and documentation
+;; ## Chat Modes
+;; * Ask - research and planning
+;; * Agent - implementation, testing and documentation
 ;;
 ;; ## Models
 ;;
@@ -38,7 +37,9 @@
 ;; * Prompts - task specific instructions
 ;; * AGENTS.md - project specific instructions
 ;;
-;; ## Tools
+;; ## MCP Tools
+;; * REPL - testing and exploration
+;; * human intelligence - design discussions, planning, reviews
 ;;
 ;; # Lessons Learned
 ;;
@@ -61,4 +62,6 @@
 ;;   * got better over time
 ;;
 ;; # Summary
-;; 
+;; * Without AI assistence, I would not have started this project
+;; * AI is a good pair programmer, bringing in domain knowledge
+;; * Clojure is the perfect language for AI assisted programming

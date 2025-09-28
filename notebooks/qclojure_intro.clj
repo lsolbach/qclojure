@@ -109,12 +109,6 @@ gate/cnot
                    {:result-specs result-specs}))
 
 
-(s/explain ::state/state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
-                                         (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                         (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                         (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
-                          :num-qubits 3})
-
 (result/extract-results {:final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
                                                       (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
                                                       (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
@@ -179,4 +173,11 @@ noisy-result
 ;;   * Deutsch, Bernstein-Vazirani, Simon, Grover
 ;; * Quantum Fourier Transform (QFT), Phase Estimation (QPE), Shor's Algorithm
 ;; * Variational Quantum Algorithms (VQE, QAOA)
-
+;;
+;; # Future Directions
+;;
+;; * Fast complex linear algebra (CPU/GPU)
+;;   * Bring complex BLAS/LAPACK algorithms to Clojure
+;; * Domain specific libraries
+;;   * Quantum chemistry, Quantum Machine Learning
+;; * More backends

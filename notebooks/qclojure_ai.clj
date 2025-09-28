@@ -1,14 +1,16 @@
 ^{:kindly/hide-code true}
 (ns qclojure-ai)
-
 ;; # What is QClojure
 ;;
-;; ## QClojure
+;; * A Clojure library for quantum computing
+;; * Quantum circuits and algorithms
+;; * Local simulators and cloud backends
+;; * Visualizations and analysis tools
 ;; 
 ;; # Motivation
 ;;
 ;; * Get experience with AI assisted programming
-;; * Learn quantum computing
+;; * Learn about quantum computing
 ;;
 ;; # Tools
 ;;
@@ -18,17 +20,19 @@
 ;; * Calva Backseat Driver
 ;; * Joyride
 ;;
-;; # Process
+;; # AI Assisted Process
 ;;
 ;; ## Ask vs. Agent
-;;
+;; * Ask: Research and planning
+;; * Agent: Implementation, testing and documentation
 ;;
 ;; ## Prompts
-;;
+;; * 
 ;;
 ;; ## Models
 ;;
 ;; * Claude Sonnet 4
+;;   * Goto model for Agent mode
 ;; * GPT
 ;; * Gemini 2.5 Pro
 ;;
@@ -38,7 +42,6 @@
 ;; 
 ;;
 ;; ## Failures
-;;
 ;;
 ;;
 ;; # Summary

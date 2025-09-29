@@ -577,33 +577,11 @@
 ;;;
 ;;; Algorithm Structure Template
 ;;;
-;; TODO Enhance for VQC/QNN (non-hamiltonian optimization, ...)
-#_{;; required keys for algorithm definition
- :algorithm :vqc
- :objective-kind :classifiction
- :parameter-count-fn nil
- :initial-parameters-fn nil
- :circuit-constructor-fn nil ; caching for static circuits needed
- :execution-plan-fn nil
- :loss-fn nil
- :result-processor-fn nil
- ;; optional keys
- :hamiltonian-constructor-fn nil
- :dataset-fn nil
- :batch-sampler-fn nil
- :prediction-extractor-fn nil
- :gradient-fn nil
- :parameter-structure {}
- :early-stopping-fn nil
- :regularization-fn nil
- :constraints-fn nil
- }
-
 (defn variational-algorithm
-  "Enhanced template for variational quantum algorithms with advanced features.
+  "Template for variational quantum algorithms like QAOA and VQE.
   
-  This enhanced version supports gradient-enhanced objectives, advanced convergence
-  monitoring, and sophisticated optimization strategies required by algorithms like VQE.
+  This version supports gradient-enhanced objectives, advanced convergence
+  monitoring, and optimization strategies required by algorithms like VQE.
   
   Parameters:
   - backend: Quantum backend for circuit execution
@@ -680,6 +658,43 @@
 
     ;; Algorithm-specific result processing
     (result-processor base-result options)))
+
+;; TODO Enhanced implementation suitable for QAOA, VQE, VQC/QNN (non-hamiltonian optimization, ...)
+;;      and future variational algorithms with advanced features.
+;;      We leave the basic version above until this is fully implemented and tested.
+;;      This is a template function that can be specialized via the algorithm-config map.
+#_{;; required keys for algorithm config
+ :algorithm :vqc
+ :objective-kind :classifiction
+ :parameter-count-fn nil
+ :initial-parameters-fn nil
+ :circuit-constructor-fn nil ; caching for static circuits needed
+ :execution-plan-fn nil
+ :loss-fn nil
+ :result-processor-fn nil
+ ;; optional keys
+ :hamiltonian-constructor-fn nil
+ :dataset-fn nil
+ :batch-sampler-fn nil
+ :prediction-extractor-fn nil
+ :gradient-fn nil
+ :parameter-structure {}
+ :early-stopping-fn nil
+ :regularization-fn nil
+ :constraints-fn nil
+ }
+(defn enhanced-variational-algorithm
+  "Enhanced template for variational quantum algorithms.
+   
+  This function provides a flexible and extensible framework for implementing
+  various variational quantum algorithms, including VQE, QAOA, and VQC/QNN. It
+  supports advanced features such as gradient-enhanced objectives, sophisticated
+  convergence monitoring, and customizable optimization strategies.
+ 
+  "
+  [backend options algorithm-config]
+  )
+
 
 ;;;
 ;;; Parameter Landscape Analysis Functions

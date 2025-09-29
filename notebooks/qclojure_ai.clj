@@ -60,6 +60,7 @@
 ;; * context window is limited
 ;;   * dreaded "summarizing conversation history"
 ;;   * got better over time
+;; * the model does not learn
 ;;
 ;; # Summary
 ;; * Without AI assistence, I would not have started this project

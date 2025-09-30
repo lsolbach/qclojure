@@ -1,24 +1,17 @@
-;; # Overview
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
    [scicloj.kindly.v4.kind :as kind]
    [org.soulspace.qclojure.application.visualization :as viz]))
 
-;; ## Quantum Computing Basics
-;;
-;; * Qubits, Quantum States and Registers
-;; * Quantum Gates and Circuits
-;; * Measurement and Observables
-;; * Quantum Algorithms
-;;
 ;; ## QClojure Features
 ;;
 ;; * Pure Functional Quantum Circuit Construction
 ;; * Comprehensive Gate Library
-;; * Quantum Algorithm Implementations
+;; * Quantum/Hybrid Algorithm Implementations
 ;; * Extensible Quantum Backend System
-;; 
+;; * Hardware Simulation and Error Mitigation
+;; * Visualization and Analysis Tools 
 ;;
 ;; # Getting Started
 ;;
@@ -40,6 +33,13 @@
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
 ;; # Quantum States
+;;
+;; * Represent the state of qubits in a quantum system
+;; * Used as input and output of quantum circuits
+;; * Can be in superposition and entangled states
+;; * Can interfere and evolve through quantum gates
+;; * Represented as state vectors in a complex Hilbert space
+;; * QClojure provides a library of common quantum states
 ;;
 ;; ## Zero State
 ;;
@@ -84,6 +84,11 @@ state/|00⟩
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; # Quantum Gates
+;; * Basic building blocks of quantum circuits
+;; * Represented as unitary matrices
+;; * Operate on qubit states to perform quantum computations
+;; * QClojure provides a comprehensive library of 20+ quantum gates
+;;
 ;; ## Hadamard Gate
 ;; * Creates superposition states
 gate/hadamard
@@ -194,16 +199,29 @@ noisy-result
    :hiccup
    (get-in noisy-result [:measurement-results]))
 
-;; # Algorithms
+;; # QClojure Quantum/Hybrid Algorithms
+;;
 ;; * Textbook implementations of quantum algorithms
 ;;   * Deutsch, Bernstein-Vazirani, Simon, Grover
 ;; * Quantum Fourier Transform (QFT), Phase Estimation (QPE), Shor's Algorithm
 ;; * Variational Quantum Algorithms (VQE, QAOA)
 ;;
-;; # Future Directions
+;; # Deficiencies in the Clojure Ecosystem
 ;;
-;; * Fast complex linear algebra (CPU/GPU)
-;;   * Bring complex BLAS/LAPACK algorithms to Clojure
-;; * Domain specific libraries
-;;   * Quantum chemistry, Quantum Machine Learning
+;; * Fast complex linear algebra algorithms
+;;   * BLAS/LAPACK on CPU/GPU
+;;   * needed for efficient quantum simulation
+;;   * also needed for physics and ML applications
+;;
+;; * Mitigation Options
+;;   * Neandertal extension
+;;   * ArrayFire bindings via Java22+ FFI
+;;
+;; # Future Directions
+;; 
 ;; * More backends
+;;   * Amazon Braket -> qclojure-braket
+;;   * IBM Quantum -> qclojure-ibmq
+;; * Domain specific libraries
+;;   * Quantum Machine Learning -> qclojure-ml
+;;   * Quantum Chemistry -> qclojure-chem 

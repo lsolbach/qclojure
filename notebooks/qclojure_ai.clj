@@ -62,6 +62,7 @@
 ;; * quality of responses is inconsistent
 ;; * following instructions is inconsistent
 ;;   * using the command line instead of the REPL
+;; * the model does not learn
 ;;
 ;; # Summary
 ;; * Without AI assistence, I would not have started this project

@@ -10,7 +10,8 @@
             [org.soulspace.qclojure.domain.gate-optimization :as go]
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
-            [org.soulspace.qclojure.domain.topology :as topo]))
+            [org.soulspace.qclojure.domain.topology :as topo]
+            [org.soulspace.qclojure.domain.error-correction :as ec]))
 
 (defn validate-result-context
   "Validate the optimization result context to ensure all gates are supported.
@@ -43,9 +44,10 @@
     The order is:
     1. Gate cancellation optimization (remove redundant gates)
     2. Qubit optimization (minimize qubits before topology constraints)
-    3. Topology optimization (with decomposition-aware routing)  
-    4. Final gate decomposition (handle any remaining virtual gates)
-    5. Validation and cleanup
+    3. Error correction (optional, encode logical qubits with QEC codes)
+    4. Topology optimization (with decomposition-aware routing)  
+    5. Final gate decomposition (handle any remaining virtual gates)
+    6. Validation and cleanup
     
     Parameters:
     - circuit: Quantum circuit to optimize
@@ -54,6 +56,8 @@
     - options: optional Optimization options (defaults shown)
       - :optimize-gates? (default true) - Enable gate cancellation optimization
       - :optimize-qubits? (default true) - Enable qubit usage optimization
+      - :apply-error-correction? (default false) - Enable quantum error correction
+      - :error-correction-code (default :bit-flip) - QEC code to use (:bit-flip, :shor, :steane, :five-qubit)
       - :optimize-topology? (default true) - Enable topology-aware optimization
       - :transform-operations? (default true) - Enable final gate decomposition
       - Additional options passed to sub-functions
@@ -68,18 +72,22 @@
        ;; STEP 2: Qubit optimization FIRST (before topology constraints)
        (qo/optimize-qubit-usage)
 
-       ;; STEP 3: Topology optimization with decomposition-aware routing
+       ;; STEP 3: Error correction (optional, encodes logical qubits)
+       (ec/apply-error-correction)
+
+       ;; STEP 4: Topology optimization with decomposition-aware routing
        (topo/topology-aware-transform)
 
-       ;; STEP 4: Final gate decomposition (including any remaining virtual gates)
+       ;; STEP 5: Final gate decomposition (including any remaining virtual gates)
        (ct/transform-circuit)
 
-       ;; STEP 5: Final validation
+       ;; STEP 6: Final validation
        (validate-result-context)
 
        (assoc :pipeline-order
               [:gate-cancellation
                :qubit-optimization
+               :error-correction
                :topology-optimization
                :gate-decomposition
                :validation])))

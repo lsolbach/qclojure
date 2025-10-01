@@ -1788,9 +1788,10 @@
                                      :circuit-gate-count (circuit-gate-count circuit)}}]
      (if (seq result-specs)
        (let [extracted-results (result/extract-results results result-specs)]
-         (println "Result Specs: " result-specs)
-         (println "Results: " results)
-         (println "Extracted results:\n" extracted-results)
+         ;; FIXME remove debug printlns
+         ;(println "Result Specs: " result-specs)
+         ;(println "Results: " results)
+         ;(println "Extracted results:\n" extracted-results)
          (merge results extracted-results))
        results))))
 

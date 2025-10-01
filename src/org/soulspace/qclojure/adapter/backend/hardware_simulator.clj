@@ -160,9 +160,10 @@
             ;; Apply result extraction if result specs are provided
             (if result-specs
               (let [extracted-results (result/extract-noisy-results enhanced-result result-specs circuit)]
-                (println "Result Specs: " result-specs)
-                (println "Results: " enhanced-result)
-                (println "Extracted results:\n" extracted-results)
+                ;; FIXME remove debug printlns
+                ;(println "Result Specs: " result-specs)
+                ;(println "Results: " enhanced-result)
+                ;(println "Extracted results:\n" extracted-results)
                 (merge enhanced-result extracted-results))
               enhanced-result))
 

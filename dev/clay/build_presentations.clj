@@ -11,7 +11,7 @@
   (merge presentations-base-config
          {:format [:quarto :revealjs]
           :quarto {:format {:revealjs {:author "Ludger Solbach"
-                                       :theme :night
+                                       :theme :league ; :blood :dark :dracula :night :moon :league :beige :sky :simple :serif :solarized
                                        :transition :fade
                                        :incremental false 
                                        :navigation-mode :linear ; :linear :vertical :grid

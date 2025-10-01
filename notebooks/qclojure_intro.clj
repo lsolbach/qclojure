@@ -47,10 +47,11 @@
 ;; * Represents the binary value 0 in a qubit
 ;; * Represented as a state vector
 state/|0⟩
-;; ### Probability Distribution of the Zero State
+
+;; ## Probability Distribution of the Zero State
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|0⟩)
 
-;; ### Bloch Sphere visualization of the Zero State
+;; ## Bloch Sphere visualization of the Zero State
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|0⟩)
 
 ;; ## One State
@@ -58,10 +59,11 @@ state/|0⟩
 ;; * Represents the binary value 1 in a qubit
 ;; * Represented as a state vector
 state/|1⟩
-;; ### Probability Distribution of the One State
+
+;; ## Probability Distribution of the One State
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|1⟩)
 
-;; ### Bloch Sphere visualization of the One State
+;; ## Bloch Sphere visualization of the One State
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|1⟩)
 
 ;; ## Plus State
@@ -69,10 +71,11 @@ state/|1⟩
 ;; * Equal probability of measuring 0 or 1
 ;; * Represented as a state vector
 state/|+⟩
-;; ### Probability Distribution of the Plus State
+
+;; ## Probability Distribution of the Plus State
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|+⟩)
 
-;; ### Bloch Sphere visualization of the Plus State
+;; ## Bloch Sphere visualization of the Plus State
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|+⟩)
 
 ;; ## Quantum Register
@@ -80,7 +83,8 @@ state/|+⟩
 ;; * tensor product of individual qubit states
 ;; * Example: two-qubit register in the |00⟩ state
 state/|00⟩
-;; ### Probability Distribution of the Quantum Register
+
+;; ## Probability Distribution of the Quantum Register
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; # Quantum Gates
@@ -121,7 +125,6 @@ gate/cnot
 ;; * Multiple Backend Implementations
 (require '[org.soulspace.qclojure.application.backend :as backend])
 (require '[org.soulspace.qclojure.domain.result :as result])
-(require '[clojure.spec.alpha :as s])
 (require '[fastmath.complex :as fc])
 
 ;; ## Result Extraction
@@ -140,23 +143,24 @@ gate/cnot
                    {:result-specs result-specs}))
 
 
-(result/extract-results {:final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
-                                                      (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                                      (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                                      (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
-                                       :num-qubits 3},
-                         :result-types #{:measurements},
-                         :circuit {:operations [{:operation-type :h, :operation-params {:target 0}}
-                                                {:operation-type :cnot, :operation-params {:control 0, :target 1}}
-                                                {:operation-type :cnot, :operation-params {:control 0, :target 2}}],
-                                   :num-qubits 3,
-                                   :name "GHZ State",
-                                   :description "Prepares 3-qubit GHZ state"},
-                         :circuit-metadata {:circuit-depth 3,
-                                            :circuit-operation-count 3,
-                                            :circuit-gate-count 3,
-                                            :num-qubits 3}}
-                        {:measurements {:qubits [0 1 2], :shots 64}})
+(result/extract-results
+ {:final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
+                :num-qubits 3},
+  :result-types #{:measurements},
+  :circuit {:operations [{:operation-type :h, :operation-params {:target 0}}
+                         {:operation-type :cnot, :operation-params {:control 0, :target 1}}
+                         {:operation-type :cnot, :operation-params {:control 0, :target 2}}],
+            :num-qubits 3,
+            :name "GHZ State",
+            :description "Prepares 3-qubit GHZ state"},
+  :circuit-metadata {:circuit-depth 3,
+                     :circuit-operation-count 3,
+                     :circuit-gate-count 3,
+                     :num-qubits 3}}
+ {:measurements {:qubits [0 1 2], :shots 64}})
 
 ideal-result
 
@@ -178,18 +182,19 @@ ideal-result
                    {:shots 128
                     :result-specs result-specs}))
 
-(result/extract-noisy-results {:job-status :completed,
-                               :measurement-results {111 451, 000 501, 011 17, 001 16, 100 5, 110 17, 101 14, 010 3},
-                               :final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
-                                                            (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                                            (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                                                            (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
-                                             :num-qubits 3},
-                               :noise-applied true,
-                               :shots-executed 1024,
-                               :execution-time-ms 395}
-                              {:measurements {:qubits [0 1 2], :shots 64}}
-                              (circuit/ghz-state-circuit 3))
+(result/extract-noisy-results
+ {:job-status :completed,
+  :measurement-results {111 451, 000 501, 011 17, 001 16, 100 5, 110 17, 101 14, 010 3},
+  :final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
+                               (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
+                :num-qubits 3},
+  :noise-applied true,
+  :shots-executed 1024,
+  :execution-time-ms 395}
+ {:measurements {:qubits [0 1 2], :shots 64}}
+ (circuit/ghz-state-circuit 3))
 
 noisy-result
 
@@ -206,22 +211,52 @@ noisy-result
 ;; * Quantum Fourier Transform (QFT), Phase Estimation (QPE), Shor's Algorithm
 ;; * Variational Quantum Algorithms (VQE, QAOA)
 ;;
-;; # Deficiencies in the Clojure Ecosystem
+;; ## QAOA Example
+;; * Solves combinatorial optimization problems
+;;   * Max-Cut
+;;   * Max-SAT 
+;;   * Travelling Salesman Problem
+(require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
 ;;
-;; * Fast complex linear algebra algorithms
-;;   * BLAS/LAPACK on CPU/GPU
+;; ## Max-Cut Problem
+;; * Simple triangle graph
+(def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
+
+;; ## Running QAOA on the Triangle Graph
+(def triangle-qaoa-result
+  (qaoa/quantum-approximate-optimization-algorithm
+   (ideal/create-simulator)
+   {:problem-type :max-cut
+    :problem-hamiltonian (qaoa/max-cut-hamiltonian triangle-graph 3)
+    :problem-instance triangle-graph  ; Triangle with unit weights
+    :num-qubits 3
+    :num-layers 2
+    :optimization-method :adam
+    :max-iterations 100
+    :tolerance 1e-6
+    :shots 1000}))
+;;
+;; ## Missing pieces in the Clojure Ecosystem
+;;
+;; * Fast complex linear algebra (BLAS/LAPACK on CPU/GPU)
 ;;   * needed for efficient quantum simulation
 ;;   * also needed for physics and ML applications
 ;;
 ;; * Mitigation Options
-;;   * Neandertal extension
+;;   * Neandertal extension for complex numbers
 ;;   * ArrayFire bindings via Java22+ FFI
 ;;
-;; # Future Directions
+;; ## Future Plans
 ;; 
-;; * More backends
-;;   * Amazon Braket -> qclojure-braket
-;;   * IBM Quantum -> qclojure-ibmq
+;; * Error Correction Codes
+;; * Backends for Quantum Hardware
+;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
+;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
 ;; * Domain specific libraries
-;;   * Quantum Machine Learning -> qclojure-ml
-;;   * Quantum Chemistry -> qclojure-chem 
+;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
+;;   * Quantum Chemistry
+;;
+;; ## Summary
+;; * QClojure is a capable and extensible library for quantum computing
+;; * Pure functional approach with Clojure's strengths
+;; * 

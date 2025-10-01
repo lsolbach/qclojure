@@ -1,25 +1,25 @@
-;; # Overview
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
-   [scicloj.kindly.v4.kind :as kind]))
+   [scicloj.kindly.v4.kind :as kind]
+   [org.soulspace.qclojure.application.visualization :as viz]))
 
-;; ## Quantum Computing Basics
-;;
-;; * Qubits and Quantum States
-;; * Quantum Gates and Circuits
-;; * Measurement and Observables
-;; * Quantum Algorithms
-;;
 ;; ## QClojure Features
 ;;
 ;; * Pure Functional Quantum Circuit Construction
 ;; * Comprehensive Gate Library
-;; * Quantum Algorithm Implementations
+;; * Quantum/Hybrid Algorithm Implementations
 ;; * Extensible Quantum Backend System
-;; 
-
+;; * Hardware Simulation and Error Mitigation
+;; * Visualization and Analysis Tools 
+;;
 ;; # Getting Started
+;;
+;; * Installation
+;;   * Add QClojure dependency to your `deps.edn` or `project.clj`
+;; * Documentation
+;;   * [API Documentation](https://)
+;; 
 ;; ## Required Namespaces
 ;;
 ;; * Domain Namespaces
@@ -34,53 +34,84 @@
 
 ;; # Quantum States
 ;;
+;; * Represent the state of qubits in a quantum system
+;; * Used as input and output of quantum circuits
+;; * Can be in superposition and entangled states
+;; * Can interfere and evolve through quantum gates
+;; * Represented as state vectors in a complex Hilbert space
+;; * QClojure provides a library of common quantum states
+;;
 ;; ## Zero State
 ;;
 ;; * Fundamental basis state in quantum computing
 ;; * Represents the binary value 0 in a qubit
 ;; * Represented as a state vector
 state/|0⟩
-;; ## Probability Distribution of Zero State
-;;
+;; ### Probability Distribution of the Zero State
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|0⟩)
 
+;; ### Bloch Sphere visualization of the Zero State
+^kind/hiccup (viz/visualize-bloch-sphere :svg state/|0⟩)
+
 ;; ## One State
+;; * Fundamental basis state in quantum computing
+;; * Represents the binary value 1 in a qubit
+;; * Represented as a state vector
 state/|1⟩
+;; ### Probability Distribution of the One State
+^kind/hiccup (viz/visualize-quantum-state :svg state/|1⟩)
+
+;; ### Bloch Sphere visualization of the One State
+^kind/hiccup (viz/visualize-bloch-sphere :svg state/|1⟩)
 
 ;; ## Plus State
+;; * Superposition state
+;; * Equal probability of measuring 0 or 1
+;; * Represented as a state vector
 state/|+⟩
+;; ### Probability Distribution of the Plus State
+^kind/hiccup (viz/visualize-quantum-state :svg state/|+⟩)
 
-;; ## Minus State
-state/|-⟩
+;; ### Bloch Sphere visualization of the Plus State
+^kind/hiccup (viz/visualize-bloch-sphere :svg state/|+⟩)
 
-;; ## i State
-state/|+i⟩
-
-;; ## -i State
-state/|-i⟩
+;; ## Quantum Register
+;; * Represents multiple qubits in a single state vector
+;; * tensor product of individual qubit states
+;; * Example: two-qubit register in the |00⟩ state
+state/|00⟩
+;; ### Probability Distribution of the Quantum Register
+^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; # Quantum Gates
-;; ## Pauli-X Gate
-gate/pauli-x
-;; ## Pauli-Y Gate
-gate/pauli-y
-;; ## Pauli-Z Gate
-gate/pauli-z
+;; * Basic building blocks of quantum circuits
+;; * Represented as unitary matrices
+;; * Operate on qubit states to perform quantum computations
+;; * QClojure provides a comprehensive library of 20+ quantum gates
+;;
 ;; ## Hadamard Gate
+;; * Creates superposition states
 gate/hadamard
+;; ## Pauli-X Gate
+;; * flips the state of a qubit
+gate/pauli-x
+;; ## Pauli-Z Gate
+;; * flips the phase of a qubit
+gate/pauli-z
+;; ## Pauli-Y Gate
+;; * combines bit-flip and phase-flip operations
+gate/pauli-y
 ;; ## CNOT Gate
+;; * entangles two qubits
 gate/cnot
 
+;;
 ;; # Quantum Circuits
 ;; ## Creating a Quantum Circuit
 (def test-circuit
   (-> (circuit/create-circuit 2 "Bell Circuit" "Creates a Bell state")
       (circuit/h-gate 0)
       (circuit/cnot-gate 0 1)))
-;; ## Visualizing the Circuit in ASCII
-^kind/code
-(viz/visualize-circuit :ascii test-circuit)
-
 ;; ## Visualizing the Circuit in SVG
 ^kind/hiccup
 (viz/visualize-circuit :svg test-circuit)
@@ -131,9 +162,9 @@ ideal-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
 #_^kind/hiccup
-(viz/visualize-measurement-histogram
- :hiccup
- (get-in ideal-result [:results :frequencies]))
+  (viz/visualize-measurement-histogram
+   :hiccup
+   (get-in ideal-result [:results :frequencies]))
 
 ;; ## Hardware Simulator Backend
 (require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as hwsim])
@@ -164,20 +195,33 @@ noisy-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
 #_^kind/hiccup
-(viz/visualize-measurement-histogram
- :hiccup 
- (get-in noisy-result [:measurement-results]))
+  (viz/visualize-measurement-histogram
+   :hiccup
+   (get-in noisy-result [:measurement-results]))
 
-;; # Algorithms
+;; # QClojure Quantum/Hybrid Algorithms
+;;
 ;; * Textbook implementations of quantum algorithms
 ;;   * Deutsch, Bernstein-Vazirani, Simon, Grover
 ;; * Quantum Fourier Transform (QFT), Phase Estimation (QPE), Shor's Algorithm
 ;; * Variational Quantum Algorithms (VQE, QAOA)
 ;;
-;; # Future Directions
+;; # Deficiencies in the Clojure Ecosystem
 ;;
-;; * Fast complex linear algebra (CPU/GPU)
-;;   * Bring complex BLAS/LAPACK algorithms to Clojure
-;; * Domain specific libraries
-;;   * Quantum chemistry, Quantum Machine Learning
+;; * Fast complex linear algebra algorithms
+;;   * BLAS/LAPACK on CPU/GPU
+;;   * needed for efficient quantum simulation
+;;   * also needed for physics and ML applications
+;;
+;; * Mitigation Options
+;;   * Neandertal extension
+;;   * ArrayFire bindings via Java22+ FFI
+;;
+;; # Future Directions
+;; 
 ;; * More backends
+;;   * Amazon Braket -> qclojure-braket
+;;   * IBM Quantum -> qclojure-ibmq
+;; * Domain specific libraries
+;;   * Quantum Machine Learning -> qclojure-ml
+;;   * Quantum Chemistry -> qclojure-chem 

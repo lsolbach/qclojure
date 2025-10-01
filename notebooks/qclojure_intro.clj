@@ -236,24 +236,27 @@ noisy-result
     :tolerance 1e-6
     :shots 1000}))
 ;;
-;; ## Deficiencies in the Clojure Ecosystem
+;; ## Missing pieces in the Clojure Ecosystem
 ;;
-;; * Fast complex linear algebra algorithms
-;;   * BLAS/LAPACK on CPU/GPU
+;; * Fast complex linear algebra (BLAS/LAPACK on CPU/GPU)
 ;;   * needed for efficient quantum simulation
 ;;   * also needed for physics and ML applications
 ;;
 ;; * Mitigation Options
-;;   * Neandertal extension
+;;   * Neandertal extension for complex numbers
 ;;   * ArrayFire bindings via Java22+ FFI
 ;;
-;; ## Future Directions
+;; ## Future Plans
 ;; 
+;; * Error Correction Codes
 ;; * Backends for Quantum Hardware
 ;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
 ;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
-;;
 ;; * Domain specific libraries
 ;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
 ;;   * Quantum Chemistry
 ;;
+;; ## Summary
+;; * QClojure is a capable and extensible library for quantum computing
+;; * Pure functional approach with Clojure's strengths
+;; * 

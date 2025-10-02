@@ -11,7 +11,8 @@
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.circuit-transformation :as ct]
             [org.soulspace.qclojure.domain.topology :as topo]
-            [org.soulspace.qclojure.domain.error-correction :as ec]))
+            [org.soulspace.qclojure.domain.error-correction :as ec]
+            [org.soulspace.qclojure.domain.qubit-mapping :as mapping]))
 
 (defn validate-result-context
   "Validate the optimization result context to ensure all gates are supported.
@@ -82,7 +83,10 @@
        ;; STEP 5: Final gate decomposition (including any remaining virtual gates)
        (ct/transform-circuit)
 
-       ;; STEP 6: Final validation
+       ;; STEP 6: Create reverse mappings for result extraction
+       (mapping/create-all-reverse-mappings)
+
+       ;; STEP 7: Final validation
        (validate-result-context)
 
        (assoc :pipeline-order
@@ -91,6 +95,7 @@
                :error-correction
                :topology-optimization
                :gate-decomposition
+               :reverse-mappings
                :validation])))
   ([circuit device]
    (optimize circuit device {:optimize-gates? true

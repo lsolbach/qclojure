@@ -47,7 +47,8 @@
             [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
-            [org.soulspace.qclojure.domain.math :as qmath]))
+            [org.soulspace.qclojure.domain.math :as qmath]
+            [org.soulspace.qclojure.domain.qubit-mapping :as mapping]))
 
 ;;;
 ;;; Specs for result specs and results (QASM 3.0 / Braket compatible)
@@ -143,6 +144,7 @@
 ;;;
 (defn extract-measurement-results
   "Extract measurement results from circuit execution using existing state functions.
+   Supports reverse mapping to present results in terms of original circuit qubits.
    
    Leverages: qs/measure-state, qs/measurement-probabilities
    
@@ -150,10 +152,15 @@
    - final-state: Final quantum state after circuit execution
    - measurement-qubits: Qubits that were measured (optional, defaults to all)
    - shots: Number of measurement shots (default 1)
+   - ctx: (optional) Optimization context with reverse mappings
+     {:inverse-qubit-mapping {...}, :physical-to-logical {...}, :ancilla-to-logical {...}}
    
    Returns:
-   Map with measurement outcomes and probabilities (Braket Sample format)"
-  [final-state & {:keys [measurement-qubits shots] :or {shots 1}}]
+   Map with measurement outcomes and probabilities (Braket Sample format)
+   If ctx with reverse mappings is provided, also includes:
+   - :mapped-measurements - Measurements mapped to original circuit qubits
+   - :qubit-mappings - The reverse mappings used"
+  [final-state & {:keys [measurement-qubits shots ctx] :or {shots 1}}]
   {:pre [(s/valid? ::state/state final-state)]}
   (let [num-qubits (:num-qubits final-state)
         measured-qubits (or measurement-qubits (range num-qubits))
@@ -164,13 +171,27 @@
         frequencies (frequencies outcomes)
         empirical-probs (into {} (map (fn [[outcome count]]
                                        [outcome (/ count shots)])
-                                     frequencies))]
-    {:measurement-outcomes outcomes
-     :measurement-probabilities theoretical-probs
-     :empirical-probabilities empirical-probs
-     :shot-count shots
-     :measurement-qubits measured-qubits
-     :frequencies frequencies}))
+                                     frequencies))
+        base-results {:measurement-outcomes outcomes
+                      :measurement-probabilities theoretical-probs
+                      :empirical-probabilities empirical-probs
+                      :shot-count shots
+                      :measurement-qubits measured-qubits
+                      :frequencies frequencies}]
+    ;; Add reverse mapping if context is provided
+    (if (and ctx (:inverse-qubit-mapping ctx))
+      (let [;; Convert measurement outcomes to qubit-index -> value maps for mapping
+            measurement-map (into {}
+                                 (map-indexed (fn [idx value]
+                                               [idx value])
+                                             (first outcomes)))  ; Use first shot as example
+            mapped-measurements (mapping/map-measurements-to-original measurement-map ctx)]
+        (assoc base-results
+               :mapped-measurements mapped-measurements
+               :qubit-mappings {:inverse-qubit-mapping (:inverse-qubit-mapping ctx)
+                               :physical-to-logical (:physical-to-logical ctx)
+                               :ancilla-to-logical (:ancilla-to-logical ctx)}))
+      base-results)))
 
 (defn extract-expectation-results
   "Extract expectation value results for observables.

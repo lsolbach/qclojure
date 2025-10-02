@@ -22,7 +22,8 @@
    - Gottesman, D. (1997). Stabilizer Codes and Quantum Error Correction
    - Nielsen & Chuang, Quantum Computation and Quantum Information, Chapter 10"
   (:require [clojure.spec.alpha :as s]
-            [org.soulspace.qclojure.domain.circuit :as circuit]))
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.qubit-mapping :as mapping]))
 
 ;;;
 ;;; Pauli Operators and Strings
@@ -1270,38 +1271,42 @@
 
 (defn extract-syndrome-bits
   "Extract syndrome measurement bits from quantum circuit results.
+   Maps ancilla measurements to original logical qubits using reverse mappings.
    
    The syndrome bits are stored in the measurement results of the ancilla qubits.
    This function identifies which measurement results correspond to syndrome
-   measurements based on the error correction metadata.
+   measurements and maps them back to the original circuit's logical qubits.
    
    Parameters:
    - results: Map containing measurement results from circuit execution
-     {:measurements [...], :measurement-counts {...}, ...}
-   - error-correction-metadata: Map with error correction information
-     {:code-key :bit-flip/:shor
-      :logical-to-ancillas {0 [3 4], 1 [5 6], ...}
-      :num-logical-qubits 2}
+     {:measurements {qubit-idx value, ...}, :measurement-counts {...}, ...}
+   - ctx: Optimization context with error correction metadata and reverse mappings
+     {:logical-to-ancillas {compacted-logical [ancilla...], ...}
+      :inverse-qubit-mapping {compacted-logical original-logical, ...}}
    
    Returns:
-   Map from logical qubit index to syndrome bits
-   {:logical-qubit-0 [1 0], :logical-qubit-1 [0 1], ...}
+   Map from ORIGINAL logical qubit index to syndrome bits
+   {original-logical-0 [1 0], original-logical-2 [0 1], ...}
    
    Example:
-   For bit-flip code with 2 logical qubits:
-   - Logical qubit 0 encoded in physical qubits [0 1 2], ancillas [6 7]
-   - Logical qubit 1 encoded in physical qubits [3 4 5], ancillas [8 9]
-   - Measurements on qubits [6 7 8 9] give syndrome bits"
-  [results error-correction-metadata]
+   Original circuit has qubits 0, 2 (1 unused). After optimization:
+   - Compacted 0 → Original 0, ancillas [6 7]
+   - Compacted 1 → Original 2, ancillas [8 9]
+   - Measurements {6 1, 7 0, 8 0, 9 1}
+   - Result: {0 [1 0], 2 [0 1]}"
+  [results ctx]
   {:pre [(map? results)
-         (map? error-correction-metadata)]}
-  (let [{:keys [logical-to-ancillas]} error-correction-metadata
+         (map? ctx)]}
+  (let [logical-to-ancillas (:logical-to-ancillas ctx)
+        inverse-qubit-mapping (:inverse-qubit-mapping ctx)
         measurements (:measurements results)]
     (when (and measurements logical-to-ancillas)
       (into {}
-            (map (fn [[logical-q ancilla-qubits]]
-                   (let [syndrome-bits (mapv #(get measurements % 0) ancilla-qubits)]
-                     [(keyword (str "logical-qubit-" logical-q)) syndrome-bits]))
+            (map (fn [[compacted-logical ancilla-qubits]]
+                   ;; Map compacted logical qubit to original logical qubit
+                   (let [original-logical (get inverse-qubit-mapping compacted-logical compacted-logical)
+                         syndrome-bits (mapv #(get measurements % 0) ancilla-qubits)]
+                     [original-logical syndrome-bits]))
                  logical-to-ancillas)))))
 
 (defn decode-syndrome-bits
@@ -1344,6 +1349,7 @@
 
 (defn apply-classical-correction
   "Apply classical post-processing correction to measurement results.
+   Works with original logical qubit indices (already mapped by extract-syndrome-bits).
    
    This function performs software correction of measurement outcomes based
    on syndrome information. It does NOT modify the quantum circuit, but
@@ -1356,33 +1362,38 @@
    
    Parameters:
    - measurements: Map of qubit indices to measurement outcomes {0 1, 1 0, 2 1, ...}
-   - syndrome-info: Map from logical qubits to syndrome decode results
-   - logical-to-physical: Map from logical qubit indices to physical qubit vectors
+   - syndrome-info: Map from ORIGINAL logical qubits to syndrome decode results
+   - ctx: Optimization context with mappings
+     {:logical-to-physical {compacted-logical [physical...], ...}
+      :inverse-qubit-mapping {compacted-logical original-logical, ...}
+      :qubit-mapping {original-logical compacted-logical, ...}}
    - code-key: Error correction code keyword
    
    Returns:
    Map with corrected measurements:
    {:original-measurements {...}
     :corrected-measurements {...}
-    :corrections-applied [{:logical-qubit 0, :physical-qubit 1, :correction :x}, ...]
+    :corrections-applied [{:logical-qubit original-q, :physical-qubit p, :correction :x}, ...]
     :syndrome-info {...}}
    
    Example:
-   Bit-flip code with error on physical qubit 1:
-   - Original measurements: {0 1, 1 0, 2 1} (should be {0 1, 1 1, 2 1})
-   - Syndrome: [1 0] → error on first qubit
-   - Corrected: {0 1, 1 1, 2 1} (flipped qubit 1)"
-  [measurements syndrome-info logical-to-physical code-key]
+   Original circuit qubit 2, compacted to 1, physical qubits [3 4 5]
+   - Syndrome for original qubit 2: [1 0] → error on first physical qubit (3)
+   - Correction flips qubit 3"
+  [measurements syndrome-info ctx code-key]
   {:pre [(map? measurements)
          (map? syndrome-info)
-         (map? logical-to-physical)
+         (map? ctx)
          (keyword? code-key)]}
   (let [corrections-applied (atom [])
-        corrected-measurements (atom measurements)]
-    (doseq [[logical-q-key syndrome-decode] syndrome-info]
+        corrected-measurements (atom measurements)
+        logical-to-physical (:logical-to-physical ctx)
+        qubit-mapping (:qubit-mapping ctx)]
+    (doseq [[original-logical syndrome-decode] syndrome-info]
       (when (:correction-needed? syndrome-decode)
-        (let [logical-q (Integer/parseInt (re-find #"\d+" (name logical-q-key)))
-              physical-qubits (get logical-to-physical logical-q)
+        ;; Map original logical to compacted logical to get physical qubits
+        (let [compacted-logical (get qubit-mapping original-logical original-logical)
+              physical-qubits (get logical-to-physical compacted-logical)
               syndrome (:syndrome syndrome-decode)]
           (case code-key
             :bit-flip
@@ -1397,7 +1408,7 @@
                 ;; Flip the bit
                 (swap! corrected-measurements update error-qubit #(if (= % 1) 0 1))
                 (swap! corrections-applied conj
-                       {:logical-qubit logical-q
+                       {:logical-qubit original-logical
                         :physical-qubit error-qubit
                         :correction :x})))
             
@@ -1405,7 +1416,7 @@
             ;; Shor code has more complex correction logic
             ;; For now, just record that correction is needed
             (swap! corrections-applied conj
-                   {:logical-qubit logical-q
+                   {:logical-qubit original-logical
                     :syndrome syndrome
                     :correction :complex-shor-correction
                     :note "Shor correction requires full syndrome analysis"})
@@ -1419,6 +1430,7 @@
 
 (defn analyze-error-correction-results
   "Comprehensive analysis of error correction results from circuit execution.
+   Uses reverse mappings to present all results in terms of ORIGINAL circuit qubits.
    
    This is the main entry point for Phase 2 post-processing. It combines
    syndrome extraction, decoding, and classical correction to provide a
@@ -1426,48 +1438,52 @@
    
    Parameters:
    - results: Raw results from circuit execution
-   - circuit-metadata: Metadata about the error-corrected circuit
+     {:measurements {qubit-idx value, ...}, ...}
+   - ctx: Complete optimization context including reverse mappings
      {:error-correction-code code-definition
-      :logical-to-physical {...}
-      :logical-to-ancillas {...}
+      :logical-to-physical {compacted-logical [physical...], ...}
+      :logical-to-ancillas {compacted-logical [ancilla...], ...}
       :syndrome-table {...}
-      :code-key :bit-flip or :shor}
+      :inverse-qubit-mapping {compacted-logical original-logical, ...}
+      :qubit-mapping {original-logical compacted-logical, ...}
+      :options {:error-correction-code :bit-flip/:shor, ...}}
    
    Returns:
-   Comprehensive analysis map:
+   Comprehensive analysis map (all logical qubit keys are ORIGINAL indices):
    {:raw-results results
-    :syndrome-bits {...}
-    :decoded-syndromes {...}
+    :syndrome-bits {original-logical [bits...], ...}
+    :decoded-syndromes {original-logical {...}, ...}
     :error-detected? boolean
     :corrected-measurements {...}
-    :corrections-applied [...]
+    :corrections-applied [{:logical-qubit original-q, ...}, ...]
     :error-rate float (fraction of logical qubits with errors)}
    
    Example usage:
-   (def results (backend/execute-circuit error-corrected-circuit))
-   (def analysis (analyze-error-correction-results results circuit-metadata))
+   (def optimized-ctx (hw/optimize circuit device {...}))
+   (def results (backend/execute-circuit (:circuit optimized-ctx)))
+   (def analysis (analyze-error-correction-results results optimized-ctx))
    
+   ;; All results in terms of original circuit
+   (:syndrome-bits analysis)        ; {0 [1 0], 2 [0 1]} (original qubits 0 and 2)
    (:corrected-measurements analysis)  ; Get corrected results
    (:error-rate analysis)              ; Check error rate"
-  [results circuit-metadata]
+  [results ctx]
   {:pre [(map? results)
-         (map? circuit-metadata)]}
-  (let [code-key (:code-key circuit-metadata)
-        syndrome-table (:syndrome-table circuit-metadata)
-        logical-to-physical (:logical-to-physical circuit-metadata)
-        logical-to-ancillas (:logical-to-ancillas circuit-metadata)
+         (map? ctx)
+         (:logical-to-ancillas ctx)
+         (:inverse-qubit-mapping ctx)]}  ; Require reverse mappings
+  (let [code-key (get-in ctx [:options :error-correction-code])
+        syndrome-table (:syndrome-table ctx)
         
         ;; Extract syndrome bits from ancilla measurements
-        syndrome-bits (extract-syndrome-bits
-                       results
-                       {:code-key code-key
-                        :logical-to-ancillas logical-to-ancillas})
+        ;; This now returns {original-logical [bits...], ...}
+        syndrome-bits (extract-syndrome-bits results ctx)
         
-        ;; Decode each syndrome
+        ;; Decode each syndrome (keys are already original logical qubits)
         decoded-syndromes (when syndrome-bits
                             (into {}
-                                  (map (fn [[logical-q-key bits]]
-                                         [logical-q-key
+                                  (map (fn [[original-logical bits]]
+                                         [original-logical
                                           (decode-syndrome-bits bits code-key syndrome-table)])
                                        syndrome-bits)))
         
@@ -1476,15 +1492,16 @@
                           (some :error-detected? (vals decoded-syndromes)))
         
         ;; Apply classical correction to measurements
-        correction-results (when (and decoded-syndromes logical-to-physical)
+        ;; syndrome-info keys are already original logical qubits
+        correction-results (when decoded-syndromes
                              (apply-classical-correction
                               (:measurements results)
                               decoded-syndromes
-                              logical-to-physical
+                              ctx
                               code-key))
         
-        ;; Calculate error rate
-        num-logical-qubits (count logical-to-physical)
+        ;; Calculate error rate based on original logical qubits
+        num-logical-qubits (count (:qubit-mapping ctx))  ; Original qubits that were used
         num-errors (when decoded-syndromes
                      (count (filter :error-detected? (vals decoded-syndromes))))
         error-rate (when (and num-errors (pos? num-logical-qubits))

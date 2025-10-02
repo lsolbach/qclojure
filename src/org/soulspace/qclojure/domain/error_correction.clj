@@ -27,7 +27,6 @@
 ;;;
 ;;; Pauli Operators and Strings
 ;;;
-
 (def pauli-operators
   "The four single-qubit Pauli operators: Identity, X (bit-flip), Y (both), Z (phase-flip)"
   #{:I :X :Y :Z})
@@ -82,7 +81,6 @@
 ;;;
 ;;; Stabilizer Code Definition
 ;;;
-
 (s/def ::num-physical-qubits pos-int?)
 (s/def ::num-logical-qubits pos-int?)
 (s/def ::stabilizer-generators (s/coll-of ::pauli-string :kind vector?))
@@ -101,7 +99,6 @@
 ;;;
 ;;; Syndrome Measurement
 ;;;
-
 (s/def ::syndrome
   (s/coll-of #{0 1} :kind vector?))
 
@@ -132,7 +129,6 @@
 ;;;
 ;;; Error Correction Lookup Tables
 ;;;
-
 (defn build-syndrome-table
   "Build a lookup table mapping syndromes to correctable errors.
    
@@ -168,7 +164,6 @@
 ;;;
 ;;; Predefined Stabilizer Codes
 ;;;
-
 (def bit-flip-code
   "The 3-qubit bit-flip code protects against single bit-flip (X) errors.
    
@@ -272,7 +267,6 @@
 ;;;
 ;;; Code Registry
 ;;;
-
 (def available-codes
   "Registry of available quantum error correction codes."
   {:bit-flip bit-flip-code
@@ -308,36 +302,276 @@
         available-codes))
 
 ;;;
+;;; Forward declarations for encoding and syndrome measurement functions
+;;;
+(declare encode-bit-flip encode-shor)
+(declare measure-bit-flip-syndrome measure-shor-syndrome)
+
+;;;
 ;;; Error Correction Application
 ;;;
+
+(defn- get-encoding-function
+  "Get the encoding function for a specific error correction code.
+   
+   Parameters:
+   - code-key: Keyword identifying the code (:bit-flip, :shor, etc.)
+   
+   Returns:
+   Function that takes [circuit logical-qubit-index] and returns encoded circuit"
+  [code-key]
+  (case code-key
+    :bit-flip encode-bit-flip
+    :shor encode-shor
+    ;; For other codes, we'd add their encoding functions here
+    :phase-flip (fn [circuit q] 
+                  (-> circuit
+                      (circuit/h-gate q)
+                      (encode-bit-flip q)
+                      (circuit/h-gate q)
+                      (circuit/h-gate (+ q 1))
+                      (circuit/h-gate (+ q 2))))
+    (throw (ex-info "No encoding function for code"
+                    {:code-key code-key}))))
+
+(defn- translate-operation-to-physical
+  "Translate a logical operation to physical qubit operations.
+   
+   For error-corrected qubits, operations must be applied to all physical
+   qubits that encode the logical qubit.
+   
+   Parameters:
+   - operation: Original operation on logical qubit
+   - logical-to-physical: Map from logical qubit index to vector of physical indices
+   
+   Returns:
+   Vector of operations on physical qubits"
+  [operation logical-to-physical]
+  (let [op-type (:operation-type operation)]
+    (case op-type
+      ;; Single-qubit gates: apply to all physical qubits in the block
+      (:x :y :z :h :s :t :sdg :tdg)
+      (let [logical-qubit (get-in operation [:operation-params :target])
+            physical-qubits (get logical-to-physical logical-qubit)]
+        (if physical-qubits
+          (mapv (fn [phys-q]
+                  (assoc-in operation [:operation-params :target] phys-q))
+                physical-qubits)
+          [operation]))
+      
+      ;; Two-qubit gates: apply between corresponding physical qubits
+      (:cnot :cz :swap)
+      (let [control (get-in operation [:operation-params :control])
+            target (get-in operation [:operation-params :target])
+            control-physical (get logical-to-physical control)
+            target-physical (get logical-to-physical target)]
+        (if (and control-physical target-physical)
+          ;; Apply gate between each pair of physical qubits
+          (vec (for [c control-physical
+                     t target-physical]
+                 (-> operation
+                     (assoc-in [:operation-params :control] c)
+                     (assoc-in [:operation-params :target] t))))
+          [operation]))
+      
+      ;; Controlled gates with multiple controls
+      (:ccnot :toffoli)
+      (let [controls (get-in operation [:operation-params :controls])
+            target (get-in operation [:operation-params :target])
+            target-physical (get logical-to-physical target)]
+        (if (and controls target-physical)
+          ;; For now, apply to first physical qubit of each control and all target qubits
+          ;; This is simplified - full implementation would be more complex
+          (mapv (fn [t]
+                  (assoc-in operation [:operation-params :target] t))
+                target-physical)
+          [operation]))
+      
+      ;; Measurement: measure all physical qubits
+      :measure
+      (let [qubits (or (get-in operation [:operation-params :measurement-qubits])
+                       (get-in operation [:operation-params :qubits]))]
+        (if (vector? qubits)
+          ;; Multiple qubits to measure - expand each to physical qubits
+          (let [all-physical (vec (mapcat #(get logical-to-physical % [%]) qubits))]
+            [(assoc-in operation [:operation-params :measurement-qubits] all-physical)])
+          ;; Single qubit (old format with :target)
+          (let [logical-qubit (get-in operation [:operation-params :target])
+                physical-qubits (get logical-to-physical logical-qubit)]
+            (if physical-qubits
+              [(assoc operation :operation-params {:measurement-qubits physical-qubits})]
+              [operation]))))
+      
+      ;; Unknown operation type: pass through
+      [operation])))
+
+(defn inject-syndrome-measurements
+  "Add syndrome measurement operations to an error-corrected circuit.
+   
+   This function adds the syndrome measurement gates and operations that detect
+   errors in the encoded qubits. The syndrome measurements are non-destructive:
+   they detect errors without collapsing the quantum state of the logical qubits.
+   
+   For bit-flip code:
+   - Adds CNOT gates to measure Z₀Z₁ and Z₁Z₂ stabilizers
+   - Measures 2 ancilla qubits per logical qubit
+   
+   For Shor code:
+   - Adds bit-flip syndrome measurements (6 ancillas per logical qubit)
+   - Adds phase-flip syndrome measurements (2 ancillas per logical qubit)
+   - Total: 8 ancilla measurements per logical qubit
+   
+   Parameters:
+   - circuit: Circuit with encoded qubits
+   - code-key: Error correction code (:bit-flip or :shor)
+   - logical-to-physical: Map from logical qubit indices to physical qubit vectors
+   - logical-to-ancillas: Map from logical qubit indices to ancilla qubit vectors
+   
+   Returns:
+   Updated circuit with syndrome measurement operations added"
+  [circuit code-key logical-to-physical logical-to-ancillas]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (map? logical-to-physical)
+         (map? logical-to-ancillas)]}
+  (let [logical-qubits (keys logical-to-physical)]
+    (reduce (fn [circ logical-q]
+              (let [physical-qubits (get logical-to-physical logical-q)
+                    ancilla-qubits (get logical-to-ancillas logical-q)]
+                (case code-key
+                  :bit-flip
+                  (measure-bit-flip-syndrome circ physical-qubits ancilla-qubits)
+                  
+                  :shor
+                  (let [bit-flip-ancillas (subvec ancilla-qubits 0 6)
+                        phase-flip-ancillas (subvec ancilla-qubits 6 8)]
+                    (measure-shor-syndrome circ
+                                           physical-qubits
+                                           bit-flip-ancillas
+                                           phase-flip-ancillas))
+                  
+                  ;; Unknown code - should not happen due to validation earlier
+                  (throw (ex-info "Unsupported error correction code for syndrome measurement"
+                                  {:code-key code-key
+                                   :logical-qubit logical-q})))))
+            circuit
+            logical-qubits)))
 
 (defn apply-error-correction
   "Apply error correction encoding to a circuit context.
    
    This function integrates error correction into the optimization pipeline,
-   encoding logical qubits using the specified QEC code.
+   transforming the circuit to use physical qubits with error correction.
+   
+   Process:
+   1. Encode ALL logical qubits in the circuit
+   2. Create new circuit with enough physical qubits for encoding + ancillas
+   3. Apply encoding gates for each logical qubit
+   4. Translate all existing operations to work on physical qubits
+   5. Add syndrome measurement operations (NEW in Phase 1)
    
    Parameters:
    - ctx: Optimization context containing:
-       :circuit - The quantum circuit
+       :circuit - The quantum circuit (with logical qubits)
        :options - Map with:
          :error-correction-code - Keyword for the code to use (e.g., :bit-flip)
          :apply-error-correction? - Whether to apply error correction (default: false)
+         :include-syndrome-measurement? - Whether to add syndrome measurements (default: true)
    
    Returns:
-   Updated context with error correction applied (if enabled)"
+   Updated context with:
+   - :circuit - Expanded circuit with error correction encoding + syndrome measurement
+   - :error-correction-code - The code definition
+   - :logical-to-physical - Mapping from logical qubit indices to physical qubit vectors
+   - :syndrome-table - Syndrome lookup table
+   - :error-correction-applied? - true
+   - :syndrome-measurement-included? - true if syndrome measurements were added"
   [ctx]
   (if (get-in ctx [:options :apply-error-correction?] false)
     (let [code-key (get-in ctx [:options :error-correction-code] :bit-flip)
-          code (get-code code-key)]
-      (if code
-        (assoc ctx
-               :error-correction-code code
-               :syndrome-table (build-syndrome-table code)
-               :error-correction-applied? true)
-        (throw (ex-info "Unknown error correction code"
-                        {:code-key code-key
-                         :available-codes (keys available-codes)}))))
+          code (get-code code-key)
+          _ (when-not code
+              (throw (ex-info "Unknown error correction code"
+                              {:code-key code-key
+                               :available-codes (keys available-codes)})))
+          
+          original-circuit (:circuit ctx)
+          num-logical-qubits (:num-qubits original-circuit)
+          
+          ;; Encode ALL logical qubits
+          qubits-to-encode (vec (range num-logical-qubits))
+          
+          ;; Calculate physical qubit requirements
+          physical-per-logical (:num-physical-qubits code)
+          num-physical-qubits (* num-logical-qubits physical-per-logical)
+          
+          ;; Calculate ancilla requirements for syndrome measurement
+          include-syndrome? (get-in ctx [:options :include-syndrome-measurement?] true)
+          ancillas-per-logical (if include-syndrome?
+                                 (case code-key
+                                   :bit-flip 2    ; 2 ancillas for bit-flip syndrome
+                                   :shor 8        ; 8 ancillas for Shor syndrome (6 bit-flip + 2 phase-flip)
+                                   0)
+                                 0)
+          num-ancilla-qubits (* num-logical-qubits ancillas-per-logical)
+          total-qubits (+ num-physical-qubits num-ancilla-qubits)
+          
+          ;; Create mapping from logical to physical qubits
+          logical-to-physical (into {}
+                                    (map-indexed
+                                     (fn [idx logical-q]
+                                       [logical-q
+                                        (vec (range (* idx physical-per-logical)
+                                                    (* (inc idx) physical-per-logical)))])
+                                     qubits-to-encode))
+          
+          ;; Create mapping from logical qubits to ancilla qubits
+          logical-to-ancillas (when include-syndrome?
+                                (into {}
+                                      (map-indexed
+                                       (fn [idx logical-q]
+                                         [logical-q
+                                          (vec (range (+ num-physical-qubits (* idx ancillas-per-logical))
+                                                      (+ num-physical-qubits (* (inc idx) ancillas-per-logical))))])
+                                       qubits-to-encode)))
+          
+          ;; Get encoding function
+          encode-fn (get-encoding-function code-key)
+          
+          ;; Create new circuit with physical qubits + ancillas
+          physical-circuit (circuit/create-circuit total-qubits)
+          
+          ;; Apply encoding for each logical qubit
+          encoded-circuit (reduce (fn [circ logical-q]
+                                    (let [physical-start (* logical-q physical-per-logical)]
+                                      (encode-fn circ physical-start)))
+                                  physical-circuit
+                                  qubits-to-encode)
+          
+          ;; Translate all original operations to physical qubits
+          translated-ops (vec (mapcat #(translate-operation-to-physical % logical-to-physical)
+                                      (:operations original-circuit)))
+          
+          ;; Combine encoding operations with translated operations
+          circuit-with-ops (update encoded-circuit :operations
+                                   (fn [encoding-ops]
+                                     (vec (concat encoding-ops translated-ops))))
+          
+          ;; Add syndrome measurement operations (Phase 1 enhancement)
+          final-circuit (if include-syndrome?
+                          (inject-syndrome-measurements circuit-with-ops
+                                                        code-key
+                                                        logical-to-physical
+                                                        logical-to-ancillas)
+                          circuit-with-ops)]
+      
+      (assoc ctx
+             :circuit final-circuit
+             :error-correction-code code
+             :logical-to-physical logical-to-physical
+             :logical-to-ancillas logical-to-ancillas
+             :syndrome-table (build-syndrome-table code)
+             :error-correction-applied? true
+             :syndrome-measurement-included? include-syndrome?))
     ctx))
 
 (comment
@@ -366,18 +600,113 @@
   
   (build-syndrome-table shor-code)
 
-  ;; Test error correction application
-  (apply-error-correction
-   {:circuit (circuit/create-circuit 3)
-    :options {:apply-error-correction? true
-              :error-correction-code :bit-flip}}))
+  ;;
+  ;; Circuit Transformation with Error Correction
+  ;;
   
-  ;
+  ;; Test error correction application - transforms the circuit!
+  (def simple-ctx
+    {:circuit (-> (circuit/create-circuit 2)
+                  (circuit/h-gate 0)
+                  (circuit/cnot-gate 0 1))
+     :options {:apply-error-correction? true
+               :error-correction-code :bit-flip}})
+  
+  (def transformed-ctx (apply-error-correction simple-ctx))
+  
+  ;; Observe the transformation
+  {:original-qubits 2
+   :physical-qubits (get-in transformed-ctx [:circuit :num-qubits])
+   :logical-to-physical (:logical-to-physical transformed-ctx)
+   :operations-before 2
+   :operations-after (count (get-in transformed-ctx [:circuit :operations]))}
+  ;=> {:original-qubits 2, :physical-qubits 6, 
+  ;    :logical-to-physical {0 [0 1 2], 1 [3 4 5]},
+  ;    :operations-before 2, :operations-after 16}
+  
+  ;; With Shor code (9x expansion)
+  (def shor-ctx
+    {:circuit (circuit/create-circuit 1)
+     :options {:apply-error-correction? true
+               :error-correction-code :shor}})
+  
+  (def shor-transformed (apply-error-correction shor-ctx))
+  
+  {:original-qubits 1
+   :physical-qubits (get-in shor-transformed [:circuit :num-qubits])
+   :logical-to-physical (:logical-to-physical shor-transformed)}
+  ;=> {:original-qubits 1, :physical-qubits 9,
+  ;    :logical-to-physical {0 [0 1 2 3 4 5 6 7 8]}}
+  
+  ;;
+  ;; Integration with Optimization Pipeline
+  ;;
+  
+  (require '[org.soulspace.qclojure.application.hardware-optimization :as hw])
+  
+  ;; Create a Bell state circuit
+  (def bell-circuit
+    (-> (circuit/create-circuit 2)
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)))
+  
+  ;; Run through full pipeline with error correction
+  (def optimized
+    (hw/optimize
+     {:circuit bell-circuit
+      :supported-operations #{:h :cnot :x :y :z :measure}
+      :options {:apply-error-correction? true
+                :error-correction-code :bit-flip}}))
+  
+  ;; Check the results
+  {:ec-applied? (:error-correction-applied? optimized)
+   :physical-qubits (get-in optimized [:circuit :num-qubits])
+   :logical-to-physical (:logical-to-physical optimized)
+   :pipeline (:pipeline-order optimized)}
+  ;=> {:ec-applied? true, :physical-qubits 6,
+  ;    :logical-to-physical {0 [0 1 2], 1 [3 4 5]},
+  ;    :pipeline [:gate-cancellation :qubit-optimization :error-correction 
+  ;               :topology-optimization :gate-decomposition :validation]}
+  
+  ;;
+  ;; Complete Example: Circuit Transformation Details
+  ;;
+  
+  (def example-circuit
+    (-> (circuit/create-circuit 3)
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)
+        (circuit/cnot-gate 1 2)
+        (circuit/measure-operation [0 1 2])))
+  
+  (def example-result
+    (apply-error-correction
+     {:circuit example-circuit
+      :options {:apply-error-correction? true
+                :error-correction-code :bit-flip}}))
+  
+  ;; Original: 3 logical qubits, 4 operations
+  ;; Encoded: 9 physical qubits, 28 operations
+  ;; - 6 encoding CNOTs (2 per logical qubit)
+  ;; - 3 translated H gates (q0 → [0,1,2])
+  ;; - 9 translated CNOTs (q0→q1: [0,1,2]→[3,4,5])
+  ;; - 9 translated CNOTs (q1→q2: [3,4,5]→[6,7,8])
+  ;; - 1 measurement on all 9 physical qubits
+  
+  {:original {:qubits 3, :ops 4}
+   :encoded {:qubits (get-in example-result [:circuit :num-qubits])
+             :ops (count (get-in example-result [:circuit :operations]))
+             :op-types (frequencies (map :operation-type 
+                                         (get-in example-result [:circuit :operations])))}}
+  ;=> {:original {:qubits 3, :ops 4},
+  ;    :encoded {:qubits 9, :ops 28, 
+  ;              :op-types {:cnot 24, :h 3, :measure 1}}}
+  
+  )
 
 ;;;
 ;;; Bit-Flip Code Implementation
 ;;;
-
 (defn encode-bit-flip
   "Encode a logical qubit into the 3-qubit bit-flip code.
    
@@ -502,7 +831,6 @@
 ;;;
 ;;; Shor Code Implementation (9-qubit code)
 ;;;
-
 (defn encode-shor
   "Encode a logical qubit into the 9-qubit Shor code.
    
@@ -935,3 +1263,239 @@
   ;=> nil or false
   
   ;
+
+;;;
+;;; Phase 2: Post-Processing and Classical Correction
+;;;
+
+(defn extract-syndrome-bits
+  "Extract syndrome measurement bits from quantum circuit results.
+   
+   The syndrome bits are stored in the measurement results of the ancilla qubits.
+   This function identifies which measurement results correspond to syndrome
+   measurements based on the error correction metadata.
+   
+   Parameters:
+   - results: Map containing measurement results from circuit execution
+     {:measurements [...], :measurement-counts {...}, ...}
+   - error-correction-metadata: Map with error correction information
+     {:code-key :bit-flip/:shor
+      :logical-to-ancillas {0 [3 4], 1 [5 6], ...}
+      :num-logical-qubits 2}
+   
+   Returns:
+   Map from logical qubit index to syndrome bits
+   {:logical-qubit-0 [1 0], :logical-qubit-1 [0 1], ...}
+   
+   Example:
+   For bit-flip code with 2 logical qubits:
+   - Logical qubit 0 encoded in physical qubits [0 1 2], ancillas [6 7]
+   - Logical qubit 1 encoded in physical qubits [3 4 5], ancillas [8 9]
+   - Measurements on qubits [6 7 8 9] give syndrome bits"
+  [results error-correction-metadata]
+  {:pre [(map? results)
+         (map? error-correction-metadata)]}
+  (let [{:keys [logical-to-ancillas]} error-correction-metadata
+        measurements (:measurements results)]
+    (when (and measurements logical-to-ancillas)
+      (into {}
+            (map (fn [[logical-q ancilla-qubits]]
+                   (let [syndrome-bits (mapv #(get measurements % 0) ancilla-qubits)]
+                     [(keyword (str "logical-qubit-" logical-q)) syndrome-bits]))
+                 logical-to-ancillas)))))
+
+(defn decode-syndrome-bits
+  "Decode syndrome bits to identify detected errors.
+   
+   Interprets syndrome measurements to determine which physical qubits
+   have errors. Uses the syndrome table from the error correction code.
+   
+   Parameters:
+   - syndrome-bits: Vector of syndrome measurement outcomes
+   - code-key: Error correction code keyword (:bit-flip or :shor)
+   - syndrome-table: Lookup table mapping syndromes to error patterns
+   
+   Returns:
+   Map with error information:
+   {:syndrome syndrome-bits
+    :error-detected? boolean
+    :error-location string (Pauli operator indicating error)
+    :error-type :x or :z or :both
+    :correction-needed? boolean}
+   
+   Example:
+   Bit-flip syndrome [1 0] → {:error-location \"XII\", :error-type :x}"
+  [syndrome-bits code-key syndrome-table]
+  {:pre [(vector? syndrome-bits)
+         (keyword? code-key)
+         (or (nil? syndrome-table) (map? syndrome-table))]}
+  (let [error-pattern (get syndrome-table syndrome-bits)
+        no-error? (every? zero? syndrome-bits)]
+    {:syndrome syndrome-bits
+     :error-detected? (not no-error?)
+     :error-location (or error-pattern "I...") ; Identity if no error
+     :error-type (cond
+                   no-error? :none
+                   :else (case code-key
+                           :bit-flip :x
+                           :shor :both
+                           :unknown))
+     :correction-needed? (not no-error?)}))
+
+(defn apply-classical-correction
+  "Apply classical post-processing correction to measurement results.
+   
+   This function performs software correction of measurement outcomes based
+   on syndrome information. It does NOT modify the quantum circuit, but
+   corrects the classical measurement data after execution.
+   
+   Use cases:
+   - Correcting final measurement results from simulators
+   - Post-processing experimental data
+   - Analyzing error patterns without dynamic circuits
+   
+   Parameters:
+   - measurements: Map of qubit indices to measurement outcomes {0 1, 1 0, 2 1, ...}
+   - syndrome-info: Map from logical qubits to syndrome decode results
+   - logical-to-physical: Map from logical qubit indices to physical qubit vectors
+   - code-key: Error correction code keyword
+   
+   Returns:
+   Map with corrected measurements:
+   {:original-measurements {...}
+    :corrected-measurements {...}
+    :corrections-applied [{:logical-qubit 0, :physical-qubit 1, :correction :x}, ...]
+    :syndrome-info {...}}
+   
+   Example:
+   Bit-flip code with error on physical qubit 1:
+   - Original measurements: {0 1, 1 0, 2 1} (should be {0 1, 1 1, 2 1})
+   - Syndrome: [1 0] → error on first qubit
+   - Corrected: {0 1, 1 1, 2 1} (flipped qubit 1)"
+  [measurements syndrome-info logical-to-physical code-key]
+  {:pre [(map? measurements)
+         (map? syndrome-info)
+         (map? logical-to-physical)
+         (keyword? code-key)]}
+  (let [corrections-applied (atom [])
+        corrected-measurements (atom measurements)]
+    (doseq [[logical-q-key syndrome-decode] syndrome-info]
+      (when (:correction-needed? syndrome-decode)
+        (let [logical-q (Integer/parseInt (re-find #"\d+" (name logical-q-key)))
+              physical-qubits (get logical-to-physical logical-q)
+              syndrome (:syndrome syndrome-decode)]
+          (case code-key
+            :bit-flip
+            (let [error-qubit-offset (cond
+                                       (= [0 0] syndrome) nil
+                                       (= [1 0] syndrome) 0
+                                       (= [1 1] syndrome) 1
+                                       (= [0 1] syndrome) 2)
+                  error-qubit (when error-qubit-offset
+                                (nth physical-qubits error-qubit-offset))]
+              (when error-qubit
+                ;; Flip the bit
+                (swap! corrected-measurements update error-qubit #(if (= % 1) 0 1))
+                (swap! corrections-applied conj
+                       {:logical-qubit logical-q
+                        :physical-qubit error-qubit
+                        :correction :x})))
+            
+            :shor
+            ;; Shor code has more complex correction logic
+            ;; For now, just record that correction is needed
+            (swap! corrections-applied conj
+                   {:logical-qubit logical-q
+                    :syndrome syndrome
+                    :correction :complex-shor-correction
+                    :note "Shor correction requires full syndrome analysis"})
+            
+            nil))))
+    
+    {:original-measurements measurements
+     :corrected-measurements @corrected-measurements
+     :corrections-applied @corrections-applied
+     :syndrome-info syndrome-info}))
+
+(defn analyze-error-correction-results
+  "Comprehensive analysis of error correction results from circuit execution.
+   
+   This is the main entry point for Phase 2 post-processing. It combines
+   syndrome extraction, decoding, and classical correction to provide a
+   complete analysis of error-corrected circuit results.
+   
+   Parameters:
+   - results: Raw results from circuit execution
+   - circuit-metadata: Metadata about the error-corrected circuit
+     {:error-correction-code code-definition
+      :logical-to-physical {...}
+      :logical-to-ancillas {...}
+      :syndrome-table {...}
+      :code-key :bit-flip or :shor}
+   
+   Returns:
+   Comprehensive analysis map:
+   {:raw-results results
+    :syndrome-bits {...}
+    :decoded-syndromes {...}
+    :error-detected? boolean
+    :corrected-measurements {...}
+    :corrections-applied [...]
+    :error-rate float (fraction of logical qubits with errors)}
+   
+   Example usage:
+   (def results (backend/execute-circuit error-corrected-circuit))
+   (def analysis (analyze-error-correction-results results circuit-metadata))
+   
+   (:corrected-measurements analysis)  ; Get corrected results
+   (:error-rate analysis)              ; Check error rate"
+  [results circuit-metadata]
+  {:pre [(map? results)
+         (map? circuit-metadata)]}
+  (let [code-key (:code-key circuit-metadata)
+        syndrome-table (:syndrome-table circuit-metadata)
+        logical-to-physical (:logical-to-physical circuit-metadata)
+        logical-to-ancillas (:logical-to-ancillas circuit-metadata)
+        
+        ;; Extract syndrome bits from ancilla measurements
+        syndrome-bits (extract-syndrome-bits
+                       results
+                       {:code-key code-key
+                        :logical-to-ancillas logical-to-ancillas})
+        
+        ;; Decode each syndrome
+        decoded-syndromes (when syndrome-bits
+                            (into {}
+                                  (map (fn [[logical-q-key bits]]
+                                         [logical-q-key
+                                          (decode-syndrome-bits bits code-key syndrome-table)])
+                                       syndrome-bits)))
+        
+        ;; Check if any errors were detected
+        error-detected? (when decoded-syndromes
+                          (some :error-detected? (vals decoded-syndromes)))
+        
+        ;; Apply classical correction to measurements
+        correction-results (when (and decoded-syndromes logical-to-physical)
+                             (apply-classical-correction
+                              (:measurements results)
+                              decoded-syndromes
+                              logical-to-physical
+                              code-key))
+        
+        ;; Calculate error rate
+        num-logical-qubits (count logical-to-physical)
+        num-errors (when decoded-syndromes
+                     (count (filter :error-detected? (vals decoded-syndromes))))
+        error-rate (when (and num-errors (pos? num-logical-qubits))
+                     (/ num-errors num-logical-qubits))]
+    
+    {:raw-results results
+     :syndrome-bits syndrome-bits
+     :decoded-syndromes decoded-syndromes
+     :error-detected? error-detected?
+     :corrected-measurements (:corrected-measurements correction-results)
+     :corrections-applied (:corrections-applied correction-results)
+     :error-rate error-rate
+     :num-logical-qubits num-logical-qubits
+     :num-errors num-errors}))

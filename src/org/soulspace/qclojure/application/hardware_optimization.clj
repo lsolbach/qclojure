@@ -44,7 +44,7 @@
     The order is:
     1. Gate cancellation optimization (remove redundant gates)
     2. Qubit optimization (minimize qubits before topology constraints)
-    3. Error correction (optional, encode logical qubits with QEC codes)
+    3. Error correction (optional, encodes ALL logical qubits with QEC codes, expanding circuit)
     4. Topology optimization (with decomposition-aware routing)  
     5. Final gate decomposition (handle any remaining virtual gates)
     6. Validation and cleanup
@@ -56,8 +56,9 @@
     - options: optional Optimization options (defaults shown)
       - :optimize-gates? (default true) - Enable gate cancellation optimization
       - :optimize-qubits? (default true) - Enable qubit usage optimization
-      - :apply-error-correction? (default false) - Enable quantum error correction
+      - :apply-error-correction? (default false) - Enable quantum error correction (encodes all qubits)
       - :error-correction-code (default :bit-flip) - QEC code to use (:bit-flip, :shor, :steane, :five-qubit)
+        Note: This will expand the circuit (3x for bit-flip, 9x for Shor, etc.)
       - :optimize-topology? (default true) - Enable topology-aware optimization
       - :transform-operations? (default true) - Enable final gate decomposition
       - Additional options passed to sub-functions

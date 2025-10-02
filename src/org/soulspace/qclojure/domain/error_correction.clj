@@ -23,68 +23,15 @@
    - Nielsen & Chuang, Quantum Computation and Quantum Information, Chapter 10"
   (:require [clojure.spec.alpha :as s]
             [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.qubit-mapping :as mapping]))
-
-;;;
-;;; Pauli Operators and Strings
-;;;
-(def pauli-operators
-  "The four single-qubit Pauli operators: Identity, X (bit-flip), Y (both), Z (phase-flip)"
-  #{:I :X :Y :Z})
-
-(s/def ::pauli-operator pauli-operators)
-
-(s/def ::pauli-string
-  (s/and string?
-         #(every? (fn [c] (contains? #{\I \X \Y \Z} c)) %)))
-
-(defn pauli-string?
-  "Check if a string is a valid Pauli string."
-  [s]
-  (and (string? s)
-       (every? (fn [c] (contains? #{\I \X \Y \Z} c)) s)))
-
-(defn pauli-weight
-  "Calculate the weight of a Pauli string (number of non-identity operators).
-   
-   Parameters:
-   - pauli-str: Pauli string like 'XYZII'
-   
-   Returns:
-   Integer count of non-I operators"
-  [pauli-str]
-  {:pre [(pauli-string? pauli-str)]}
-  (count (filter #(not= \I %) pauli-str)))
-
-(defn pauli-commute?
-  "Check if two Pauli operators commute.
-   
-   Pauli operators commute if they differ on an even number of positions
-   (where both are non-identity and different).
-   
-   Parameters:
-   - p1: First Pauli string
-   - p2: Second Pauli string
-   
-   Returns:
-   Boolean indicating if operators commute"
-  [p1 p2]
-  {:pre [(pauli-string? p1)
-         (pauli-string? p2)
-         (= (count p1) (count p2))]}
-  (let [diff-count (count (filter (fn [[c1 c2]]
-                                    (and (not= c1 \I)
-                                         (not= c2 \I)
-                                         (not= c1 c2)))
-                                  (map vector p1 p2)))]
-    (even? diff-count)))
 
 ;;;
 ;;; Stabilizer Code Definition
 ;;;
 (s/def ::num-physical-qubits pos-int?)
 (s/def ::num-logical-qubits pos-int?)
-(s/def ::stabilizer-generators (s/coll-of ::pauli-string :kind vector?))
+(s/def ::stabilizer-generators (s/coll-of ::obs/pauli-string :kind vector?))
 (s/def ::logical-operators (s/keys :req-un [::X ::Z]))
 (s/def ::distance pos-int?)
 
@@ -157,7 +104,7 @@
     (into {}
           (map (fn [error]
                  (let [syndrome (mapv (fn [gen]
-                                       (if (pauli-commute? error gen) 0 1))
+                                       (if (obs/pauli-commute? error gen) 0 1))
                                      generators)]
                    [syndrome error]))
                single-errors))))
@@ -588,16 +535,16 @@
 
 (comment
   ;; Test Pauli string operations
-  (pauli-string? "XYZII")
+  (obs/pauli-string? "XYZII")
   ;=> true
   
-  (pauli-weight "XYZII")
+  (obs/pauli-weight "XYZII")
   ;=> 3
   
-  (pauli-commute? "XII" "IXI")
+  (obs/pauli-commute? "XII" "IXI")
   ;=> true
   
-  (pauli-commute? "XII" "ZII")
+  (obs/pauli-commute? "XII" "ZII")
   ;=> false
 
   ;; Test stabilizer codes
@@ -1076,16 +1023,16 @@
   ;;
   
   ;; Test Pauli string operations
-  (pauli-string? "XYZII")
+  (obs/pauli-string? "XYZII")
   ;=> true
   
-  (pauli-weight "XYZII")
+  (obs/pauli-weight "XYZII")
   ;=> 3
   
-  (pauli-commute? "XII" "IXI")
+  (obs/pauli-commute? "XII" "IXI")
   ;=> true
   
-  (pauli-commute? "XII" "ZII")
+  (obs/pauli-commute? "XII" "ZII")
   ;=> false
 
   ;; Test stabilizer codes
@@ -1919,3 +1866,169 @@
         (circuit/cnot-gate q0 q3)
         (circuit/cnot-gate q0 q2)
         (circuit/cnot-gate q0 q1))))
+
+(comment
+  ;;
+  ;; Steane Code Tests (7-qubit CSS code)
+  ;;
+  
+  ;; Create circuit and encode
+  (def steane-circuit (circuit/create-circuit 7))
+  (def steane-encoded (encode-steane steane-circuit 0))
+  
+  (count (:operations steane-encoded))
+  ;=> 12 operations (CNOT gates implementing the generator matrix)
+  
+  ;; Test with ancilla for syndrome measurement
+  (def steane-with-ancilla (circuit/create-circuit 13))  ; 7 data + 6 ancilla
+  (def steane-prepared
+    (-> steane-with-ancilla
+        (circuit/h-gate 0)
+        (encode-steane 0)))
+  
+  (def steane-with-syndrome
+    (measure-steane-syndrome steane-prepared
+                             [0 1 2 3 4 5 6]
+                             [7 8 9 10 11 12]))
+  
+  (count (:operations steane-with-syndrome))
+  ;=> 44 operations (13 encoding + 31 syndrome measurement)
+  
+  ;; Test error correction
+  ;; X error on qubit 3: syndrome [1 0 0 1 0 0] → binary 100 = qubit 4 (index 3+1)
+  (def steane-corrected
+    (correct-steane-error steane-prepared
+                          [0 1 2 3 4 5 6]
+                          [1 0 0 1 0 0]))
+  
+  (def correction (last (:operations steane-corrected)))
+  (:operation-type correction)
+  ;=> :x or :z (depending on syndrome)
+  
+  ;; Test decoding
+  (def steane-decoded (decode-steane steane-prepared [0 1 2 3 4 5 6]))
+  (count (:operations steane-decoded))
+  ;=> 25 operations (13 encoding + 12 decoding)
+  
+  ;;
+  ;; Five-Qubit Code Tests (5-qubit perfect code)
+  ;;
+  
+  ;; Create circuit and encode
+  (def five-qubit-circuit (circuit/create-circuit 5))
+  (def five-qubit-encoded (encode-five-qubit five-qubit-circuit 0))
+  
+  (count (:operations five-qubit-encoded))
+  ;=> 12 operations (4 CNOTs + 4 Hs + 4 CNOTs)
+  
+  (mapv :operation-type (:operations five-qubit-encoded))
+  ;=> [:cnot :cnot :cnot :cnot :h :h :h :h :cnot :cnot :cnot :cnot]
+  
+  ;; Test with ancilla for syndrome measurement
+  (def five-qubit-with-ancilla (circuit/create-circuit 9))  ; 5 data + 4 ancilla
+  (def five-qubit-prepared
+    (-> five-qubit-with-ancilla
+        (circuit/h-gate 0)
+        (encode-five-qubit 0)))
+  
+  (def five-qubit-with-syndrome
+    (measure-five-qubit-syndrome five-qubit-prepared
+                                 [0 1 2 3 4]
+                                 [5 6 7 8]))
+  
+  (count (:operations five-qubit-with-syndrome))
+  ;=> 38 operations (13 encoding + 25 syndrome measurement)
+  
+  ;; Test decoding
+  (def five-qubit-decoded (decode-five-qubit five-qubit-prepared [0 1 2 3 4]))
+  (count (:operations five-qubit-decoded))
+  ;=> 25 operations (13 encoding + 12 decoding)
+  
+  ;;
+  ;; Integration with Optimization Pipeline
+  ;;
+  
+  (require '[org.soulspace.qclojure.application.hardware-optimization :as hw])
+  
+  (def test-circuit
+    (-> (circuit/create-circuit 2)
+        (circuit/h-gate 0)
+        (circuit/cnot-gate 0 1)))
+  
+  ;; Test Steane code in pipeline
+  (def steane-optimized
+    (hw/optimize
+     {:circuit test-circuit
+      :options {:apply-error-correction? true
+                :error-correction-code :steane}}))
+  
+  {:code-name (get-in steane-optimized [:error-correction-code :name])
+   :physical-qubits (get-in steane-optimized [:circuit :num-qubits])
+   :logical-to-physical (:logical-to-physical steane-optimized)}
+  ;=> {:code-name "Steane code", :physical-qubits 26, 
+  ;    :logical-to-physical {0 [0 1 2 3 4 5 6], 1 [7 8 9 10 11 12 13]}}
+  
+  ;; Test Five-qubit code in pipeline
+  (def five-qubit-optimized
+    (hw/optimize
+     {:circuit test-circuit
+      :options {:apply-error-correction? true
+                :error-correction-code :five-qubit}}))
+  
+  {:code-name (get-in five-qubit-optimized [:error-correction-code :name])
+   :physical-qubits (get-in five-qubit-optimized [:circuit :num-qubits])
+   :logical-to-physical (:logical-to-physical five-qubit-optimized)}
+  ;=> {:code-name "Five-qubit code", :physical-qubits 18,
+  ;    :logical-to-physical {0 [0 1 2 3 4], 1 [5 6 7 8 9]}}
+  
+  ;;
+  ;; Comparison of All Error Correction Codes
+  ;;
+  
+  (defn compare-ec-codes []
+    (let [codes [:bit-flip :steane :five-qubit :shor]
+          results (map (fn [code-key]
+                        (let [ctx {:circuit test-circuit
+                                   :options {:apply-error-correction? true}
+                                            :error-correction-code code-key}
+                              result (apply-error-correction ctx)]
+                          {:code code-key
+                           :name (get-in result [:error-correction-code :name])
+                           :distance (get-in result [:error-correction-code :distance])
+                           :physical-per-logical (get-in result [:error-correction-code :num-physical-qubits])
+                           :ancillas (if-let [a (get (:logical-to-ancillas result) 0)]
+                                      (count a)
+                                      0)
+                           :total-qubits (get-in result [:circuit :num-qubits])}))
+                      codes)]
+      (doseq [r results]
+        (println (format "%-20s | Dist: %d | Phys: %d | Ancillas: %d | Total: %2d"
+                        (:name r) (:distance r) (:physical-per-logical r)
+                        (:ancillas r) (:total-qubits r))))
+      results))
+  
+  (compare-ec-codes)
+  ;=> Bit-flip code        | Dist: 3 | Phys: 3 | Ancillas: 2 | Total: 10
+  ;   Steane code          | Dist: 3 | Phys: 7 | Ancillas: 6 | Total: 26
+  ;   Five-qubit code      | Dist: 3 | Phys: 5 | Ancillas: 4 | Total: 18
+  ;   Shor code            | Dist: 3 | Phys: 9 | Ancillas: 8 | Total: 34
+  
+  ;;
+  ;; Efficiency Analysis
+  ;;
+  
+  (defn ec-efficiency []
+    {:most-efficient-per-qubit :five-qubit  ; Only 5 physical qubits per logical
+     :most-efficient-7-qubit :steane         ; Best 7-qubit code
+     :most-robust :shor                      ; Can handle any error type
+     :simplest :bit-flip                     ; Easiest to implement
+     
+     :recommendation-by-use-case
+     {:minimal-overhead :five-qubit
+      :balanced-efficiency :steane
+      :maximum-protection :shor
+      :simple-bit-errors :bit-flip}})
+  
+  (ec-efficiency))
+  
+  ;;

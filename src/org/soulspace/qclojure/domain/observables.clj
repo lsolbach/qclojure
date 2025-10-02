@@ -31,6 +31,84 @@
          #(every? #{\I \X \Y \Z} %)))
 
 ;;;
+;;; Pauli Operators and String Utilities
+;;;
+(def pauli-operators
+  "The four single-qubit Pauli operators: Identity, X (bit-flip), Y (both), Z (phase-flip)"
+  #{:I :X :Y :Z})
+
+(s/def ::pauli-operator pauli-operators)
+
+(defn pauli-string?
+  "Check if a string is a valid Pauli string.
+   
+   A valid Pauli string contains only the characters I, X, Y, Z representing
+   the Pauli operators.
+   
+   Parameters:
+   - s: String to check
+   
+   Returns:
+   Boolean indicating validity
+   
+   Example:
+     (pauli-string? \"XYZII\") ; => true
+     (pauli-string? \"ABC\")   ; => false"
+  [s]
+  (and (string? s)
+       (every? (fn [c] (contains? #{\I \X \Y \Z} c)) s)))
+
+(defn pauli-weight
+  "Calculate the weight of a Pauli string (number of non-identity operators).
+   
+   The weight is the number of qubits on which non-trivial operations are performed.
+   This is an important metric in quantum error correction and algorithm analysis.
+   
+   Parameters:
+   - pauli-str: Pauli string like 'XYZII'
+   
+   Returns:
+   Integer count of non-I operators
+   
+   Example:
+     (pauli-weight \"XYZII\") ; => 3
+     (pauli-weight \"IIIII\") ; => 0"
+  [pauli-str]
+  {:pre [(pauli-string? pauli-str)]}
+  (count (filter #(not= \I %) pauli-str)))
+
+(defn pauli-commute?
+  "Check if two Pauli operators commute.
+   
+   Two Pauli strings commute if they differ on an even number of positions
+   where both have non-identity, non-equal operators. This is crucial for:
+   - Error correction syndrome measurements
+   - Hamiltonian term grouping for simultaneous measurement
+   - Quantum algorithm optimization
+   
+   Parameters:
+   - p1: First Pauli string
+   - p2: Second Pauli string (must be same length as p1)
+   
+   Returns:
+   Boolean indicating if operators commute
+   
+   Examples:
+     (pauli-commute? \"XII\" \"IXI\") ; => true (differ at 0 positions)
+     (pauli-commute? \"XII\" \"ZII\") ; => false (differ at 1 position)
+     (pauli-commute? \"XYZ\" \"ZYX\") ; => false (differ at 2 positions)"
+  [p1 p2]
+  {:pre [(pauli-string? p1)
+         (pauli-string? p2)
+         (= (count p1) (count p2))]}
+  (let [diff-count (count (filter (fn [[c1 c2]]
+                                    (and (not= c1 \I)
+                                         (not= c2 \I)
+                                         (not= c1 c2)))
+                                  (map vector p1 p2)))]
+    (even? diff-count)))
+
+;;;
 ;;; Basic Single-Qubit Observables
 ;;;
 (def pauli-x

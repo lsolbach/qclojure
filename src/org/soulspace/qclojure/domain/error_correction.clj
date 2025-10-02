@@ -305,8 +305,9 @@
 ;;;
 ;;; Forward declarations for encoding and syndrome measurement functions
 ;;;
-(declare encode-bit-flip encode-shor)
-(declare measure-bit-flip-syndrome measure-shor-syndrome)
+(declare encode-bit-flip encode-shor encode-steane encode-five-qubit)
+(declare measure-bit-flip-syndrome measure-shor-syndrome 
+         measure-steane-syndrome measure-five-qubit-syndrome)
 
 ;;;
 ;;; Error Correction Application
@@ -324,7 +325,9 @@
   (case code-key
     :bit-flip encode-bit-flip
     :shor encode-shor
-    ;; For other codes, we'd add their encoding functions here
+    :steane encode-steane
+    :five-qubit encode-five-qubit
+    ;; Phase-flip code: bit-flip in Hadamard basis
     :phase-flip (fn [circuit q] 
                   (-> circuit
                       (circuit/h-gate q)
@@ -450,6 +453,12 @@
                                            bit-flip-ancillas
                                            phase-flip-ancillas))
                   
+                  :steane
+                  (measure-steane-syndrome circ physical-qubits ancilla-qubits)
+                  
+                  :five-qubit
+                  (measure-five-qubit-syndrome circ physical-qubits ancilla-qubits)
+                  
                   ;; Unknown code - should not happen due to validation earlier
                   (throw (ex-info "Unsupported error correction code for syndrome measurement"
                                   {:code-key code-key
@@ -509,8 +518,10 @@
           include-syndrome? (get-in ctx [:options :include-syndrome-measurement?] true)
           ancillas-per-logical (if include-syndrome?
                                  (case code-key
-                                   :bit-flip 2    ; 2 ancillas for bit-flip syndrome
-                                   :shor 8        ; 8 ancillas for Shor syndrome (6 bit-flip + 2 phase-flip)
+                                   :bit-flip 2      ; 2 ancillas for bit-flip syndrome
+                                   :shor 8          ; 8 ancillas for Shor syndrome (6 bit-flip + 2 phase-flip)
+                                   :steane 6        ; 6 ancillas for Steane syndrome (3 X-type + 3 Z-type)
+                                   :five-qubit 4    ; 4 ancillas for 5-qubit code syndrome
                                    0)
                                  0)
           num-ancilla-qubits (* num-logical-qubits ancillas-per-logical)
@@ -1516,3 +1527,395 @@
      :error-rate error-rate
      :num-logical-qubits num-logical-qubits
      :num-errors num-errors}))
+
+;;;
+;;; Steane Code Implementation (7-qubit CSS code)
+;;;
+(defn encode-steane
+  "Encode a logical qubit into the 7-qubit Steane code.
+   
+   The Steane code is a CSS code derived from the classical [7,4] Hamming code.
+   It can correct any single-qubit error using only 7 physical qubits.
+   
+   The encoding circuit implements the generator matrix of the [7,4,3] Hamming code:
+   - Starts with logical qubit in position 0
+   - Applies CNOT gates according to the parity-check matrix structure
+   - Creates an encoded state that spans the stabilizer code space
+   
+   Encoding circuit structure:
+   1. Apply CNOTs from qubit 0 to create X-type stabilizers
+   2. Apply Hadamards to transform to Z-type stabilizers (CSS structure)
+   3. Final CNOTs complete the encoding
+   
+   Parameters:
+   - circuit: Quantum circuit
+   - logical-qubit: Index of the first qubit (will use qubits logical-qubit to logical-qubit+6)
+   
+   Returns:
+   Updated circuit with Steane encoding operations"
+  [circuit logical-qubit]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (>= logical-qubit 0)
+         (< (+ logical-qubit 6) (:num-qubits circuit))]}
+  (let [q0 logical-qubit
+        q1 (+ logical-qubit 1)
+        q2 (+ logical-qubit 2)
+        q3 (+ logical-qubit 3)
+        q4 (+ logical-qubit 4)
+        q5 (+ logical-qubit 5)
+        q6 (+ logical-qubit 6)]
+    (-> circuit
+        ;; First layer: Create X-type stabilizers
+        ;; These CNOTs implement the generator matrix columns
+        (circuit/cnot-gate q0 q1)
+        (circuit/cnot-gate q0 q2)
+        (circuit/cnot-gate q0 q3)
+        
+        ;; Second layer: Complete X-stabilizer structure
+        (circuit/cnot-gate q1 q4)
+        (circuit/cnot-gate q2 q4)
+        (circuit/cnot-gate q3 q4)
+        
+        ;; Third layer: Build Y-stabilizer components
+        (circuit/cnot-gate q1 q5)
+        (circuit/cnot-gate q2 q5)
+        (circuit/cnot-gate q0 q5)
+        
+        ;; Fourth layer: Complete encoding
+        (circuit/cnot-gate q1 q6)
+        (circuit/cnot-gate q3 q6)
+        (circuit/cnot-gate q0 q6))))
+
+(defn measure-steane-syndrome
+  "Measure the syndrome for the 7-qubit Steane code.
+   
+   The Steane code has 6 stabilizer generators (3 X-type, 3 Z-type),
+   requiring 6 ancilla qubits for syndrome measurement.
+   
+   The syndrome measurements check:
+   - 3 X-type stabilizers: IIIXXXX, IXXIIXX, XIXIXIX
+   - 3 Z-type stabilizers: IIIZZZZ, IZZIIZZ, ZIZIZIZ
+   
+   Parameters:
+   - circuit: Quantum circuit with encoded qubits
+   - encoded-qubits: Vector of 7 qubit indices for the encoded logical qubit
+   - ancilla-qubits: Vector of 6 ancilla qubit indices (3 for X, 3 for Z)
+   
+   Returns:
+   Updated circuit with syndrome measurement operations"
+  [circuit encoded-qubits ancilla-qubits]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 7 (count encoded-qubits))
+         (= 6 (count ancilla-qubits))]}
+  (let [[q0 q1 q2 q3 q4 q5 q6] encoded-qubits
+        [a0 a1 a2 a3 a4 a5] ancilla-qubits]
+    (-> circuit
+        ;; Measure X-type stabilizers (using Hadamard conjugation)
+        ;; Stabilizer 1: IIIXXXX (qubits 3, 4, 5, 6)
+        (circuit/h-gate a0)
+        (circuit/cnot-gate a0 q3)
+        (circuit/cnot-gate a0 q4)
+        (circuit/cnot-gate a0 q5)
+        (circuit/cnot-gate a0 q6)
+        (circuit/h-gate a0)
+        
+        ;; Stabilizer 2: IXXIIXX (qubits 1, 2, 5, 6)
+        (circuit/h-gate a1)
+        (circuit/cnot-gate a1 q1)
+        (circuit/cnot-gate a1 q2)
+        (circuit/cnot-gate a1 q5)
+        (circuit/cnot-gate a1 q6)
+        (circuit/h-gate a1)
+        
+        ;; Stabilizer 3: XIXIXIX (qubits 0, 2, 4, 6)
+        (circuit/h-gate a2)
+        (circuit/cnot-gate a2 q0)
+        (circuit/cnot-gate a2 q2)
+        (circuit/cnot-gate a2 q4)
+        (circuit/cnot-gate a2 q6)
+        (circuit/h-gate a2)
+        
+        ;; Measure Z-type stabilizers (direct CNOT)
+        ;; Stabilizer 4: IIIZZZZ (qubits 3, 4, 5, 6)
+        (circuit/cnot-gate q3 a3)
+        (circuit/cnot-gate q4 a3)
+        (circuit/cnot-gate q5 a3)
+        (circuit/cnot-gate q6 a3)
+        
+        ;; Stabilizer 5: IZZIIZZ (qubits 1, 2, 5, 6)
+        (circuit/cnot-gate q1 a4)
+        (circuit/cnot-gate q2 a4)
+        (circuit/cnot-gate q5 a4)
+        (circuit/cnot-gate q6 a4)
+        
+        ;; Stabilizer 6: ZIZIZIZ (qubits 0, 2, 4, 6)
+        (circuit/cnot-gate q0 a5)
+        (circuit/cnot-gate q2 a5)
+        (circuit/cnot-gate q4 a5)
+        (circuit/cnot-gate q6 a5)
+        
+        ;; Measure all ancilla qubits
+        (circuit/measure-operation ancilla-qubits))))
+
+(defn correct-steane-error
+  "Apply correction based on Steane code syndrome.
+   
+   The syndrome is a 6-bit vector [x0 x1 x2 z0 z1 z2] where:
+   - [x0 x1 x2] identifies X errors (bit-flips)
+   - [z0 z1 z2] identifies Z errors (phase-flips)
+   
+   The syndrome bits form a binary number indicating which qubit has an error:
+   - For X errors: bits [x2 x1 x0] give the qubit index (1-7)
+   - For Z errors: bits [z2 z1 z0] give the qubit index (1-7)
+   - Syndrome 0 means no error
+   
+   Parameters:
+   - circuit: Quantum circuit
+   - encoded-qubits: Vector of 7 qubit indices containing the encoded logical qubit
+   - syndrome: Vector of 6 measurement outcomes [x0 x1 x2 z0 z1 z2]
+   
+   Returns:
+   Updated circuit with correction applied"
+  [circuit encoded-qubits syndrome]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 7 (count encoded-qubits))
+         (= 6 (count syndrome))]}
+  (let [[x0 x1 x2 z0 z1 z2] syndrome
+        ;; Convert syndrome bits to qubit indices (syndrome table decoding)
+        x-syndrome-value (+ (* x2 4) (* x1 2) x0)
+        z-syndrome-value (+ (* z2 4) (* z1 2) z0)
+        
+        ;; Steane code syndrome table (index 0 = no error, 1-7 = qubit positions)
+        x-error-qubit (when (pos? x-syndrome-value)
+                        (dec x-syndrome-value))
+        z-error-qubit (when (pos? z-syndrome-value)
+                        (dec z-syndrome-value))]
+    (cond-> circuit
+      ;; Apply X correction if X error detected
+      x-error-qubit
+      (circuit/x-gate (nth encoded-qubits x-error-qubit))
+      
+      ;; Apply Z correction if Z error detected
+      z-error-qubit
+      (circuit/z-gate (nth encoded-qubits z-error-qubit)))))
+
+(defn decode-steane
+  "Decode a 7-qubit Steane code back to a logical qubit.
+   
+   The decoding circuit is the inverse of the encoding circuit,
+   applying the same gates in reverse order.
+   
+   Parameters:
+   - circuit: Quantum circuit with encoded qubits
+   - encoded-qubits: Vector of 7 qubit indices [q0 q1 q2 q3 q4 q5 q6]
+   
+   Returns:
+   Updated circuit with decoding operations, logical qubit is in q0"
+  [circuit encoded-qubits]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 7 (count encoded-qubits))]}
+  (let [[q0 q1 q2 q3 q4 q5 q6] encoded-qubits]
+    (-> circuit
+        ;; Reverse of fourth layer
+        (circuit/cnot-gate q0 q6)
+        (circuit/cnot-gate q3 q6)
+        (circuit/cnot-gate q1 q6)
+        
+        ;; Reverse of third layer
+        (circuit/cnot-gate q0 q5)
+        (circuit/cnot-gate q2 q5)
+        (circuit/cnot-gate q1 q5)
+        
+        ;; Reverse of second layer
+        (circuit/cnot-gate q3 q4)
+        (circuit/cnot-gate q2 q4)
+        (circuit/cnot-gate q1 q4)
+        
+        ;; Reverse of first layer
+        (circuit/cnot-gate q0 q3)
+        (circuit/cnot-gate q0 q2)
+        (circuit/cnot-gate q0 q1))))
+
+;;;
+;;; Five-Qubit Code Implementation (5-qubit perfect code)
+;;;
+(defn encode-five-qubit
+  "Encode a logical qubit into the 5-qubit perfect code.
+   
+   The 5-qubit code is the smallest quantum error-correcting code that can
+   protect against arbitrary single-qubit errors. It encodes 1 logical qubit
+   into 5 physical qubits with distance 3.
+   
+   The encoding circuit uses a specific sequence of CNOT and Hadamard gates
+   that creates the stabilizer code space spanned by the four stabilizer generators:
+   - XZZXI
+   - IXZZX
+   - XIXZZ
+   - ZXIXZ
+   
+   Parameters:
+   - circuit: Quantum circuit
+   - logical-qubit: Index of the first qubit (will use qubits logical-qubit to logical-qubit+4)
+   
+   Returns:
+   Updated circuit with 5-qubit code encoding operations"
+  [circuit logical-qubit]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (>= logical-qubit 0)
+         (< (+ logical-qubit 4) (:num-qubits circuit))]}
+  (let [q0 logical-qubit
+        q1 (+ logical-qubit 1)
+        q2 (+ logical-qubit 2)
+        q3 (+ logical-qubit 3)
+        q4 (+ logical-qubit 4)]
+    (-> circuit
+        ;; First layer: Create entanglement structure
+        (circuit/cnot-gate q0 q1)
+        (circuit/cnot-gate q0 q2)
+        (circuit/cnot-gate q0 q3)
+        (circuit/cnot-gate q0 q4)
+        
+        ;; Second layer: Apply Hadamards to create superpositions
+        (circuit/h-gate q1)
+        (circuit/h-gate q2)
+        (circuit/h-gate q3)
+        (circuit/h-gate q4)
+        
+        ;; Third layer: Create stabilizer structure with cyclic CNOTs
+        (circuit/cnot-gate q1 q2)
+        (circuit/cnot-gate q2 q3)
+        (circuit/cnot-gate q3 q4)
+        (circuit/cnot-gate q4 q1))))
+
+(defn measure-five-qubit-syndrome
+  "Measure the syndrome for the 5-qubit perfect code.
+   
+   The 5-qubit code has 4 stabilizer generators, requiring 4 ancilla qubits
+   for syndrome measurement:
+   - XZZXI
+   - IXZZX
+   - XIXZZ
+   - ZXIXZ
+   
+   Parameters:
+   - circuit: Quantum circuit with encoded qubits
+   - encoded-qubits: Vector of 5 qubit indices for the encoded logical qubit
+   - ancilla-qubits: Vector of 4 ancilla qubit indices
+   
+   Returns:
+   Updated circuit with syndrome measurement operations"
+  [circuit encoded-qubits ancilla-qubits]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 5 (count encoded-qubits))
+         (= 4 (count ancilla-qubits))]}
+  (let [[q0 q1 q2 q3 q4] encoded-qubits
+        [a0 a1 a2 a3] ancilla-qubits]
+    (-> circuit
+        ;; Stabilizer 1: XZZXI (X on q0, Z on q1, Z on q2, X on q3, I on q4)
+        (circuit/h-gate a0)
+        (circuit/cnot-gate a0 q0)
+        (circuit/cnot-gate q1 a0)
+        (circuit/cnot-gate q2 a0)
+        (circuit/cnot-gate a0 q3)
+        (circuit/h-gate a0)
+        
+        ;; Stabilizer 2: IXZZX (I on q0, X on q1, Z on q2, Z on q3, X on q4)
+        (circuit/h-gate a1)
+        (circuit/cnot-gate a1 q1)
+        (circuit/cnot-gate q2 a1)
+        (circuit/cnot-gate q3 a1)
+        (circuit/cnot-gate a1 q4)
+        (circuit/h-gate a1)
+        
+        ;; Stabilizer 3: XIXZZ (X on q0, I on q1, X on q2, Z on q3, Z on q4)
+        (circuit/h-gate a2)
+        (circuit/cnot-gate a2 q0)
+        (circuit/cnot-gate a2 q2)
+        (circuit/cnot-gate q3 a2)
+        (circuit/cnot-gate q4 a2)
+        (circuit/h-gate a2)
+        
+        ;; Stabilizer 4: ZXIXZ (Z on q0, X on q1, I on q2, X on q3, Z on q4)
+        (circuit/h-gate a3)
+        (circuit/cnot-gate q0 a3)
+        (circuit/cnot-gate a3 q1)
+        (circuit/cnot-gate a3 q3)
+        (circuit/cnot-gate q4 a3)
+        (circuit/h-gate a3)
+        
+        ;; Measure all ancilla qubits
+        (circuit/measure-operation ancilla-qubits))))
+
+(defn correct-five-qubit-error
+  "Apply correction based on 5-qubit code syndrome.
+   
+   The syndrome is a 4-bit vector that identifies which qubit (if any) has an error
+   and what type of error occurred (X, Y, or Z).
+   
+   The 5-qubit code has a syndrome lookup table mapping 4-bit syndromes to
+   specific error patterns. This function uses that table to determine and
+   apply the appropriate correction.
+   
+   Parameters:
+   - circuit: Quantum circuit
+   - encoded-qubits: Vector of 5 qubit indices containing the encoded logical qubit
+   - syndrome: Vector of 4 measurement outcomes
+   - syndrome-table: Optional lookup table mapping syndromes to corrections
+   
+   Returns:
+   Updated circuit with correction applied"
+  [circuit encoded-qubits syndrome & {:keys [syndrome-table]}]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 5 (count encoded-qubits))
+         (= 4 (count syndrome))]}
+  (if (every? zero? syndrome)
+    ;; No error detected
+    circuit
+    ;; Use syndrome table to determine correction
+    (if-let [error-info (get syndrome-table syndrome)]
+      (let [{:keys [qubit-index error-type]} error-info
+            target-qubit (nth encoded-qubits qubit-index)]
+        (case error-type
+          :x (circuit/x-gate circuit target-qubit)
+          :y (circuit/y-gate circuit target-qubit)
+          :z (circuit/z-gate circuit target-qubit)
+          circuit))
+      ;; Unknown syndrome - might be a multi-qubit error
+      (throw (ex-info "Unknown syndrome for 5-qubit code"
+                      {:syndrome syndrome
+                       :encoded-qubits encoded-qubits})))))
+
+(defn decode-five-qubit
+  "Decode a 5-qubit perfect code back to a logical qubit.
+   
+   The decoding circuit is the inverse of the encoding circuit,
+   applying the same gates in reverse order.
+   
+   Parameters:
+   - circuit: Quantum circuit with encoded qubits
+   - encoded-qubits: Vector of 5 qubit indices [q0 q1 q2 q3 q4]
+   
+   Returns:
+   Updated circuit with decoding operations, logical qubit is in q0"
+  [circuit encoded-qubits]
+  {:pre [(s/valid? ::circuit/circuit circuit)
+         (= 5 (count encoded-qubits))]}
+  (let [[q0 q1 q2 q3 q4] encoded-qubits]
+    (-> circuit
+        ;; Reverse of third layer (cyclic CNOTs in reverse)
+        (circuit/cnot-gate q4 q1)
+        (circuit/cnot-gate q3 q4)
+        (circuit/cnot-gate q2 q3)
+        (circuit/cnot-gate q1 q2)
+        
+        ;; Reverse of second layer (Hadamards are self-inverse)
+        (circuit/h-gate q4)
+        (circuit/h-gate q3)
+        (circuit/h-gate q2)
+        (circuit/h-gate q1)
+        
+        ;; Reverse of first layer
+        (circuit/cnot-gate q0 q4)
+        (circuit/cnot-gate q0 q3)
+        (circuit/cnot-gate q0 q2)
+        (circuit/cnot-gate q0 q1))))

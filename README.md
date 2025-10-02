@@ -35,6 +35,11 @@ QClojure provides the core features for quantum computing.
 
    Local ideal/hardware simulators with job submission, status tracking, configurable result extraction, shot counts and realistic native gates, topologies and noise profiles. Pluggable complex linear algebra backends for the simulators
 
+1. **Error Correction**
+   
+   Stabilizer framework with error correction codes like bit-flip, 5-qubit,
+   Steane and Shor. Syndrome detection and classical error correction
+
 1. **Error Mitigation**
    
    Different strategies like readout error mitigation, ZNE, symmetry verification and virtual distillation, support for autoselection based on circuit and noise profile properties

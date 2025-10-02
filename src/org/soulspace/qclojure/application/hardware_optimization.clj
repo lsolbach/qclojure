@@ -48,7 +48,8 @@
     3. Error correction (optional, encodes ALL logical qubits with QEC codes, expanding circuit)
     4. Topology optimization (with decomposition-aware routing)  
     5. Final gate decomposition (handle any remaining virtual gates)
-    6. Validation and cleanup
+    6. Create reverse mappings for result extraction
+    7. Validation and cleanup
     
     Parameters:
     - circuit: Quantum circuit to optimize

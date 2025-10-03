@@ -946,6 +946,26 @@ forte-10k-result
 ;; without changing the overall functionality of the circuit. The simplest case
 ;; is to eliminate qubits that are not used in the circuit.
 ;;
+;; ### Error Correction
+;; Error correction is a technique used to protect quantum information from
+;; errors due to noise and decoherence. It is based on the idea of encoding
+;; quantum information in a way that allows errors to be detected and corrected.
+;; Error correction can be applied to quantum circuits to improve their
+;; performance and to reduce the effects of noise. The encoded circuit will
+;; use more physical qubits to form logical qubits, so it is not always an
+;; option on current QPUs with limited qubit counts.
+;; QClojure has a stabilizer framework with these error correction codes implemented:
+;;
+;; * Bit Flip Code - a simple error correction code that can correct a single
+;;   bit flip error.
+;; * Phase Flip Code - a simple error correction code that can correct a single
+;;   phase flip error.
+;; * Shor Code - a more complex error correction code that can correct both
+;;   bit flip and phase flip errors.
+;; * Steane Code - a more complex error correction code that can correct both
+;;   bit flip and phase flip errors.
+;; * 5-Qubit Code - the smallest code that can correct an arbitrary single-qubit error.
+;;
 ;; ### Topology Optimization
 ;; Topology optimization is a technique used to transform a quantum circuit
 ;; to run on specific quantum hardware. Quantum hardware has a limited topology
@@ -1081,7 +1101,70 @@ forte-10k-result
 
 (hwopt/optimization-statistics opt-test-circuit2 opt-circuit2)
 
+;; ## Advanced Quantum Topics
+;; ### Observables
+;; Observables are used to measure specific properties of a quantum state.
+;; They are represented as Hermitian operators, which have real eigenvalues
+;; and orthogonal eigenvectors. Observables can be used to measure various
+;; properties of a quantum state, such as the energy, spin, or position of
+;; a particle.
+;; In QClojure, observables can be represented using Pauli strings and
+;; Hamiltonians, which are described in the next section.
 ;;
+;; ### Pauli Strings and Hamiltonians
+;; Pauli strings and Hamiltonians are used to represent quantum operators
+;; in a compact and efficient way. They are used in various quantum algorithms,
+;; e.g. the Variational Quantum Eigensolver (VQE) and the Quantum Approximate
+;; Optimization (QAOA) algorithm.
+;;
+;; A Pauli string is a product of Pauli operators (I, X, Y, Z) applied to
+;; different qubits. For example, the Pauli string "XIZY" represents the
+;; operator X on qubit 0, I on qubit 1, Z on qubit 2, and Y on qubit 3.
+;; A Hamiltonian is a sum of Pauli strings with associated coefficients.
+;; For example, the Hamiltonian H = 0.5 * XIZY + 1.0 * ZIXX represents
+;; the operator 0.5 * X on qubit 0, I on qubit 1, Z on qubit 2, Y on qubit 3
+;; plus 1.0 * Z on qubit 0, I on qubit 1, X on qubit 2, X on qubit 3.
+
+(require '[org.soulspace.qclojure.domain.observables :as obs])
+
+(obs/pauli-string->observable "XIZY")
+
+;; ## Result Extraction
+;; Result extraction is the process of extracting useful information from
+;; the results of a quantum computation. It is used to interpret the results
+;; of a quantum computation and to extract specific properties of the quantum
+;; state.
+;; Result extraction can be applied to the results of a quantum computation
+;; to extract specific properties of the quantum state, such as the expectation
+;; value of an observable or the probability distribution of a measurement.
+;; QClojure provides a set of result extraction techniques that can be used
+;; to extract useful information from the results of a quantum computation.
+;; 
+;; These techniques include:
+;;
+;; * Measurement results (sample outcomes and probabilities)
+;; * Expectation values for observables
+;; * Variance values for observables
+;; * Hamiltonian energy measurements
+;; * Probability distributions for specific basis states
+;; * Amplitude extraction for basis states
+;; * Complete state vector (simulation only)
+;; * Density matrix representation (simulation only)
+;; * Fidelity measurements against reference states
+;; * Sample results for observables (hardware measurement simulation)
+;;
+;; The different result types can be specified in the options map
+;; when executing a quantum circuit on a backend, e.g.
+
+^{:kindly/hide-code true}
+{:result-specs {:measurements {:shots 100}
+                :expectation {:observables [obs/pauli-z] :targets [0]}
+                :variance {:observables [obs/pauli-z] :targets [0]}
+                :probabilities {:targets [[0 0] [1 1]]}
+                :amplitudes {:basis-states [0 3]}  ; |00⟩ and |11⟩
+                :state-vector true
+                :density-matrix true}}
+
 ;; ## Error Mitigation
 ;; Error mitigation is a collection of techniques used to reduce the effects
 ;; of noise in quantum computations. It is not a full error correction, but it
@@ -1117,30 +1200,6 @@ forte-10k-result
 ;; by running multiple copies of quantum circuits and applying sophisticated
 ;; post-processing to extract high-fidelity results through probabilistic error
 ;; cancellation.
-;;
-;; ## Advanced Quantum Topics
-;; ### Observables
-;; Observables are used to measure specific properties of a quantum state.
-;; They are represented as Hermitian operators, which have real eigenvalues
-;; and orthogonal eigenvectors. Observables can be used to measure various
-;; properties of a quantum state, such as the energy, spin, or position of
-;; a particle.
-;; In QClojure, observables can be represented using Pauli strings and
-;; Hamiltonians, which are described in the next section.
-;;
-;; ### Pauli Strings and Hamiltonians
-;; Pauli strings and Hamiltonians are used to represent quantum operators
-;; in a compact and efficient way. They are used in various quantum algorithms,
-;; e.g. the Variational Quantum Eigensolver (VQE) and the Quantum Approximate
-;; Optimization (QAOA) algorithm.
-;;
-;; A Pauli string is a product of Pauli operators (I, X, Y, Z) applied to
-;; different qubits. For example, the Pauli string "XIZY" represents the
-;; operator X on qubit 0, I on qubit 1, Z on qubit 2, and Y on qubit 3.
-;; A Hamiltonian is a sum of Pauli strings with associated coefficients.
-;; For example, the Hamiltonian H = 0.5 * XIZY + 1.0 * ZIXX represents
-;; the operator 0.5 * X on qubit 0, I on qubit 1, Z on qubit 2, Y on qubit 3
-;; plus 1.0 * Z on qubit 0, I on qubit 1, X on qubit 2, X on qubit 3.
 ;;
 ;; ## Algorithms
 ;; QClojure comes with a set of predefined quantum algorithms that can be used

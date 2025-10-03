@@ -59,10 +59,10 @@
 ;; * context window is limited
 ;;   * dreaded "summarizing conversation history"
 ;;   * got better over time
+;; * the model does not learn
 ;; * quality of responses is inconsistent
 ;; * following instructions is inconsistent
 ;;   * using the command line instead of the REPL
-;; * the model does not learn
 ;;
 ;; # Summary
 ;; * Without AI assistence, I would not have started this project

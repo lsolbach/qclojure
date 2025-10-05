@@ -4,6 +4,25 @@
    [scicloj.kindly.v4.kind :as kind]
    [org.soulspace.qclojure.application.visualization :as viz]))
 
+;; ## About me
+;; * Ludger Solbach
+;; * Software Architect
+;; * 30+ years experience in different industries
+;; * Clojure enthusiast
+;; 
+;; ## What to expect
+;; * Introduction to QClojure
+;; * Overview of features and capabilities
+;; * Getting started with installation and documentation
+;; * Examples of quantum states, gates, circuits, and backends
+;; * Overview of implemented quantum/hybrid algorithms
+;; * Future plans and missing pieces in the Clojure ecosystem
+;; 
+;; ## What not to expect
+;; * In-depth explanations of quantum computing concepts
+;; * Detailed tutorials on using QClojure
+;; * Comprehensive coverage of all features and capabilities
+;;
 ;; ## QClojure Features
 ;;
 ;; * Pure Functional Quantum Circuit Construction

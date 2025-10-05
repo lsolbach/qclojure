@@ -3,21 +3,22 @@
 ## Next steps
 * check for result handling based on final states
   * replace with hardware compatible result processing
-* integrate optional error mitigation in the hardware simulator workflow (template for hardware backends)
+* integrate optional error mitigation in the hardware simulator workflow (as template for hardware backends)
 * integrate unified result types in all algorithms
   * missing in QFT/iQFT and QPE
   * check Shor
 * enhance single qubit gate functions to take a qubit vector and add the gate for all qubits
 * new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all) 
+* unify qubit mapping across optimization stages (partially done)
 * check for inconsistant usage of "operation"/"gate"
   * a gate is an operation, so is a measurement
-* unify qubit mapping across optimization stages
 
 ## Backlog
 * consistently handle backend errors in all algorithms
   * maybe add :timeout and :retry to backend options
 * fix and optimize quantum arithmetic
 * optimize shor's algorithm implementation and quantum period finding
+* check memoization of circuit building (e.g. for variational algorithms)
 * integrate gate and qubit optimization into ideal simulator workflow
 * enhance circuit optimizations
   * check topology mapping before inserting SWAP gates

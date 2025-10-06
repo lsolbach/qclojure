@@ -5,12 +5,14 @@
    [org.soulspace.qclojure.application.visualization :as viz]))
 
 ;; ## About me
+;;
 ;; * Ludger Solbach
-;; * Software Architect
+;; * Software Architect at 'msg for automotive'
 ;; * 30+ years experience in different industries
 ;; * Clojure enthusiast
 ;; 
 ;; ## What to expect
+;;
 ;; * Introduction to QClojure
 ;; * Overview of features and capabilities
 ;; * Getting started with installation and documentation
@@ -19,25 +21,44 @@
 ;; * Future plans and missing pieces in the Clojure ecosystem
 ;; 
 ;; ## What not to expect
+;;
 ;; * In-depth explanations of quantum computing concepts
 ;; * Detailed tutorials on using QClojure
 ;; * Comprehensive coverage of all features and capabilities
 ;;
+;; ## What is Quantum Computing
+;;
+;; * Paradigm of computation based on quantum mechanics
+;; * Uses quantum bits (qubits), superposition and entangled states
+;; * Performs some computations exponentially faster
+;; * Promises breakthroughs in cryptography, optimization, simulation, and machine learning
+;; * Requires new algorithms and hardware architectures
+;; * Still a research field 
+;;
+;; ## What is QClojure
+;;
+;; * A Clojure library for quantum computing
+;; * Provides tools for constructing and simulating quantum circuits
+;; * Supports local simulators and cloud backends
+;; * Offers visualization and analysis tools for quantum states and circuits
+;; * Open source and actively developed
+;;
 ;; ## QClojure Features
 ;;
-;; * Pure Functional Quantum Circuit Construction
-;; * Comprehensive Gate Library
-;; * Quantum/Hybrid Algorithm Implementations
-;; * Extensible Quantum Backend System
-;; * Hardware Simulation and Error Mitigation
-;; * Visualization and Analysis Tools 
+;; * Pure functional quantum circuit construction
+;; * Comprehensive gate library
+;; * Library of quantum/hybrid algorithm implementations
+;; * Extensible quantum backend system for simulators and hardware
+;; * Ideal and hardware simulation
+;; * Error mitigation and error correction
+;; * Visualization and Analysis Tools
 ;;
 ;; # Getting Started
 ;;
 ;; * Installation
-;;   * Add QClojure dependency to your `deps.edn` or `project.clj`
+;;   * Add [QClojure](https://clojars.org/org.soulspace/qclojure) dependency to your `deps.edn` or `project.clj`
 ;; * Documentation
-;;   * [API Documentation](https://)
+;;   * [API Documentation and Tutorial](https://https://cljdoc.org/d/org.soulspace/qclojure)
 ;; 
 ;; ## Required Namespaces
 ;;
@@ -230,13 +251,40 @@ noisy-result
 ;; * Quantum Fourier Transform (QFT), Phase Estimation (QPE), Shor's Algorithm
 ;; * Variational Quantum Algorithms (VQE, QAOA)
 ;;
+;; ## Grover's Algorithm Example
+;; * Unstructured search algorithm
+;; * Quadratic speedup over classical search algorithms
+;; * Finds a marked item in an unsorted database
+;; * Uses amplitude amplification to increase the probability of measuring the marked item
+;; * Requires an oracle to identify the marked item
+;; * Example: searching for the item '101' in a 3-qubit database
+
+(require '[org.soulspace.qclojure.application.algorithm.grover :as grover])
+
+;; ## Grover Oracle
+(def grover-oracle (grover/single-target-oracle 5))
+
+;; ## Grover Circuit
+(def grover-circuit
+  (grover/grover-circuit 3 grover-oracle))
+
+;; ## Visualizing the Grover Circuit
+^kind/hiccup
+(viz/visualize-circuit :svg grover-circuit)
+
+;; ## Executing Grover Circuit
+(def grover-result
+  (grover/grover-algorithm (ideal/create-simulator) 8 grover-oracle {:shots 1}))
+
 ;; ## QAOA Example
+;; * Variational hybrid algorithm for combinatorial optimization
+;;   * Combines quantum and classical computation
+;;   * Uses parameterized quantum circuits and classical optimization
 ;; * Solves combinatorial optimization problems
-;;   * Max-Cut
-;;   * Max-SAT 
-;;   * Travelling Salesman Problem
+;;   * Max-Cut, Max-SAT and Travelling Salesman Problem
+
 (require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
-;;
+
 ;; ## Max-Cut Problem
 ;; * Simple triangle graph
 (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
@@ -254,6 +302,18 @@ noisy-result
     :max-iterations 100
     :tolerance 1e-6
     :shots 1000}))
+
+;; ## Planned Enhancements
+;; 
+;; * Asynchronous Infrastructure for Backend Execution
+;; 
+;; * Backends for Quantum Hardware
+;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
+;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
+;;
+;; * Domain specific libraries
+;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
+;;   * Quantum Chemistry
 ;;
 ;; ## Missing pieces in the Clojure Ecosystem
 ;;
@@ -265,17 +325,17 @@ noisy-result
 ;;   * Neandertal extension for complex numbers
 ;;   * ArrayFire bindings via Java22+ FFI
 ;;
-;; ## Future Plans
+;; ## Contribution
 ;; 
-;; * Error Correction Codes
-;; * Backends for Quantum Hardware
-;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
-;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
-;; * Domain specific libraries
-;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
-;;   * Quantum Chemistry
-;;
+;; * Contributions and feedback are welcome
+;;   * Discussions on Slack #quantum-computing channel
+;;   * Tutorials, examples, documentation
+;;   * Bug reports, feature requests
+;;   * Code contributions via pull requests
+;; 
 ;; ## Summary
+;;
+;; * Functional approach is well suited for quantum computing
 ;; * QClojure is a capable and extensible library for quantum computing
-;; * Pure functional approach with Clojure's strengths
-;; * 
+;; * Active development and future plans
+;; * Opportunities for contributions and collaboration

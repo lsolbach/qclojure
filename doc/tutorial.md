@@ -142,13 +142,13 @@ If you are using Leiningen, add the following dependency to your
 `project.clj` file:
 
 ```clojure
-[org.soulspace/qclojure "0.18.0"]
+[org.soulspace/qclojure "0.19.0"]
 ```
 
 If you are using Clojure CLI, add the following to your `deps.edn` file:
 
 ```clojure
-{:deps {org.soulspace/qclojure {:mvn/version "0.18.0"}}}
+{:deps {org.soulspace/qclojure {:mvn/version "0.19.0"}}}
 ```
 
 
@@ -173,7 +173,8 @@ We also import the visualization namespace and the svg renderer.
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
+   [org.soulspace.qclojure.application.hardware-optimization :as hwopt]))
 ```
 Some namespaces, like visualization namespaces contain multimethod
 implementations. To make sure that the implementations are loaded, we
@@ -1088,7 +1089,7 @@ Now we can use the simulator to execute the ghz circuit on the simulator.
    :circuit-operation-count 3,
    :circuit-gate-count 3}},
  :execution-time-ms 1,
- :job-id "sim_job_1326_1759855625429"}
+ :job-id "sim_job_3111_1759878026073"}
 
 ```
 When executing a circuit on a backend, it will be executed multiple times,
@@ -1126,8 +1127,8 @@ configured via an options map.
   {:circuit-depth 3,
    :circuit-operation-count 3,
    :circuit-gate-count 3}},
- :execution-time-ms 0,
- :job-id "sim_job_1327_1759855625531"}
+ :execution-time-ms 1,
+ :job-id "sim_job_3112_1759878026177"}
 
 ```
 
@@ -1267,11 +1268,11 @@ lagos-50-result
    [0.0 0.0]
    [0.0 0.0]
    [0.7071067811865476 0.0]]},
- :job-id "job_16_1759855625634",
- :execution-time-ms 38,
+ :job-id "job_37_1759878026285",
+ :execution-time-ms 58,
  :shots-executed 50,
  :job-status :completed,
- :measurement-results {"111" 24, "000" 24, "101" 1, "011" 1},
+ :measurement-results {"000" 23, "111" 23, "011" 1, "110" 1, "010" 2},
  :circuit-metadata
  {:circuit-depth 3, :circuit-operation-count 3, :circuit-gate-count 3},
  :circuit
@@ -1312,19 +1313,19 @@ lagos-10k-result
    [0.0 0.0]
    [0.0 0.0]
    [0.7071067811865476 0.0]]},
- :job-id "job_17_1759855625739",
- :execution-time-ms 3173,
+ :job-id "job_38_1759878026389",
+ :execution-time-ms 3224,
  :shots-executed 10000,
  :job-status :completed,
  :measurement-results
- {"000" 4776,
-  "111" 4553,
-  "110" 155,
-  "101" 146,
-  "011" 142,
-  "001" 74,
-  "010" 89,
-  "100" 65},
+ {"000" 4793,
+  "111" 4459,
+  "011" 168,
+  "101" 161,
+  "110" 160,
+  "100" 66,
+  "001" 99,
+  "010" 94},
  :circuit-metadata
  {:circuit-depth 3, :circuit-operation-count 3, :circuit-gate-count 3},
  :circuit
@@ -1426,19 +1427,19 @@ forte-10k-result
    [0.0 0.0]
    [0.0 0.0]
    [0.7070007072148161 0.0]]},
- :job-id "job_18_1759855628958",
- :execution-time-ms 2771,
+ :job-id "job_39_1759878029707",
+ :execution-time-ms 2753,
  :shots-executed 10000,
  :job-status :completed,
  :measurement-results
- {"111" 4976,
-  "000" 4935,
-  "001" 15,
-  "110" 15,
-  "011" 11,
-  "101" 26,
-  "010" 16,
-  "100" 6},
+ {"111" 5012,
+  "000" 4899,
+  "101" 24,
+  "001" 20,
+  "010" 13,
+  "110" 20,
+  "100" 3,
+  "011" 9},
  :circuit-metadata
  {:circuit-depth 3, :circuit-operation-count 3, :circuit-gate-count 3},
  :circuit
@@ -1455,7 +1456,7 @@ forte-10k-result
 Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 distinctly lower noise and thus a higher count for the correct answers.
 ```clj
-^kind/hiccup 
+^kind/hiccup
 (viz/visualize-measurement-histogram :hiccup (:measurement-results forte-10k-result))
 ```
 ![](tutorial_files/image15.svg)
@@ -1717,7 +1718,83 @@ Let's also print the statistics for the optimization to see the numbers.
 
 ```
 Now let's explore the effect of applying error correction codes on a simple
-Bell circuit.
+Bell circuit. We use the simple bit-flip code here, which can correct
+a single bit-flip error. The bit-flip code uses three physical qubits
+to form one logical qubit. Also, it uses ancilla qubits for error
+detection and correction. So the circuit will use more qubits after
+applying the error correction code.
+```clj
+(def bf-ecc-circuit
+  (:circuit (hwopt/optimize (circuit/bell-state-circuit)
+                            {}
+                            {:optimize-gates? false
+                             :optimize-qubits? false
+                             :apply-error-correction? true
+                             :error-correction-code :bit-flip
+                             :optimize-topology? false
+                             :transform-operations? false})))
+```
+The bit-flip code uses three physical qubits to form one logical qubit,
+so the circuit now uses 10 qubits, 6 for the two logical qubits and 4
+ancilla qubits for error detection and correction.
+```clj
+^kind/hiccup
+(viz/visualize-circuit :hiccup bf-ecc-circuit)
+```
+![](tutorial_files/image20.svg)
+
+The statistics show the increase in the number of qubits, gates and depth
+of the circuit.
+```clj
+(hwopt/optimization-statistics (circuit/bell-state-circuit) bf-ecc-circuit)
+
+;; =>
+{:gates-delta 24,
+ :original-circuit-depth 2,
+ :optimized-swaps 0,
+ :depth-delta 19,
+ :optimized-operation-types #{:measure :h :cnot},
+ :original-operation-types #{:h :cnot},
+ :original-swaps 0,
+ :gates-delta-percent 1200.0,
+ :operation-type-difference #{},
+ :optimized-circuit-depth 21,
+ :optimized-qubits 10,
+ :optimized-gates 26,
+ :qubits-delta-percent 400.0,
+ :original-qubits 2,
+ :swaps-delta-percent 0,
+ :qubits-delta 8,
+ :depth-delta-percent 950.0,
+ :original-gates 2,
+ :swaps-delta 0}
+
+```
+You can try the other error correction codes as well.
+Note that the Shor code and the Steane code can correct both bit-flip
+and phase-flip errors, so they use more qubits than the bit-flip code.
+The 5-qubit code is the smallest code that can correct an arbitrary
+single-qubit error, so it uses only 5 data qubits and 4 ancilla qubits,
+but it is more complex with more gates and depth than the other codes.
+All error correction codes have a distance of 3, which means they can
+detect up to two errors and correct a single error.
+
+Here is a summary of the different error correction codes and their
+qubit requirements:
+
+| Error Correction Code | Data Qubits | Ancilla Qubits | Total Qubits |
+|-----------------------|-------------|----------------|--------------|
+| :bit-flip             | 3           | 2              | 5            | 
+| :phase-flip           | 3           | 2              | 5            |
+| :five-qubit           | 5           | 4              | 9            |
+| :steane               | 7           | 6              | 13           |
+| :shor                 | 9           | 8              | 17           |
+
+As you can see, applying error correction codes increases the number of
+qubits, gates and depth of the circuit significantly. This is a trade-off
+between protecting the quantum information from errors and the resources
+required to implement the error correction code. On current QPUs with
+limited qubit counts this is not always an option.
 
 
 ## Advanced Quantum Topics
@@ -2162,7 +2239,7 @@ We can visualize the circuit for the constant oracle.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup constant-deutsch-circuit)
 ```
-![](tutorial_files/image20.svg)
+![](tutorial_files/image21.svg)
 
 The circuit shows that the Hadamard gate is applied to the input qubit, followed
 by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -2231,8 +2308,8 @@ deutsch-constant-result
     :target-qubits [0],
     :all-probabilities
     [0.4999999999999998 0.4999999999999998 0.0 0.0]}},
-  :execution-time-ms 1,
-  :job-id "sim_job_1328_1759855631808"}}
+  :execution-time-ms 0,
+  :job-id "sim_job_3113_1759878032552"}}
 
 ```
 The result shows that the Deutsch algorithm correctly identifies the constant function.
@@ -2250,7 +2327,7 @@ with the constant function. It is contained in the execution result of the algor
 ^kind/hiccup
 (viz/visualize-quantum-state :hiccup (get-in deutsch-constant-result [:execution-result :results :final-state]))
 ```
-![](tutorial_files/image21.svg)
+![](tutorial_files/image22.svg)
 
 For the balanced function, we can create the circuit for the Deutsch algorithm.
 ```clj
@@ -2262,7 +2339,7 @@ We can visualize the circuit for the balanced oracle.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup balanced-deutsch-circuit)
 ```
-![](tutorial_files/image22.svg)
+![](tutorial_files/image23.svg)
 
 Execute the Deutsch algorithm with the balanced function.
 ```clj
@@ -2327,8 +2404,8 @@ deutsch-balanced-result
     :target-qubits [0],
     :all-probabilities
     [0.0 0.0 0.4999999999999998 0.4999999999999998]}},
-  :execution-time-ms 2,
-  :job-id "sim_job_1329_1759855631929"}}
+  :execution-time-ms 1,
+  :job-id "sim_job_3114_1759878032660"}}
 
 ```
 The result shows that the Deutsch algorithm correctly identifies the balanced function.
@@ -2345,7 +2422,7 @@ with the balanced function.
 ^kind/hiccup
 (viz/visualize-quantum-state :hiccup (get-in deutsch-balanced-result [:execution-result :results :final-state]))
 ```
-![](tutorial_files/image23.svg)
+![](tutorial_files/image24.svg)
 
 
 ### Bernstein-Vazirani Algorithm
@@ -2408,7 +2485,7 @@ We can visualize the circuit for the Bernstein-Vazirani algorithm.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup bv-circuit)
 ```
-![](tutorial_files/image24.svg)
+![](tutorial_files/image25.svg)
 
 The circuit shows that the Hadamard gate is applied to the input qubits, followed
 by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -2498,7 +2575,7 @@ bv-result
     :circuit-operation-count 13,
     :circuit-gate-count 10},
    :measurement-results
-   {:measurement-outcomes [12],
+   {:measurement-outcomes [13],
     :measurement-probabilities
     [0.0
      0.0
@@ -2516,10 +2593,10 @@ bv-result
      0.5000000000000001
      0.0
      0.0],
-    :empirical-probabilities {12 1},
+    :empirical-probabilities {13 1},
     :shot-count 1,
     :measurement-qubits (0 1 2 3),
-    :frequencies {12 1}},
+    :frequencies {13 1}},
    :probability-results
    {:probability-outcomes
     {0 0.0,
@@ -2556,8 +2633,8 @@ bv-result
      0.5000000000000001
      0.0
      0.0]}},
-  :execution-time-ms 17,
-  :job-id "sim_job_1330_1759855632059"}}
+  :execution-time-ms 21,
+  :job-id "sim_job_3115_1759878032775"}}
 
 ```
 The result shows that the Bernstein-Vazirani algorithm correctly identifies
@@ -2575,7 +2652,7 @@ Let's visualize the final quantum state after executing the Bernstein-Vazirani a
 ^kind/hiccup
 (viz/visualize-quantum-state :hiccup (get-in bv-result [:execution-result :results :final-state]))
 ```
-![](tutorial_files/image25.svg)
+![](tutorial_files/image26.svg)
 
 The final quantum state shows that the Bernstein-Vazirani algorithm correctly
 identifies the hidden binary string. The final quantum state is a superposition
@@ -2639,7 +2716,7 @@ We can visualize the circuit for Simon's algorithm.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup simon-circuit)
 ```
-![](tutorial_files/image26.svg)
+![](tutorial_files/image27.svg)
 
 The circuit shows that the Hadamard gate is applied to the input qubits, followed
 by the oracle function Uf. The oracle function Uf is implemented as a series
@@ -2660,10 +2737,10 @@ simon-result
  :result [1 0 1],
  :hidden-period [1 0 1],
  :found-period [1 0 1],
- :measurements [[0 1 0] [1 0 1]],
+ :measurements [[1 1 1] [1 0 1]],
  :success true,
  :linear-system
- ({:equation [0 1 0],
+ ({:equation [1 1 1],
    :dot-product-with-hidden 0,
    :dot-product-with-found 0}
   {:equation [1 0 1],
@@ -2775,7 +2852,7 @@ Let's visualize the circuit for Grover's search algorithm.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup grover-circuit)
 ```
-![](tutorial_files/image27.svg)
+![](tutorial_files/image28.svg)
 
 Now we can execute Grover's search algorithm with the defined oracle.
 ```clj
@@ -2896,8 +2973,8 @@ grover-result
      0.9453124999999959
      0.007812499999999959
      0.007812499999999959]}},
-  :execution-time-ms 5,
-  :job-id "sim_job_1332_1759855632309"},
+  :execution-time-ms 11,
+  :job-id "sim_job_3117_1759878033018"},
  :probability 1,
  :target-indices (5),
  :success true,
@@ -3022,7 +3099,7 @@ We can visualize the circuit for the Quantum Fourier Transform.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup qft-circuit)
 ```
-![](tutorial_files/image28.svg)
+![](tutorial_files/image29.svg)
 
 The circuit shows that the QFT applies a series of controlled phase gates
 and Hadamard gates to the qubits, transforming the quantum state into its
@@ -3070,8 +3147,8 @@ qft-result
   {:circuit-depth 7,
    :circuit-operation-count 7,
    :circuit-gate-count 7}},
- :execution-time-ms 4,
- :job-id "sim_job_1333_1759855632424"}
+ :execution-time-ms 1,
+ :job-id "sim_job_3118_1759878033122"}
 
 ```
 The circuit for the QFT can also be used to implement the inverse QFT,
@@ -3085,7 +3162,7 @@ We can visualize the circuit for the inverse Quantum Fourier Transform.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup inverse-qft-circuit)
 ```
-![](tutorial_files/image29.svg)
+![](tutorial_files/image30.svg)
 
 The inverse QFT circuit applies the inverse operations of the controlled phase gates
 and Hadamard gates to the qubits, transforming the quantum state back to its
@@ -3322,7 +3399,7 @@ We can visualize the circuit for the HHL algorithm.
 ^kind/hiccup
 (viz/visualize-circuit :hiccup hhl-circuit)
 ```
-![](tutorial_files/image30.svg)
+![](tutorial_files/image31.svg)
 
 The circuit shows that the HHL algorithm applies a series of controlled-U gates
 to the qubits, which represent the matrix A, and applies the inverse quantum
@@ -3481,7 +3558,7 @@ and the final result.
 (:result hhl-result)
 
 ;; =>
-[1.9475054115046677 1.3657932008709597]
+[1.9336304276402596 1.3885927810707446]
 
 ```
 The result shows that the HHL algorithm correctly aproximates the solution of
@@ -3495,7 +3572,7 @@ Let's visualize the final quantum state after executing the HHL algorithm.
 ^kind/hiccup
 (viz/visualize-quantum-state :hiccup (get-in hhl-result [:execution-result :results :final-state]))
 ```
-![](tutorial_files/image31.svg)
+![](tutorial_files/image32.svg)
 
 The final quantum state shows the approximation of the solution of the
 system of linear equations Ax = b. The final quantum state is a superposition
@@ -3507,7 +3584,7 @@ of the states that represent the solution to the system of equations.
            {:shots 10000})
 
 ;; =>
-[1.9266817273925307 1.3999481107890237]
+[1.9486270094987583 1.3639428013232107]
 
 ```
 
@@ -3661,179 +3738,179 @@ simple-vqe-result
   :num-layers 1},
  :ansatz-type :hardware-efficient,
  :optimization
- {:optimal-energy -0.9000965932099977,
-  :total-runtime-ms 1396,
+ {:optimal-energy -0.900207836685242,
+  :total-runtime-ms 1389,
   :initial-parameters
-  [-0.04311642934807989
-   -0.008092152363054786
-   -0.05452730883820148
-   0.07304455305321708
-   -0.09359829347444847
-   0.0449214905727405
-   -0.006009165458024768
-   -0.04277449051957667
-   -0.04847077876158479
-   0.00890115707994614
-   -0.028567365557037677
-   -0.02264784464961933],
+  [-0.05173028783640115
+   -0.03830008446899483
+   -0.06781418522841234
+   0.09073035832495896
+   -0.022810777816730826
+   0.09264975461602085
+   -0.06233068690520471
+   0.04079516126145638
+   -0.09799255716174915
+   -0.09528046856994199
+   -0.09132886722170595
+   -0.0810673167081063],
   :enhanced-features
   {:gradient-enhanced true, :convergence-monitored true},
   :convergence-analysis
-  {:energy-std 1.5725697418442488E-7,
-   :final-gradient-norm 0.004394096656856193,
-   :relative-improvement 4.2795345411033864E-7,
+  {:energy-std 3.3787885426800115E-7,
+   :final-gradient-norm 0.00644085604611912,
+   :relative-improvement 9.193781461362372E-7,
    :energy-trajectory-length 3,
-   :energy-improvement 3.8519928124980396E-7,
+   :energy-improvement 8.276306511234566E-7,
    :final-reason :converged,
    :monotonic-decrease? true,
    :converged true,
    :total-iterations 2,
    :convergence-quality :fair,
-   :initial-energy -0.9000962080107164,
-   :final-energy -0.9000965932099977,
+   :initial-energy -0.9002070090545908,
+   :final-energy -0.900207836685242,
    :function-evaluations 0,
-   :convergence-rate 1.283997604166013E-7},
+   :convergence-rate 2.758768837078189E-7},
   :history
   [{:iteration 0,
-    :energy -0.9000962080107164,
+    :energy -0.9002070090545908,
     :gradients
-    [0.004310166024245499
-     8.084543531550747E-4
+    [0.0051669299086528064
+     0.003823949945059135
+     5.551115123125783E-17
+     2.220446049250313E-16
+     -1.1102230246251565E-16
+     -5.551115123125783E-17
+     0.0
+     2.7755575615628914E-16
+     0.0
+     -5.551115123125783E-17
+     0.0
+     0.0],
+    :parameters
+    [-0.05173028783640115
+     -0.03830008446899483
+     -0.06781418522841234
+     0.09073035832495896
+     -0.022810777816730826
+     0.09264975461602085
+     -0.06233068690520471
+     0.04079516126145638
+     -0.09799255716174915
+     -0.09528046856994199
+     -0.09132886722170595
+     -0.0810673167081063]}
+   {:iteration 1,
+    :energy -0.9002074224579488,
+    :gradients
+    [0.005172078553248749
+     0.003827755730927085
+     0.0
+     -1.6653345369377348E-16
+     0.0
+     -1.1102230246251565E-16
+     -1.1102230246251565E-16
+     0.0
+     0.0
+     -1.1102230246251565E-16
+     0.0
+     0.0],
+    :parameters
+    [-0.05178195713548768
+     -0.03833832396844542
+     -0.06781418522841234
+     0.09073035832495896
+     -0.022810777816730826
+     0.09264975461602085
+     -0.06233068690520471
+     0.04079516126145638
+     -0.09799255716174915
+     -0.09528046856994199
+     -0.09132886722170595
+     -0.0810673167081063]}
+   {:iteration 2,
+    :energy -0.900207836685242,
+    :gradients
+    [0.005177232291725842
+     0.0038315652681822354
+     5.551115123125783E-17
+     -1.1102230246251565E-16
+     0.0
+     -5.551115123125783E-17
+     -1.1102230246251565E-16
      0.0
      0.0
      2.220446049250313E-16
      1.1102230246251565E-16
-     -1.1102230246251565E-16
-     1.1102230246251565E-16
-     0.0
-     -1.1102230246251565E-16
-     0.0
-     1.1102230246251565E-16],
-    :parameters
-    [-0.04311642934807989
-     -0.008092152363054786
-     -0.05452730883820148
-     0.07304455305321708
-     -0.09359829347444847
-     0.0449214905727405
-     -0.006009165458024768
-     -0.04277449051957667
-     -0.04847077876158479
-     0.00890115707994614
-     -0.028567365557037677
-     -0.02264784464961933]}
-   {:iteration 1,
-    :energy -0.9000964004180634,
-    :gradients
-    [0.004314471757134286
-     8.092605240751505E-4
-     0.0
-     -1.1102230246251565E-16
-     4.440892098500626E-16
-     1.1102230246251565E-16
-     0.0
-     0.0
-     0.0
-     -1.1102230246251565E-16
-     -5.551115123125783E-17
      0.0],
     :parameters
-    [-0.043159531008322344
-     -0.008100236906586337
-     -0.05452730883820148
-     0.07304455305321708
-     -0.09359829347444847
-     0.0449214905727405
-     -0.006009165458024767
-     -0.04277449051957667
-     -0.04847077876158479
-     0.008901157079946142
-     -0.028567365557037677
-     -0.02264784464961933]}
-   {:iteration 2,
-    :energy -0.9000965932099977,
-    :gradients
-    [0.004318781782452874
-     8.100674943163355E-4
-     5.551115123125783E-17
-     1.1102230246251565E-16
-     1.6653345369377348E-16
-     0.0
-     2.7755575615628914E-16
-     1.1102230246251565E-16
-     -1.1102230246251565E-16
-     1.6653345369377348E-16
-     1.1102230246251565E-16
-     5.551115123125783E-17],
-    :parameters
-    [-0.04320267572589369
-     -0.008108329511827089
-     -0.05452730883820148
-     0.07304455305321708
-     -0.09359829347444847
-     0.0449214905727405
-     -0.006009165458024767
-     -0.04277449051957667
-     -0.04847077876158479
-     0.008901157079946143
-     -0.028567365557037677
-     -0.02264784464961933]}],
+    [-0.051833677921020165
+     -0.03837660152575469
+     -0.06781418522841234
+     0.09073035832495896
+     -0.022810777816730826
+     0.09264975461602085
+     -0.06233068690520471
+     0.04079516126145638
+     -0.09799255716174915
+     -0.09528046856994199
+     -0.09132886722170595
+     -0.0810673167081063]}],
   :reason :converged,
   :success true,
   :iterations 2,
-  :initial-energy -0.9000962080107164,
+  :initial-energy -0.9002070090545908,
   :hamiltonian
   [{:coefficient -1.0, :pauli-string "IIII"}
    {:coefficient 0.1, :pauli-string "ZIII"}],
   :optimal-parameters
-  [-0.04320267572589369
-   -0.008108329511827089
-   -0.05452730883820148
-   0.07304455305321708
-   -0.09359829347444847
-   0.0449214905727405
-   -0.006009165458024767
-   -0.04277449051957667
-   -0.04847077876158479
-   0.008901157079946143
-   -0.028567365557037677
-   -0.02264784464961933]},
+  [-0.051833677921020165
+   -0.03837660152575469
+   -0.06781418522841234
+   0.09073035832495896
+   -0.022810777816730826
+   0.09264975461602085
+   -0.06233068690520471
+   0.04079516126145638
+   -0.09799255716174915
+   -0.09528046856994199
+   -0.09132886722170595
+   -0.0810673167081063]},
  :success true,
  :analysis
- {:initial-energy -0.9000962080107164,
-  :energy-improvement 3.8519928124980396E-7,
+ {:initial-energy -0.9002070090545908,
+  :energy-improvement 8.276306511234566E-7,
   :convergence-achieved true},
- :result -0.9000965932099977,
+ :result -0.900207836685242,
  :timing
- {:execution-time-ms 1396,
-  :start-time 1759855633522,
-  :end-time 1759855634918},
+ {:execution-time-ms 1389,
+  :start-time 1759878033988,
+  :end-time 1759878035377},
  :circuit
  {:operations
   [{:operation-type :rx,
-    :operation-params {:target 0, :angle -0.04320267572589369}}
+    :operation-params {:target 0, :angle -0.051833677921020165}}
    {:operation-type :ry,
-    :operation-params {:target 0, :angle -0.008108329511827089}}
+    :operation-params {:target 0, :angle -0.03837660152575469}}
    {:operation-type :rz,
-    :operation-params {:target 0, :angle -0.05452730883820148}}
+    :operation-params {:target 0, :angle -0.06781418522841234}}
    {:operation-type :rx,
-    :operation-params {:target 1, :angle 0.07304455305321708}}
+    :operation-params {:target 1, :angle 0.09073035832495896}}
    {:operation-type :ry,
-    :operation-params {:target 1, :angle -0.09359829347444847}}
+    :operation-params {:target 1, :angle -0.022810777816730826}}
    {:operation-type :rz,
-    :operation-params {:target 1, :angle 0.0449214905727405}}
+    :operation-params {:target 1, :angle 0.09264975461602085}}
    {:operation-type :rx,
-    :operation-params {:target 2, :angle -0.006009165458024767}}
+    :operation-params {:target 2, :angle -0.06233068690520471}}
    {:operation-type :ry,
-    :operation-params {:target 2, :angle -0.04277449051957667}}
+    :operation-params {:target 2, :angle 0.04079516126145638}}
    {:operation-type :rz,
-    :operation-params {:target 2, :angle -0.04847077876158479}}
+    :operation-params {:target 2, :angle -0.09799255716174915}}
    {:operation-type :rx,
-    :operation-params {:target 3, :angle 0.008901157079946143}}
+    :operation-params {:target 3, :angle -0.09528046856994199}}
    {:operation-type :ry,
-    :operation-params {:target 3, :angle -0.028567365557037677}}
+    :operation-params {:target 3, :angle -0.09132886722170595}}
    {:operation-type :rz,
-    :operation-params {:target 3, :angle -0.02264784464961933}}
+    :operation-params {:target 3, :angle -0.0810673167081063}}
    {:operation-type :cnot, :operation-params {:control 0, :target 1}}
    {:operation-type :cnot, :operation-params {:control 1, :target 2}}
    {:operation-type :cnot, :operation-params {:control 2, :target 3}}],
@@ -3843,20 +3920,20 @@ simple-vqe-result
  :hamiltonian
  {:pauli-terms 2, :grouped-pauli-terms nil, :classical-bound nil},
  :results
- {:optimal-energy -0.9000965932099977,
+ {:optimal-energy -0.900207836685242,
   :optimal-parameters
-  [-0.04320267572589369
-   -0.008108329511827089
-   -0.05452730883820148
-   0.07304455305321708
-   -0.09359829347444847
-   0.0449214905727405
-   -0.006009165458024767
-   -0.04277449051957667
-   -0.04847077876158479
-   0.008901157079946143
-   -0.028567365557037677
-   -0.02264784464961933],
+  [-0.051833677921020165
+   -0.03837660152575469
+   -0.06781418522841234
+   0.09073035832495896
+   -0.022810777816730826
+   0.09264975461602085
+   -0.06233068690520471
+   0.04079516126145638
+   -0.09799255716174915
+   -0.09528046856994199
+   -0.09132886722170595
+   -0.0810673167081063],
   :success true,
   :iterations 2,
   :function-evaluations nil}}
@@ -3960,71 +4037,71 @@ vqe-result
   :num-layers 2},
  :ansatz-type :uccsd,
  :optimization
- {:optimal-energy -1.1169678407710892,
-  :total-runtime-ms 3367,
-  :initial-parameters [-0.03953586563416403 -0.015711309179465657],
+ {:optimal-energy -1.1164713698212732,
+  :total-runtime-ms 3357,
+  :initial-parameters [-0.09696547179506557 0.030905223777344948],
   :enhanced-features
   {:gradient-enhanced true, :convergence-monitored true},
   :convergence-analysis
-  {:energy-std 1.6568623528856833E-6,
-   :final-gradient-norm 0.002130266376164624,
-   :relative-improvement 4.6482648027033965E-6,
+  {:energy-std 8.18734284548317E-6,
+   :final-gradient-norm 0.0043613161938884275,
+   :relative-improvement 2.2979473390000273E-5,
    :energy-trajectory-length 10,
-   :energy-improvement 5.191938166504428E-6,
+   :energy-improvement 2.5655334587426637E-5,
    :final-reason :converged,
    :monotonic-decrease? true,
    :converged true,
    :total-iterations 9,
    :convergence-quality :good,
-   :initial-energy -1.1169626488329227,
-   :final-energy -1.1169678407710892,
+   :initial-energy -1.1164457144866857,
+   :final-energy -1.1164713698212732,
    :function-evaluations 0,
-   :convergence-rate 5.191938166504428E-7},
+   :convergence-rate 2.5655334587426635E-6},
   :history
   [{:iteration 0,
-    :energy -1.1169626488329227,
-    :gradients [3.7773552513564734E-4 0.002034605008720214],
-    :parameters [-0.03953586563416403 -0.015711309179465657]}
+    :energy -1.1164457144866857,
+    :gradients [-0.0021980163101386063 0.003893165847914659],
+    :parameters [-0.09696547179506557 0.030905223777344948]}
    {:iteration 1,
-    :energy -1.1169632112371497,
-    :gradients [3.8661322605604287E-4 0.002039502481513411],
-    :parameters [-0.0395736391866776 -0.015914769680337677]}
+    :energy -1.1164486384328365,
+    :gradients [-0.0021787410714698696 0.003889423918304935],
+    :parameters [-0.09674567016405171 0.030515907192553482]}
    {:iteration 2,
-    :energy -1.1169637771235779,
-    :gradients [3.955055542885777E-4 0.0020444476302347026],
-    :parameters [-0.0396123005092832 -0.01611871992848902]}
+    :energy -1.116451543493114,
+    :gradients [-0.002159496785717141 0.0038857621303139966],
+    :parameters [-0.09652779605690472 0.030126964800722987]}
    {:iteration 3,
-    :energy -1.1169643465504346,
-    :gradients [4.0441271162061643E-4 0.0020494405935631566],
-    :parameters [-0.03965185106471206 -0.016323164691512487]}
+    :energy -1.1164544299038721,
+    :gradients [-0.0021402830936869677 0.0038821804811217664],
+    :parameters [-0.096311846378333 0.029738388587691587]}
    {:iteration 4,
-    :energy -1.116964919576334,
-    :gradients [4.133349002862774E-4 0.002054481511267525],
-    :parameters [-0.03969229233587412 -0.016528108750868804]}
+    :energy -1.116457297900316,
+    :gradients [-0.0021210996361575862 0.0038786789693293633],
+    :parameters [-0.0960978180689643 0.02935017053957941]}
    {:iteration 5,
-    :energy -1.1169654962602893,
-    :gradients [4.2227232296476735E-4 0.002059570524209464],
-    :parameters [-0.039733625825902744 -0.016733556901995558]}
+    :energy -1.1164601477165117,
+    :gradients [-0.002101946053876813 0.003875257594959658],
+    :parameters [-0.09588570810534854 0.028962302642646473]}
    {:iteration 6,
-    :energy -1.1169660766617149,
-    :gradients [4.3122518278726485E-4 0.0020647077743465303],
-    :parameters [-0.03977585305819922 -0.016939513954416504]}
+    :energy -1.1164629795854049,
+    :gradients [-0.002082821987563266 0.0038719163594673756],
+    :parameters [-0.09567551349996085 0.028574776883150507]}
    {:iteration 7,
-    :energy -1.1169666608404316,
-    :gradients [4.4019368334302644E-4 0.002069893404734513],
-    :parameters [-0.03981897557647795 -0.017145984731851156]}
+    :energy -1.1164657937388387,
+    :gradients [-0.0020637270779028105 0.0038686552657369866],
+    :parameters [-0.09546723130120453 0.02818758524720377]}
    {:iteration 8,
-    :energy -1.1169672488566724,
-    :gradients [4.491780286792757E-4 0.0020751275595292107],
-    :parameters [-0.03986299494481225 -0.01735297407232461]}
+    :energy -1.1164685904075662,
+    :gradients [-0.0020446609655437875 0.0038654743180880358],
+    :parameters [-0.09526085859341425 0.02780071972063007]}
    {:iteration 9,
-    :energy -1.1169678407710892,
-    :gradients [4.58178423310307E-4 0.0020804103839940913],
-    :parameters [-0.03990791274768018 -0.01756048682827753]}],
+    :energy -1.1164713698212732,
+    :gradients [-0.0020256232911003424 0.0038623735222820255],
+    :parameters [-0.09505639249685988 0.027414172288821266]}],
   :reason :converged,
   :success true,
   :iterations 9,
-  :initial-energy -1.1169626488329227,
+  :initial-energy -1.1164457144866857,
   :hamiltonian
   [{:coefficient -1.1395602, :pauli-string "IIII"}
    {:coefficient 0.39793742, :pauli-string "IIIZ"}
@@ -4041,45 +4118,45 @@ vqe-result
    {:coefficient -0.1809312, :pauli-string "YYII"}
    {:coefficient -0.1809312, :pauli-string "IIXX"}
    {:coefficient -0.1809312, :pauli-string "IIYY"}],
-  :optimal-parameters [-0.03990791274768018 -0.01756048682827753]},
+  :optimal-parameters [-0.09505639249685988 0.027414172288821266]},
  :success true,
  :analysis
- {:initial-energy -1.1169626488329227,
-  :energy-improvement 5.191938166504428E-6,
+ {:initial-energy -1.1164457144866857,
+  :energy-improvement 2.5655334587426637E-5,
   :convergence-achieved true},
- :result -1.1169678407710892,
+ :result -1.1164713698212732,
  :timing
- {:execution-time-ms 3367,
-  :start-time 1759855635225,
-  :end-time 1759855638592},
+ {:execution-time-ms 3357,
+  :start-time 1759878035687,
+  :end-time 1759878039044},
  :circuit
  {:operations
   [{:operation-type :x, :operation-params {:target 0}}
    {:operation-type :x, :operation-params {:target 1}}
    {:operation-type :ry,
-    :operation-params {:target 0, :angle -0.01995395637384009}}
+    :operation-params {:target 0, :angle -0.04752819624842994}}
    {:operation-type :cnot, :operation-params {:control 0, :target 2}}
    {:operation-type :ry,
-    :operation-params {:target 2, :angle -0.01995395637384009}}
+    :operation-params {:target 2, :angle -0.04752819624842994}}
    {:operation-type :cnot, :operation-params {:control 0, :target 2}}
    {:operation-type :ry,
-    :operation-params {:target 0, :angle 0.01995395637384009}}
+    :operation-params {:target 0, :angle 0.04752819624842994}}
    {:operation-type :ry,
-    :operation-params {:target 1, :angle -0.008780243414138765}}
+    :operation-params {:target 1, :angle 0.013707086144410633}}
    {:operation-type :cnot, :operation-params {:control 1, :target 3}}
    {:operation-type :ry,
-    :operation-params {:target 3, :angle -0.008780243414138765}}
+    :operation-params {:target 3, :angle 0.013707086144410633}}
    {:operation-type :cnot, :operation-params {:control 1, :target 3}}
    {:operation-type :ry,
-    :operation-params {:target 1, :angle 0.008780243414138765}}],
+    :operation-params {:target 1, :angle -0.013707086144410633}}],
   :num-qubits 4,
   :name "UCCSD Inspired Ansatz"},
  :parameter-count 2,
  :hamiltonian
  {:pauli-terms 15, :grouped-pauli-terms nil, :classical-bound nil},
  :results
- {:optimal-energy -1.1169678407710892,
-  :optimal-parameters [-0.03990791274768018 -0.01756048682827753],
+ {:optimal-energy -1.1164713698212732,
+  :optimal-parameters [-0.09505639249685988 0.027414172288821266],
   :success true,
   :iterations 9,
   :function-evaluations nil}}
@@ -4090,7 +4167,7 @@ The calculated ground state energy is
 (:result vqe-result)
 
 ;; =>
--1.1169678407710892
+-1.1164713698212732
 
 ```
 The final circuit with the optimal parameters is
@@ -4098,7 +4175,7 @@ The final circuit with the optimal parameters is
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit vqe-result))
 ```
-![](tutorial_files/image32.svg)
+![](tutorial_files/image33.svg)
 
 We can do a comprehensive analysis of the VQE result, including:
 
@@ -4128,23 +4205,23 @@ the VQE algorithm and identify areas for improvement.
 ;; =>
 {:analysis-type "Comprehensive VQE Analysis",
  :convergence-analysis
- {:energy-std 1.6568623528856833E-6,
-  :final-gradient-norm 0.002130266376164624,
-  :relative-improvement 4.6482648027033965E-6,
+ {:energy-std 8.18734284548317E-6,
+  :final-gradient-norm 0.0043613161938884275,
+  :relative-improvement 2.2979473390000273E-5,
   :energy-trajectory-length 10,
-  :energy-improvement 5.191938166504428E-6,
+  :energy-improvement 2.5655334587426637E-5,
   :final-reason :converged,
   :monotonic-decrease? true,
   :converged true,
   :total-iterations 9,
   :convergence-quality :good,
-  :initial-energy -1.1169626488329227,
-  :final-energy -1.1169678407710892,
+  :initial-energy -1.1164457144866857,
+  :final-energy -1.1164713698212732,
   :function-evaluations 0,
-  :convergence-rate 5.191938166504428E-7},
+  :convergence-rate 2.5655334587426635E-6},
  :performance-summary
  {:algorithm "VQE",
-  :energy-improvement 5.191938166504428E-6,
+  :energy-improvement 2.5655334587426637E-5,
   :efficiency-score nil,
   :success true,
   :iterations 0,
@@ -4157,14 +4234,14 @@ the VQE algorithm and identify areas for improvement.
   :quantum-state nil,
   :chemical-accuracy
   {:threshold-hartree 0.0016,
-   :energy-improvement 5.191938166504428E-6,
+   :energy-improvement 2.5655334587426637E-5,
    :achieved false},
   :hardware-compatibility
   {:circuit-depth 10,
    :gate-count 12,
    :qubit-count 4,
    :estimated-fidelity 1.0,
-   :hardware-efficiency -0.09308065339759077},
+   :hardware-efficiency -0.09303928081843943},
   :molecular-analysis
   {:ansatz-type :uccsd,
    :hamiltonian-terms 15,
@@ -4173,45 +4250,45 @@ the VQE algorithm and identify areas for improvement.
     [{:operation-type :x, :operation-params {:target 0}}
      {:operation-type :x, :operation-params {:target 1}}
      {:operation-type :ry,
-      :operation-params {:target 0, :angle -0.01995395637384009}}
+      :operation-params {:target 0, :angle -0.04752819624842994}}
      {:operation-type :cnot, :operation-params {:control 0, :target 2}}
      {:operation-type :ry,
-      :operation-params {:target 2, :angle -0.01995395637384009}}
+      :operation-params {:target 2, :angle -0.04752819624842994}}
      {:operation-type :cnot, :operation-params {:control 0, :target 2}}
      {:operation-type :ry,
-      :operation-params {:target 0, :angle 0.01995395637384009}}
+      :operation-params {:target 0, :angle 0.04752819624842994}}
      {:operation-type :ry,
-      :operation-params {:target 1, :angle -0.008780243414138765}}
+      :operation-params {:target 1, :angle 0.013707086144410633}}
      {:operation-type :cnot, :operation-params {:control 1, :target 3}}
      {:operation-type :ry,
-      :operation-params {:target 3, :angle -0.008780243414138765}}
+      :operation-params {:target 3, :angle 0.013707086144410633}}
      {:operation-type :cnot, :operation-params {:control 1, :target 3}}
      {:operation-type :ry,
-      :operation-params {:target 1, :angle 0.008780243414138765}}],
+      :operation-params {:target 1, :angle -0.013707086144410633}}],
     :num-qubits 4,
     :name "UCCSD Inspired Ansatz"}},
   :vqe-recommendations
   ["VQE optimization completed with moderate success"
    "Consider additional iterations or parameter tuning"]},
  :landscape-analysis
- {:optimal-energy -1.1169678407710892,
-  :sensitivities [2.6766015901680262E-5 3.053983224798884E-5],
-  :most-sensitive-parameter 1,
-  :least-sensitive-parameter 0,
+ {:optimal-energy -1.1164713698212732,
+  :sensitivities [1.0153525955614029E-4 1.0678440406364231E-5],
+  :most-sensitive-parameter 0,
+  :least-sensitive-parameter 1,
   :perturbation-size 0.01,
   :parameter-count 2,
-  :gradients [4.58178423310307E-4 0.0020804103839940913],
-  :gradient-norm 0.002130266376164624},
+  :gradients [-0.0020256232911003424 0.0038623735222820255],
+  :gradient-norm 0.0043613161938884275},
  :parameter-sensitivity
- {:sensitivities [2.6766015901680262E-5 3.053983224798884E-5],
-  :normalized-sensitivities [0.0 1.0],
-  :max-sensitivity 3.053983224798884E-5,
-  :min-sensitivity 2.6766015901680262E-5,
-  :sensitivity-range 3.7738163463085783E-6,
+ {:sensitivities [1.0153525955614029E-4 1.0678440406364231E-5],
+  :normalized-sensitivities [1.0 0.0],
+  :max-sensitivity 1.0153525955614029E-4,
+  :min-sensitivity 1.0678440406364231E-5,
+  :sensitivity-range 9.085681914977606E-5,
   :ranked-parameters
-  ([1 3.053983224798884E-5] [0 2.6766015901680262E-5]),
-  :high-sensitivity-params (1 0),
-  :low-sensitivity-params (1 0)}}
+  ([0 1.0153525955614029E-4] [1 1.0678440406364231E-5]),
+  :high-sensitivity-params (0 1),
+  :low-sensitivity-params (0 1)}}
 
 ```
 
@@ -4337,67 +4414,67 @@ triangle-qaoa-result
  {:solution-type :max-cut,
   :cut-edges ([1 2 1.0] [0 2 1.0]),
   :all-solutions
-  ({:partition {0 0, 1 1, 2 0},
-    :cut-edges ([0 1 1.0] [1 2 1.0]),
-    :cut-weight 2.0,
-    :index 2,
-    :count 164,
-    :probability 41/250,
-    :objective-value 2.0}
-   {:partition {0 0, 1 1, 2 1},
+  ({:partition {0 1, 1 0, 2 0},
     :cut-edges ([0 1 1.0] [0 2 1.0]),
     :cut-weight 2.0,
-    :index 3,
-    :count 162,
-    :probability 81/500,
-    :objective-value 2.0}
-   {:partition {0 1, 1 1, 2 0},
-    :cut-edges ([1 2 1.0] [0 2 1.0]),
-    :cut-weight 2.0,
-    :index 6,
-    :count 177,
-    :probability 177/1000,
+    :index 4,
+    :count 173,
+    :probability 173/1000,
     :objective-value 2.0}
    {:partition {0 1, 1 0, 2 1},
     :cut-edges ([0 1 1.0] [1 2 1.0]),
     :cut-weight 2.0,
     :index 5,
-    :count 173,
-    :probability 173/1000,
+    :count 158,
+    :probability 79/500,
     :objective-value 2.0}
-   {:partition {0 1, 1 0, 2 0},
+   {:partition {0 1, 1 1, 2 0},
+    :cut-edges ([1 2 1.0] [0 2 1.0]),
+    :cut-weight 2.0,
+    :index 6,
+    :count 191,
+    :probability 191/1000,
+    :objective-value 2.0}
+   {:partition {0 0, 1 1, 2 1},
     :cut-edges ([0 1 1.0] [0 2 1.0]),
     :cut-weight 2.0,
-    :index 4,
-    :count 160,
-    :probability 4/25,
+    :index 3,
+    :count 143,
+    :probability 143/1000,
+    :objective-value 2.0}
+   {:partition {0 0, 1 1, 2 0},
+    :cut-edges ([0 1 1.0] [1 2 1.0]),
+    :cut-weight 2.0,
+    :index 2,
+    :count 156,
+    :probability 39/250,
     :objective-value 2.0}
    {:partition {0 0, 1 0, 2 1},
     :cut-edges ([1 2 1.0] [0 2 1.0]),
     :cut-weight 2.0,
     :index 1,
-    :count 158,
-    :probability 79/500,
+    :count 174,
+    :probability 87/500,
     :objective-value 2.0}
-   {:partition {0 1, 1 1, 2 1},
-    :cut-edges (),
-    :cut-weight 0,
-    :index 7,
-    :count 4,
-    :probability 1/250,
-    :objective-value 0}
    {:partition {0 0, 1 0, 2 0},
     :cut-edges (),
     :cut-weight 0,
     :index 0,
+    :count 3,
+    :probability 3/1000,
+    :objective-value 0}
+   {:partition {0 1, 1 1, 2 1},
+    :cut-edges (),
+    :cut-weight 0,
+    :index 7,
     :count 2,
     :probability 1/500,
     :objective-value 0}),
   :measurement-distribution
-  {2 164, 3 162, 6 177, 5 173, 4 160, 1 158, 7 4, 0 2},
+  {4 173, 5 158, 6 191, 3 143, 2 156, 1 174, 0 3, 7 2},
   :cut-weight 2.0,
   :partition {0 0, 1 0, 2 1},
-  :solution-probability 79/500,
+  :solution-probability 87/500,
   :approximation-ratio 1.0,
   :classical-optimum 2.0},
  :algorithm "QAOA",
@@ -4525,7 +4602,7 @@ The final circuit with the optimal parameters is
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
 ```
-![](tutorial_files/image33.svg)
+![](tutorial_files/image34.svg)
 
 The circuit shows that the QAOA algorithm applies a series of parameterized
 quantum gates to the qubits, which represent the trial state for the Max-Cut problem.

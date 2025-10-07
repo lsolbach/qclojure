@@ -132,13 +132,13 @@
 ;; `project.clj` file:
 ;;
 ;; ```clojure
-;; [org.soulspace/qclojure "0.18.0"]
+;; [org.soulspace/qclojure "0.19.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
 ;;
 ;; ```clojure
-;; {:deps {org.soulspace/qclojure {:mvn/version "0.18.0"}}}
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.19.0"}}}
 ;; ```
 ;;
 ;; ### Imports
@@ -162,7 +162,8 @@
    [org.soulspace.qclojure.domain.circuit :as circuit]
    [org.soulspace.qclojure.application.visualization :as viz]
    [org.soulspace.qclojure.adapter.visualization.ascii :as ascii]
-   [org.soulspace.qclojure.adapter.visualization.svg :as svg]))
+   [org.soulspace.qclojure.adapter.visualization.svg :as svg]
+   [org.soulspace.qclojure.application.hardware-optimization :as hwopt]))
 
 ;; Some namespaces, like visualization namespaces contain multimethod
 ;; implementations. To make sure that the implementations are loaded, we
@@ -909,7 +910,7 @@ forte-10k-result
 ;; Compared to the IBM Lagos simulation, the IonQ Forte simulation should have
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
-^kind/hiccup 
+^kind/hiccup
 (viz/visualize-measurement-histogram :hiccup (:measurement-results forte-10k-result))
 
 ;; You can also create your own device profiles by defining a device map
@@ -1105,7 +1106,59 @@ forte-10k-result
 (hwopt/optimization-statistics opt-test-circuit2 opt-circuit2)
 
 ;; Now let's explore the effect of applying error correction codes on a simple
-;; Bell circuit.
+;; Bell circuit. We use the simple bit-flip code here, which can correct
+;; a single bit-flip error. The bit-flip code uses three physical qubits
+;; to form one logical qubit. Also, it uses ancilla qubits for error
+;; detection and correction. So the circuit will use more qubits after
+;; applying the error correction code.
+
+(def bf-ecc-circuit
+  (:circuit (hwopt/optimize (circuit/bell-state-circuit)
+                            {}
+                            {:optimize-gates? false
+                             :optimize-qubits? false
+                             :apply-error-correction? true
+                             :error-correction-code :bit-flip
+                             :optimize-topology? false
+                             :transform-operations? false})))
+
+;; The bit-flip code uses three physical qubits to form one logical qubit,
+;; so the circuit now uses 10 qubits, 6 for the two logical qubits and 4
+;; ancilla qubits for error detection and correction.
+
+^kind/hiccup
+(viz/visualize-circuit :hiccup bf-ecc-circuit)
+
+;; The statistics show the increase in the number of qubits, gates and depth
+;; of the circuit.
+
+(hwopt/optimization-statistics (circuit/bell-state-circuit) bf-ecc-circuit)
+
+;; You can try the other error correction codes as well.
+;; Note that the Shor code and the Steane code can correct both bit-flip
+;; and phase-flip errors, so they use more qubits than the bit-flip code.
+;; The 5-qubit code is the smallest code that can correct an arbitrary
+;; single-qubit error, so it uses only 5 data qubits and 4 ancilla qubits,
+;; but it is more complex with more gates and depth than the other codes.
+;; All error correction codes have a distance of 3, which means they can
+;; detect up to two errors and correct a single error.
+;;
+;; Here is a summary of the different error correction codes and their
+;; qubit requirements:
+;;
+;; | Error Correction Code | Data Qubits | Ancilla Qubits | Total Qubits |
+;; |-----------------------|-------------|----------------|--------------|
+;; | :bit-flip             | 3           | 2              | 5            | 
+;; | :phase-flip           | 3           | 2              | 5            |
+;; | :five-qubit           | 5           | 4              | 9            |
+;; | :steane               | 7           | 6              | 13           |
+;; | :shor                 | 9           | 8              | 17           |
+;;
+;; As you can see, applying error correction codes increases the number of
+;; qubits, gates and depth of the circuit significantly. This is a trade-off
+;; between protecting the quantum information from errors and the resources
+;; required to implement the error correction code. On current QPUs with
+;; limited qubit counts this is not always an option.
 ;;
 ;; ## Advanced Quantum Topics
 ;; ### Observables

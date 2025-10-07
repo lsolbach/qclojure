@@ -1029,6 +1029,9 @@ forte-10k-result
 (viz/visualize-circuit :hiccup opt-test-circuit1)
 
 ;; Now we can optimize and transform the circuit for the IonQ Forte device.
+;; The optimize function takes the original circuit, a map describing the
+;; device to optimize for and a map of options for the pipeline. In this call
+;; we skip the topology optimization step.
 
 (def opt-result1
   (hwopt/optimize opt-test-circuit1 (:ionq-forte hwsim/device-map) {:optimize-topology? false}))
@@ -1101,6 +1104,9 @@ forte-10k-result
 
 (hwopt/optimization-statistics opt-test-circuit2 opt-circuit2)
 
+;; Now let's explore the effect of applying error correction codes on a simple
+;; Bell circuit.
+;;
 ;; ## Advanced Quantum Topics
 ;; ### Observables
 ;; Observables are used to measure specific properties of a quantum state.

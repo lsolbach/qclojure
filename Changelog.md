@@ -1,10 +1,18 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.19.0
+* added error correction codes
+  * bit flip and phase flip
+  * 5 qubit code
+  * Steane code
+  * Shor code
+* integrated error correction codes in optimization pipeline
+* added reverse qubit mapping for results of optimized circuits
 * circuit execution improvements
-  * reduced default shots to 128 and raised timeout in backend
-  * added circuit to result in circuit/execute-circuit
+  * reduced default shots to 128 and raised the timeout in the backend
+  * added circuit to result of `execute-circuit`
   * fixed noisy measurement result extraction
+* updated the tutorial
 
 ## Version 0.18.0
 * unified and improved variational algorithms

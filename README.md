@@ -38,7 +38,8 @@ QClojure provides the core features for quantum computing.
 1. **Error Correction**
    
    Stabilizer framework with error correction codes like bit-flip, 5-qubit,
-   Steane and Shor. Syndrome detection and classical error correction
+   Steane and Shor. Syndrome detection and classical error correction integrated
+   in optimization and result extraction pipelines
 
 1. **Error Mitigation**
    
@@ -137,7 +138,8 @@ final state.
 ![Visualization of the probabilities of the Bell state](/doc/images/bell-state.svg)
 
 ### Bernstein-Vazirani Algorithm Example
-This example shows the execution of a quantum algorithm on the simulator backend.It also prints the final state and the measurement outcomes and generates SVG
+This example shows the execution of a quantum algorithm on the ideal simulator backend.
+It also prints the final state and the measurement outcomes and generates SVG
 images of the circuit and the final state.
 
 ```clojure
@@ -164,7 +166,7 @@ images of the circuit and the final state.
 ![Visualization of the probabilities of the Bell state](/doc/images/bv-state.svg)
 
 ## Tutorial
-To learn about quantum computing with QClojure and to see a 'namespace as a notebook' please take a look at the [tutorial](/notebooks/tutorial.clj) for the source code and at [cljdoc](https://cljdoc.org/d/org.soulspace/qclojure) for rendered version in the the documentation.
+To learn about quantum computing with QClojure and to see a 'namespace as a notebook' please take a look at the [tutorial](/notebooks/tutorial.clj) for the source code and at [cljdoc](https://cljdoc.org/d/org.soulspace/qclojure) for rendered version in the documentation.
 
 ## Build
 QClojure is currently build with [Leiningen](https://leiningen.org/).

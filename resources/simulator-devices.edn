@@ -8,6 +8,7 @@
    :name "Amazon Braket SV1"
    :provider "AWS"
    :platform "Amazon Braket"
+   :type :simulator
    :technology :state-vector-simulator
    :arn "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
    :num-qubits 34
@@ -28,6 +29,7 @@
    :name "Amazon Braket TN1"
    :provider "AWS"
    :platform "Amazon Braket"
+   :type :simulator
    :technology :tensor-network-simulator
    :arn "arn:aws:braket:::device/quantum-simulator/amazon/tn1"
    :num-qubits 50
@@ -49,6 +51,7 @@
    :name "Amazon Braket DM1"
    :provider "AWS"
    :platform "Amazon Braket"
+   :type :simulator
    :technology :density-matrix-simulator
    :arn "arn:aws:braket:::device/quantum-simulator/amazon/dm1"
    :num-qubits 17
@@ -72,6 +75,7 @@
    :name "IonQ Aria-1"
    :provider "IonQ"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :trapped-ion
    :arn "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1"
 
@@ -119,6 +123,7 @@
    :name "IonQ Aria"
    :provider "IonQ"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :trapped-ion
    :arn "arn:aws:braket:us-east-1::device/qpu/ionq/Aria-1"
    :num-qubits 25
@@ -181,6 +186,7 @@
    :name "IonQ Forte"
    :provider "IonQ"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :trapped-ion
    :arn "arn:aws:braket:us-east-1::device/qpu/ionq/Forte-1"
    :num-qubits 36
@@ -218,6 +224,7 @@
    :name "IonQ Forte Enterprise 1"
    :provider "IonQ"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :trapped-ion
    :arn "arn:aws:braket:us-east-1::device/qpu/ionq/Forte-Enterprise-1"
    :num-qubits 36
@@ -256,6 +263,7 @@
    :name "Rigetti Ankaa-3"
    :provider "Rigetti Computing"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :superconducting
    :arn "arn:aws:braket:us-west-1::device/qpu/rigetti/Ankaa-3"
    :num-qubits 84
@@ -311,6 +319,7 @@
    :name "Xanadu Borealis"
    :provider "Xanadu"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :photonic
    :arn "arn:aws:braket:us-east-1::device/qpu/xanadu/Borealis"
    :num-modes 216
@@ -340,6 +349,7 @@
    :name "QuEra Aquila"
    :provider "QuEra Computing"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :neutral-atom
    :arn "arn:aws:braket:us-east-1::device/qpu/quera/Aquila"
    :num-atoms 256
@@ -371,6 +381,7 @@
    :name "Oxford Lucy"
    :provider "Oxford Quantum Computing"
    :platform "Amazon Braket"
+   :type :qpu
    :technology :trapped-ion
    :arn "arn:aws:braket:eu-west-2::device/qpu/oqc/Lucy"
    :num-qubits 8
@@ -414,8 +425,8 @@
    :name "IBM Brisbane"
    :provider "IBM"
    :platform "IBM Quantum"
+   :type :qpu
    :technology :superconducting
-
    :num-qubits 127
    :topology :heavy-hex
    :connectivity :limited
@@ -467,6 +478,7 @@
    :name "IBM Kyoto"
    :provider "IBM"
    :platform "IBM Quantum"
+   :type :qpu
    :technology :superconducting
    :num-qubits 127
    :topology :heavy-hex
@@ -521,6 +533,8 @@
    :name "IBM Lagos"
    :provider "IBM"
    :platform "Legacy"
+   :type :qpu
+   :technology :superconducting
    :num-qubits 7
    :topology :linear
    :connectivity :limited
@@ -548,6 +562,7 @@
    :name "Rigetti Aspen"
    :provider "Rigetti Computing"
    :platform "Legacy"
+   :type :qpu
    :technology :superconducting
    :num-qubits 8
    :topology :octagonal
@@ -581,6 +596,7 @@
    :name "Atom Computing System"
    :provider "Atom Computing"
    :platform "Future"
+   :type :qpu
    :technology :neutral-atom
 
    :num-atoms 100
@@ -608,52 +624,54 @@
                                    :t2 200.0}}     ; 200 μs
    }
 
-  :high-fidelity-superconducting {:name "High-Fidelity Superconducting Reference"
-                                  :provider "Reference"
-                                  :platform "Theoretical"
-                                  :technology :superconducting
-                                  :num-qubits 20
-                                  :topology :all-to-all
-                                  :connectivity :full
-                                  :coupling [[0 1] [0 2] [0 3] [0 4] [0 5] [0 6] [0 7] [0 8] [0 9] [0 10] [0 11] [0 12] [0 13] [0 14] [0 15] [0 16] [0 17] [0 18] [0 19]
-                                             [1 2] [1 3] [1 4] [1 5] [1 6] [1 7] [1 8] [1 9] [1 10] [1 11] [1 12] [1 13] [1 14] [1 15] [1 16] [1 17] [1 18] [1 19]
-                                             [2 3] [2 4] [2 5] [2 6] [2 7] [2 8] [2 9] [2 10] [2 11] [2 12] [2 13] [2 14] [2 15] [2 16] [2 17] [2 18] [2 19]
-                                             [3 4] [3 5] [3 6] [3 7] [3 8] [3 9] [3 10] [3 11] [3 12] [3 13] [3 14] [3 15] [3 16] [3 17] [3 18] [3 19]
-                                             [4 5] [4 6] [4 7] [4 8] [4 9] [4 10] [4 11] [4 12] [4 13] [4 14] [4 15] [4 16] [4 17] [4 18] [4 19]
-                                             [5 6] [5 7] [5 8] [5 9] [5 10] [5 11] [5 12] [5 13] [5 14] [5 15] [5 16] [5 17] [5 18] [5 19]
-                                             [6 7] [6 8] [6 9] [6 10] [6 11] [6 12] [6 13] [6 14] [6 15] [6 16] [6 17] [6 18] [6 19]
-                                             [7 8] [7 9] [7 10] [7 11] [7 12] [7 13] [7 14] [7 15] [7 16] [7 17] [7 18] [7 19]
-                                             [8 9] [8 10] [8 11] [8 12] [8 13] [8 14] [8 15] [8 16] [8 17] [8 18] [8 19]
-                                             [9 10] [9 11] [9 12] [9 13] [9 14] [9 15] [9 16] [9 17] [9 18] [9 19]
-                                             [10 11] [10 12] [10 13] [10 14] [10 15] [10 16] [10 17] [10 18] [10 19]
-                                             [11 12] [11 13] [11 14] [11 15] [11 16] [11 17] [11 18] [11 19]
-                                             [12 13] [12 14] [12 15] [12 16] [12 17] [12 18] [12 19]
-                                             [13 14] [13 15] [13 16] [13 17] [13 18] [13 19]
-                                             [14 15] [14 16] [14 17] [14 18] [14 19]
-                                             [15 16] [15 17] [15 18] [15 19]
-                                             [16 17] [16 18] [16 19]
-                                             [17 18] [17 19]
-                                             [18 19]]
-                                  :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
-                                  :virtual-gates #{:s :t :swap}
-                                  :measurement-basis :computational
-                                  :noise-model {:gate-noise {:h {:noise-type :phase-damping :noise-strength 0.0001
-                                                                 :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
-                                                             :x {:noise-type :coherent
-                                                                 :coherent-error {:rotation-angle 0.001 :rotation-axis :x}
-                                                                 :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
-                                                             :cnot {:noise-type :depolarizing :noise-strength 0.002
-                                                                    :t1-time 200.0 :t2-time 120.0 :gate-time 300.0}}
-                                                :readout-error {:prob-0-to-1 0.005 :prob-1-to-0 0.008
-                                                                :correlated-errors {0 1.0 1 1.2 2 0.8}}}
-                                  :performance {:single-qubit-gate-fidelity 0.9999
-                                                :two-qubit-gate-fidelity 0.998
-                                                :readout-fidelity 0.995
-                                                :gate-times {:single-qubit 20    ; 20 ns
-                                                             :two-qubit 300}     ; 300 ns
-                                                :coherence-times {:t1 200.0      ; 200 μs
-                                                                  :t2 120.0}}    ; 120 μs
-                                  }
+  {:id :high-fidelity-superconducting
+   :name "High-Fidelity Superconducting Reference"
+   :provider "Reference"
+   :platform "Theoretical"
+   :type :qpu
+   :technology :superconducting
+   :num-qubits 20
+   :topology :all-to-all
+   :connectivity :full
+   :coupling [[0 1] [0 2] [0 3] [0 4] [0 5] [0 6] [0 7] [0 8] [0 9] [0 10] [0 11] [0 12] [0 13] [0 14] [0 15] [0 16] [0 17] [0 18] [0 19]
+              [1 2] [1 3] [1 4] [1 5] [1 6] [1 7] [1 8] [1 9] [1 10] [1 11] [1 12] [1 13] [1 14] [1 15] [1 16] [1 17] [1 18] [1 19]
+              [2 3] [2 4] [2 5] [2 6] [2 7] [2 8] [2 9] [2 10] [2 11] [2 12] [2 13] [2 14] [2 15] [2 16] [2 17] [2 18] [2 19]
+              [3 4] [3 5] [3 6] [3 7] [3 8] [3 9] [3 10] [3 11] [3 12] [3 13] [3 14] [3 15] [3 16] [3 17] [3 18] [3 19]
+              [4 5] [4 6] [4 7] [4 8] [4 9] [4 10] [4 11] [4 12] [4 13] [4 14] [4 15] [4 16] [4 17] [4 18] [4 19]
+              [5 6] [5 7] [5 8] [5 9] [5 10] [5 11] [5 12] [5 13] [5 14] [5 15] [5 16] [5 17] [5 18] [5 19]
+              [6 7] [6 8] [6 9] [6 10] [6 11] [6 12] [6 13] [6 14] [6 15] [6 16] [6 17] [6 18] [6 19]
+              [7 8] [7 9] [7 10] [7 11] [7 12] [7 13] [7 14] [7 15] [7 16] [7 17] [7 18] [7 19]
+              [8 9] [8 10] [8 11] [8 12] [8 13] [8 14] [8 15] [8 16] [8 17] [8 18] [8 19]
+              [9 10] [9 11] [9 12] [9 13] [9 14] [9 15] [9 16] [9 17] [9 18] [9 19]
+              [10 11] [10 12] [10 13] [10 14] [10 15] [10 16] [10 17] [10 18] [10 19]
+              [11 12] [11 13] [11 14] [11 15] [11 16] [11 17] [11 18] [11 19]
+              [12 13] [12 14] [12 15] [12 16] [12 17] [12 18] [12 19]
+              [13 14] [13 15] [13 16] [13 17] [13 18] [13 19]
+              [14 15] [14 16] [14 17] [14 18] [14 19]
+              [15 16] [15 17] [15 18] [15 19]
+              [16 17] [16 18] [16 19]
+              [17 18] [17 19]
+              [18 19]]
+   :native-gates #{:rx :ry :rz :x :y :z :h :cnot :cz}
+   :virtual-gates #{:s :t :swap}
+   :measurement-basis :computational
+   :noise-model {:gate-noise {:h {:noise-type :phase-damping :noise-strength 0.0001
+                                  :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
+                              :x {:noise-type :coherent
+                                  :coherent-error {:rotation-angle 0.001 :rotation-axis :x}
+                                  :t1-time 200.0 :t2-time 120.0 :gate-time 20.0}
+                              :cnot {:noise-type :depolarizing :noise-strength 0.002
+                                     :t1-time 200.0 :t2-time 120.0 :gate-time 300.0}}
+                 :readout-error {:prob-0-to-1 0.005 :prob-1-to-0 0.008
+                                 :correlated-errors {0 1.0 1 1.2 2 0.8}}}
+   :performance {:single-qubit-gate-fidelity 0.9999
+                 :two-qubit-gate-fidelity 0.998
+                 :readout-fidelity 0.995
+                 :gate-times {:single-qubit 20    ; 20 ns
+                              :two-qubit 300}     ; 300 ns
+                 :coherence-times {:t1 200.0      ; 200 μs
+                                   :t2 120.0}}    ; 120 μs
+   }
 
   ;;
   ;; QClojure Ideal Simulator
@@ -662,13 +680,14 @@
    :name "Ideal Quantum Simulator"
    :provider "QClojure"
    :platform "Local"
-   :technology :simulator
+   :type :simulator
+   :technology :state-vector-simulator
    :num-qubits 20  ; Limited by classical memory
    :topology :all-to-all
    :connectivity :full
    ;; TODO add all gates supported by simulator
-   :native-gates #{:x :y :z :h :s :t :cnot :cy :cz :rx :ry :rz :swap :iwap
-                   :toffoli :fredkin}
+   :native-gates #{:i :x :y :z :h :s :s-dag :t :t-dag :rx :ry :rz :phase
+                   :cnot :cz :cy :swap :crx :cry :crz :toffoli :fredkin}
    :virtual-gates #{}
    :measurement-basis :any
    :noise-model {}

@@ -1,5 +1,13 @@
 # Changelog
 
+## Version (NEXT)
+* fixed hardware simulator execution result
+* updated device list for hardware simulator
+  * added Amazon Braket simulators
+  * added `:arn` key for Amazon Braket devices
+  * added `:type` key (values `:simulator` or `:qpu`) 
+  * fixed some device properties
+
 ## Version 0.19.0
 * added error correction codes
   * bit flip and phase flip

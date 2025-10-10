@@ -135,16 +135,8 @@
 
         (if (>= shot-count shots)
           ;; All shots completed, compile final results
-          (let [base-result {:job-status :completed
-                             :circuit circuit
-                             :circuit-metadata {:circuit-depth (circuit/circuit-depth circuit)
-                                                :circuit-operation-count (circuit/circuit-operation-count circuit)
-                                                :circuit-gate-count (circuit/circuit-gate-count circuit)}
-                             :measurement-results accumulated-results
-                             :final-state last-final-state
-                             :noise-applied true
-                             :shots-executed shots
-                             :execution-time-ms (- (System/currentTimeMillis) start-time)}
+          (let [base-result {:measurement-results accumulated-results
+                             :final-state last-final-state}
                 ;; Add trajectory-based results if collected and apply result extraction
                 enhanced-result (if (and collect-trajectories? (seq trajectories))
                                   (let [density-matrix-result (state/trajectory-to-density-matrix trajectories)
@@ -165,7 +157,14 @@
                 ;(println "Results: " enhanced-result)
                 ;(println "Extracted results:\n" extracted-results)
                 (merge enhanced-result extracted-results))
-              enhanced-result))
+              {:job-status :completed
+               :circuit circuit
+               :circuit-metadata {:circuit-depth (circuit/circuit-depth circuit)
+                                  :circuit-operation-count (circuit/circuit-operation-count circuit)
+                                  :circuit-gate-count (circuit/circuit-gate-count circuit)}
+               :shots-executed shots
+               :execution-time-ms (- (System/currentTimeMillis) start-time)
+               :results enhanced-result}))
 
           ;; Execute single shot with fresh noise
           (let [shot-result (execute-single-noisy-shot-with-trajectory circuit initial-state noise-model)

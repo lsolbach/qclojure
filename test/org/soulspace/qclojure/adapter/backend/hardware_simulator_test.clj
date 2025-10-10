@@ -3,7 +3,8 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures run-tests]]
             [org.soulspace.qclojure.adapter.backend.hardware-simulator :as sim]
             [org.soulspace.qclojure.application.backend :as backend]
-            [org.soulspace.qclojure.domain.circuit :as circuit]))
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.result :as result]))
 
 ;;;
 ;;; Test fixtures
@@ -43,10 +44,11 @@
         (Thread/sleep 500)
         (is (= :completed (backend/job-status simulator job-id)) "Job should complete")
 
-        (let [result (backend/job-result simulator job-id)]
-          (is (= :completed (:job-status result)) "Result should be completed")
-          (is (= 100 (:shots-executed result)) "Should execute correct number of shots")
-          (is (true? (:noise-applied result)) "Should indicate noise was applied")
+        (let [execution-result (backend/job-result simulator job-id)
+              result (:results execution-result)]
+          (is (= :completed (:job-status execution-result)) "Result should be completed")
+          (is (= 100 (:shots-executed execution-result)) "Should execute correct number of shots")
+          ;(is (true? (:noise-applied result)) "Should indicate noise was applied")
           (is (map? (:measurement-results result)) "Should contain measurement results")
           (is (= 100 (reduce + (vals (:measurement-results result)))) "Shot counts should sum to total"))))
 
@@ -58,7 +60,8 @@
 
         ; Wait for completion
         (Thread/sleep 1000)
-        (let [result (backend/job-result simulator job-id)
+        (let [execution-result (backend/job-result simulator job-id)
+              result (:results execution-result)
               measurements (:measurement-results result)
               ideal-states (+ (get measurements "000" 0) (get measurements "111" 0))
               total-shots (reduce + (vals measurements))

@@ -478,7 +478,7 @@
   "Extract specified results from the final quantum state after circuit execution.
    
    Parameters:
-   - result: Result map containing :final-state (the final quantum state after executinga circuit)
+   - base-result: Result map containing :final-state (the final quantum state after executinga circuit)
    - result-specs: Map specifying which results to extract
    
    Result specs format (all optional):
@@ -495,15 +495,15 @@
    
    Returns:
    Map of extracted results based on requested types"
-  [result result-specs]
-  {:pre [(s/valid? ::state/state (:final-state result))
+  [base-result result-specs]
+  {:pre [(s/valid? ::state/state (:final-state base-result))
          (map? result-specs)]}
 
-  (let [final-state (:final-state result)]
+  (let [final-state (:final-state base-result)]
 
     ;; TODO align with extract-noisy-results structure
     ;; Extract each requested result type systematically
-    (cond-> result
+    (cond-> base-result
 
       ;; Basic measurements (Sample result type)
       (:measurements result-specs)

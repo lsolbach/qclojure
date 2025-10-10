@@ -876,7 +876,7 @@ gate/t-dag-gate
 lagos-50-result
 
 ^kind/hiccup
-(viz/visualize-quantum-state :hiccup (:final-state lagos-50-result))
+(viz/visualize-quantum-state :hiccup (get-in lagos-50-result [:results :final-state ]))
 
 ;; We see, that not all measurements measure the states |000⟩ and |111⟩,
 ;; even though those states should have the highest counts. The other states
@@ -892,7 +892,7 @@ lagos-10k-result
 ;; and the counts of the wrong answers should be quite significant.
 
 ^kind/hiccup
-(viz/visualize-measurement-histogram :hiccup (:measurement-results lagos-10k-result))
+(viz/visualize-measurement-histogram :hiccup (get-in lagos-10k-result [:results :measurement-results]))
 
 ;; We can also use the hardware simulator with a different device map, e.g.
 ;; for an IonQ Forte quantum computer.
@@ -911,7 +911,7 @@ forte-10k-result
 ;; distinctly lower noise and thus a higher count for the correct answers.
 
 ^kind/hiccup
-(viz/visualize-measurement-histogram :hiccup (:measurement-results forte-10k-result))
+(viz/visualize-measurement-histogram :hiccup (get-in forte-10k-result [:results :measurement-results]))
 
 ;; You can also create your own device profiles by defining a device map
 ;; with the required parameters. You can then use this device map to create

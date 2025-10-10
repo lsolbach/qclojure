@@ -8,6 +8,8 @@
   * added `:type` key (values `:simulator` or `:qpu`) 
   * fixed some device properties
 * fixed inverse qubit mapping
+* added creation of parent dirs for files to be saved
+* updated the tutorial
 
 ## Version 0.19.0
 * added error correction codes

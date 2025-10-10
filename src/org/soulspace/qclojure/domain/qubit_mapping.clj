@@ -103,6 +103,9 @@
    created by error correction, allowing tracing from physical qubits back
    to compacted logical qubits.
    
+   Note: This function handles both one-to-many mappings (from error correction)
+   and one-to-one mappings (from topology optimization without error correction).
+   
    Parameters:
    - ctx: Context containing :logical-to-physical and :logical-to-ancillas
    
@@ -111,7 +114,15 @@
   [ctx]
   (cond-> ctx
     (:logical-to-physical ctx)
-    (assoc :physical-to-logical (invert-vector-mapping (:logical-to-physical ctx)))
+    (assoc :physical-to-logical
+           (let [mapping (:logical-to-physical ctx)
+                 ;; Check if values are vectors (one-to-many) or scalars (one-to-one)
+                 first-val (-> mapping vals first)]
+             (if (or (vector? first-val) (sequential? first-val))
+               ;; One-to-many mapping from error correction
+               (invert-vector-mapping mapping)
+               ;; One-to-one mapping from topology optimization
+               (invert-simple-mapping mapping))))
     
     (:logical-to-ancillas ctx)
     (assoc :ancilla-to-logical (invert-vector-mapping (:logical-to-ancillas ctx)))))

@@ -7,6 +7,7 @@
   * added `:arn` key for Amazon Braket devices
   * added `:type` key (values `:simulator` or `:qpu`) 
   * fixed some device properties
+* fixed inverse qubit mapping
 
 ## Version 0.19.0
 * added error correction codes

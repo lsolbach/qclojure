@@ -8,8 +8,7 @@
   * missing in QFT/iQFT and QPE
   * check Shor
 * enhance single qubit gate functions to take a qubit vector and add the gate for all qubits
-* new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all) 
-* unify qubit mapping across optimization stages (partially done)
+* new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all)
 * check for inconsistant usage of "operation"/"gate"
   * a gate is an operation, so is a measurement
 

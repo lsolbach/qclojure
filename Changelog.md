@@ -1,14 +1,14 @@
 # Changelog
 
-## Version (NEXT)
-* fixed hardware simulator execution result
+## Version (0.20.0)
 * updated device list for hardware simulator
   * added Amazon Braket simulators
   * added `:arn` key for Amazon Braket devices
   * added `:type` key (values `:simulator` or `:qpu`) 
   * fixed some device properties
-* fixed inverse qubit mapping
 * added creation of parent dirs for files to be saved
+* fixed hardware simulator execution result
+* fixed inverse qubit mapping
 * updated the tutorial
 
 ## Version 0.19.0

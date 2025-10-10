@@ -204,7 +204,7 @@
      :description "Demonstration of quantum state visualizations"))
 
   ;; Save to file
-  (qio/save-file html-page "demo.html")
+  (qio/save-file "demo.html" html-page)
 
   ;; Create minimal custom page
   (def custom-page
@@ -215,7 +215,7 @@
      :title "Custom Page"
      :css "body { background: #f0f0f0; }"))
 
-  (qio/save-file custom-page "custom.html")
+  (qio/save-file "custom.html" custom-page)
 
   ;; Create circuit diagram
   (require '[org.soulspace.qclojure.domain.state :as qs]
@@ -226,7 +226,7 @@
                       (qg/cnot)))
   (def bell-circuit (qc/bell-state-circuit))
   (def circuit-html (viz/visualize-circuit :html bell-circuit))
-  (qio/save-file circuit-html "bell-circuit.html")
+  (qio/save-file "bell-circuit.html" circuit-html)
 
   (def complex-circuit (-> (qc/create-circuit 3 "Complex Circuit")
                            (qc/h-gate 0)          ;; Layer 1
@@ -236,7 +236,7 @@
                            (qc/cnot-gate 1 2))    ;; Layer 3 (must wait for previous gates)
     )
   (def complex-circuit-html (viz/visualize-circuit :html complex-circuit))
-  (qio/save-file complex-circuit-html "complex-circuit.html")
+  (qio/save-file "complex-circuit.html" complex-circuit-html)
   
   ;
   )

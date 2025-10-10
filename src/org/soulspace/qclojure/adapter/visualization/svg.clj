@@ -1450,24 +1450,24 @@
                       (qg/cnot)))
 
   (def bell-svg (viz/visualize-bar-chart :svg bell-state))
-  (qio/save-file bell-svg "bell-state.svg")
+  (qio/save-file "bell-state.svg" bell-svg)
 
   ;; Create SVG bar chart with amplitudes shown in tooltips
   (def bell-svg-detailed (viz/visualize-bar-chart :svg bell-state :show-amplitudes true))
-  (qio/save-file bell-svg-detailed "bell-state-detailed.svg")
+  (qio/save-file "bell-state-detailed.svg" bell-svg-detailed)
 
   ;; Create Bloch sphere visualizations
   (def bloch-0 (viz/visualize-bloch-sphere :svg qs/|0⟩))
   (def bloch-plus (viz/visualize-bloch-sphere :svg qs/|+⟩))
   (def bloch-y (viz/visualize-bloch-sphere :svg (qg/y-gate qs/|0⟩)))
 
-  (qio/save-file bloch-0 "bloch-zero.svg")
-  (qio/save-file bloch-plus "bloch-plus.svg")
-  (qio/save-file bloch-y "bloch-y-gate.svg")
+  (qio/save-file "bloch-zero.svg" bloch-0)
+  (qio/save-file "bloch-plus.svg" bloch-plus)
+  (qio/save-file "bloch-y-gate.svg" bloch-y)
 
   ;; Create circuit diagram
   (def circuit-svg (viz/visualize-circuit :svg (qc/bell-state-circuit)))
-  (qio/save-file circuit-svg "bell-circuit.svg")
+  (qio/save-file "bell-circuit.svg" circuit-svg)
 
   ;; Create complex circuit with various gates
   (def complex-circuit
@@ -1482,7 +1482,7 @@
         (qc/toffoli-gate 0 1 2)
         (qc/fredkin-gate 1 2 0)))
   (def complex-circuit-svg (viz/visualize-circuit :svg complex-circuit :interactive true))
-  (qio/save-file complex-circuit-svg "complex-circuit.svg")
+  (qio/save-file "complex-circuit.svg" complex-circuit-svg)
 
   ;; Test SVG topology visualizations
 
@@ -1501,11 +1501,11 @@
   (def hhex-svg (viz/visualize-topology :svg hhex-65))
 
   ;; Save to files
-  (qio/save-file linear-svg "linear-topology.svg")
-  (qio/save-file ring-svg "ring-topology.svg")
-  (qio/save-file star-svg "star-topology.svg")
-  (qio/save-file grid-svg "grid-topology.svg")
-  (qio/save-file hhex-svg "heavy-hex-topology.svg")
+  (qio/save-file "linear-topology.svg" linear-svg)
+  (qio/save-file "ring-topology.svg" ring-svg)
+  (qio/save-file "star-topology.svg" star-svg)
+  (qio/save-file "grid-topology.svg" grid-svg)
+  (qio/save-file "heavy-hex-topology.svg" hhex-svg)
 
   ;; Test auto layout selection
   (common/auto-select-layout linear-5)  ;=> :grid

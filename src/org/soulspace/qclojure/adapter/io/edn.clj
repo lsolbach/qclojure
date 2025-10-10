@@ -5,12 +5,13 @@
    `io/export-quantum-circuit`, `io/import-quantum-circuit`,
    `io/export-quantum-data`, and `io/import-quantum-data` multimethods for the `:edn` format."
   (:require [clojure.edn :as edn]
+            [org.soulspace.qclojure.util.io :as qio]
             [org.soulspace.qclojure.adapter.io :as io]))
 
 (defmethod io/export-quantum-state :edn
   [_format state filename]
   ((io/serialize-quantum-state state)
-   (spit filename (pr-str (io/serialize-quantum-state state)))))
+   (qio/save-file filename (pr-str (io/serialize-quantum-state state)))))
 
 (defmethod io/import-quantum-state :edn
   [_format filename]
@@ -18,7 +19,7 @@
 
 (defmethod io/export-quantum-circuit :edn
   [_format circuit filename]
-  (spit filename (pr-str (io/serialize-quantum-circuit circuit))))
+  (qio/save-file  filename (pr-str (io/serialize-quantum-circuit circuit))))
 
 (defmethod io/import-quantum-circuit :edn
   [_format filename]
@@ -26,7 +27,7 @@
 
 (defmethod io/export-quantum-data :edn
   [_format data filename]
-  (spit filename (pr-str (io/serialize-quantum-data data))))
+  (qio/save-file  filename (pr-str (io/serialize-quantum-data data))))
 
 (defmethod io/import-quantum-data :edn
   [_format filename]

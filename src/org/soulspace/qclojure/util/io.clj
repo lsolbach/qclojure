@@ -12,7 +12,8 @@
   
   Returns:
   Path to saved file"
-  [content filename]
+  [filename content]
+  (io/make-parents filename)
   (spit filename content)
   filename)
 

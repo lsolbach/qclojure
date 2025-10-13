@@ -222,7 +222,7 @@
   Returns:
   String containing QASM 3.0 code with result pragmas"
   ([circuit]
-   (circuit-to-qasm circuit nil))
+   (circuit-to-qasm circuit {}))
   ([circuit options]
    (let [num-qubits (:num-qubits circuit)
          header (str "OPENQASM 3.0;\n"

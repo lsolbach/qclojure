@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* added options to qasm3 emission for customized qasm (e.g. Braket, IBMQ)
 
 ## Version 0.20.0
 * updated device list for hardware simulator

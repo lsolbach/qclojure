@@ -25,6 +25,11 @@
 ;;;
 ;;; QASM 3 emission
 ;;;
+(def pragma-target
+  "Maps target keywords to QASM target strings."
+  {:qclojure "qclojure"
+   :braket "braket"})
+
 (defn observable-to-qasm-comment
   "Convert an observable to a QASM comment for documentation.
    QASM 3.0 doesn't have native observable syntax yet, so we use comments."
@@ -36,80 +41,83 @@
     (map? observable) (str "// Observable: " (pr-str observable))
     :else (str "// Observable: " (str observable))))
 
-(defn result-specs-to-qasm-pragmas
+(defn emit-qasm-pragmas
   "Convert result specifications to QASM 3.0 pragma comments.
    These provide metadata about what results should be extracted."
-  [result-specs]
-  (when (seq result-specs)
-    (let [pragma-lines
-          (mapcat (fn [[result-type spec]]
-                    (case result-type
-                      :measurements
-                      [(str "#pragma qclojure result measurement shots=" (get spec :shots 1000)
-                            (when-let [qubits (:qubits spec)]
-                              (str " qubits=" (str/join "," qubits))))]
+  [options]
+  (let [result-specs (:result-specs options)
+        target (:target options :qclojure)]
+    (when (seq result-specs)
+      (let [pragma-lines
+            (mapcat (fn [[result-type spec]]
+                      (case result-type
+                        :measurements
+                        [(str "#pragma " (pragma-target target) " result measurement shots=" (get spec :shots 1000)
+                              (when-let [qubits (:qubits spec)]
+                                (str " qubits=" (str/join "," qubits))))]
 
-                      :expectation
-                      (let [observables (:observables spec [])
-                            targets (:targets spec [])]
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result expectation observable="
-                                (name obs)
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :expectation
+                        (let [observables (:observables spec [])
+                              targets (:targets spec [])]
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result expectation observable="
+                                  (name obs)
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      :variance
-                      (let [observables (:observables spec [])
-                            targets (:targets spec [])]
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result variance observable="
-                                (name obs)
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :variance
+                        (let [observables (:observables spec [])
+                              targets (:targets spec [])]
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result variance observable="
+                                  (name obs)
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      :probability
-                      [(str "#pragma qclojure result probability"
-                            (when-let [targets (:targets spec)]
-                              (str " targets=" (str/join "," targets)))
-                            (when-let [states (:states spec)]
-                              (str " states=" (str/join "," states))))]
+                        :probability
+                        [(str "#pragma " (pragma-target target) " result probability"
+                              (when-let [targets (:targets spec)]
+                                (str " targets=" (str/join "," targets)))
+                              (when-let [states (:states spec)]
+                                (str " states=" (str/join "," states))))]
 
-                      :amplitude
-                      [(str "#pragma qclojure result amplitude states="
-                            (str/join "," (:states spec [])))]
+                        :amplitude
+                        [(str "#pragma " (pragma-target target) " result amplitude states="
+                              (str/join "," (:states spec [])))]
 
-                      :sample
-                      (let [observables (:observables spec [])
-                            shots (:shots spec 1000)
-                            targets (:targets spec [])]
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result sample observable="
-                                (name obs) " shots=" shots
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :sample
+                        (let [observables (:observables spec [])
+                              shots (:shots spec 1000)
+                              targets (:targets spec [])]
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result sample observable="
+                                  (name obs) " shots=" shots
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      ;; Skip simulation-only results in hardware QASM
-                      (:state-vector :density-matrix :fidelity)
-                      [(str "// Simulation-only result: " (name result-type))]
+                        ;; Skip simulation-only results in hardware QASM
+                        (:state-vector :density-matrix :fidelity)
+                        [(str "// Simulation-only result: " (name result-type))]
 
-                      ;; Unknown result type
-                      [(str "// Unknown result type: " (name result-type))]))
-                  result-specs)]
-      (when (seq pragma-lines)
-        (str "\n// Result extraction specifications\n"
-             (str/join "\n" pragma-lines) "\n")))))
+                        ;; Unknown result type
+                        [(str "// Unknown result type: " (name result-type))]))
+                    result-specs)]
+        (when (seq pragma-lines)
+          (str "\n// Result extraction specifications\n"
+               (str/join "\n" pragma-lines) "\n"))))))
 
 (defn gate-to-qasm-fn
-  [num-qubits]
+  [num-qubits options]
   (fn [gate]
     (let [gate-type (:operation-type gate)
-          params (:operation-params gate)]
+          params (:operation-params gate)
+          target (:target options :qclojure)]
       (case gate-type
         ;; Identity gate
         :i (str "id q[" (:target params) "];")
@@ -133,7 +141,9 @@
         :phase (str "p(" (:angle params) ") q[" (:target params) "];")
 
         ;; Two-qubit gates
-        :cnot (str "cx q[" (:control params) "], q[" (:target params) "];")
+        :cnot (if (= target :braket)
+                (str "cnot q[" (:control params) "], q[" (:target params) "];")
+                (str "cx q[" (:control params) "], q[" (:target params) "];"))
         :cx (str "cx q[" (:control params) "], q[" (:target params) "];")
         :cz (str "cz q[" (:control params) "], q[" (:target params) "];")
         :cy (str "cy q[" (:control params) "], q[" (:target params) "];")
@@ -205,23 +215,26 @@
   
   Parameters:
   - circuit: Quantum circuit to convert
-  - result-specs: (optional) Map specifying result extraction requirements
+  - options: (optional) Map of options, e.g.
+              :result-specs (map of result specifications) 
+              :target (:braket for Amazon Braket)
   
   Returns:
   String containing QASM 3.0 code with result pragmas"
   ([circuit]
    (circuit-to-qasm circuit nil))
-  ([circuit result-specs]
+  ([circuit options]
    (let [num-qubits (:num-qubits circuit)
          header (str "OPENQASM 3.0;\n"
-                     "include \"stdgates.inc\";\n\n"
+                     (when-not (= (:target options) :braket)
+                       "include \"stdgates.inc\";\n\n")
                      "qubit[" num-qubits "] q;\n"
                      "bit[" num-qubits "] c;\n")
 
          ;; Add result specifications as pragmas
-         result-pragmas (result-specs-to-qasm-pragmas result-specs)
+         result-pragmas (emit-qasm-pragmas options)
 
-         gate-to-qasm (gate-to-qasm-fn num-qubits)
+         gate-to-qasm (gate-to-qasm-fn num-qubits options)
 
          gates-qasm (str/join "\n" (map gate-to-qasm (:operations circuit)))]
 
@@ -357,7 +370,7 @@
             ;; Map QASM gate names to QClojure gate keywords
             gate-keyword (keyword gate-type)]
         (qc/add-gate circuit gate-keyword :target target-idx))
-  
+
       ;; Parse 2-qubit controlled gates (cx, cz, cy)
       (re-find #"^(cx|cz|cy)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ gate-type control target] (re-find #"^(cx|cz|cy)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
@@ -365,21 +378,21 @@
             target-idx (Integer/parseInt target)
             gate-keyword  (keyword gate-type)]
         (qc/add-gate circuit gate-keyword :control control-idx :target target-idx))
-  
+
       ;; Parse SWAP gate
       (re-find #"^swap\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ qubit1 qubit2] (re-find #"^swap\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
             qubit1-idx (Integer/parseInt qubit1)
             qubit2-idx (Integer/parseInt qubit2)]
         (qc/add-gate circuit :swap :qubit1 qubit1-idx :qubit2 qubit2-idx))
-  
+
       ;; Parse iSWAP gate
       (re-find #"^iswap\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ qubit1 qubit2] (re-find #"^iswap\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
             qubit1-idx (Integer/parseInt qubit1)
             qubit2-idx (Integer/parseInt qubit2)]
         (qc/add-gate circuit :iswap :qubit1 qubit1-idx :qubit2 qubit2-idx))
-  
+
       ;; Parse Toffoli gate (ccx)
       (re-find #"^ccx\s+q\[(\d+)\],\s*q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ control1 control2 target] (re-find #"^ccx\s+q\[(\d+)\],\s*q\[(\d+)\],\s*q\[(\d+)\]" line)
@@ -387,7 +400,7 @@
             control2-idx (Integer/parseInt control2)
             target-idx (Integer/parseInt target)]
         (qc/add-gate circuit :toffoli :control1 control1-idx :control2 control2-idx :target target-idx))
-  
+
       ;; Parse Fredkin gate (cswap)
       (re-find #"^cswap\s+q\[(\d+)\],\s*q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ control target1 target2] (re-find #"^cswap\s+q\[(\d+)\],\s*q\[(\d+)\],\s*q\[(\d+)\]" line)
@@ -395,7 +408,7 @@
             target1-idx (Integer/parseInt target1)
             target2-idx (Integer/parseInt target2)]
         (qc/add-gate circuit :fredkin :control control-idx :target1 target1-idx :target2 target2-idx))
-  
+
       ;; Parse controlled rotation gates (crx, cry, crz)
       (re-find #"^cr([xyz])\((.+?)\)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
       (let [[_ axis angle-str control target] (re-find #"^cr([xyz])\((.+?)\)\s+q\[(\d+)\],\s*q\[(\d+)\]" line)
@@ -407,14 +420,14 @@
                            "y" :cry
                            "z" :crz)]
         (qc/add-gate circuit gate-keyword :control control-idx :target target-idx :angle angle))
-  
+
       ;; Parse phase gate (p)
       (re-find #"^p\((.+?)\)\s+q\[(\d+)\]" line)
       (let [[_ angle-str target] (re-find #"^p\((.+?)\)\s+q\[(\d+)\]" line)
             angle (parse-qasm-expression angle-str)
             target-idx (Integer/parseInt target)]
         (qc/add-gate circuit :phase :target target-idx :angle angle))
-  
+
       ;; Parse rotation gates (rx, ry, rz)
       (re-find #"^r([xyz])\((.+?)\)\s+q\[(\d+)\]" line)
       (let [[_ axis angle-str target] (re-find #"^r([xyz])\((.+?)\)\s+q\[(\d+)\]" line)
@@ -425,13 +438,13 @@
                            "y" :ry
                            "z" :rz)]
         (qc/add-gate circuit gate-keyword :target target-idx :angle angle))
-  
+
       ;; Parse QASM 3.0 measurement syntax: c[i] = measure q[i];
       (re-find #"^c\[(\d+)\]\s*=\s*measure\s+q\[(\d+)\]" line)
       (let [[_ _cbit-idx qubit-idx] (re-find #"^c\[(\d+)\]\s*=\s*measure\s+q\[(\d+)\]" line)
             qubit-idx-int (Integer/parseInt qubit-idx)]
         (qc/measure-operation circuit [qubit-idx-int]))
-  
+
       ;; Skip other lines (comments, declarations, etc.)
       :else circuit)))
 

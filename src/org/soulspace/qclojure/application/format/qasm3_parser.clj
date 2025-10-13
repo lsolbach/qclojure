@@ -10,6 +10,11 @@
             [org.soulspace.qclojure.domain.circuit :as circuit]
             [org.soulspace.qclojure.domain.operation-registry :as opreg]))
 
+(def pragma-target
+  "Maps target keywords to QASM target strings."
+  {:qclojure "qclojure"
+   :braket "braket"})
+
 ;; Result specs parsing utilities (adapted from qasm3.clj)
 (defn parse-result-pragma
   "Parse a QClojure result pragma from QASM 3.0 comment.
@@ -58,84 +63,86 @@
                           params))))
             {} parsed-pragmas)))
 
-(defn result-specs-to-qasm-pragmas
+(defn emit-qasm-pragmas
   "Convert result specifications to QASM 3.0 pragma comments."
-  [result-specs]
-  (when (seq result-specs)
-    (let [pragma-lines
-          (mapcat (fn [[result-type spec]]
-                    (case result-type
-                      :measurement
-                      [(str "#pragma qclojure result measurement shots=" (get spec :shots 1000)
-                            (when-let [qubits (:qubits spec)]
-                              (str " qubits=" (str/join "," qubits))))]
+  [options]
+  (let [result-specs (:result-specs options)
+        target (:target options :qclojure)]
+    (when (seq result-specs)
+      (let [pragma-lines
+            (mapcat (fn [[result-type spec]]
+                      (case result-type
+                        :measurement
+                        [(str "#pragma " (pragma-target target) " result measurement shots=" (get spec :shots 1000)
+                              (when-let [qubits (:qubits spec)]
+                                (str " qubits=" (str/join "," qubits))))]
 
-                      :expectation
-                      (let [observables (if (:observables spec)
-                                          (:observables spec)
-                                          [(:observable spec)])  ; Handle singular form
-                            targets (if (:targets spec)
-                                      (:targets spec)
-                                      [(:target spec)])]       ; Handle singular form
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result expectation observable="
-                                (name obs)
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :expectation
+                        (let [observables (if (:observables spec)
+                                            (:observables spec)
+                                            [(:observable spec)])  ; Handle singular form
+                              targets (if (:targets spec)
+                                        (:targets spec)
+                                        [(:target spec)])]       ; Handle singular form
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result expectation observable="
+                                  (name obs)
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      :variance
-                      (let [observables (if (:observables spec)
-                                          (:observables spec)
-                                          [(:observable spec)])  ; Handle singular form
-                            targets (if (:targets spec)
-                                      (:targets spec)
-                                      [(:target spec)])]       ; Handle singular form
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result variance observable="
-                                (name obs)
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :variance
+                        (let [observables (if (:observables spec)
+                                            (:observables spec)
+                                            [(:observable spec)])  ; Handle singular form
+                              targets (if (:targets spec)
+                                        (:targets spec)
+                                        [(:target spec)])]       ; Handle singular form
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result variance observable="
+                                  (name obs)
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      :probability
-                      [(str "#pragma qclojure result probability"
-                            (when-let [targets (:targets spec)]
-                              (str " targets=" (str/join "," targets)))
-                            (when-let [states (:states spec)]
-                              (str " states=" (str/join "," states))))]
+                        :probability
+                        [(str "#pragma " (pragma-target target) " result probability"
+                              (when-let [targets (:targets spec)]
+                                (str " targets=" (str/join "," targets)))
+                              (when-let [states (:states spec)]
+                                (str " states=" (str/join "," states))))]
 
-                      :amplitude
-                      [(str "#pragma qclojure result amplitude states="
-                            (str/join "," (:states spec [])))]
+                        :amplitude
+                        [(str "#pragma " (pragma-target target) " result amplitude states="
+                              (str/join "," (:states spec [])))]
 
-                      :sample
-                      (let [observables (if (:observables spec)
-                                          (:observables spec)
-                                          [(:observable spec)])  ; Handle singular form
-                            shots (:shots spec 1000)
-                            targets (if (:targets spec)
-                                      (:targets spec)
-                                      [(:target spec)])]       ; Handle singular form
-                        (map-indexed
-                         (fn [idx obs]
-                           (str "#pragma qclojure result sample observable="
-                                (name obs) " shots=" shots
-                                (when (< idx (count targets))
-                                  (str " target=" (nth targets idx)))))
-                         observables))
+                        :sample
+                        (let [observables (if (:observables spec)
+                                            (:observables spec)
+                                            [(:observable spec)])  ; Handle singular form
+                              shots (:shots spec 1000)
+                              targets (if (:targets spec)
+                                        (:targets spec)
+                                        [(:target spec)])]       ; Handle singular form
+                          (map-indexed
+                           (fn [idx obs]
+                             (str "#pragma " (pragma-target target) " result sample observable="
+                                  (name obs) " shots=" shots
+                                  (when (< idx (count targets))
+                                    (str " target=" (nth targets idx)))))
+                           observables))
 
-                      ;; Skip simulation-only results in hardware QASM
-                      (:state-vector :density-matrix :fidelity)
-                      [(str "// Simulation-only result: " (name result-type))]
+                        ;; Skip simulation-only results in hardware QASM
+                        (:state-vector :density-matrix :fidelity)
+                        [(str "// Simulation-only result: " (name result-type))]
 
-                      ;; Unknown result type
-                      [(str "// Unknown result type: " (name result-type))]))
-                  result-specs)]
-      (when (seq pragma-lines)
-        (str "\n" (str/join "\n" pragma-lines) "\n")))))
+                        ;; Unknown result type
+                        [(str "// Unknown result type: " (name result-type))]))
+                    result-specs)]
+        (when (seq pragma-lines)
+          (str "\n" (str/join "\n" pragma-lines) "\n"))))))
 
 ;;;
 ;;; Comment removal functions
@@ -746,8 +753,9 @@
 
 (defn gate-to-qasm3
   "Convert a single gate operation to QASM3 syntax using operation registry information."
-  [gate]
-  (let [gate-type (:operation-type gate)
+  [gate options]
+  (let [target (:target options :qclojure)
+        gate-type (:operation-type gate)
         params (:operation-params gate)
         gate-info (opreg/get-gate-info-with-alias gate-type)]
 
@@ -775,7 +783,9 @@
                 qubit2 (:qubit2 params)]
             ;; Handle special cases for QASM naming conventions
             (case gate-type
-              :cnot (str "cx q[" control "], q[" target "];")
+              :cnot (if (= target :braket)
+                      (str "cnot q[" control "], q[" target "];")
+                      (str "cx q[" control "], q[" target "];"))
               :swap (str "swap q[" qubit1 "], q[" qubit2 "];")  ; swap uses qubit1/qubit2
               :iswap (str "iswap q[" qubit1 "], q[" qubit2 "];")  ; iswap uses qubit1/qubit2
               (str qasm-name " q[" control "], q[" target "];")))  ; default uses control/target
@@ -815,32 +825,44 @@
   Returns:
   String containing QASM 3.0 code with result pragmas"
   ([circuit]
-   (circuit-to-qasm circuit nil))
-  ([circuit result-specs]
-   (let [header (str "OPENQASM 3.0;\n"
+   (circuit-to-qasm circuit {}))
+  ([circuit options]
+   (let [result-specs (:result-specs options)
+         header (str "OPENQASM 3.0;\n"
                      "include \"stdgates.inc\";\n\n"
                      "qubit[" (:num-qubits circuit) "] q;\n"
                      "bit[" (:num-qubits circuit) "] c;\n\n")
 
-         gates-qasm (str/join "\n" (map gate-to-qasm3 (:operations circuit)))
+         gates-qasm (str/join "\n" (map #(gate-to-qasm3 % options) (:operations circuit)))
 
          ;; Add result specifications as pragmas if provided
          pragmas-qasm (when result-specs
-                        (result-specs-to-qasm-pragmas result-specs))]
+                        (emit-qasm-pragmas result-specs))]
 
      (str header gates-qasm pragmas-qasm))))
 
 (comment
-  ;; Quick REPL checks / manual tests for the extractor helpers and parse-gate-call
-  ;; Usage in REPL (with calva):
-  ;; (require 'org.soulspace.qclojure.application.format.qasm3-parser :reload)
-  ;; (def sample-parse (qasm3-parser "OPENQASM 3.0; qubit[3] q; cx q[0], q[1];"))
-  ;; ;; find the gate_call_statement node in parse tree
-  ;; (def gate-node (first (filter #(and (vector? %) (= :gate_call_statement (first %))) (rest (first sample-parse)))))
-  ;; (extract-gate-name gate-node)
-  ;; (let [expr-list (first (filter #(and (vector? %) (= :expression_list (first %))) gate-node))]
-  ;;   (extract-gate-parameters expr-list))
-  ;; (let [op-list (first (filter #(and (vector? %) (= :gate_operand_list (first %))) gate-node))]
-  ;;   (extract-gate-operands op-list))
-  ;; (parse-gate-call gate-node)
+  ;; Example usage
+  (def example-qasm "
+    // Example OpenQASM 3.0 code
+    OPENQASM 3.0;
+    include \"stdgates.inc\";
+
+    qubit[3] q;
+    bit[3] c;
+
+    h q[0];
+    cx q[0], q[1];
+    rz(1.5708) q[1];
+    measure q[0] -> c[0];
+    measure q[1] -> c[1];
+    measure q[2] -> c[2];
+
+    // Result specifications
+    #pragma result count c
+    #pragma result prob c
+    #pragma result statevector c")
+
+  (def parsed-circuit (qasm-to-circuit example-qasm))
+  (println parsed-circuit)
   )

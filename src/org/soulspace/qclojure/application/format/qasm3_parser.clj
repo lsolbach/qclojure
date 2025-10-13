@@ -827,9 +827,11 @@
   ([circuit]
    (circuit-to-qasm circuit {}))
   ([circuit options]
-   (let [result-specs (:result-specs options)
+   (let [target (:target options :qclojure)
+         result-specs (:result-specs options)
          header (str "OPENQASM 3.0;\n"
-                     "include \"stdgates.inc\";\n\n"
+                     (when-not (= target :braket)
+                       "include \"stdgates.inc\";\n\n")
                      "qubit[" (:num-qubits circuit) "] q;\n"
                      "bit[" (:num-qubits circuit) "] c;\n\n")
 

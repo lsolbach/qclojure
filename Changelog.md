@@ -1,6 +1,8 @@
 # Changelog
 
-## Version (0.20.0)
+## Version (NEXT)
+
+## Version 0.20.0
 * updated device list for hardware simulator
   * added Amazon Braket simulators
   * added `:arn` key for Amazon Braket devices

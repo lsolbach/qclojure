@@ -2,22 +2,24 @@
 (ns qclojure-intro
   (:require
    [scicloj.kindly.v4.kind :as kind]
-   [org.soulspace.qclojure.application.visualization :as viz]))
+   [org.soulspace.qclojure.domain.gate :as gate]
+   [org.soulspace.qclojure.application.backend :as qb]))
 
 ;; ## About me
 ;;
 ;; * Ludger Solbach
 ;; * Software Architect at 'msg for automotive'
 ;; * 30+ years experience in different industries
-;; * Clojure enthusiast
+;; * Clojure enthusiast since 2011
+;; * [My GitHub page](https://github.com/lsolbach)
 ;; 
 ;; ## What to expect
 ;;
 ;; * Introduction to QClojure
 ;; * Overview of features and capabilities
 ;; * Getting started with installation and documentation
-;; * Examples of quantum states, gates, circuits, and backends
-;; * Overview of implemented quantum/hybrid algorithms
+;; * Examples of quantum states, gates, circuits and backends
+;; * Examples of implemented quantum/hybrid algorithms
 ;; * Future plans and missing pieces in the Clojure ecosystem
 ;; 
 ;; ## What not to expect
@@ -146,8 +148,9 @@ gate/pauli-z
 ;; * combines bit-flip and phase-flip operations
 gate/pauli-y
 ;; ## CNOT Gate
+;; * flips the target qubit if the control qubit is in state |1⟩
 ;; * entangles two qubits
-gate/cnot
+#_gate/cnot-gate
 
 ;;
 ;; # Quantum Circuits
@@ -164,11 +167,10 @@ gate/cnot
 ;; * Hardware Abstraction Layer
 ;; * Multiple Backend Implementations
 (require '[org.soulspace.qclojure.application.backend :as backend])
-(require '[org.soulspace.qclojure.domain.result :as result])
-(require '[fastmath.complex :as fc])
 
 ;; ## Result Extraction
-;;
+;; * Specify what results to extract from backend execution
+;; * E.g. measurement results for qubits 0, 1, and 2 with 64 shots
 (def result-specs {:measurements {:qubits [0 1 2]
                                   :shots 64}})
 ;; ## Ideal Simulator Backend
@@ -176,73 +178,51 @@ gate/cnot
 ;; * Suitable for testing and debugging quantum algorithms
 (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as ideal])
 (def ideal-simulator (ideal/create-simulator))
+
 ;; ## Executing Circuit on Ideal Simulator Backend
 (def ideal-result (backend/execute-circuit
                    ideal-simulator
                    (circuit/ghz-state-circuit 3)
                    {:result-specs result-specs}))
 
-
-(result/extract-results
- {:final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
-                :num-qubits 3},
-  :result-types #{:measurements},
-  :circuit {:operations [{:operation-type :h, :operation-params {:target 0}}
-                         {:operation-type :cnot, :operation-params {:control 0, :target 1}}
-                         {:operation-type :cnot, :operation-params {:control 0, :target 2}}],
-            :num-qubits 3,
-            :name "GHZ State",
-            :description "Prepares 3-qubit GHZ state"},
-  :circuit-metadata {:circuit-depth 3,
-                     :circuit-operation-count 3,
-                     :circuit-gate-count 3,
-                     :num-qubits 3}}
- {:measurements {:qubits [0 1 2], :shots 64}})
-
-ideal-result
+#_ideal-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
-#_^kind/hiccup
-  (viz/visualize-measurement-histogram
-   :hiccup
-   (get-in ideal-result [:results :frequencies]))
+^kind/hiccup
+(viz/visualize-measurement-histogram
+ :hiccup
+ (get-in ideal-result [:results :measurement-results :frequencies]))
 
 ;; ## Hardware Simulator Backend
+;; * Realistic simulation of quantum devices
+;;   * Native gate sets
+;;   * Qubit topologies
+;;   * Noise models
 (require '[org.soulspace.qclojure.adapter.backend.hardware-simulator :as hwsim])
 (def hw-simulator (hwsim/create-hardware-simulator))
 
-(backend/select-device hw-simulator (:ibm-lagos hwsim/device-map))
+;; ## Selecting a Device
+;; * IBM Lagos device
+(def device (backend/select-device hw-simulator (:ibm-lagos hwsim/device-map)))
+
+;; ## Device Information
+;; * Native Gates
+(:native-gates device)
+;; * Noise Model
+(:noise-model device)
+
 ;; ## Executing Circuit on Hardware Simulator Backend
 (def noisy-result (backend/execute-circuit
                    hw-simulator
                    (circuit/ghz-state-circuit 3)
-                   {:shots 128
-                    :result-specs result-specs}))
-
-(result/extract-noisy-results
- {:job-status :completed,
-  :measurement-results {111 451, 000 501, 011 17, 001 16, 100 5, 110 17, 101 14, 010 3},
-  :final-state {:state-vector [(fc/complex 0.7071067811865475, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.0, 0.0)
-                               (fc/complex 0.0, 0.0) (fc/complex 0.7071067811865475, 0.0)],
-                :num-qubits 3},
-  :noise-applied true,
-  :shots-executed 1024,
-  :execution-time-ms 395}
- {:measurements {:qubits [0 1 2], :shots 64}}
- (circuit/ghz-state-circuit 3))
-
-noisy-result
+                   {:result-specs result-specs}))
+#_noisy-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
-#_^kind/hiccup
-  (viz/visualize-measurement-histogram
-   :hiccup
-   (get-in noisy-result [:measurement-results]))
+^kind/hiccup
+(viz/visualize-measurement-histogram
+ :hiccup
+ (get-in noisy-result [:results :measurement-results :frequencies]))
 
 ;; # QClojure Quantum/Hybrid Algorithms
 ;;
@@ -274,7 +254,7 @@ noisy-result
 
 ;; ## Executing Grover Circuit
 (def grover-result
-  (grover/grover-algorithm (ideal/create-simulator) 8 grover-oracle {:shots 1}))
+  (grover/grover-algorithm ideal-simulator 8 grover-oracle {:shots 1}))
 
 ;; ## QAOA Example
 ;; * Variational hybrid algorithm for combinatorial optimization
@@ -326,7 +306,7 @@ noisy-result
 ;;   * ArrayFire bindings via Java22+ FFI
 ;;
 ;; ## Contribution
-;; 
+;; * We need an ecosystem around QClojure
 ;; * Contributions and feedback are welcome
 ;;   * Discussions on Slack #quantum-computing channel
 ;;   * Tutorials, examples, documentation

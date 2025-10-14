@@ -1,9 +1,7 @@
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
-   [scicloj.kindly.v4.kind :as kind]
-   [org.soulspace.qclojure.domain.gate :as gate]
-   [org.soulspace.qclojure.application.backend :as qb]))
+   [scicloj.kindly.v4.kind :as kind]))
 
 ;; ## About me
 ;;

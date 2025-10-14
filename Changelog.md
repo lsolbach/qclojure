@@ -2,6 +2,7 @@
 
 ## Version (NEXT)
 * added options to qasm3 emission for customized qasm (e.g. Braket, IBMQ)
+* fixed hardware simulator execution result with result specs
 
 ## Version 0.20.0
 * updated device list for hardware simulator

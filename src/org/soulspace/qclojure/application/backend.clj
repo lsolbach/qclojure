@@ -231,7 +231,7 @@
 
      (let [job-id (submit-circuit backend circuit options)]
        ;(println "Waiting for job" job-id "to complete...")
-       (loop [max-retries 6000
+       (loop [max-retries 600
               retry-count 0]
          (if (>= retry-count max-retries)
            {:job-status :failed

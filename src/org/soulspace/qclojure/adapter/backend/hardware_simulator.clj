@@ -152,11 +152,14 @@
             ;; Apply result extraction if result specs are provided
             (if result-specs
               (let [extracted-results (result/extract-noisy-results enhanced-result result-specs circuit)]
-                ;; FIXME remove debug printlns
-                ;(println "Result Specs: " result-specs)
-                ;(println "Results: " enhanced-result)
-                ;(println "Extracted results:\n" extracted-results)
-                (merge enhanced-result extracted-results))
+                {:job-status :completed
+                 :circuit circuit
+                 :circuit-metadata {:circuit-depth (circuit/circuit-depth circuit)
+                                    :circuit-operation-count (circuit/circuit-operation-count circuit)
+                                    :circuit-gate-count (circuit/circuit-gate-count circuit)}
+                 :shots-executed shots
+                 :execution-time-ms (- (System/currentTimeMillis) start-time)
+                 :results (merge enhanced-result extracted-results)})
               {:job-status :completed
                :circuit circuit
                :circuit-metadata {:circuit-depth (circuit/circuit-depth circuit)

@@ -1,5 +1,13 @@
 ^{:kindly/hide-code true}
 (ns qclojure-ai)
+;; # About me
+;;
+;; * Ludger Solbach
+;; * Software Architect at 'msg for automotive'
+;; * 30+ years experience in different industries
+;; * Clojure enthusiast since 2011
+;; * [My GitHub page](https://github.com/lsolbach)
+;; 
 ;; # What is QClojure
 ;;
 ;; * A Clojure library for quantum computing

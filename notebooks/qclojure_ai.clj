@@ -42,12 +42,14 @@
 ;; * AGENTS.md - project specific instructions
 ;;
 ;; ## MCP Tools
-;; * REPL - testing and exploration
-;; * human intelligence - design discussions, planning, reviews
+;; * REPL
+;;   * testing and exploration
+;; * human intelligence 
+;;   * design discussions, planning, reviews
 ;;
 ;; ## General Workflow
-;; 1. use Ask mode (or ChatGPT) mode for research and planning
-;; 2. use Agent mode for implementation, testing and documentation
+;; 1. Ask mode (or ChatGPT) mode for research and planning
+;; 2. Agent mode for implementation, testing and docs
 ;; 
 ;; # Lessons Learned
 ;;
@@ -64,6 +66,8 @@
 ;;   * code duplications
 ;;   * for better abstractions and reuse
 ;; * AI often builds simplified solutions
+;;
+;; ## Problems and Challenges
 ;; * context window is limited
 ;;   * dreaded "summarizing conversation history"
 ;;   * got better over time

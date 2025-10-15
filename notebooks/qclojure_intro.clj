@@ -1,7 +1,8 @@
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
-   [scicloj.kindly.v4.kind :as kind]))
+   [scicloj.kindly.v4.kind :as kind]
+   [org.soulspace.qclojure.domain.gate :as gate]))
 
 ;; ## About me
 ;;
@@ -23,7 +24,7 @@
 ;; ## What not to expect
 ;;
 ;; * In-depth explanations of quantum computing concepts
-;; * Detailed tutorials on using QClojure
+;; * Detailed tutorial on using QClojure
 ;; * Comprehensive coverage of all features and capabilities
 ;;
 ;; ## What is Quantum Computing
@@ -146,9 +147,10 @@ gate/pauli-z
 ;; * combines bit-flip and phase-flip operations
 gate/pauli-y
 ;; ## CNOT Gate
+;; * controlled NOT gate
 ;; * flips the target qubit if the control qubit is in state |1⟩
 ;; * entangles two qubits
-#_gate/cnot-gate
+(gate/cnot-gate)
 
 ;;
 ;; # Quantum Circuits

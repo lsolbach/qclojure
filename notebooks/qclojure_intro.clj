@@ -17,14 +17,15 @@
 ;; * Introduction to QClojure
 ;; * Overview of features and capabilities
 ;; * Getting started with installation and documentation
-;; * Examples of quantum states, gates, circuits and backends
+;; * Examples of quantum states, circuits and backends
 ;; * Examples of implemented quantum/hybrid algorithms
-;; * Future plans and missing pieces in the Clojure ecosystem
+;; * Missing pieces in the Clojure ecosystem
+;; * Future plans
 ;; 
 ;; ## What not to expect
 ;;
 ;; * In-depth explanations of quantum computing concepts
-;; * Detailed tutorial on using QClojure
+;; * Detailed [tutorial](https://cljdoc.org/d/org.soulspace/qclojure/0.21.0/doc/tutorial) on using QClojure
 ;; * Comprehensive coverage of all features and capabilities
 ;;
 ;; ## What is Quantum Computing

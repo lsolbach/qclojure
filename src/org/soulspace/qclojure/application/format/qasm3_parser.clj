@@ -795,7 +795,9 @@
             :toffoli (let [control1 (:control1 params)
                            control2 (:control2 params)
                            target (:target params)]
-                       (str "ccx q[" control1 "], q[" control2 "], q[" target "];"))
+                       (if (= target :braket)
+                         (str "ccnot q[" control1 "], q[" control2 "], q[" target "];")
+                         (str "ccx q[" control1 "], q[" control2 "], q[" target "];")))
             :fredkin (let [control (:control params)
                            target1 (:target1 params)
                            target2 (:target2 params)]

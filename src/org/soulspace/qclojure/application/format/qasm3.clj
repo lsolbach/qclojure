@@ -131,14 +131,20 @@
         :h (str "h q[" (:target params) "];")
         :s (str "s q[" (:target params) "];")
         :t (str "t q[" (:target params) "];")
-        :s-dag (str "sdg q[" (:target params) "];")
-        :t-dag (str "tdg q[" (:target params) "];")
+        :s-dag (if (= target :braket)
+                 (str "si q[" (:target params) "];")
+                 (str "sdg q[" (:target params) "];"))
+        :t-dag (if (= target :braket)
+                 (str "ti q[" (:target params) "];")
+                 (str "tdg q[" (:target params) "];"))
 
         ;; Rotation gates
         :rx (str "rx(" (:angle params) ") q[" (:target params) "];")
         :ry (str "ry(" (:angle params) ") q[" (:target params) "];")
         :rz (str "rz(" (:angle params) ") q[" (:target params) "];")
-        :phase (str "p(" (:angle params) ") q[" (:target params) "];")
+        :phase (if (= target :braket)
+                 (str "phaseshift(" (:angle params) ") q[" (:target params) "];")
+                 (str "p(" (:angle params) ") q[" (:target params) "];"))
 
         ;; Two-qubit gates
         :cnot (if (= target :braket)
@@ -161,7 +167,9 @@
         :iswap (str "iswap q[" (:qubit1 params) "], q[" (:qubit2 params) "];")
 
         ;; Three-qubit gates
-        :toffoli (str "ccx q[" (:control1 params) "], q[" (:control2 params) "], q[" (:target params) "];")
+        :toffoli (if (= target :braket)
+                   (str "ccnot q[" (:control1 params) "], q[" (:control2 params) "], q[" (:target params) "];")
+                   (str "ccx q[" (:control1 params) "], q[" (:control2 params) "], q[" (:target params) "];"))
         :fredkin (str "cswap q[" (:control params) "], q[" (:target1 params) "], q[" (:target2 params) "];")
 
         ;; Global gates (neutral atom specific) - QASM 3.0 extension

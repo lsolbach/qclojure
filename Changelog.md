@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* updated Clay
+
 ## Version 0.21.0
 * added options to qasm3 emission for customized qasm (e.g. Braket, IBMQ)
 * fixed hardware simulator execution result with result specs

@@ -389,18 +389,21 @@
   
   This allows backends and users to reference gates by common alternative names.
   All aliases resolve to the canonical gate name used in the gate catalog."
-  {:not :x           ; NOT gate is X gate
-   :bit-flip :x      ; Bit flip is X gate
-   :phase-flip :z    ; Phase flip is Z gate
-   :id :i            ; Identity gate alias for QASM2
-   :cx :cnot         ; CX is CNOT gate
-   :ccx :toffoli     ; CCX is Toffoli gate
-   :ccnot :toffoli   ; CCNOT is Toffoli gate
-   :cswap :fredkin   ; CSWAP is Fredkin gate
-   :p :phase         ; P is often used for phase gate
-   :u1 :phase        ; U1 is a phase gate in some systems
-   :sdg :s-dag       ; Common abbreviation for S-dagger
-   :tdg :t-dag       ; Common abbreviation for T-dagger
+  {:not :x            ; NOT gate is X gate
+   :bit-flip :x       ; Bit flip is X gate
+   :phase-flip :z     ; Phase flip is Z gate
+   :id :i             ; Identity gate alias for QASM2
+   :cx :cnot          ; CX is CNOT gate
+   :ccx :toffoli      ; CCX is Toffoli gate
+   :ccnot :toffoli    ; CCNOT is Toffoli gate
+   :cswap :fredkin    ; CSWAP is Fredkin gate
+   :p :phase          ; P is often used for phase gate
+   :u1 :phase         ; U1 is a phase gate in some systems
+   :sdg :s-dag        ; Common abbreviation for S-dagger
+   :tdg :t-dag        ; Common abbreviation for T-dagger
+   :phaseshift :phase ; Braket notation for phase gate
+   :si :s-dag         ; Braket notation for S-dagger
+   :ti :t-dag         ; Braket notation for T-dagger
    })
 
 (defn resolve-gate-alias

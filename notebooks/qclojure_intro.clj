@@ -74,10 +74,10 @@
 (require '[org.soulspace.qclojure.adapter.visualization.ascii :as ascii])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
 
-;; # Quantum States
+;; # Quantum States and Qubits
 ;;
-;; * Represent the state of qubits in a quantum system
-;; * Used as input and output of quantum circuits
+;; * Represent the state of *qubits* in a quantum system
+;; * Qubits are the fundamental units of quantum information
 ;; * Can be in superposition and entangled states
 ;; * Can interfere and evolve through quantum gates
 ;; * Represented as state vectors in a complex Hilbert space
@@ -88,6 +88,7 @@
 ;; * Fundamental basis state in quantum computing
 ;; * Represents the binary value 0 in a qubit
 ;; * Represented as a state vector
+;; * Bra-ket notation: |0⟩
 state/|0⟩
 
 ;; ## Probability Distribution of the Zero State
@@ -100,6 +101,7 @@ state/|0⟩
 ;; * Fundamental basis state in quantum computing
 ;; * Represents the binary value 1 in a qubit
 ;; * Represented as a state vector
+;; * Bra-ket notation: |1⟩
 state/|1⟩
 
 ;; ## Probability Distribution of the One State
@@ -112,6 +114,7 @@ state/|1⟩
 ;; * Superposition state
 ;; * Equal probability of measuring 0 or 1
 ;; * Represented as a state vector
+;; * Bra-ket notation: |+⟩
 state/|+⟩
 
 ;; ## Probability Distribution of the Plus State
@@ -123,8 +126,8 @@ state/|+⟩
 ;; ## Quantum Register
 ;; * Represents multiple qubits in a single state vector
 ;; * tensor product of individual qubit states
-;; * Example: two-qubit register in the |00⟩ state
-state/|00⟩
+;; * Example: two-qubit register in the |000⟩ state
+state/|000⟩
 
 ;; ## Probability Distribution of the Quantum Register
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
@@ -135,18 +138,19 @@ state/|00⟩
 ;; * Operate on qubit states to perform quantum computations
 ;; * QClojure provides a comprehensive library of 20+ quantum gates
 ;;
+;; ## Pauli Gates
+;; * Fundamental single-qubit gates
+;; * Pauli X gate flips the state of a qubit
+gate/pauli-x
+;; * Pauli Z gate flips the phase of a qubit
+gate/pauli-z
+;; * Pauli Y gate combines bit-flip and phase-flip operations
+gate/pauli-y
+
 ;; ## Hadamard Gate
 ;; * Creates superposition states
 gate/hadamard
-;; ## Pauli-X Gate
-;; * flips the state of a qubit
-gate/pauli-x
-;; ## Pauli-Z Gate
-;; * flips the phase of a qubit
-gate/pauli-z
-;; ## Pauli-Y Gate
-;; * combines bit-flip and phase-flip operations
-gate/pauli-y
+
 ;; ## CNOT Gate
 ;; * controlled NOT gate
 ;; * flips the target qubit if the control qubit is in state |1⟩
@@ -203,13 +207,12 @@ gate/pauli-y
 (def hw-simulator (hwsim/create-hardware-simulator))
 
 ;; ## Selecting a Device
-;; * IBM Lagos device
+;; * e.g. IBM Lagos device
 (def device (backend/select-device hw-simulator (:ibm-lagos hwsim/device-map)))
 
-;; ## Device Information
-;; * Native Gates
+;; ## Native Gates for IBM Lagos
 (:native-gates device)
-;; * Noise Model
+;; ## Noise Model for IBM Lagos
 (:noise-model device)
 
 ;; ## Executing Circuit on Hardware Simulator Backend
@@ -284,18 +287,6 @@ gate/pauli-y
     :tolerance 1e-6
     :shots 1000}))
 
-;; ## Planned Enhancements
-;; 
-;; * Asynchronous Infrastructure for Backend Execution
-;; 
-;; * Backends for Quantum Hardware
-;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
-;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
-;;
-;; * Domain specific libraries
-;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
-;;   * Quantum Chemistry
-;;
 ;; ## Missing pieces in the Clojure Ecosystem
 ;;
 ;; * Fast complex linear algebra (BLAS/LAPACK on CPU/GPU)
@@ -306,7 +297,20 @@ gate/pauli-y
 ;;   * Neandertal extension for complex numbers
 ;;   * ArrayFire bindings via Java22+ FFI
 ;;
+;; ## Planned Enhancements
+;; 
+;; * Backends for Quantum Hardware
+;;   * [qclojure-braket](https://github.com/lsolbach/qclojure-braket) for Amazon Braket
+;;   * [qclojure-ibmq](https://github.com/lsolbach/qclojure-ibmq) for IBM Quantum
+;;
+;; * Domain specific libraries
+;;   * [qclojure-ml](https://github.com/lsolbach/qclojure-ml) for Quantum Machine Learning
+;;   * Quantum Chemistry
+;;
+;; * Asynchronous Infrastructure for Backend Execution 
+;;
 ;; ## Contribution
+;;
 ;; * We need an ecosystem around QClojure
 ;; * Contributions and feedback are welcome
 ;;   * Discussions on Slack #quantum-computing channel

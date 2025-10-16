@@ -125,7 +125,7 @@ state/|+⟩
 
 ;; ## Quantum Register
 ;; * Represents multiple qubits in a single state vector
-;; * tensor product of individual qubit states
+;; * Tensor product of individual qubit states
 ;; * Example: two-qubit register in the |000⟩ state
 state/|000⟩
 

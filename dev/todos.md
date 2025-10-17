@@ -1,7 +1,7 @@
 # TODOs
 
 ## Next steps
-* use measurement outcomes and trajectories for noisy result extraction
+* review the use of measurement outcomes and trajectories for noisy result extraction
 * check for result handling based on final states in algorithms
   * replace with hardware compatible result processing
 * integrate optional error mitigation in the hardware simulator workflow (as template for hardware backends)

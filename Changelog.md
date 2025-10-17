@@ -2,7 +2,8 @@
 
 ## Version (NEXT)
 * enhanced operation registry for Braket devices
-* added Braket gate names in qasm3 emission 
+* added Braket gate names in qasm3 emission
+* always collect trajectories for hardware simulator
 * updated Clay
 
 ## Version 0.21.0

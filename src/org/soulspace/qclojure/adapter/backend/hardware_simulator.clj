@@ -113,7 +113,7 @@
   Parameters:
   - circuit: Quantum circuit to simulate
   - initial-state: Initial quantum state for simulation
-  - options: Execution options including shot count, trajectory collection settings, and result specs
+  - options: Execution options including shot count, trajectory collection settings and result specs
   - noise-model: Noise model configuration
   
   Returns: Simulation results including trajectory-based density matrix and extracted results"
@@ -121,7 +121,6 @@
   (try
     (let [start-time (System/currentTimeMillis)
           shots (get options :shots 1024)
-          collect-trajectories? (get options :collect-trajectories false)
           max-trajectories (get options :max-trajectories 100)
           result-specs (:result-specs options)] ; Extract result specifications
 
@@ -138,7 +137,7 @@
           (let [base-result {:measurement-results accumulated-results
                              :final-state last-final-state}
                 ;; Add trajectory-based results if collected and apply result extraction
-                enhanced-result (if (and collect-trajectories? (seq trajectories))
+                enhanced-result (if (seq trajectories)
                                   (let [density-matrix-result (state/trajectory-to-density-matrix trajectories)
                                         density-matrix (:density-matrix density-matrix-result)]
                                     (assoc base-result
@@ -176,8 +175,7 @@
                 updated-results (update accumulated-results outcome-bitstring (fnil inc 0))
 
                 ;; Collect trajectory if enabled and under limit
-                updated-trajectories (if (and collect-trajectories?
-                                              (< (count trajectories) max-trajectories))
+                updated-trajectories (if (< (count trajectories) max-trajectories)
                                        (conj trajectories final-state)
                                        trajectories)]
 

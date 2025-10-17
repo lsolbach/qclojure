@@ -1,7 +1,8 @@
 # TODOs
 
 ## Next steps
-* check for result handling based on final states
+* use measurement outcomes and trajectories for noisy result extraction
+* check for result handling based on final states in algorithms
   * replace with hardware compatible result processing
 * integrate optional error mitigation in the hardware simulator workflow (as template for hardware backends)
 * integrate unified result types in all algorithms
@@ -9,8 +10,6 @@
   * check Shor
 * enhance single qubit gate functions to take a qubit vector and add the gate for all qubits
 * new measure operation function that takes a single qubit or a vector of qubits (replaces measure-all)
-* check for inconsistant usage of "operation"/"gate"
-  * a gate is an operation, so is a measurement
 
 ## Backlog
 * consistently handle backend errors in all algorithms

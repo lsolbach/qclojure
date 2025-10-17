@@ -291,33 +291,36 @@ gate/hadamard
 ;; * Variational Quantum Algorithms (VQE, QAOA)
 ;;
 ;; ## Grover's Algorithm Example
-;; * Unstructured search algorithm
-;; * Quadratic speedup over classical search algorithms
 ;; * Finds a marked item in an unsorted database
-;; * Uses amplitude amplification to increase the probability of measuring the marked item
 ;; * Requires an oracle to identify the marked item
-;; * Example: searching for the item '101' in a 3-qubit database
+;; * Uses amplitude amplification to increase the probability of measuring the marked item
+;; * Quadratic speedup over classical search algorithms
+;; * Video: [But what is quantum computing? (Grover's Algorithm)](https://www.youtube.com/watch?v=RQWpF2Gb-gU)
+;;
+;; ## Grover Oracle
+;;
+;; * Example: searching for the item '101' or 5  in a 3-qubit database
 
 (require '[org.soulspace.qclojure.application.algorithm.grover :as grover])
-
-;; ## Grover Oracle
 (def grover-oracle (grover/single-target-oracle 5))
 
 ;; ## Grover Circuit
+
 (def grover-circuit
   (grover/grover-circuit 3 grover-oracle))
 
 ;; ## Visualizing the Grover Circuit
+
 ^kind/hiccup
 (viz/visualize-circuit :svg grover-circuit)
 
 ;; ## Executing Grover Circuit
+
 (def grover-result
   (grover/grover-algorithm ideal-simulator 8 grover-oracle {:shots 1}))
 
 ;; ## QAOA Example
 ;; * Variational hybrid algorithm for combinatorial optimization
-;;   * Combines quantum and classical computation
 ;;   * Uses parameterized quantum circuits and classical optimization
 ;; * Solves combinatorial optimization problems
 ;;   * Max-Cut, Max-SAT and Travelling Salesman Problem
@@ -326,9 +329,11 @@ gate/hadamard
 ;; ## Max-Cut Problem
 ;;
 ;; * Simple triangle graph
+
 (require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
 
-(def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
+;; Define a weighted triangle graph with 3 nodes and 3 edges
+(def triangle-graph [[0 1 1.0] [1 2 2.0] [0 2 1.0]])
 
 ;; ## Running QAOA on the Triangle Graph
 (def triangle-qaoa-result
@@ -343,6 +348,15 @@ gate/hadamard
     :max-iterations 100
     :tolerance 1e-6
     :shots 1000}))
+
+;; ## Visualizing the Max-Cut Circuit
+^kind/hiccup
+(viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
+
+;; ## Result
+triangle-qaoa-result
+(select-keys (:problem-solutions triangle-qaoa-result) [:cut-weight :cut-edges])
+
 
 ;; ## Missing pieces in the Clojure Ecosystem
 ;;

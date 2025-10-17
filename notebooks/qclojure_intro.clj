@@ -1,17 +1,12 @@
-^{:kindly/hide-code true}
-(ns qclojure-intro
-  (:require
-   [scicloj.kindly.v4.kind :as kind]
-   [org.soulspace.qclojure.domain.gate :as gate]))
-
 ;; ## About me
 ;;
 ;; * Ludger Solbach
 ;; * Software Architect at 'msg for automotive'
-;; * 30+ years experience in different industries
+;; * over 30 years experience in different industries
 ;; * Clojure enthusiast since 2011
 ;; * [My GitHub page](https://github.com/lsolbach)
 ;; 
+;;
 ;; ## What to expect
 ;;
 ;; * Introduction to QClojure
@@ -33,11 +28,19 @@
 ;; * Paradigm of computation based on quantum mechanics
 ;; * Uses quantum bits (qubits), superposition and entangled states
 ;; * Performs some computations exponentially faster
-;; * Promises breakthroughs in cryptography, optimization, simulation, and machine learning
 ;; * Requires new algorithms and hardware architectures
-;; * Still a research field 
+;; * Uses less energy because of reversible computing principles
+;; * Still a research field, but with growing practical applications 
 ;;
-;; ## What is QClojure
+;; ## Why is Quantum Computing Hot Right Now
+;;
+;; * The field is still graspable for individuals
+;; * Rapid advancements in quantum hardware and software
+;; * Promises breakthroughs in cryptography, optimization, simulation and machine learning
+;; * Significant investments from industry and governments
+;; * Customers and users showing interest
+;;
+;; # What is QClojure
 ;;
 ;; * A Clojure library for quantum computing
 ;; * Provides tools for constructing and simulating quantum circuits
@@ -57,19 +60,27 @@
 ;;
 ;; # Getting Started
 ;;
-;; * Installation
+;; * Usage
 ;;   * Add [QClojure](https://clojars.org/org.soulspace/qclojure) dependency to your `deps.edn` or `project.clj`
-;; * Documentation
-;;   * [API Documentation and Tutorial](https://https://cljdoc.org/d/org.soulspace/qclojure)
+;; * [API Documentation and Tutorial](https://https://cljdoc.org/d/org.soulspace/qclojure)
+;; * [QClojure Repository](https://github.com/lsolbach/qclojure)
 ;; 
 ;; ## Required Namespaces
 ;;
+
+^{:kindly/hide-code true}
+(ns qclojure-intro
+  (:require
+   [scicloj.kindly.v4.kind :as kind]))
+
 ;; * Domain Namespaces
+
 (require '[org.soulspace.qclojure.domain.state :as state])
 (require '[org.soulspace.qclojure.domain.gate :as gate])
 (require '[org.soulspace.qclojure.domain.circuit :as circuit])
-;;
+
 ;; * Visualisation Namespaces
+
 (require '[org.soulspace.qclojure.application.visualization :as viz])
 (require '[org.soulspace.qclojure.adapter.visualization.ascii :as ascii])
 (require '[org.soulspace.qclojure.adapter.visualization.svg :as svg])
@@ -81,7 +92,13 @@
 ;; * Can be in superposition and entangled states
 ;; * Can interfere and evolve through quantum gates
 ;; * Represented as state vectors in a complex Hilbert space
-;; * QClojure provides a library of common quantum states
+;;
+;; ## Measurements
+;;
+;; * Process of extracting classical information from qubits
+;; * Collapses superposition states to basis states
+;; * Probabilistic outcomes based on state amplitudes
+;; * Schrödinger's cat analogy
 ;;
 ;; ## Zero State
 ;;
@@ -89,47 +106,60 @@
 ;; * Represents the binary value 0 in a qubit
 ;; * Represented as a state vector
 ;; * Bra-ket notation: |0⟩
+
 state/|0⟩
 
 ;; ## Probability Distribution of the Zero State
+
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|0⟩)
 
 ;; ## Bloch Sphere visualization of the Zero State
+
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|0⟩)
 
 ;; ## One State
+;;
 ;; * Fundamental basis state in quantum computing
 ;; * Represents the binary value 1 in a qubit
 ;; * Represented as a state vector
 ;; * Bra-ket notation: |1⟩
+
 state/|1⟩
 
 ;; ## Probability Distribution of the One State
+
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|1⟩)
 
 ;; ## Bloch Sphere visualization of the One State
+
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|1⟩)
 
 ;; ## Plus State
+;;
 ;; * Superposition state
 ;; * Equal probability of measuring 0 or 1
 ;; * Represented as a state vector
 ;; * Bra-ket notation: |+⟩
+
 state/|+⟩
 
 ;; ## Probability Distribution of the Plus State
+
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|+⟩)
 
 ;; ## Bloch Sphere visualization of the Plus State
+
 ^kind/hiccup (viz/visualize-bloch-sphere :svg state/|+⟩)
 
 ;; ## Quantum Register
 ;; * Represents multiple qubits in a single state vector
 ;; * Tensor product of individual qubit states
 ;; * Example: two-qubit register in the |000⟩ state
+
 state/|000⟩
 
 ;; ## Probability Distribution of the Quantum Register
+
 ^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
 
 ;; # Quantum Gates
@@ -141,43 +171,69 @@ state/|000⟩
 ;; ## Pauli Gates
 ;; * Fundamental single-qubit gates
 ;; * Pauli X gate flips the state of a qubit
+
 gate/pauli-x
+
 ;; * Pauli Z gate flips the phase of a qubit
+
 gate/pauli-z
+
 ;; * Pauli Y gate combines bit-flip and phase-flip operations
+
 gate/pauli-y
 
 ;; ## Hadamard Gate
-;; * Creates superposition states
+;; * Creates superposition states from basis states
+;; $$H = \frac{1}{\sqrt{2}} \begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$$
+
 gate/hadamard
 
 ;; ## CNOT Gate
 ;; * controlled NOT gate
 ;; * flips the target qubit if the control qubit is in state |1⟩
-;; * entangles two qubits
+;; * entangles the two qubits
+
 (gate/cnot-gate)
 
-;;
 ;; # Quantum Circuits
+;;
+;; * Represent sequences of quantum gates applied to qubits
+;; * Built using a pure functional approach
+;; * Can be executed and visualized
+;;
 ;; ## Creating a Quantum Circuit
+;; * Create a Bell state circuit with 2 qubits
 (def test-circuit
   (-> (circuit/create-circuit 2 "Bell Circuit" "Creates a Bell state")
       (circuit/h-gate 0)
       (circuit/cnot-gate 0 1)))
+
 ;; ## Visualizing the Circuit in SVG
 ^kind/hiccup
 (viz/visualize-circuit :svg test-circuit)
 
 ;; # Backends
-;; * Hardware Abstraction Layer
-;; * Multiple Backend Implementations
+;; * Abstraction Layer for simulators and quantum hardware
+;; * Provides a uniform interface for executing quantum circuits
+
 (require '[org.soulspace.qclojure.application.backend :as backend])
 
-;; ## Result Extraction
+;; ## Circuit to execute
+;; * GHZ state circuit for 3 qubits
+;; * Extends the Bell state to 3 qubits
+;; * Creates the entangled state |000⟩ + |111⟩
+
+(def ghz-circuit (circuit/ghz-state-circuit 3))
+
+^kind/hiccup
+(viz/visualize-circuit :svg ghz-circuit)
+
+;; ## Backend Execution Options
 ;; * Specify what results to extract from backend execution
 ;; * E.g. measurement results for qubits 0, 1, and 2 with 64 shots
-(def result-specs {:measurements {:qubits [0 1 2]
-                                  :shots 64}})
+(def options {:collect-trajectories true
+              :result-specs {:measurements {:qubits [0 1 2]
+                                            :shots 10000}}})
 ;; ## Ideal Simulator Backend
 ;; * Noiseless simulation of quantum circuits
 ;; * Suitable for testing and debugging quantum algorithms
@@ -187,10 +243,8 @@ gate/hadamard
 ;; ## Executing Circuit on Ideal Simulator Backend
 (def ideal-result (backend/execute-circuit
                    ideal-simulator
-                   (circuit/ghz-state-circuit 3)
-                   {:result-specs result-specs}))
-
-#_ideal-result
+                   ghz-circuit
+                   options))
 
 ;; ## Visualizing the Measurement Frequency Histogram
 ^kind/hiccup
@@ -218,8 +272,9 @@ gate/hadamard
 ;; ## Executing Circuit on Hardware Simulator Backend
 (def noisy-result (backend/execute-circuit
                    hw-simulator
-                   (circuit/ghz-state-circuit 3)
-                   {:result-specs result-specs}))
+                   ghz-circuit
+                   options))
+
 #_noisy-result
 
 ;; ## Visualizing the Measurement Frequency Histogram
@@ -266,11 +321,13 @@ gate/hadamard
 ;;   * Uses parameterized quantum circuits and classical optimization
 ;; * Solves combinatorial optimization problems
 ;;   * Max-Cut, Max-SAT and Travelling Salesman Problem
-
+;;   * Many practical applications in logistics, finance and machine learning
+;;
+;; ## Max-Cut Problem
+;;
+;; * Simple triangle graph
 (require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
 
-;; ## Max-Cut Problem
-;; * Simple triangle graph
 (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
 
 ;; ## Running QAOA on the Triangle Graph
@@ -309,7 +366,7 @@ gate/hadamard
 ;;
 ;; * Asynchronous Infrastructure for Backend Execution 
 ;;
-;; ## Contribution
+;; ## Ecosystem and Contributions
 ;;
 ;; * We need an ecosystem around QClojure
 ;; * Contributions and feedback are welcome

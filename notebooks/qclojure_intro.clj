@@ -6,7 +6,6 @@
 ;; * Clojure enthusiast since 2011
 ;; * [My GitHub page](https://github.com/lsolbach)
 ;; 
-;;
 ;; ## What to expect
 ;;
 ;; * Introduction to QClojure

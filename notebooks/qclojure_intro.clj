@@ -71,7 +71,8 @@
 ^{:kindly/hide-code true}
 (ns qclojure-intro
   (:require
-   [scicloj.kindly.v4.kind :as kind]))
+   [scicloj.kindly.v4.kind :as kind]
+   [org.soulspace.qclojure.domain.circuit :as circuit]))
 
 ;; * Domain Namespaces
 
@@ -154,13 +155,13 @@ state/|+⟩
 ;; ## Quantum Register
 ;; * Represents multiple qubits in a single state vector
 ;; * Tensor product of individual qubit states
-;; * Example: two-qubit register in the |000⟩ state
+;; * Example: three-qubit register in the |000⟩ state
 
 state/|000⟩
 
 ;; ## Probability Distribution of the Quantum Register
 
-^kind/hiccup (viz/visualize-quantum-state :svg state/|00⟩)
+^kind/hiccup (viz/visualize-quantum-state :svg state/|000⟩)
 
 ;; # Quantum Gates
 ;; * Basic building blocks of quantum circuits
@@ -211,6 +212,9 @@ gate/hadamard
 ;; ## Visualizing the Circuit in SVG
 ^kind/hiccup
 (viz/visualize-circuit :svg test-circuit)
+
+;; ## Test the Circuit Execution
+(circuit/execute-circuit test-circuit)
 
 ;; # Backends
 ;; * Abstraction Layer for simulators and quantum hardware
@@ -319,6 +323,8 @@ gate/hadamard
 (def grover-result
   (grover/grover-algorithm ideal-simulator 8 grover-oracle {:shots 1}))
 
+(select-keys grover-result [:success :result])
+
 ;; ## QAOA Example
 ;; * Variational hybrid algorithm for combinatorial optimization
 ;;   * Uses parameterized quantum circuits and classical optimization
@@ -333,7 +339,7 @@ gate/hadamard
 (require '[org.soulspace.qclojure.application.algorithm.qaoa :as qaoa])
 
 ;; Define a weighted triangle graph with 3 nodes and 3 edges
-(def triangle-graph [[0 1 1.0] [1 2 2.0] [0 2 1.0]])
+(def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
 
 ;; ## Running QAOA on the Triangle Graph
 (def triangle-qaoa-result
@@ -346,17 +352,17 @@ gate/hadamard
     :num-layers 2
     :optimization-method :adam
     :max-iterations 100
-    :tolerance 1e-6
-    :shots 1000}))
+    :tolerance 5e-3
+    :shots 10000}))
 
 ;; ## Visualizing the Max-Cut Circuit
 ^kind/hiccup
 (viz/visualize-circuit :hiccup (:circuit triangle-qaoa-result))
 
 ;; ## Result
-triangle-qaoa-result
-(select-keys (:problem-solutions triangle-qaoa-result) [:cut-weight :cut-edges])
+#_ triangle-qaoa-result
 
+(select-keys (:problem-solutions triangle-qaoa-result) [:cut-weight :cut-edges])
 
 ;; ## Missing pieces in the Clojure Ecosystem
 ;;

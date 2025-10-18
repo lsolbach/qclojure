@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* fixed target qubit mapping for Fredkin gate in gate application
+
 ## Version 0.22.0
 * enhanced operation registry for Braket devices
 * added Braket gate names in qasm3 emission

@@ -1,7 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
-* 
+* fixed target qubit mapping for Fredkin gate in gate application
 
 ## Version 0.22.0
 * enhanced operation registry for Braket devices

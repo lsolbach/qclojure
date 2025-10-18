@@ -670,7 +670,7 @@
        (try
          (case result-type
            :measurements
-           ;; Option 1: Pass through pre-collected measurement data
+           ;; Pass through pre-collected measurement data
            (let [measurement-data (extract-measurement-results
                                    final-state
                                    :measurement-qubits (:measurement-qubits spec)
@@ -679,7 +679,7 @@
              (assoc acc-result :measurement-results measurement-data))
 
            :expectation
-           ;; Option 2: Use density matrix for expectation values when available
+           ;; Use density matrix for expectation values when available
            (let [observables (:observables spec)
                  target-qubits (:target-qubits spec)
                  expectations (if density-matrix

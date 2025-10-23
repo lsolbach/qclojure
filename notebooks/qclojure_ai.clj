@@ -21,7 +21,7 @@
 ;;   * Local simulators and cloud backends
 ;;   * Visualizations and analysis tools
 ;; 
-;; # Setup
+;; # The Setup
 ;; ## IDE
 ;;
 ;; * VS Code - Editor
@@ -31,7 +31,7 @@
 ;;
 ;; ## AI Models
 ;;
-;; * GitHub Copilot Pro
+;; * GitHub Copilot Pro (10$/month)
 ;;   * Claude Sonnet 4 - goto model for coding and documentation
 ;;   * GPT - good for research and planning
 ;;   * Gemini 2.5 Pro - prompt assessment
@@ -40,8 +40,10 @@
 ;;
 ;; * REPL
 ;;   * testing and exploration
+;;   * fast feedback loop for the AI
 ;; * human intelligence 
 ;;   * design discussions, planning, reviews
+;;   * human in the loop
 ;;
 ;; ## Prompts
 ;;
@@ -49,6 +51,28 @@
 ;; * Instructions - file type specific instructions
 ;; * Prompts - task specific instructions
 ;; * Chat Modes - setting the mode of interaction
+;;
+;; ## The AGENTS.md File
+;; * Project purpose and goals
+;;
+;; ## Instructions
+;; * All Clojure related information
+;;   * Core principles
+;;   * REPL Workflow
+;;   * Architecture
+;;   * Libraries to use
+;;   * Coding style
+;;   * Testing approach
+;;
+;; ## Prompts
+;;
+;; * Task specific instructions
+;; * Research
+;; * Assess
+;; * With-Calva
+;;
+;; ## Chat Modes
+;; * Devils Advocate
 ;;
 ;; ## General Workflow
 ;;

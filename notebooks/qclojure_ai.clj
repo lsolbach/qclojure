@@ -8,12 +8,21 @@
 ;; * Clojure enthusiast since 2011
 ;; * [My GitHub page](https://github.com/lsolbach)
 ;; 
-;; # The Motivation
+;; # What to expect
+;;
+;; * Motivation
+;; * Goals for QClojure
+;; * Setup
+;; * Demo
+;; * Lessons learned
+;; * Conclusions/Final Thoughts
+;;
+;; # Motivation
 ;;
 ;; * Get experience with AI assisted programming
 ;; * Learn about quantum computing
 ;;
-;; # The Goal
+;; # Goals for QClojure
 ;;
 ;; * A production ready library for quantum computing
 ;;   * Quantum states, gates and circuits
@@ -21,7 +30,7 @@
 ;;   * Local simulators and cloud backends
 ;;   * Visualizations and analysis tools
 ;; 
-;; # The Setup
+;; # Setup
 ;; ## IDE
 ;;
 ;; * VS Code - Editor
@@ -45,7 +54,7 @@
 ;;   * design discussions, planning, reviews
 ;;   * human in the loop
 ;;
-;; ## Prompts
+;; ## AI Prompt Files
 ;;
 ;; * AGENTS.md - project specific instructions
 ;; * Instructions - file type specific instructions
@@ -114,7 +123,7 @@
 ;; * use different models for different tasks
 ;; * use different models to assess your prompts
 ;; * keep prompts short and precise
-;; * use the human intelligence to keep you in the loop
+;; * use the human intelligence tool to keep you in the loop
 ;;  
 ;; # Conclusions
 ;;

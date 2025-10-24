@@ -61,3 +61,4 @@
     (make-presentations ai-assist-qclojure-config)
 
     )
+  

@@ -43,6 +43,19 @@
 (s/def ::constraints-fn fn?)
 (s/def ::parameter-structure map?)
 
+;; Enhanced algorithm config spec
+(s/def ::algorithm keyword?)
+(s/def ::enhanced-algorithm-config
+  (s/keys :req-un [::algorithm ::objective-kind
+                   ::parameter-count-fn ::circuit-constructor-fn]
+          :opt-un [::initial-parameters-fn ::execution-plan-fn
+                   ::loss-fn ::result-processor-fn
+                   ::hamiltonian-constructor-fn ::dataset-fn
+                   ::batch-sampler-fn ::prediction-extractor-fn
+                   ::gradient-fn ::early-stopping-fn
+                   ::regularization-fn ::constraints-fn
+                   ::parameter-structure]))
+
 ;;;
 ;;; Common Parameter Initialization Strategies
 ;;;
@@ -614,11 +627,11 @@
         circuit-construction-fn (circuit-constructor options)
         num-params (parameter-count options)
 
-        ;; Enhanced parameter initialization
+        ;; Parameter initialization
         initial-parameters (or (:initial-parameters options)
                                (random-parameter-initialization num-params))
 
-        ;; Enhanced objective creation with auto-detection of gradient support
+        ;; Objective creation with auto-detection of gradient support
         execution-options {:shots (:shots options 1024)}
         opt-method (:optimization-method options :adam)
         use-gradients? (or (:use-enhanced-objective options)
@@ -628,7 +641,7 @@
                        (gradient-based-variational-hamiltonian-objective hamiltonian circuit-construction-fn backend execution-options)
                        (variational-hamiltonian-objective hamiltonian circuit-construction-fn backend execution-options))
 
-        ;; Enhanced optimization with convergence monitoring
+        ;; Optimization with convergence monitoring
         optimization-options (merge options {:gradient-method :parameter-shift
                                              :ansatz-fn circuit-construction-fn
                                              :backend backend
@@ -640,7 +653,7 @@
 
         end-time (System/currentTimeMillis)
 
-        ;; Enhanced analysis
+        ;; Analysis
         convergence-analysis (analyze-convergence optimization-result)
 
         ;; Calculate initial energy for analysis
@@ -668,7 +681,7 @@
  :objective-kind :classifiction
  :parameter-count-fn nil
  :initial-parameters-fn nil
- :circuit-constructor-fn nil ; caching for static circuits needed
+ :circuit-constructor-fn nil ; caching for static circuits needed, use memoization?
  :execution-plan-fn nil
  :loss-fn nil
  :result-processor-fn nil
@@ -690,10 +703,176 @@
   various variational quantum algorithms, including VQE, QAOA, and VQC/QNN. It
   supports advanced features such as gradient-enhanced objectives, sophisticated
   convergence monitoring, and customizable optimization strategies.
- 
-  "
+  
+  The algorithm-config map specifies how to construct and execute the algorithm:
+  
+  Required keys:
+  - :algorithm - Algorithm identifier keyword (e.g., :vqe, :qaoa, :vqc, :qnn)
+  - :objective-kind - Type of objective (:hamiltonian, :classification, :regression, :combinatorial, :custom)
+  - :parameter-count-fn - (fn [options] -> int) Returns number of parameters needed
+  - :circuit-constructor-fn - (fn [options] -> circuit-constructor) Creates circuit builder
+  
+  Optional keys for all algorithms:
+  - :initial-parameters-fn - (fn [num-params options] -> params) Custom parameter initialization
+  - :result-processor-fn - (fn [result config options] -> enhanced-result) Post-process results
+  - :parameter-structure - Map describing parameter organization (for structured optimization)
+  
+  Optional keys for Hamiltonian-based algorithms (:hamiltonian, :combinatorial):
+  - :hamiltonian-constructor-fn - (fn [options] -> hamiltonian) Creates problem Hamiltonian
+  - :gradient-fn - (fn [objective params] -> gradients) Custom gradient computation
+  
+  Optional keys for ML algorithms (:classification, :regression):
+  - :loss-fn - (fn [predictions labels] -> loss) Computes prediction loss
+  - :dataset-fn - (fn [options] -> dataset) Extracts training/test data
+  - :batch-sampler-fn - (fn [dataset batch-size] -> batches) Creates data batches
+  - :prediction-extractor-fn - (fn [measurement-result] -> predictions) Extracts predictions
+  - :early-stopping-fn - (fn [history options] -> should-stop?) Custom early stopping
+  - :regularization-fn - (fn [parameters] -> penalty) Adds regularization penalty
+  
+  Optional keys for constrained optimization:
+  - :constraints-fn - (fn [parameters] -> feasible?) Validates parameter constraints
+  - :execution-plan-fn - (fn [circuit params backend] -> result) Custom execution strategy
+  
+  Parameters:
+  - backend: Quantum backend for circuit execution
+  - options: Algorithm execution options (optimization config, shots, etc.)
+  - algorithm-config: Algorithm-specific configuration map (see above)
+  
+  Returns:
+  Comprehensive result map with optimization results, convergence analysis, and algorithm-specific metadata"
   [backend options algorithm-config]
-  )
+  {:pre [(s/valid? ::enhanced-algorithm-config algorithm-config)]}
+  
+  (let [;; Extract configuration
+        objective-kind (:objective-kind algorithm-config)
+        algorithm-name (:algorithm algorithm-config)
+        
+        ;; Timing
+        start-time (System/currentTimeMillis)
+        
+        ;; Step 1: Parameter Initialization
+        num-params ((:parameter-count-fn algorithm-config) options)
+        initial-parameters (if-let [init-fn (:initial-parameters-fn algorithm-config)]
+                             (init-fn num-params options)
+                             (or (:initial-parameters options)
+                                 (random-parameter-initialization num-params
+                                                                   :range (get options :parameter-range [-0.1 0.1]))))
+        
+        ;; Step 2: Objective Function Construction (branching on objective-kind)
+        objective-fn (case objective-kind
+                       ;; Hamiltonian-based objectives (VQE, QAOA)
+                       (:hamiltonian :combinatorial)
+                       (let [hamiltonian ((:hamiltonian-constructor-fn algorithm-config) options)
+                             circuit-constructor ((:circuit-constructor-fn algorithm-config) options)
+                             execution-options {:shots (:shots options 1024)}
+                             opt-method (:optimization-method options :adam)
+                             use-gradients? (or (:use-enhanced-objective options)
+                                                (contains? #{:gradient-descent :adam :quantum-natural-gradient} opt-method))]
+                         (if use-gradients?
+                           (gradient-based-variational-hamiltonian-objective hamiltonian circuit-constructor backend execution-options)
+                           (variational-hamiltonian-objective hamiltonian circuit-constructor backend execution-options)))
+                       
+                       ;; ML-based objectives (VQC, QNN)
+                       (:classification :regression)
+                       (let [loss-fn (or (:loss-fn algorithm-config)
+                                         (throw (ex-info "loss-fn required for ML objectives" {:objective-kind objective-kind})))
+                             dataset (if-let [dataset-fn (:dataset-fn algorithm-config)]
+                                       (dataset-fn options)
+                                       (:training-data options))
+                             circuit-constructor ((:circuit-constructor-fn algorithm-config) options)
+                             execution-options {:shots (:shots options 1024)}
+                             prediction-extractor (or (:prediction-extractor-fn algorithm-config)
+                                                      ;; Default: extract from measurement frequencies
+                                                      (fn [result] (:frequencies result)))]
+                         
+                         ;; Create ML objective function
+                         (fn [parameters]
+                           (let [;; Handle batching if batch-sampler provided
+                                 batches (if-let [batch-sampler (:batch-sampler-fn algorithm-config)]
+                                           (batch-sampler dataset (:batch-size options 32))
+                                           [dataset]) ; Single batch = full dataset
+                                 
+                                 ;; Compute loss across batches
+                                 batch-losses (mapv (fn [batch]
+                                                      (let [features (:features batch)
+                                                            labels (:labels batch)
+                                                            ;; Execute circuits for all samples in batch
+                                                            predictions (mapv (fn [feature]
+                                                                                (let [circuit (circuit-constructor parameters feature)
+                                                                                      result (backend/execute-circuit backend circuit execution-options)
+                                                                                      measurement-result (get-in result [:results :measurement-results])]
+                                                                                  (prediction-extractor measurement-result)))
+                                                                              features)]
+                                                        (loss-fn predictions labels)))
+                                                    batches)
+                                 
+                                 ;; Average loss across batches
+                                 avg-loss (/ (reduce + batch-losses) (count batches))
+                                 
+                                 ;; Add regularization if provided
+                                 regularization-penalty (if-let [reg-fn (:regularization-fn algorithm-config)]
+                                                          (reg-fn parameters)
+                                                          0.0)]
+                             (+ avg-loss regularization-penalty))))
+                       
+                       ;; Custom objective (user provides complete objective function in options)
+                       :custom
+                       (or (:objective-function options)
+                           (throw (ex-info "objective-function required for custom objective-kind" {:objective-kind objective-kind}))))
+        
+        ;; Step 3: Optimization Execution
+        optimization-method (:optimization-method options :adam)
+        optimization-options (merge {:learning-rate 0.01
+                                     :max-iterations 500
+                                     :tolerance 1e-6
+                                     :gradient-tolerance 1e-4
+                                     :shots 1024}
+                                    options)
+        
+        ;; Determine if we're using gradient-based optimization for Hamiltonian objectives
+        use-enhanced-optimization? (and (= objective-kind :hamiltonian)
+                                        (contains? #{:gradient-descent :adam :quantum-natural-gradient} optimization-method))
+        
+        ;; Add additional options for enhanced optimization
+        enhanced-options (if use-enhanced-optimization?
+                           (merge optimization-options
+                                  {:gradient-method :parameter-shift
+                                   :ansatz-fn (:circuit-constructor-fn algorithm-config)
+                                   :backend backend
+                                   :exec-options {:shots (:shots options 1024)}})
+                           optimization-options)
+        
+        ;; Run optimization with appropriate method
+        optimization-result (if use-enhanced-optimization?
+                              (enhanced-variational-optimization objective-fn initial-parameters enhanced-options)
+                              (variational-optimization objective-fn initial-parameters optimization-options))
+        
+        ;; Calculate initial energy/loss for comparison (handle both map and number returns)
+        initial-result (objective-fn initial-parameters)
+        initial-energy (if (map? initial-result) (:energy initial-result) initial-result)
+        
+        ;; Timing
+        end-time (System/currentTimeMillis)
+        
+        ;; Step 4: Convergence Analysis
+        convergence-analysis (analyze-convergence optimization-result)
+        
+        ;; Step 5: Build base result map
+        base-result (merge optimization-result
+                           {:algorithm algorithm-name
+                            :objective-kind objective-kind
+                            :initial-parameters initial-parameters
+                            :convergence-analysis convergence-analysis
+                            :initial-energy initial-energy
+                            :total-runtime-ms (- end-time start-time)
+                            :enhanced-features {:optimization-method optimization-method
+                                                :convergence-monitored true
+                                                :algorithm-config-driven true}})]
+    
+    ;; Step 6: Algorithm-specific result processing
+    (if-let [result-processor (:result-processor-fn algorithm-config)]
+      (result-processor base-result algorithm-config options)
+      base-result)))
 
 
 ;;;

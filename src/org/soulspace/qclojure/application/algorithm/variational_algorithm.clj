@@ -676,26 +676,6 @@
 ;;      and future variational algorithms with advanced features.
 ;;      We leave the basic version above until this is fully implemented and tested.
 ;;      This is a template function that can be specialized via the algorithm-config map.
-#_{;; required keys for algorithm config
- :algorithm :vqc
- :objective-kind :classifiction
- :parameter-count-fn nil
- :initial-parameters-fn nil
- :circuit-constructor-fn nil ; caching for static circuits needed, use memoization?
- :execution-plan-fn nil
- :loss-fn nil
- :result-processor-fn nil
- ;; optional keys
- :hamiltonian-constructor-fn nil
- :dataset-fn nil
- :batch-sampler-fn nil
- :prediction-extractor-fn nil
- :gradient-fn nil
- :parameter-structure {}
- :early-stopping-fn nil
- :regularization-fn nil
- :constraints-fn nil
- }
 (defn enhanced-variational-algorithm
   "Enhanced template for variational quantum algorithms.
    

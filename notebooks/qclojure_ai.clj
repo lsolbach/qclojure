@@ -33,16 +33,16 @@
 ;; # Setup
 ;; ## IDE
 ;;
-;; * VS Code - Editor
+;; * VS Code - Editor/IDE
 ;; * Calva - Clojure IDE for VSCode
 ;; * Calva Backseat Driver - MCP server with Clojure Tools
-;; * Joyride
+;; * Joyride - Human Intelligence Tool
 ;;
 ;; ## AI Models
 ;;
 ;; * GitHub Copilot Pro (10$/month)
-;;   * Claude Sonnet 4 - goto model for coding and documentation
-;;   * GPT - good for research and planning
+;;   * Claude Sonnet 4/4.5 - goto model for coding and documentation
+;;   * GPT 4/5 - good for research and planning
 ;;   * Gemini 2.5 Pro - prompt assessment
 ;;
 ;; ## MCP Tools
@@ -76,9 +76,9 @@
 ;; ## Prompts
 ;;
 ;; * Task specific instructions
-;; * Research
-;; * Assess
-;; * With-Calva
+;;   * Research
+;;   * Assess
+;;   * With-Calva
 ;;
 ;; ## Chat Modes
 ;; * Devils Advocate

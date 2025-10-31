@@ -148,28 +148,33 @@
   "Calculate gradient using the parameter shift rule.
   
   For a parameterized gate with parameter θ, the gradient is:
-  ∂⟨H⟩/∂θ = (1/2)[⟨H⟩(θ + π/2) - ⟨H⟩(θ - π/2)]
+  ∂⟨H⟩/∂θ = (1/(2 sin(s)))[⟨H⟩(θ + s) - ⟨H⟩(θ - s)]
   
-  This gives exact gradients for quantum circuits with rotation gates.
+  where s is the shift value.
+  
+  For single-qubit rotations: s = π/2 is exact
+  For Hamiltonian evolution: s = π/4 works better empirically
   
   Parameters:
-  - objective-fn: VQE objective function
+  - objective-fn: Objective function
   - parameters: Current parameter vector
   - param-index: Index of parameter to compute gradient for
-  - shift: Parameter shift value (default: π/2)
+  - shift: Parameter shift value (default: π/4 for better QAOA/Hamiltonian support)
   
   Returns:
   Gradient value for the specified parameter"
   ([objective-fn parameters param-index]
-   (parameter-shift-gradient objective-fn parameters param-index (/ fm/PI 2)))
+   (parameter-shift-gradient objective-fn parameters param-index (/ fm/PI 4)))
   ([objective-fn parameters param-index shift]
    (let [params-plus (assoc parameters param-index
                             (+ (nth parameters param-index) shift))
          params-minus (assoc parameters param-index
                              (- (nth parameters param-index) shift))
          energy-plus (objective-fn params-plus)
-         energy-minus (objective-fn params-minus)]
-     (* 0.5 (- energy-plus energy-minus)))))
+         energy-minus (objective-fn params-minus)
+         ;; Adjust coefficient based on shift: 1/(2*sin(shift))
+         coefficient (/ 1.0 (* 2.0 (Math/sin shift)))]
+     (* coefficient (- energy-plus energy-minus)))))
 
 (defn adaptive-parameter-shift-gradient
   "Calculate gradient using adaptive parameter shift rule.
@@ -197,22 +202,79 @@
         (range (count parameters))
         param-types))
 
+(defn select-best-shift
+  "Select the best shift value for parameter-shift gradient by testing candidates.
+  
+  Tests multiple shift values and selects the one that gives the largest gradient
+  magnitude (best signal). This helps avoid near-zero gradients from poor shift choices.
+  
+  Parameters:
+  - objective-fn: Objective function
+  - parameters: Current parameter vector
+  - param-index: Index of parameter to find best shift for
+  - candidate-shifts: Vector of shift values to test (default: [π/2, π/4, π/8, π/16])
+  
+  Returns:
+  Best shift value"
+  ([objective-fn parameters param-index]
+   (select-best-shift objective-fn parameters param-index
+                      [(/ fm/PI 2) (/ fm/PI 4) (/ fm/PI 8) (/ fm/PI 16)]))
+  ([objective-fn parameters param-index candidate-shifts]
+   (let [gradients-with-shifts (mapv (fn [shift]
+                                       {:shift shift
+                                        :gradient (parameter-shift-gradient objective-fn parameters param-index shift)})
+                                     candidate-shifts)
+         ;; Select shift with maximum absolute gradient
+         best (apply max-key #(Math/abs (:gradient %)) gradients-with-shifts)]
+     (:shift best))))
+
+(defn calculate-adaptive-shift-gradient
+  "Calculate gradient with automatically selected optimal shift per parameter.
+  
+  For each parameter, tests multiple shift values and uses the one giving the
+  strongest gradient signal. This is useful for Hamiltonian evolution where
+  the standard π/2 shift may be suboptimal.
+  
+  Parameters:
+  - objective-fn: Objective function
+  - parameters: Current parameter vector  
+  - options: Options map with:
+    - :parallel? - Use parallel computation (default: true)
+    - :candidate-shifts - Shifts to test (default: [π/2, π/4, π/8, π/16])
+  
+  Returns:
+  Vector of gradients for all parameters"
+  ([objective-fn parameters]
+   (calculate-adaptive-shift-gradient objective-fn parameters {}))
+  ([objective-fn parameters options]
+   (let [parallel? (:parallel? options true)
+         candidate-shifts (:candidate-shifts options [(/ fm/PI 2) (/ fm/PI 4) (/ fm/PI 8) (/ fm/PI 16)])]
+     (if parallel?
+       (vec (pmap (fn [i]
+                    (let [best-shift (select-best-shift objective-fn parameters i candidate-shifts)]
+                      (parameter-shift-gradient objective-fn parameters i best-shift)))
+                  (range (count parameters))))
+       (mapv (fn [i]
+               (let [best-shift (select-best-shift objective-fn parameters i candidate-shifts)]
+                 (parameter-shift-gradient objective-fn parameters i best-shift)))
+             (range (count parameters)))))))
+
 (defn calculate-parameter-shift-gradient
   "Calculate full gradient vector using parameter shift rule.
   
   Uses parallel computation for efficiency when computing multiple gradients.
   
   Parameters:
-  - objective-fn: VQE objective function
+  - objective-fn: Objective function
   - parameters: Current parameter vector
-  - options: Options map with :parallel? (default true) and :shift (default π/2)
+  - options: Options map with :parallel? (default true) and :shift (default π/4)
   
   Returns:
   Vector of gradients for all parameters"
   ([objective-fn parameters]
    (calculate-parameter-shift-gradient objective-fn parameters {}))
   ([objective-fn parameters options]
-   (let [shift (:shift options (/ fm/PI 2))
+   (let [shift (:shift options (/ fm/PI 4))  ; Changed default to π/4
          parallel? (:parallel? options true)]
      (if parallel?
        ;; Use pmap for parallel computation of gradients

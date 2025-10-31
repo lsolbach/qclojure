@@ -305,7 +305,7 @@
   [backend options]
   {:pre [(s/valid? ::vqe-config options)]}
   ;; Use enhanced variational algorithm template with VQE-specific functions
-  (va/variational-algorithm backend
+  (va/simple-variational-algorithm backend
                             options
                             {:hamiltonian-constructor vqe-hamiltonian-constructor
                              :circuit-constructor vqe-circuit-constructor

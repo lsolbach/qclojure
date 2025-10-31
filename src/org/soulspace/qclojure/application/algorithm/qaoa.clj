@@ -1213,7 +1213,7 @@
                        :result-processor qaoa-result-processor}]
 
     ;; Delegate to the variational algorithm template
-    (va/variational-algorithm backend enhanced-options algorithm-fns)))
+    (va/simple-variational-algorithm backend enhanced-options algorithm-fns)))
 
 ;;;
 ;;; Analysis and Utilities

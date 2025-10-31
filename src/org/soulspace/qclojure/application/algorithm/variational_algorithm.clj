@@ -590,7 +590,7 @@
 ;;;
 ;;; Algorithm Structure Template
 ;;;
-(defn variational-algorithm
+(defn simple-variational-algorithm
   "Template for variational quantum algorithms like QAOA and VQE.
   
   This version supports gradient-enhanced objectives, advanced convergence

@@ -302,7 +302,6 @@
          :iterations current-iteration
          :recommendation (cond
                            converged? :stop-converged
-                           (> current-iteration (* 2 patience)) :stop-slow-progress
                            :else :continue)}))))
 
 ;;;
@@ -554,16 +553,6 @@
                :reason :converged
                :optimal-energy (if (< current-energy best-energy) current-energy best-energy)
                :optimal-parameters (if (< current-energy best-energy) current-params best-params)
-               :iterations iteration
-               :history updated-history
-               :convergence-analysis convergence-result}
-
-              ;; Slow progress detected
-              (= (:recommendation convergence-result) :stop-slow-progress)
-              {:success false
-               :reason :slow-progress
-               :optimal-energy best-energy
-               :optimal-parameters best-params
                :iterations iteration
                :history updated-history
                :convergence-analysis convergence-result}

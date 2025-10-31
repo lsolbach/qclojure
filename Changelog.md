@@ -1,6 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
+* enhanced the variational algorithm template to support ML algorithms like VQC and QNN
 * fixed target qubit mapping for Fredkin gate in gate application
 
 ## Version 0.22.0

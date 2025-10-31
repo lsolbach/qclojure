@@ -668,15 +668,11 @@
     ;; Algorithm-specific result processing
     (result-processor base-result options)))
 
-;; TODO Enhanced implementation suitable for QAOA, VQE, VQC/QNN (non-hamiltonian optimization, ...)
-;;      and future variational algorithms with advanced features.
-;;      We leave the basic version above until this is fully implemented and tested.
-;;      This is a template function that can be specialized via the algorithm-config map.
 (defn variational-algorithm
   "Enhanced template for variational quantum algorithms.
    
   This function provides a flexible and extensible framework for implementing
-  various variational quantum algorithms, including VQE, QAOA, and VQC/QNN. It
+  various variational quantum algorithms, including VQE, QAOA, VQC and QNN. It
   supports advanced features such as gradient-enhanced objectives, sophisticated
   convergence monitoring, and customizable optimization strategies.
   

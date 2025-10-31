@@ -532,7 +532,7 @@
   Parameters:
   - problem-hamiltonian: Problem Hamiltonian (collection of Pauli terms)
   - mixer-hamiltonian: Mixer Hamiltonian (collection of Pauli terms)
-  - parameters: Vector of [γ₁ β₁ γ₂ β₂ ... γₚ βₚ] parameters
+  - parameters: Sequential collection of [γ₁ β₁ γ₂ β₂ ... γₚ βₚ] parameters
   - num-qubits: Number of qubits
   
   Returns:
@@ -540,7 +540,7 @@
   [problem-hamiltonian mixer-hamiltonian parameters num-qubits]
   {:pre [(ham/validate-hamiltonian problem-hamiltonian)
          (ham/validate-hamiltonian mixer-hamiltonian)
-         (vector? parameters)
+         (sequential? parameters)
          (even? (count parameters))
          (pos-int? num-qubits)]}
   (let [param-pairs (partition 2 parameters)  ; [(γ₁ β₁) (γ₂ β₂) ...]
@@ -1368,17 +1368,17 @@
   (def backend (sim/create-simulator))
 
   ;; Example 1: MaxCut on triangle graph
-  (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
+  (def triangle-graph [[0 1 1.5] [1 2 1.0] [0 2 2.0] [2 3 1.5]])
   (def triangle-maxcut-config
     {:problem-type :max-cut
-     :problem-hamiltonian (max-cut-hamiltonian triangle-graph 3)
-     :problem-instance triangle-graph  ; Triangle with unit weights
-     :num-qubits 3
+     :problem-hamiltonian (max-cut-hamiltonian triangle-graph 4)
+     :problem-instance triangle-graph  ; Triangle with unit weights :num-qubits 4
      :num-layers 2
      :optimization-method :adam
-     :max-iterations 100
-     :tolerance 1e-6
-     :shots 10000})
+     :learning-rate 0.2
+     :max-iterations 200
+     :tolerance 1e-3
+     :shots 5000})
 
   (def qaoa-result (quantum-approximate-optimization-algorithm backend triangle-maxcut-config))
 
@@ -1389,6 +1389,10 @@
   (println "QAOA Energy:" (:optimal-energy qaoa-result))
   (println "Optimal γ parameters:" (:gamma-parameters qaoa-result))
   (println "Optimal β parameters:" (:beta-parameters qaoa-result))
+  (println "Max-Cut Partition:" (get-in (:problem-solutions qaoa-result) [:partition]))
+  (println "Cut Weight:" (get-in (:problem-solutions qaoa-result) [:cut-weight]))
+  (println "Approximation Ratio:" (:approximation-ratio qaoa-result))
+  (println "Convergence Analysis:" (:convergence-analysis analysis))
 
   ;; Parameter strategy comparison
   ;; :theoretical - Best for small p, based on literature (recommended)
@@ -1410,7 +1414,7 @@
      :num-qubits 3
      :num-layers 2
      :parameter-strategy :theoretical
-     :optimization-method :adam
+     :optimization-method :nelder-mead
      :max-iterations 1000
      :tolerance 2e-3
      :shots 5000})

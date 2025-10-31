@@ -200,55 +200,65 @@
   
   Parameters:
   - optimization-result: Base optimization result from template
-  - config: Original VQE configuration
+  - algorithm-config-or-options: Either the algorithm config (enhanced) or VQE config (simple)
+  - options: (Optional) Original VQE options when called from enhanced template
   
   Returns:
   VQE-specific result map with analysis and metadata"
-  [optimization-result config]
-  (let [optimal-params (:optimal-parameters optimization-result)
-        optimal-energy (:optimal-energy optimization-result)
-        hamiltonian (:hamiltonian optimization-result)
-        initial-energy (:initial-energy optimization-result)
-        
-        ;; Create final circuit
-        ansatz-fn (vqe-circuit-constructor config)
-        final-circuit (when optimal-params (ansatz-fn optimal-params))
-        
-        ;; VQE-specific analysis
-        grouped-terms (when (:measurement-grouping config)
-                        (ham/group-commuting-terms hamiltonian))
-        
-        classical-energy (when (:calculate-classical-bound config)
-                           ;; Simple estimation: sum of absolute coefficients
-                           (reduce + (map #(abs (:coefficient %)) hamiltonian)))]
-    
-    {:algorithm "Variational Quantum Eigensolver"
-     :config config
-     :success (:success optimization-result)
-     :result optimal-energy
-     :circuit final-circuit
-     :parameter-count (vqe-parameter-count config)
-     :ansatz-type (:ansatz-type config)
-     :results {:optimal-energy optimal-energy
-               :optimal-parameters optimal-params
-               :success (:success optimization-result)
-               :iterations (:iterations optimization-result)
-               :function-evaluations (:function-evaluations optimization-result)}
-     :hamiltonian {:pauli-terms (count hamiltonian)
-                   :grouped-pauli-terms (when grouped-terms (count grouped-terms))
-                   :classical-bound classical-energy}
-     :timing {:execution-time-ms (:total-runtime-ms optimization-result)
-              :start-time (- (System/currentTimeMillis) (:total-runtime-ms optimization-result))
-              :end-time (System/currentTimeMillis)}
-     :analysis {:initial-energy initial-energy
-                :energy-improvement (when initial-energy (- initial-energy optimal-energy))
-                :convergence-achieved (:success optimization-result)}
-     :optimization optimization-result}))
+  ([optimization-result config]
+   ;; Simple template compatibility (2-arg version)
+   (vqe-result-processor optimization-result nil config))
+  
+  ([optimization-result algorithm-config options]
+   ;; Enhanced template compatibility (3-arg version)
+   ;; Use options as the primary config, fallback to algorithm-config
+   (let [config (or options algorithm-config)
+         optimal-params (:optimal-parameters optimization-result)
+         optimal-energy (:optimal-energy optimization-result)
+         hamiltonian (:hamiltonian optimization-result)
+         initial-energy (:initial-energy optimization-result)
+         
+         ;; Create final circuit
+         ansatz-fn (vqe-circuit-constructor config)
+         final-circuit (when optimal-params (ansatz-fn optimal-params))
+         
+         ;; VQE-specific analysis
+         grouped-terms (when (:measurement-grouping config)
+                         (ham/group-commuting-terms hamiltonian))
+         
+         classical-energy (when (:calculate-classical-bound config)
+                            ;; Simple estimation: sum of absolute coefficients
+                            (reduce + (map #(abs (:coefficient %)) hamiltonian)))]
+     
+     {:algorithm "Variational Quantum Eigensolver"
+      :config config
+      :success (:success optimization-result)
+      :result optimal-energy
+      :circuit final-circuit
+      :parameter-count (vqe-parameter-count config)
+      :ansatz-type (:ansatz-type config)
+      :results {:optimal-energy optimal-energy
+                :optimal-parameters optimal-params
+                :success (:success optimization-result)
+                :iterations (:iterations optimization-result)
+                :function-evaluations (:function-evaluations optimization-result)}
+      :hamiltonian {:pauli-terms (count hamiltonian)
+                    :grouped-pauli-terms (when grouped-terms (count grouped-terms))
+                    :classical-bound classical-energy}
+      :timing {:execution-time-ms (:total-runtime-ms optimization-result)
+               :start-time (- (System/currentTimeMillis) (:total-runtime-ms optimization-result))
+               :end-time (System/currentTimeMillis)}
+      :analysis {:initial-energy initial-energy
+                 :energy-improvement (when initial-energy (- initial-energy optimal-energy))
+                 :convergence-achieved (:success optimization-result)}
+      :optimization optimization-result})))
 
 ;;;
 ;;; VQE algorithm
 ;;;
-(defn variational-quantum-eigensolver
+;; this implementation uses the simple variational algorithm template
+;; left here to compare with the new implementation based on the enhanced template
+(defn variational-quantum-eigensolver-old
   "Main VQE algorithm implementation using enhanced variational algorithm template.
 
   This function orchestrates the VQE process using the enhanced template,
@@ -311,6 +321,129 @@
                              :circuit-constructor vqe-circuit-constructor
                              :parameter-count vqe-parameter-count
                              :result-processor vqe-result-processor}))
+
+(defn variational-quantum-eigensolver
+  "Main VQE algorithm implementation using enhanced variational algorithm template.
+
+  This implementation leverages the enhanced-variational-algorithm template to provide
+  a more flexible and feature-rich VQE implementation compared to the simple template.
+  It supports all ansatz types, optimization methods, and provides comprehensive analysis.
+  
+  Enhanced Features:
+  - Algorithm-config driven design for better extensibility
+  - Support for structured parameter optimization
+  - Advanced convergence monitoring with gradient tracking
+  - Comprehensive result processing and analysis
+  - Integration with all optimization methods (gradient-based and derivative-free)
+  - Better separation of concerns and modularity
+   
+  Supported ansatz types:
+  - :hardware-efficient - Hardware-efficient ansatz with configurable layers and entangling gates
+  - :chemistry-inspired - Chemistry-inspired ansatz with excitation layers
+  - :uccsd - UCCSD ansatz for chemistry problems
+  - :symmetry-preserving - Symmetry-preserving ansatz for fermionic systems
+  - :custom - Custom ansatz function provided in options
+   
+  Supported optimization methods:
+  - :gradient-descent - Basic gradient descent with parameter shift gradients
+  - :adam - Adam optimizer with parameter shift gradients (recommended default)
+  - :quantum-natural-gradient - Quantum Natural Gradient using Fisher Information Matrix
+  - :nelder-mead - Derivative-free Nelder-Mead simplex method
+  - :powell - Derivative-free Powell's method
+  - :cmaes - Covariance Matrix Adaptation Evolution Strategy (robust)
+  - :bobyqa - Bound Optimization BY Quadratic Approximation (handles bounds well)
+  
+  Parameters:
+  - backend: Quantum backend implementing QuantumBackend protocol
+  - options: VQE configuration map
+    - :hamiltonian - Hamiltonian to minimize (required)
+    - :ansatz-type - Type of ansatz circuit (required)
+    - :num-qubits - Number of qubits (required)
+    - :optimization-method - Optimization method to use (default: :adam)
+    - :max-iterations - Maximum optimization iterations (default: 500)
+    - :tolerance - Energy convergence tolerance (default: 1e-6)
+    - :gradient-tolerance - Gradient norm tolerance (default: 1e-4)
+    - :learning-rate - Learning rate for gradient methods (default: 0.01)
+    - :shots - Number of shots for circuit execution (default: 1024)
+    - :initial-parameters - Initial parameter values (optional)
+    - :num-layers - Number of ansatz layers for hardware-efficient (default: 2)
+    - :entangling-gate - Gate type for entanglement (:cx, :cz, :swap) (default: :cx)
+    - :use-enhanced-objective - Force gradient-enhanced objectives (default: auto-detect)
+  
+  Returns:
+  Map containing comprehensive VQE results and analysis:
+  - :algorithm - Algorithm identifier (:vqe)
+  - :objective-kind - Objective type (:hamiltonian)
+  - :results - Optimization results map with:
+    - :optimal-energy - Ground state energy found
+    - :optimal-parameters - Optimal parameter values
+    - :success - Whether optimization converged successfully
+    - :reason - Convergence reason/status message
+    - :iterations - Number of iterations performed
+    - :function-evaluations - Total function evaluations
+  - :convergence-analysis - Detailed convergence analysis
+  - :initial-parameters - Starting parameter values
+  - :initial-energy - Energy at initial parameters
+  - :total-runtime-ms - Total execution time in milliseconds
+  - :enhanced-features - Map describing enhanced features used
+  - :hamiltonian - Original Hamiltonian
+  - :ansatz-type - Ansatz type used
+  - :num-qubits - Number of qubits
+  - VQE-specific metrics and analysis
+  
+  Example:
+  ```clojure
+  (require '[org.soulspace.qclojure.adapter.backend.ideal-simulator :as sim])
+  
+  (def h2-hamiltonian (molecular-hydrogen-hamiltonian))
+  
+  (def vqe-result
+    (variational-quantum-eigensolver
+      (sim/create-simulator)
+      {:hamiltonian h2-hamiltonian
+       :ansatz-type :chemistry-inspired
+       :num-qubits 4
+       :num-layers 2
+       :optimization-method :adam
+       :max-iterations 500
+       :tolerance 1e-6
+       :shots 2048}))
+  
+  (println \"Ground State Energy:\" (get-in vqe-result [:results :optimal-energy]))
+  (println \"Convergence Status:\" (get-in vqe-result [:results :success]))
+  ```"
+  [backend options]
+  {:pre [(s/valid? ::vqe-config options)]}
+  
+  ;; Define VQE algorithm configuration for enhanced template
+  (let [vqe-algorithm-config
+        {:algorithm :vqe
+         :objective-kind :hamiltonian
+         
+         ;; Required functions for VQE
+         :parameter-count-fn vqe-parameter-count
+         :circuit-constructor-fn vqe-circuit-constructor
+         :hamiltonian-constructor-fn vqe-hamiltonian-constructor
+         
+         ;; Optional VQE-specific enhancements
+         :initial-parameters-fn (fn [num-params opts]
+                                  ;; Use provided initial parameters or smart initialization
+                                  (or (:initial-parameters opts)
+                                      ;; For chemistry ansatz, use zeros as they often work well
+                                      (if (= (:ansatz-type opts) :chemistry-inspired)
+                                        (va/zero-parameter-initialization num-params)
+                                        ;; For other ansatz types, use small random values
+                                        (va/random-parameter-initialization num-params
+                                                                             :range (get opts :parameter-range [-0.1 0.1])))))         :result-processor-fn vqe-result-processor
+         
+         ;; VQE-specific parameter structure (for future structured optimization)
+         :parameter-structure {:type :layered
+                               :num-layers (get options :num-layers 2)
+                               :params-per-layer (quot (vqe-parameter-count options)
+                                                       (get options :num-layers 2))}}]
+    
+    ;; Execute VQE using enhanced variational algorithm template
+    (va/enhanced-variational-algorithm backend options vqe-algorithm-config)))
 
 ;;;
 ;;; Analysis and Utilities

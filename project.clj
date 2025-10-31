@@ -1,4 +1,4 @@
-(defproject org.soulspace/qclojure "0.23.0-SNAPSHOT"
+(defproject org.soulspace/qclojure "0.23.0"
   :description "QClojure is a library to implement and simulate quantum and hybrid algorithms in idiomatic Clojure."
   :license {:name "Eclipse Public License 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -7,7 +7,7 @@
                  [org.clojure/spec.alpha "0.5.238"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/core.memoize "1.1.266"]
-                 [generateme/fastmath "3.0.0-alpha3"]
+                 [generateme/fastmath "3.0.0-alpha4"]
                  [hiccup/hiccup "2.0.0"]
                  [instaparse/instaparse "1.5.0"]]
 

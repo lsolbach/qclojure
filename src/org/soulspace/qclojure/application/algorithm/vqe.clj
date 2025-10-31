@@ -443,7 +443,7 @@
                                                        (get options :num-layers 2))}}]
     
     ;; Execute VQE using enhanced variational algorithm template
-    (va/enhanced-variational-algorithm backend options vqe-algorithm-config)))
+    (va/variational-algorithm backend options vqe-algorithm-config)))
 
 ;;;
 ;;; Analysis and Utilities

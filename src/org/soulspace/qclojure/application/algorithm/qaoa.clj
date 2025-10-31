@@ -1326,7 +1326,7 @@
         enhanced-options (assoc options :backend backend)]
     
     ;; Delegate to enhanced variational algorithm template
-    (va/enhanced-variational-algorithm backend enhanced-options qaoa-config)))
+    (va/variational-algorithm backend enhanced-options qaoa-config)))
 
 ;;;
 ;;; Analysis and Utilities

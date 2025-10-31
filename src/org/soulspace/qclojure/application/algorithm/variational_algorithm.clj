@@ -672,7 +672,7 @@
 ;;      and future variational algorithms with advanced features.
 ;;      We leave the basic version above until this is fully implemented and tested.
 ;;      This is a template function that can be specialized via the algorithm-config map.
-(defn enhanced-variational-algorithm
+(defn variational-algorithm
   "Enhanced template for variational quantum algorithms.
    
   This function provides a flexible and extensible framework for implementing

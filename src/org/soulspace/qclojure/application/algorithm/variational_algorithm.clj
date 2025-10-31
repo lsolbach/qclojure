@@ -397,9 +397,16 @@
               base-energy (:energy-expectation (:hamiltonian-result (:results base-result)))
               base-state (:final-state (:results base-result))
 
-              ;; Compute gradients using existing parameter shift implementation
-              gradients (qopt/calculate-parameter-shift-gradient standard-objective params-vec
-                                                                 {:parallel? (:parallel? execution-options true)})]
+              ;; Compute gradients using parameter-shift with π/4 default or adaptive mode
+              ;; TODO check if adaptive-shift is implemented correctly in qopt
+              gradients (if (:adaptive-shift execution-options false)
+                          ;; Adaptive: automatically select best shift per parameter
+                          (qopt/calculate-adaptive-shift-gradient standard-objective params-vec
+                                                                   {:parallel? (:parallel? execution-options true)})
+                          ;; Fixed: use π/4 shift (better for Hamiltonian evolution than π/2)
+                          (qopt/calculate-parameter-shift-gradient standard-objective params-vec
+                                                                   {:parallel? (:parallel? execution-options true)
+                                                                    :shift (:gradient-shift execution-options (/ Math/PI 4))}))]
 
           {:energy base-energy
            :gradients gradients

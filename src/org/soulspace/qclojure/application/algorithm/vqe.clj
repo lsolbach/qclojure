@@ -603,7 +603,7 @@
                                                    :chemical-accuracy-threshold 0.0016
                                                    :perturbation-size 0.01}))
   
-  ;; The comprehensive analysis provides:
+  ;; The analysis provides:
   ;; - Standard convergence analysis (from variational-algorithm namespace)
   ;; - Performance summary (from variational-algorithm namespace)  
   ;; - Parameter landscape analysis (from variational-algorithm namespace)

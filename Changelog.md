@@ -1,7 +1,7 @@
 # Changelog
 
 ## Version (NEXT)
-* 
+* added simulation result pragmas to QASM3 export
 
 ## Version 0.23.0
 * enhanced the variational algorithm template to support ML algorithms like VQC and QNN

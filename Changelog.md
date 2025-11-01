@@ -1,5 +1,8 @@
 # Changelog
 
+## Version (NEXT)
+* 
+
 ## Version 0.23.0
 * enhanced the variational algorithm template to support ML algorithms like VQC and QNN
 * improved parameter shift gradient optimization

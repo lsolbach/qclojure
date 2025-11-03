@@ -136,10 +136,10 @@
 
                         ;; Simulation-only results
                         :state-vector
-                        [(str "#pragma " (pragma-target target) " result state-vector // Simulation-only result")]
+                        [(str "#pragma " (pragma-target target) " result state_vector // Simulation-only result")]
                         
                         :density-matrix
-                        [(str "#pragma " (pragma-target target) " result density-matrix // Simulation-only result")]
+                        [(str "#pragma " (pragma-target target) " result density_matrix // Simulation-only result")]
                         
                         :fidelity
                         [(str "#pragma " (pragma-target target) " result fidelity // Simulation-only result")]

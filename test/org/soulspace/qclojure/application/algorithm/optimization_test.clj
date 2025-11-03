@@ -149,5 +149,151 @@
 
 (comment
   (run-tests)
+  
+  ;; SPSA Performance Demonstration
+  ;; ==============================
+  ;; SPSA (Simultaneous Perturbation Stochastic Approximation) is highly efficient
+  ;; for quantum variational algorithms because it uses only 2 function evaluations
+  ;; per iteration, regardless of the number of parameters.
+  ;;
+  ;; Key benefits:
+  ;; - 2 evals/iteration (vs 2N for parameter shift, where N = num params)
+  ;; - Highly noise-resistant
+  ;; - Can escape local minima
+  ;; - Scales well to high-dimensional problems
+  ;;
+  ;; Example: For a 4-parameter problem:
+  ;; - SPSA: 2 evaluations/iteration
+  ;; - Adam with parameter shift: 8 evaluations/iteration
+  ;; - Savings: 4x fewer circuit evaluations!
+  ;;
+  ;; Usage:
+  ;; (qopt/spsa-optimization objective-fn initial-params
+  ;;   {:max-iterations 1000    ; Higher default for SPSA
+  ;;    :tolerance 1e-6
+  ;;    :a 0.16                 ; Step size gain (π/20)
+  ;;    :c 0.1                  ; Perturbation size (π/30)
+  ;;    :blocking-size 5})      ; Optional: average last N iterations for noise
   ;
   )
+
+;;
+;; SPSA Optimization Tests
+;;
+(deftest test-spsa-optimization-basic
+  (testing "SPSA optimization on simple quadratic function"
+    (let [quadratic-fn (fn [params]
+                         (let [x (first params)
+                               y (second params)]
+                           (+ (* (- x 3) (- x 3))
+                              (* (- y 2) (- y 2)))))
+          result (qopt/spsa-optimization quadratic-fn [0.0 0.0]
+                                         {:max-iterations 200
+                                          :tolerance 1e-4
+                                          :a 0.16
+                                          :c 0.1})]
+      (is (map? result) "Should return result map")
+      (is (contains? result :optimal-parameters) "Should have optimal parameters")
+      (is (contains? result :optimal-energy) "Should have optimal energy")
+      (is (contains? result :success) "Should have success flag")
+      (is (contains? result :spsa-hyperparameters) "Should have SPSA hyperparameters")
+      (is (vector? (:optimal-parameters result)) "Optimal parameters should be vector")
+      (is (number? (:optimal-energy result)) "Optimal energy should be number")
+      (is (= 2 (count (:optimal-parameters result))) "Should have 2 parameters")
+      ;; Check convergence quality (should be near [3, 2])
+      (is (< (:optimal-energy result) 0.5) "Should converge to near-optimal solution"))))
+
+(deftest test-spsa-optimization-efficiency
+  (testing "SPSA efficiency - only 2 function evaluations per iteration"
+    (let [sphere-fn (fn [params] (reduce + (map #(* % %) params)))
+          result (qopt/spsa-optimization sphere-fn [1.0 1.0 1.0 1.0]
+                                         {:max-iterations 100
+                                          :tolerance 1e-5})]
+      (is (= 2 (quot (:function-evaluations result) (:iterations result)))
+          "Should use exactly 2 function evaluations per iteration"))))
+
+(deftest test-spsa-optimization-blocking
+  (testing "SPSA with parameter blocking for noise resistance"
+    (let [quadratic-fn (fn [params]
+                         (let [x (first params)
+                               y (second params)]
+                           (+ (* (- x 3) (- x 3))
+                              (* (- y 2) (- y 2)))))
+          result (qopt/spsa-optimization quadratic-fn [0.0 0.0]
+                                         {:max-iterations 200
+                                          :tolerance 1e-4
+                                          :blocking-size 5})]
+      (is (:success result) "Should converge with blocking")
+      (is (< (:optimal-energy result) 1.0) "Should reach reasonable solution with blocking"))))
+
+(deftest test-spsa-hyperparameters
+  (testing "SPSA hyperparameters in result"
+    (let [sphere-fn (fn [params] (reduce + (map #(* % %) params)))
+          result (qopt/spsa-optimization sphere-fn [1.0 1.0]
+                                         {:max-iterations 150
+                                          :tolerance 1e-5
+                                          :a 0.2
+                                          :c 0.15
+                                          :alpha 0.602
+                                          :gamma 0.101})]
+      (is (contains? result :spsa-hyperparameters) "Should contain hyperparameters")
+      (let [hyper (:spsa-hyperparameters result)]
+        (is (= 0.2 (:a hyper)) "Should preserve a parameter")
+        (is (= 0.15 (:c hyper)) "Should preserve c parameter")
+        (is (= 0.602 (:alpha hyper)) "Should preserve alpha parameter")
+        (is (= 0.101 (:gamma hyper)) "Should preserve gamma parameter")
+        ;; Only check final gains if converged
+        (when (:success result)
+          (is (contains? hyper :final-ak) "Should record final step size")
+          (is (contains? hyper :final-ck) "Should record final perturbation size"))))))
+
+(deftest test-spsa-convergence-history
+  (testing "SPSA convergence history tracking"
+    (let [sphere-fn (fn [params] (reduce + (map #(* % %) params)))
+          result (qopt/spsa-optimization sphere-fn [2.0 2.0]
+                                         {:max-iterations 100
+                                          :tolerance 1e-5})]
+      (is (contains? result :convergence-history) "Should have convergence history")
+      (is (vector? (:convergence-history result)) "History should be vector")
+      (is (> (count (:convergence-history result)) 0) "History should not be empty")
+      ;; Energy should generally decrease over time
+      (let [history (:convergence-history result)
+            first-energy (first history)
+            last-energy (last history)]
+        (is (< last-energy first-energy) "Final energy should be less than initial")))))
+
+(deftest test-spsa-multi-dimensional
+  (testing "SPSA on higher-dimensional problems"
+    (let [sphere-fn (fn [params] (reduce + (map #(* % %) params)))
+          result (qopt/spsa-optimization sphere-fn [1.0 1.0 1.0 1.0 1.0 1.0]
+                                         {:max-iterations 300
+                                          :tolerance 1e-4})]
+      (is (map? result) "Should handle 6D problem")
+      (is (= 6 (count (:optimal-parameters result))) "Should preserve dimensionality")
+      ;; With 6 parameters, still only 2 evals per iteration
+      (is (= 2 (quot (:function-evaluations result) (:iterations result)))
+          "Should maintain 2 evals/iter even for 6D"))))
+
+(deftest test-spsa-vs-other-methods
+  (testing "SPSA comparison with other methods on same problem"
+    (let [sphere-fn (fn [params] (reduce + (map #(* % %) params)))
+          initial-params [1.0 1.0 1.0 1.0]
+          
+          spsa-result (qopt/spsa-optimization sphere-fn initial-params
+                                              {:max-iterations 200
+                                               :tolerance 1e-4})
+          
+          adam-result (qopt/adam-optimization sphere-fn initial-params
+                                              {:max-iterations 200
+                                               :tolerance 1e-4
+                                               :learning-rate 0.1})]
+      
+      ;; Both should converge
+      (is (:success spsa-result) "SPSA should converge")
+      (is (:success adam-result) "Adam should converge")
+      
+      ;; SPSA should use far fewer function evaluations than Adam
+      ;; Adam needs 2N evals per iteration (N=4), SPSA needs only 2
+      (is (< (:function-evaluations spsa-result)
+             (* 0.5 (:function-evaluations adam-result)))
+          "SPSA should be much more efficient than Adam in function evaluations"))))

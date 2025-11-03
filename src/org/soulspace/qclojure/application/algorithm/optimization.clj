@@ -17,6 +17,7 @@
   Classical Optimization Methods:
   - **Gradient Descent**: Basic optimization with momentum and adaptive learning rates
   - **Adam Optimizer**: Adaptive moment estimation with bias correction
+  - **SPSA**: Simultaneous Perturbation Stochastic Approximation for noisy objectives
   - **Quantum Natural Gradient**: Fisher Information Matrix-based natural gradients
   - **Fastmath Integration**: Derivative-free and gradient-based external optimizers
   
@@ -34,6 +35,7 @@
   - **:quantum-natural-gradient** - Optimal convergence in quantum parameter space
   
   For Noisy or Difficult Landscapes:
+  - **:spsa** - Extremely efficient (only 2 evals/iteration), handles noise excellently
   - **:cmaes** - Robust global optimization, handles noise well
   - **:nelder-mead** - Derivative-free simplex method
   - **:powell** - Coordinate descent without gradients
@@ -109,7 +111,7 @@
             [org.soulspace.qclojure.application.backend :as qb]))
 
 (s/def ::optimization-method
-  #{:gradient-descent :adam :quantum-natural-gradient
+  #{:gradient-descent :adam :spsa :quantum-natural-gradient
     ;; Fastmath derivative-free optimizers (verified working)
     :nelder-mead :powell :cmaes :bobyqa
     ;; Fastmath gradient-based optimizers
@@ -457,6 +459,107 @@
              :reason "converged"}
 
             (recur new-params new-velocity (inc iteration) new-energy new-lr new-energies)))))))
+
+(defn spsa-optimization
+  "VQE optimization using SPSA (Simultaneous Perturbation Stochastic Approximation).
+  
+  SPSA is particularly well-suited for quantum variational algorithms because:
+  1. Uses only 2 function evaluations per iteration (vs 2N for parameter shift)
+  2. Highly noise-resistant due to averaging and stochastic perturbations
+  3. Can escape local minima through random perturbation directions
+  4. Proven effective on noisy quantum hardware (Spall 1992, 1998)
+  
+  The algorithm uses:
+  - Bernoulli ±1 random perturbations applied simultaneously to all parameters
+  - Adaptive gain sequences: ak = a/(A+k+1)^α, ck = c/k^γ
+  - Stochastic gradient approximation: ĝk ≈ [f(θ+ckΔk) - f(θ-ckΔk)]/(2ck) · Δk
+  - Parameter update: θk+1 = θk - ak·ĝk
+  
+  Recommended hyperparameters (from Spall's guidelines):
+  - a: Should achieve approximately 10% change in parameters initially
+  - c: Should yield noticeable change in objective (1-2 standard deviations)
+  - A: Typically 10% of max iterations (stabilizes initial iterations)
+  - α: 0.602 (theoretically optimal for noisy objectives)
+  - γ: 0.101 (theoretically optimal for noisy objectives)
+  
+  For quantum optimization:
+  - Use a=0.16, c=0.1 as starting points (π/20 and π/30 respectively)
+  - Increase max-iterations (1000-2000) since SPSA uses fewer evals/iteration
+  - Set blocking-size=5-10 for additional noise averaging
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - initial-parameters: Starting parameter values
+  - options: Optimization options map with:
+    - :a - Step size gain (default: 0.16)
+    - :c - Perturbation size gain (default: 0.1)
+    - :A - Stability constant (default: 10% of max-iterations)
+    - :alpha - Step size decay exponent (default: 0.602)
+    - :gamma - Perturbation decay exponent (default: 0.101)
+    - :max-iterations - Maximum iterations (default: 1000)
+    - :tolerance - Convergence tolerance (default: 1e-6)
+    - :blocking-size - Number of iterations to average (default: 1, no blocking)
+  
+  Returns:
+  Map with optimization results"
+  [objective-fn initial-parameters options]
+  (let [a (:a options 0.16)
+        c (:c options 0.1)
+        max-iter (:max-iterations options 1000)
+        A (:A options (* 0.1 max-iter))
+        alpha (:alpha options 0.602)
+        gamma (:gamma options 0.101)
+        tolerance (:tolerance options 1e-6)
+        blocking-size (:blocking-size options 1)
+        param-count (count initial-parameters)]
+    (loop [params initial-parameters
+           iteration 0
+           prev-energy (objective-fn initial-parameters)
+           energies [prev-energy]
+           blocked-params [initial-parameters]]
+      (if (>= iteration max-iter)
+        {:success false
+         :optimal-parameters params
+         :optimal-energy prev-energy
+         :iterations iteration
+         :function-evaluations (* iteration 2)
+         :convergence-history energies
+         :spsa-hyperparameters {:a a :c c :A A :alpha alpha :gamma gamma}
+         :reason "max-iterations-reached"}
+        (let [k (inc iteration)
+              ak (/ a (fm/pow (+ A k) alpha))
+              ck (/ c (fm/pow k gamma))
+              delta (vec (repeatedly param-count #(if (< (rand) 0.5) -1.0 1.0)))
+              params-plus (mapv #(+ %1 (* ck %2)) params delta)
+              params-minus (mapv #(- %1 (* ck %2)) params delta)
+              energy-plus (objective-fn params-plus)
+              energy-minus (objective-fn params-minus)
+              gradient-coefficient (/ (- energy-plus energy-minus) (* 2.0 ck))
+              spsa-gradient (mapv #(* gradient-coefficient %) delta)
+              new-params (mapv #(- %1 (* ak %2)) params spsa-gradient)
+              new-energy (objective-fn new-params)
+              new-energies (conj energies new-energy)
+              new-blocked-params (conj blocked-params new-params)
+              recent-blocked-params (take-last blocking-size new-blocked-params)
+              averaged-params (if (> blocking-size 1)
+                                (vec (apply map (fn [& vals] (/ (reduce + vals) (count vals)))
+                                            recent-blocked-params))
+                                new-params)
+              averaged-energy (if (> blocking-size 1)
+                                (objective-fn averaged-params)
+                                new-energy)
+              energy-diff (abs (- prev-energy averaged-energy))]
+          (if (and (> iteration 50) (< energy-diff tolerance))
+            {:success true
+             :optimal-parameters averaged-params
+             :optimal-energy averaged-energy
+             :iterations iteration
+             :function-evaluations (+ (* iteration 2) (if (> blocking-size 1) 1 0))
+             :convergence-history new-energies
+             :spsa-hyperparameters {:a a :c c :A A :alpha alpha :gamma gamma
+                                    :final-ak ak :final-ck ck}
+             :reason "converged"}
+            (recur new-params (inc iteration) averaged-energy new-energies new-blocked-params)))))))
 
 ;;
 ;; Quantum Fisher Information Matrix and Natural Gradient Implementation

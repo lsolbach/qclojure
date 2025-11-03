@@ -430,6 +430,7 @@
   Supported optimization methods:
   - :gradient-descent - Basic gradient descent with parameter shift gradients
   - :adam - Adam optimizer with parameter shift gradients (recommended default)
+  - :spsa - SPSA (Simultaneous Perturbation Stochastic Approximation) for noisy objectives
   - :quantum-natural-gradient - Quantum Natural Gradient using Fisher Information Matrix
   - :nelder-mead - Derivative-free Nelder-Mead simplex method
   - :powell - Derivative-free Powell's method
@@ -456,6 +457,9 @@
       :adam
       (qopt/adam-optimization objective-fn initial-parameters options)
 
+      :spsa
+      (qopt/spsa-optimization objective-fn initial-parameters options)
+
       :quantum-natural-gradient
       (qopt/quantum-natural-gradient-optimization objective-fn initial-parameters options)
 
@@ -470,7 +474,7 @@
       ;; Default fallback with helpful error message
       (throw (ex-info "Unknown optimization method for variational algorithm"
                       {:method method
-                       :available-methods [:gradient-descent :adam :quantum-natural-gradient
+                       :available-methods [:gradient-descent :adam :spsa :quantum-natural-gradient
                                            :nelder-mead :powell :cmaes :bobyqa :gradient :lbfgsb]
                        :algorithm-type :variational})))))
 

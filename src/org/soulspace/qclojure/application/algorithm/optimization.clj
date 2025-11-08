@@ -106,9 +106,9 @@
             [fastmath.core :as fm]
             [fastmath.optimization :as opt]
             [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.application.backend :as backend]))
 
 (s/def ::optimization-method
   #{:gradient-descent :adam :spsa :quantum-natural-gradient
@@ -594,18 +594,18 @@
         circuit-plus (ansatz-fn params-plus)
         circuit-minus (ansatz-fn params-minus)
 
-        state-plus (let [result (qb/execute-circuit backend circuit-plus options)]
+        state-plus (let [result (backend/execute-circuit backend circuit-plus options)]
                      (if (= (:job-status result) :completed)
                        (:final-state result)
                        ;; TODO: no fallback, handle backend failures appropriately
-                       (qc/execute-circuit circuit-plus (qs/zero-state (:num-qubits circuit-plus)))))
+                       (circuit/execute-circuit circuit-plus (state/zero-state (:num-qubits circuit-plus)))))
 
 
-        state-minus (let [result (qb/execute-circuit backend circuit-minus options)]
+        state-minus (let [result (backend/execute-circuit backend circuit-minus options)]
                       (if (= (:job-status result) :completed)
                         (:final-state result)
                         ;; TODO: no fallback, handle backend failures appropriately
-                        (qc/execute-circuit circuit-minus (qs/zero-state (:num-qubits circuit-minus)))))
+                        (circuit/execute-circuit circuit-minus (state/zero-state (:num-qubits circuit-minus)))))
                     
         ;; Compute derivative as (|ψ⁺⟩ - |ψ⁻⟩) / 2
         amplitudes-plus (:amplitudes state-plus)
@@ -665,11 +665,11 @@
         
         ;; Get current state |ψ(θ)⟩
         current-circuit (ansatz-fn parameters)
-        current-state (let [result (qb/execute-circuit backend current-circuit options)]
+        current-state (let [result (backend/execute-circuit backend current-circuit options)]
                         (if (= (:job-status result) :completed)
                           (:final-state result)
                           ;; TODO: no fallback, handle backend failures appropriately
-                          (qc/execute-circuit current-circuit (qs/zero-state (:num-qubits current-circuit)))))
+                          (circuit/execute-circuit current-circuit (state/zero-state (:num-qubits current-circuit)))))
         
         ;; Compute all state derivatives |∂ψ/∂θᵢ⟩
         state-derivatives (mapv #(compute-state-derivative ansatz-fn backend parameters % options)

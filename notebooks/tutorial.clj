@@ -1946,6 +1946,9 @@ qft-result
 ;;   * :gradient-descent - a simple gradient descent optimizer
 ;;   * :adam - the Adam optimizer (Adaptive Moment Estimation)
 ;;   * :quantum-natural-gradient - the quantum natural gradient optimizer using Quantum Fisher Information
+;; * stochastic approximation methods:
+;;   * :spsa - SPSA (Simultaneous Perturbation Stochastic Approximation) for noisy objectives,
+;;             extremely efficient with only 2 function evaluations per iteration
 ;; * gradient free methods:
 ;;   * :nelder-mead - the Nelder-Mead optimizer (also known as the downhill simplex method)
 ;;   * :powell - the Powell optimizer
@@ -2072,6 +2075,10 @@ h2-hamiltonian
 ;;
 ;; We'll compare different optimization methods to show their performance.
 ;; These gradient-based optimizers are supported: `:gradient-descent`, `:adam` and `:quantum-natural-gradient`.
+;;
+;; For stochastic approximation methods, we can use `:spsa`, which is particularly effective
+;; for noisy objectives and requires only 2 function evaluations per iteration regardless
+;; of the number of parameters.
 ;;
 ;; For gradient-free optimizers, we can use the following methods: `:nelder-mead`,
 ;; `:powell`, `:cmaes` and `:bobyqa`. 

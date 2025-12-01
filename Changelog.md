@@ -3,6 +3,7 @@
 ## Version (NEXT)
 * added SPSA optimization method
 * added quantum metrics like classical/quantum fisher matrix calculations
+* simplified hamiltonian creation
 * added simulation result pragmas to QASM3 export
 
 ## Version 0.23.0

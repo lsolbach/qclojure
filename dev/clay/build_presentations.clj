@@ -46,7 +46,9 @@
 
   (defn make-presentations
     "Render the QClojure presentations."
-    ([])
+    ([]
+     (make-presentations fqc-qclojure-config)
+     (make-presentations ai-assist-qclojure-config))
     ([config]
      (println "")
      (println "Building presentation with config:" config)

@@ -1,8 +1,21 @@
 # Changelog
 
 ## Version (NEXT)
+* added SPSA optimization method
+* added quantum metrics like classical/quantum fisher matrix calculations
+* simplified hamiltonian creation
+* added simulation result pragmas to QASM3 export
+
+## Version 0.23.0
+* enhanced the variational algorithm template to support ML algorithms like VQC and QNN
+* improved parameter shift gradient optimization
+* fixed target qubit mapping for Fredkin gate in gate application
+
+## Version 0.22.0
 * enhanced operation registry for Braket devices
-* added Braket gate names in qasm3 emission 
+* added Braket gate names in qasm3 emission
+* always collect trajectories for hardware simulator
+* use noisy measurements and trajectories in result extraction
 * updated Clay
 
 ## Version 0.21.0

@@ -47,6 +47,20 @@
   {:coefficient coefficient
    :pauli-string pauli-string})
 
+(defn hamiltonian
+  "Create a Hamiltonian from a collection of coefficients and pauli string pairs.
+   
+   Parameters:
+   - terms: Collection of [coefficient pauli-string] pairs
+   
+   Returns:
+   Vector of Pauli term maps representing the Hamiltonian"
+  [pairs]
+  {:pre [(coll? pairs)
+         (every? (fn [[c ps]] (and (number? c) (string? ps)
+                                   (every? #{\I \X \Y \Z} ps))) pairs)]}
+  (mapv #(apply pauli-term %) pairs))
+
 (defn validate-hamiltonian
   "Validate that a Hamiltonian is properly formed.
   

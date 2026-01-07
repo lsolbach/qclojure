@@ -532,7 +532,7 @@
   Parameters:
   - problem-hamiltonian: Problem Hamiltonian (collection of Pauli terms)
   - mixer-hamiltonian: Mixer Hamiltonian (collection of Pauli terms)
-  - parameters: Vector of [γ₁ β₁ γ₂ β₂ ... γₚ βₚ] parameters
+  - parameters: Sequential collection of [γ₁ β₁ γ₂ β₂ ... γₚ βₚ] parameters
   - num-qubits: Number of qubits
   
   Returns:
@@ -540,7 +540,7 @@
   [problem-hamiltonian mixer-hamiltonian parameters num-qubits]
   {:pre [(ham/validate-hamiltonian problem-hamiltonian)
          (ham/validate-hamiltonian mixer-hamiltonian)
-         (vector? parameters)
+         (sequential? parameters)
          (even? (count parameters))
          (pos-int? num-qubits)]}
   (let [param-pairs (partition 2 parameters)  ; [(γ₁ β₁) (γ₂ β₂) ...]
@@ -584,15 +584,15 @@
     (case num-layers
       1 (case problem-type
           :max-cut [0.39 0.20]  ; Near-optimal for MaxCut p=1 from literature
-          :max-sat [0.35 0.25]  ; Heuristic for Max-SAT
+          :max-sat [0.30 0.30]  ; Improved based on empirical testing - more balanced
           [0.4 0.2])            ; Default
       2 (case problem-type
           :max-cut [0.37 0.19 0.42 0.21]  ; Optimized for MaxCut p=2
-          :max-sat [0.35 0.22 0.38 0.24]  ; Heuristic for Max-SAT p=2  
+          :max-sat [0.30 0.28 0.35 0.32]  ; Improved for Max-SAT p=2 - higher beta
           [0.4 0.2 0.35 0.18])            ; Default p=2
       ;; For p > 2, use interpolation
-      (let [base-gamma (case problem-type :max-cut 0.38 :max-sat 0.36 0.37)
-            base-beta (case problem-type :max-cut 0.20 :max-sat 0.23 0.21)]
+      (let [base-gamma (case problem-type :max-cut 0.38 :max-sat 0.32 0.37)
+            base-beta (case problem-type :max-cut 0.20 :max-sat 0.30 0.21)]
         (vec (mapcat (fn [layer]
                        (let [scale (+ 0.8 (* 0.4 (/ layer num-layers)))]
                          [(* base-gamma scale) (* base-beta scale)]))
@@ -600,8 +600,8 @@
 
     :adiabatic
     ;; Linear schedule: γᵢ = γₘₐₓ * i/p, βᵢ = βₘₐₓ * (1 - i/p)
-    (let [gamma-max (case problem-type :max-cut 0.75 :max-sat 0.70 0.6)
-          beta-max (case problem-type :max-cut 0.4 :max-sat 0.45 0.35)]
+    (let [gamma-max (case problem-type :max-cut 0.75 :max-sat 0.65 0.6)
+          beta-max (case problem-type :max-cut 0.4 :max-sat 0.50 0.35)]
       (vec (mapcat (fn [layer]
                      (let [t (/ (inc layer) num-layers)]
                        [(* gamma-max t) (* beta-max (- 1 t))]))
@@ -609,8 +609,8 @@
 
     :random-smart
     ;; Random in theoretically good ranges, alternating γ and β
-    (let [gamma-range (case problem-type :max-cut [0.2 0.6] :max-sat [0.1 0.5] [0.15 0.55])
-          beta-range (case problem-type :max-cut [0.1 0.3] :max-sat [0.15 0.35] [0.1 0.3])]
+    (let [gamma-range (case problem-type :max-cut [0.2 0.6] :max-sat [0.15 0.45] [0.15 0.55])
+          beta-range (case problem-type :max-cut [0.1 0.3] :max-sat [0.20 0.40] [0.1 0.3])]
       (vec (mapcat (fn [_]
                      [(+ (first gamma-range)
                          (* (rand) (- (second gamma-range) (first gamma-range))))
@@ -730,7 +730,6 @@
 ;;;
 ;;; QAOA-Specific Helper Functions and Result Extraction (moved from domain.result)
 ;;;
-
 (defn decode-max-cut-solution
   "Decode measurement outcomes for MaxCut problem.
   
@@ -877,23 +876,9 @@
                           (sort-by :objective-value solutions)))
       (first solutions))))
 
-
-
-
-
-
-
-
-
 ;;;
 ;;; Measurement-based Solution Extraction (Hardware Compatible)
 ;;;
-
-
-
-
-
-
 (defn extract-solution-from-frequencies
   "Extract problem-specific solutions from measurement frequency data.
   
@@ -1130,19 +1115,20 @@
     (va/variational-hamiltonian-objective problem-hamiltonian circuit-construction-fn backend options)))
 
 (defn quantum-approximate-optimization-algorithm
-  "Main QAOA algorithm implementation using the variational algorithm template.
+  "Main QAOA algorithm implementation using the enhanced variational algorithm template.
 
-  This function orchestrates the QAOA process using the enhanced variational-algorithm
-  template, providing improved optimization features, convergence monitoring, and
-  standardized result analysis while maintaining full backward compatibility.
+  This function implements the Quantum Approximate Optimization Algorithm (QAOA)
+  using the enhanced-variational-algorithm template, providing a modern, flexible,
+  and feature-rich implementation with advanced optimization capabilities.
   
-  Key Enhancements from Template Integration:
-  - Advanced convergence monitoring with intelligent stopping criteria
-  - Enhanced optimization methods with gradient support where applicable
-  - Standardized result analysis and performance metrics
-  - Consistent error handling and timing across all variational algorithms
-  - Parameter landscape analysis capabilities
-  - Future extensibility for new optimization methods
+  Key Features:
+  - Full integration with enhanced variational algorithm template
+  - Support for gradient-enhanced objectives when applicable
+  - Sophisticated convergence monitoring and early stopping
+  - Flexible optimization method selection
+  - Comprehensive result analysis and performance metrics
+  - Hardware-compatible measurement-based solution extraction
+  - Extensible configuration for future enhancements
   
   Supported problem types:
   - :max-cut - Maximum cut problem on graphs
@@ -1182,6 +1168,39 @@
     - :mixer-hamiltonian - Custom mixer Hamiltonian (optional)
     - :mixer-type - Type of mixer (:standard, :xy) (optional, default: :standard)
   
+  Recommended Settings by Problem Type:
+  
+  MAX-CUT:
+    • num-layers: 1-2 (excellent approximation ratios with low depth)
+    • max-iterations: 50-100 (converges quickly with good initialization)
+    • tolerance: 1e-6 (tight tolerance works well)
+    • parameter-strategy: :theoretical (near-optimal initialization)
+    • Notes: Max-Cut typically converges quickly due to well-studied parameters
+  
+  MAX-SAT:
+    • num-layers: 2-3 (more layers help with clause satisfaction)
+    • max-iterations: 150-300 (requires more optimization steps)
+    • tolerance: 1e-4 to 1e-3 (relaxed tolerance recommended)
+    • parameter-strategy: :theoretical (improved balanced initialization)
+    • Notes: Max-SAT landscapes are more complex; expect longer optimization
+             Consider using :adiabatic strategy for p≥3
+  
+  TSP:
+    • num-layers: 3-5 (higher depth needed for routing constraints)
+    • max-iterations: 200-500 (complex constraint satisfaction)
+    • tolerance: 1e-3 (relaxed tolerance essential)
+    • parameter-strategy: :adiabatic (better for complex landscapes)
+    • Notes: TSP uses n² qubits; only practical for small n (≤4 cities)
+             Consider problem-specific mixers for better performance
+  
+  General Tips:
+    • Start with :theoretical strategy and adjust if needed
+    • Use :adiabatic for problems with p>2 or complex constraints
+    • Increase max-iterations if seeing :max-iterations or :slow-progress
+    • Relax tolerance (1e-3 to 1e-4) for difficult problems
+    • Monitor convergence-analysis :convergence-quality in results
+    • Consider increasing num-layers if approximation ratio is poor
+  
   Returns:
   Enhanced map containing QAOA results and comprehensive analysis
   
@@ -1196,24 +1215,30 @@
      :tolerance 1e-6})"
   [backend options]
   {:pre [(s/valid? ::qaoa-config options)]}
-  ;; Use QAOA-specific parameter initialization if not provided
-  (let [enhanced-options (-> options
-                             ;; Add backend for result processing
-                             (assoc :backend backend)
-                             ;; Add initial parameters if not provided
-                             (#(if (:initial-parameters %)
-                                 %
-                                 (assoc % :initial-parameters
-                                        (qaoa-parameter-initialization %)))))
-
-        ;; Define QAOA-specific functions for the template
-        algorithm-fns {:hamiltonian-constructor qaoa-hamiltonian-constructor
-                       :circuit-constructor qaoa-circuit-constructor
-                       :parameter-count qaoa-parameter-count
-                       :result-processor qaoa-result-processor}]
-
-    ;; Delegate to the variational algorithm template
-    (va/variational-algorithm backend enhanced-options algorithm-fns)))
+  
+  (let [;; Build QAOA-specific algorithm configuration for enhanced template
+        qaoa-config {:algorithm :qaoa
+                     :objective-kind :hamiltonian  ; QAOA minimizes Hamiltonian expectation values
+                     
+                     ;; Required functions
+                     :parameter-count-fn qaoa-parameter-count
+                     :circuit-constructor-fn qaoa-circuit-constructor
+                     :hamiltonian-constructor-fn qaoa-hamiltonian-constructor
+                     
+                     ;; Optional functions for enhanced features
+                     :initial-parameters-fn (fn [_num-params opts]
+                                              (if (:initial-parameters opts)
+                                                (:initial-parameters opts)
+                                                (qaoa-parameter-initialization opts)))
+                     :result-processor-fn (fn [result _config opts]
+                                            ;; Merge backend into options for result processor
+                                            (qaoa-result-processor result (assoc opts :backend backend)))}
+        
+        ;; Merge backend into options for downstream functions
+        enhanced-options (assoc options :backend backend)]
+    
+    ;; Delegate to enhanced variational algorithm template
+    (va/variational-algorithm backend enhanced-options qaoa-config)))
 
 ;;;
 ;;; Analysis and Utilities
@@ -1255,17 +1280,17 @@
   (def backend (sim/create-simulator))
 
   ;; Example 1: MaxCut on triangle graph
-  (def triangle-graph [[0 1 1.0] [1 2 1.0] [0 2 1.0]])
+  (def triangle-graph [[0 1 1.5] [1 2 1.0] [0 2 2.0] [2 3 1.5]])
   (def triangle-maxcut-config
     {:problem-type :max-cut
-     :problem-hamiltonian (max-cut-hamiltonian triangle-graph 3)
-     :problem-instance triangle-graph  ; Triangle with unit weights
-     :num-qubits 3
+     :problem-hamiltonian (max-cut-hamiltonian triangle-graph 4)
+     :problem-instance triangle-graph  ; Triangle with unit weights :num-qubits 4
      :num-layers 2
      :optimization-method :adam
-     :max-iterations 100
-     :tolerance 1e-6
-     :shots 10000})
+     :learning-rate 0.2
+     :max-iterations 200
+     :tolerance 1e-3
+     :shots 5000})
 
   (def qaoa-result (quantum-approximate-optimization-algorithm backend triangle-maxcut-config))
 
@@ -1276,6 +1301,10 @@
   (println "QAOA Energy:" (:optimal-energy qaoa-result))
   (println "Optimal γ parameters:" (:gamma-parameters qaoa-result))
   (println "Optimal β parameters:" (:beta-parameters qaoa-result))
+  (println "Max-Cut Partition:" (get-in (:problem-solutions qaoa-result) [:partition]))
+  (println "Cut Weight:" (get-in (:problem-solutions qaoa-result) [:cut-weight]))
+  (println "Approximation Ratio:" (:approximation-ratio qaoa-result))
+  (println "Convergence Analysis:" (:convergence-analysis analysis))
 
   ;; Parameter strategy comparison
   ;; :theoretical - Best for small p, based on literature (recommended)
@@ -1297,10 +1326,10 @@
      :num-qubits 3
      :num-layers 2
      :parameter-strategy :theoretical
-     :optimization-method :adam
-     :max-iterations 150
-     :tolerance 1e-6
-     :shots 10000})
+     :optimization-method :nelder-mead
+     :max-iterations 1000
+     :tolerance 2e-3
+     :shots 5000})
 
   (def maxsat-result (quantum-approximate-optimization-algorithm backend maxsat-config))
 
@@ -1326,8 +1355,8 @@
      :parameter-strategy :adiabatic
      :optimization-method :adam
      :max-iterations 200
-     :tolerance 1e-6
-     :shots 10000})
+     :tolerance 1e-4
+     :shots 5000})
 
   (def tsp-result (quantum-approximate-optimization-algorithm backend tsp-config))
 

@@ -44,11 +44,13 @@
     :sample {:observables [obs/pauli-z] :shots 1000 :targets [0]}
    "
   (:require [clojure.spec.alpha :as s]
+            [fastmath.complex :as fc]
             [org.soulspace.qclojure.domain.state :as state]
             [org.soulspace.qclojure.domain.observables :as obs]
             [org.soulspace.qclojure.domain.hamiltonian :as ham]
             [org.soulspace.qclojure.domain.math :as qmath]
-            [org.soulspace.qclojure.domain.qubit-mapping :as mapping]))
+            [org.soulspace.qclojure.domain.qubit-mapping :as mapping]
+            [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]))
 
 ;;;
 ;;; Specs for result specs and results (QASM 3.0 / Braket compatible)
@@ -140,51 +142,107 @@
                    ::execution-metadata]))
 
 ;;;
+;;; Helper functions for noisy simulations
+;;;
+(defn- density-matrix-diagonal-to-state
+  "Extract the diagonal of a density matrix as a representative state vector.
+  
+  For a mixed state represented by a density matrix ρ, the diagonal elements
+  ρ_ii represent the populations (probabilities) of basis states. This function
+  constructs a state vector where amplitudes are √(ρ_ii), representing a
+  classical mixture.
+  
+  This is useful for noisy simulations where we want state-dependent results
+  but only have a density matrix from trajectory averaging.
+  
+  Parameters:
+  - density-matrix: 2D matrix representing the density operator
+  - num-qubits: Number of qubits in the system
+  
+  Returns:
+  State map with :state-vector containing real-valued amplitudes from diagonal"
+  [density-matrix num-qubits]
+  (let [diagonal (map-indexed (fn [i row] (nth row i)) density-matrix)
+        ;; Convert diagonal probabilities to amplitudes (take square root)
+        ;; Note: These will be real-valued as diagonal elements of ρ are probabilities
+        state-vector (mapv (fn [prob]
+                            (fc/complex (Math/sqrt (fc/re prob)) 0.0))
+                          diagonal)]
+    {:state-vector state-vector
+     :num-qubits num-qubits
+     :source :density-matrix-diagonal
+     :note "Representative state from density matrix diagonal (classical mixture)"}))
+
+;;;
 ;;; Result type extractors - systematic use of existing functions
 ;;;
 (defn extract-measurement-results
   "Extract measurement results from circuit execution using existing state functions.
    Supports reverse mapping to present results in terms of original circuit qubits.
    
+   Can use pre-collected measurement data (from noisy simulations) or perform
+   fresh measurements from a final state (for ideal simulations).
+   
    Leverages: qs/measure-state, qs/measurement-probabilities
    
    Parameters:
    - final-state: Final quantum state after circuit execution
    - measurement-qubits: Qubits that were measured (optional, defaults to all)
-   - shots: Number of measurement shots (default 1)
+   - shots: Number of measurement shots (default 1, ignored if pre-collected-measurements provided)
    - ctx: (optional) Optimization context with reverse mappings
      {:inverse-qubit-mapping {...}, :physical-to-logical {...}, :ancilla-to-logical {...}}
+   - pre-collected-measurements: (optional) Map of {outcome-bitstring -> count} from actual simulation
    
    Returns:
    Map with measurement outcomes and probabilities (Braket Sample format)
    If ctx with reverse mappings is provided, also includes:
    - :mapped-measurements - Measurements mapped to original circuit qubits
    - :qubit-mappings - The reverse mappings used"
-  [final-state & {:keys [measurement-qubits shots ctx] :or {shots 1}}]
+  [final-state & {:keys [measurement-qubits shots ctx pre-collected-measurements] :or {shots 1}}]
   {:pre [(s/valid? ::state/state final-state)]}
   (let [num-qubits (:num-qubits final-state)
         measured-qubits (or measurement-qubits (range num-qubits))
-        ;; Perform multiple shots for statistical results
-        shot-results (repeatedly shots #(state/measure-state final-state))
-        outcomes (mapv :outcome shot-results)
-        theoretical-probs (state/measurement-probabilities final-state)
-        frequencies (frequencies outcomes)
-        empirical-probs (into {} (map (fn [[outcome count]]
-                                       [outcome (/ count shots)])
-                                     frequencies))
-        base-results {:measurement-outcomes outcomes
-                      :measurement-probabilities theoretical-probs
-                      :empirical-probabilities empirical-probs
-                      :shot-count shots
-                      :measurement-qubits measured-qubits
-                      :frequencies frequencies}]
+        
+        ;; Use pre-collected data if available, otherwise perform fresh measurements
+        base-results
+        (if pre-collected-measurements
+          ;; Option 1: Use pre-collected measurement data from noisy simulation
+          (let [total-shots (reduce + (vals pre-collected-measurements))
+                outcomes (vec (keys pre-collected-measurements))
+                empirical-probs (into {} (map (fn [[outcome count]]
+                                               [outcome (/ count total-shots)])
+                                             pre-collected-measurements))]
+            {:measurement-outcomes outcomes
+             :measurement-probabilities empirical-probs  ; For noisy: empirical = "theoretical"
+             :empirical-probabilities empirical-probs
+             :shot-count total-shots
+             :measurement-qubits measured-qubits
+             :frequencies pre-collected-measurements
+             :source :noisy-simulation})
+          
+          ;; Fall back to fresh measurements from final state (ideal simulation)
+          (let [shot-results (repeatedly shots #(state/measure-state final-state))
+                outcomes (mapv :outcome shot-results)
+                theoretical-probs (state/measurement-probabilities final-state)
+                freq (frequencies outcomes)
+                empirical-probs (into {} (map (fn [[outcome count]]
+                                               [outcome (/ count shots)])
+                                             freq))]
+            {:measurement-outcomes outcomes
+             :measurement-probabilities theoretical-probs
+             :empirical-probabilities empirical-probs
+             :shot-count shots
+             :measurement-qubits measured-qubits
+             :frequencies freq
+             :source :ideal-simulation}))]
+    
     ;; Add reverse mapping if context is provided
     (if (and ctx (:inverse-qubit-mapping ctx))
       (let [;; Convert measurement outcomes to qubit-index -> value maps for mapping
             measurement-map (into {}
                                  (map-indexed (fn [idx value]
                                                [idx value])
-                                             (first outcomes)))  ; Use first shot as example
+                                             (first (:measurement-outcomes base-results))))  ; Use first outcome
             mapped-measurements (mapping/map-measurements-to-original measurement-map ctx)]
         (assoc base-results
                :mapped-measurements mapped-measurements
@@ -587,6 +645,9 @@
   result types based on the result specifications, similar to the ideal
   simulator but adapted for noisy hardware simulation with trajectories.
   
+  Uses pre-collected measurement data from actual noisy shots and density matrix
+  computed from state trajectories for more accurate observable calculations.
+  
   Parameters:
   - base-result: Raw simulation result from hardware simulator
   - result-specs: Map specifying what types of results to extract
@@ -599,28 +660,30 @@
          (map? result-specs)]}
   (let [final-state (:final-state base-result)
         density-matrix (:density-matrix base-result)
-;          measurement-results (:measurement-results base-result)
+        pre-collected-measurements (:measurement-results base-result)  ; Map of {outcome -> count}
         shots (:shots-executed base-result)
         enhanced-result (assoc base-result :result-types (set (keys result-specs)))]
 
-    ;; TODO align with extract-results structure
     ;; Systematic extraction of each requested result type
     (reduce-kv
      (fn [acc-result result-type spec]
        (try
          (case result-type
            :measurements
+           ;; Pass through pre-collected measurement data
            (let [measurement-data (extract-measurement-results
                                    final-state
                                    :measurement-qubits (:measurement-qubits spec)
-                                   :shots (or (:shots spec) shots))]
+                                   :shots (or (:shots spec) shots)
+                                   :pre-collected-measurements pre-collected-measurements)]
              (assoc acc-result :measurement-results measurement-data))
 
            :expectation
+           ;; Use density matrix for expectation values when available
            (let [observables (:observables spec)
                  target-qubits (:target-qubits spec)
                  expectations (if density-matrix
-                                ;; Use density matrix for expectation values if available
+                                ;; Use density matrix for expectation values (more accurate for noisy)
                                 (mapv #(obs/expectation-value-density-matrix % density-matrix) observables)
                                 ;; Fall back to state-based calculation
                                 (extract-expectation-results final-state observables
@@ -628,37 +691,69 @@
              (assoc acc-result :expectation-results expectations))
 
            :variance
+           ;; For variance: compute from density matrix if available
            (let [observables (:observables spec)
                  target-qubits (:target-qubits spec)
-                 variances (extract-variance-results final-state observables
-                                                     :target-qubits target-qubits)]
+                 variances (if density-matrix
+                             ;; Compute variance from density matrix: Tr(ρO²) - [Tr(ρO)]²
+                             (mapv (fn [obs]
+                                    (let [exp-val (obs/expectation-value-density-matrix obs density-matrix)
+                                          obs-squared (cla/matrix-multiply obs obs)
+                                          exp-val-squared (obs/expectation-value-density-matrix obs-squared density-matrix)
+                                          variance (- exp-val-squared (* exp-val exp-val))]
+                                      {:variance-value variance
+                                       :observable obs
+                                       :target-qubits target-qubits
+                                       :source :density-matrix}))
+                                  observables)
+                             ;; Fall back to state-based calculation
+                             (extract-variance-results final-state observables
+                                                       :target-qubits target-qubits))]
              (assoc acc-result :variance-results variances))
 
            :hamiltonian
+           ;; Use density matrix for Hamiltonian expectation when available
            (let [hamiltonian (:hamiltonian spec)
                  energy-result (if density-matrix
-                                 ;; Use density matrix for Hamiltonian expectation if available
-                                 (ham/hamiltonian-expectation-density-matrix hamiltonian density-matrix)
+                                 ;; Use density matrix for Hamiltonian expectation (more accurate)
+                                 {:energy-expectation (ham/hamiltonian-expectation-density-matrix hamiltonian density-matrix)
+                                  :hamiltonian hamiltonian
+                                  :measurement-groups (ham/group-commuting-terms hamiltonian)
+                                  :measurement-bases (ham/group-pauli-terms-by-measurement-basis hamiltonian)
+                                  :source :density-matrix}
                                  ;; Fall back to state-based calculation
                                  (extract-hamiltonian-expectation final-state hamiltonian))]
-             (assoc acc-result :hamiltonian-expectation energy-result))
+             ;; Use consistent key name with ideal simulator
+             (assoc acc-result :hamiltonian-result energy-result))
 
            :probability
+           ;; Use representative state from density matrix diagonal if available
            (let [target-qubits (:target-qubits spec)
                  target-states (:target-states spec)
-                 probs (extract-probability-results final-state
+                 representative-state (if density-matrix
+                                       (density-matrix-diagonal-to-state density-matrix (:num-qubits final-state))
+                                       final-state)
+                 probs (extract-probability-results representative-state
                                                     :target-qubits target-qubits
                                                     :target-states target-states)]
              (assoc acc-result :probability-results probs))
 
            :amplitude
+           ;; Use representative state from density matrix diagonal if available
            (let [basis-states (:basis-states spec)
-                 amps (extract-amplitude-results final-state basis-states)]
+                 representative-state (if density-matrix
+                                       (density-matrix-diagonal-to-state density-matrix (:num-qubits final-state))
+                                       final-state)
+                 amps (extract-amplitude-results representative-state basis-states)]
              (assoc acc-result :amplitude-results amps))
 
            :state-vector
+           ;; For noisy simulations, use representative state from density matrix diagonal
            (if (true? spec)  ; Simple boolean flag for state vector
-             (let [state-data (extract-state-vector-result final-state)]
+             (let [state-data (if density-matrix
+                               (assoc (density-matrix-diagonal-to-state density-matrix (:num-qubits final-state))
+                                      :basis-labels (state/basis-labels (:num-qubits final-state)))
+                               (extract-state-vector-result final-state))]
                (assoc acc-result :state-vector-result state-data))
              acc-result)
 
@@ -676,15 +771,23 @@
              acc-result)
 
            :fidelity
+           ;; For noisy simulations, use representative state from density matrix
            (let [reference-states (:reference-states spec)
-                 fidelities (extract-fidelity-result final-state reference-states)]
+                 representative-state (if density-matrix
+                                       (density-matrix-diagonal-to-state density-matrix (:num-qubits final-state))
+                                       final-state)
+                 fidelities (extract-fidelity-result representative-state reference-states)]
              (assoc acc-result :fidelity-results fidelities))
 
            :sample
+           ;; For noisy simulations, use representative state from density matrix
            (let [observables (:observables spec)
                  sample-shots (:shots spec)
                  target-qubits (:target-qubits spec)
-                 samples (extract-sample-results final-state observables sample-shots
+                 representative-state (if density-matrix
+                                       (density-matrix-diagonal-to-state density-matrix (:num-qubits final-state))
+                                       final-state)
+                 samples (extract-sample-results representative-state observables sample-shots
                                                  :target-qubits target-qubits)]
              (assoc acc-result :sample-results samples))
 

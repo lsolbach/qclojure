@@ -134,9 +134,15 @@
                                     (str " target=" (nth targets idx)))))
                            observables))
 
-                        ;; Skip simulation-only results in hardware QASM
-                        (:state-vector :density-matrix :fidelity)
-                        [(str "// Simulation-only result: " (name result-type))]
+                        ;; Simulation-only results
+                        :state-vector
+                        [(str "#pragma " (pragma-target target) " result state_vector // Simulation-only result")]
+                        
+                        :density-matrix
+                        [(str "#pragma " (pragma-target target) " result density_matrix // Simulation-only result")]
+                        
+                        :fidelity
+                        [(str "#pragma " (pragma-target target) " result fidelity // Simulation-only result")]
 
                         ;; Unknown result type
                         [(str "// Unknown result type: " (name result-type))]))

@@ -17,6 +17,7 @@
   Classical Optimization Methods:
   - **Gradient Descent**: Basic optimization with momentum and adaptive learning rates
   - **Adam Optimizer**: Adaptive moment estimation with bias correction
+  - **SPSA**: Simultaneous Perturbation Stochastic Approximation for noisy objectives
   - **Quantum Natural Gradient**: Fisher Information Matrix-based natural gradients
   - **Fastmath Integration**: Derivative-free and gradient-based external optimizers
   
@@ -34,6 +35,7 @@
   - **:quantum-natural-gradient** - Optimal convergence in quantum parameter space
   
   For Noisy or Difficult Landscapes:
+  - **:spsa** - Extremely efficient (only 2 evals/iteration), handles noise excellently
   - **:cmaes** - Robust global optimization, handles noise well
   - **:nelder-mead** - Derivative-free simplex method
   - **:powell** - Coordinate descent without gradients
@@ -104,12 +106,12 @@
             [fastmath.core :as fm]
             [fastmath.optimization :as opt]
             [org.soulspace.qclojure.domain.math.complex-linear-algebra :as cla]
-            [org.soulspace.qclojure.domain.circuit :as qc]
-            [org.soulspace.qclojure.domain.state :as qs]
-            [org.soulspace.qclojure.application.backend :as qb]))
+            [org.soulspace.qclojure.domain.circuit :as circuit]
+            [org.soulspace.qclojure.domain.state :as state]
+            [org.soulspace.qclojure.application.backend :as backend]))
 
 (s/def ::optimization-method
-  #{:gradient-descent :adam :quantum-natural-gradient
+  #{:gradient-descent :adam :spsa :quantum-natural-gradient
     ;; Fastmath derivative-free optimizers (verified working)
     :nelder-mead :powell :cmaes :bobyqa
     ;; Fastmath gradient-based optimizers
@@ -148,28 +150,33 @@
   "Calculate gradient using the parameter shift rule.
   
   For a parameterized gate with parameter θ, the gradient is:
-  ∂⟨H⟩/∂θ = (1/2)[⟨H⟩(θ + π/2) - ⟨H⟩(θ - π/2)]
+  ∂⟨H⟩/∂θ = (1/(2 sin(s)))[⟨H⟩(θ + s) - ⟨H⟩(θ - s)]
   
-  This gives exact gradients for quantum circuits with rotation gates.
+  where s is the shift value.
+  
+  For single-qubit rotations: s = π/2 is exact
+  For Hamiltonian evolution: s = π/4 works better empirically
   
   Parameters:
-  - objective-fn: VQE objective function
+  - objective-fn: Objective function
   - parameters: Current parameter vector
   - param-index: Index of parameter to compute gradient for
-  - shift: Parameter shift value (default: π/2)
+  - shift: Parameter shift value (default: π/4 for better QAOA/Hamiltonian support)
   
   Returns:
   Gradient value for the specified parameter"
   ([objective-fn parameters param-index]
-   (parameter-shift-gradient objective-fn parameters param-index (/ fm/PI 2)))
+   (parameter-shift-gradient objective-fn parameters param-index (/ fm/PI 4)))
   ([objective-fn parameters param-index shift]
    (let [params-plus (assoc parameters param-index
                             (+ (nth parameters param-index) shift))
          params-minus (assoc parameters param-index
                              (- (nth parameters param-index) shift))
          energy-plus (objective-fn params-plus)
-         energy-minus (objective-fn params-minus)]
-     (* 0.5 (- energy-plus energy-minus)))))
+         energy-minus (objective-fn params-minus)
+         ;; Adjust coefficient based on shift: 1/(2*sin(shift))
+         coefficient (/ 1.0 (* 2.0 (Math/sin shift)))]
+     (* coefficient (- energy-plus energy-minus)))))
 
 (defn adaptive-parameter-shift-gradient
   "Calculate gradient using adaptive parameter shift rule.
@@ -197,22 +204,79 @@
         (range (count parameters))
         param-types))
 
+(defn select-best-shift
+  "Select the best shift value for parameter-shift gradient by testing candidates.
+  
+  Tests multiple shift values and selects the one that gives the largest gradient
+  magnitude (best signal). This helps avoid near-zero gradients from poor shift choices.
+  
+  Parameters:
+  - objective-fn: Objective function
+  - parameters: Current parameter vector
+  - param-index: Index of parameter to find best shift for
+  - candidate-shifts: Vector of shift values to test (default: [π/2, π/4, π/8, π/16])
+  
+  Returns:
+  Best shift value"
+  ([objective-fn parameters param-index]
+   (select-best-shift objective-fn parameters param-index
+                      [(/ fm/PI 2) (/ fm/PI 4) (/ fm/PI 8) (/ fm/PI 16)]))
+  ([objective-fn parameters param-index candidate-shifts]
+   (let [gradients-with-shifts (mapv (fn [shift]
+                                       {:shift shift
+                                        :gradient (parameter-shift-gradient objective-fn parameters param-index shift)})
+                                     candidate-shifts)
+         ;; Select shift with maximum absolute gradient
+         best (apply max-key #(Math/abs (:gradient %)) gradients-with-shifts)]
+     (:shift best))))
+
+(defn calculate-adaptive-shift-gradient
+  "Calculate gradient with automatically selected optimal shift per parameter.
+  
+  For each parameter, tests multiple shift values and uses the one giving the
+  strongest gradient signal. This is useful for Hamiltonian evolution where
+  the standard π/2 shift may be suboptimal.
+  
+  Parameters:
+  - objective-fn: Objective function
+  - parameters: Current parameter vector  
+  - options: Options map with:
+    - :parallel? - Use parallel computation (default: true)
+    - :candidate-shifts - Shifts to test (default: [π/2, π/4, π/8, π/16])
+  
+  Returns:
+  Vector of gradients for all parameters"
+  ([objective-fn parameters]
+   (calculate-adaptive-shift-gradient objective-fn parameters {}))
+  ([objective-fn parameters options]
+   (let [parallel? (:parallel? options true)
+         candidate-shifts (:candidate-shifts options [(/ fm/PI 2) (/ fm/PI 4) (/ fm/PI 8) (/ fm/PI 16)])]
+     (if parallel?
+       (vec (pmap (fn [i]
+                    (let [best-shift (select-best-shift objective-fn parameters i candidate-shifts)]
+                      (parameter-shift-gradient objective-fn parameters i best-shift)))
+                  (range (count parameters))))
+       (mapv (fn [i]
+               (let [best-shift (select-best-shift objective-fn parameters i candidate-shifts)]
+                 (parameter-shift-gradient objective-fn parameters i best-shift)))
+             (range (count parameters)))))))
+
 (defn calculate-parameter-shift-gradient
   "Calculate full gradient vector using parameter shift rule.
   
   Uses parallel computation for efficiency when computing multiple gradients.
   
   Parameters:
-  - objective-fn: VQE objective function
+  - objective-fn: Objective function
   - parameters: Current parameter vector
-  - options: Options map with :parallel? (default true) and :shift (default π/2)
+  - options: Options map with :parallel? (default true) and :shift (default π/4)
   
   Returns:
   Vector of gradients for all parameters"
   ([objective-fn parameters]
    (calculate-parameter-shift-gradient objective-fn parameters {}))
   ([objective-fn parameters options]
-   (let [shift (:shift options (/ fm/PI 2))
+   (let [shift (:shift options (/ fm/PI 4))  ; Changed default to π/4
          parallel? (:parallel? options true)]
      (if parallel?
        ;; Use pmap for parallel computation of gradients
@@ -396,6 +460,107 @@
 
             (recur new-params new-velocity (inc iteration) new-energy new-lr new-energies)))))))
 
+(defn spsa-optimization
+  "VQE optimization using SPSA (Simultaneous Perturbation Stochastic Approximation).
+  
+  SPSA is particularly well-suited for quantum variational algorithms because:
+  1. Uses only 2 function evaluations per iteration (vs 2N for parameter shift)
+  2. Highly noise-resistant due to averaging and stochastic perturbations
+  3. Can escape local minima through random perturbation directions
+  4. Proven effective on noisy quantum hardware (Spall 1992, 1998)
+  
+  The algorithm uses:
+  - Bernoulli ±1 random perturbations applied simultaneously to all parameters
+  - Adaptive gain sequences: ak = a/(A+k+1)^α, ck = c/k^γ
+  - Stochastic gradient approximation: ĝk ≈ [f(θ+ckΔk) - f(θ-ckΔk)]/(2ck) · Δk
+  - Parameter update: θk+1 = θk - ak·ĝk
+  
+  Recommended hyperparameters (from Spall's guidelines):
+  - a: Should achieve approximately 10% change in parameters initially
+  - c: Should yield noticeable change in objective (1-2 standard deviations)
+  - A: Typically 10% of max iterations (stabilizes initial iterations)
+  - α: 0.602 (theoretically optimal for noisy objectives)
+  - γ: 0.101 (theoretically optimal for noisy objectives)
+  
+  For quantum optimization:
+  - Use a=0.16, c=0.1 as starting points (π/20 and π/30 respectively)
+  - Increase max-iterations (1000-2000) since SPSA uses fewer evals/iteration
+  - Set blocking-size=5-10 for additional noise averaging
+  
+  Parameters:
+  - objective-fn: VQE objective function
+  - initial-parameters: Starting parameter values
+  - options: Optimization options map with:
+    - :a - Step size gain (default: 0.16)
+    - :c - Perturbation size gain (default: 0.1)
+    - :A - Stability constant (default: 10% of max-iterations)
+    - :alpha - Step size decay exponent (default: 0.602)
+    - :gamma - Perturbation decay exponent (default: 0.101)
+    - :max-iterations - Maximum iterations (default: 1000)
+    - :tolerance - Convergence tolerance (default: 1e-6)
+    - :blocking-size - Number of iterations to average (default: 1, no blocking)
+  
+  Returns:
+  Map with optimization results"
+  [objective-fn initial-parameters options]
+  (let [a (:a options 0.16)
+        c (:c options 0.1)
+        max-iter (:max-iterations options 1000)
+        A (:A options (* 0.1 max-iter))
+        alpha (:alpha options 0.602)
+        gamma (:gamma options 0.101)
+        tolerance (:tolerance options 1e-6)
+        blocking-size (:blocking-size options 1)
+        param-count (count initial-parameters)]
+    (loop [params initial-parameters
+           iteration 0
+           prev-energy (objective-fn initial-parameters)
+           energies [prev-energy]
+           blocked-params [initial-parameters]]
+      (if (>= iteration max-iter)
+        {:success false
+         :optimal-parameters params
+         :optimal-energy prev-energy
+         :iterations iteration
+         :function-evaluations (* iteration 2)
+         :convergence-history energies
+         :spsa-hyperparameters {:a a :c c :A A :alpha alpha :gamma gamma}
+         :reason "max-iterations-reached"}
+        (let [k (inc iteration)
+              ak (/ a (fm/pow (+ A k) alpha))
+              ck (/ c (fm/pow k gamma))
+              delta (vec (repeatedly param-count #(if (< (rand) 0.5) -1.0 1.0)))
+              params-plus (mapv #(+ %1 (* ck %2)) params delta)
+              params-minus (mapv #(- %1 (* ck %2)) params delta)
+              energy-plus (objective-fn params-plus)
+              energy-minus (objective-fn params-minus)
+              gradient-coefficient (/ (- energy-plus energy-minus) (* 2.0 ck))
+              spsa-gradient (mapv #(* gradient-coefficient %) delta)
+              new-params (mapv #(- %1 (* ak %2)) params spsa-gradient)
+              new-energy (objective-fn new-params)
+              new-energies (conj energies new-energy)
+              new-blocked-params (conj blocked-params new-params)
+              recent-blocked-params (take-last blocking-size new-blocked-params)
+              averaged-params (if (> blocking-size 1)
+                                (vec (apply map (fn [& vals] (/ (reduce + vals) (count vals)))
+                                            recent-blocked-params))
+                                new-params)
+              averaged-energy (if (> blocking-size 1)
+                                (objective-fn averaged-params)
+                                new-energy)
+              energy-diff (abs (- prev-energy averaged-energy))]
+          (if (and (> iteration 50) (< energy-diff tolerance))
+            {:success true
+             :optimal-parameters averaged-params
+             :optimal-energy averaged-energy
+             :iterations iteration
+             :function-evaluations (+ (* iteration 2) (if (> blocking-size 1) 1 0))
+             :convergence-history new-energies
+             :spsa-hyperparameters {:a a :c c :A A :alpha alpha :gamma gamma
+                                    :final-ak ak :final-ck ck}
+             :reason "converged"}
+            (recur new-params (inc iteration) averaged-energy new-energies new-blocked-params)))))))
+
 ;;
 ;; Quantum Fisher Information Matrix and Natural Gradient Implementation
 ;;
@@ -429,18 +594,18 @@
         circuit-plus (ansatz-fn params-plus)
         circuit-minus (ansatz-fn params-minus)
 
-        state-plus (let [result (qb/execute-circuit backend circuit-plus options)]
+        state-plus (let [result (backend/execute-circuit backend circuit-plus options)]
                      (if (= (:job-status result) :completed)
                        (:final-state result)
                        ;; TODO: no fallback, handle backend failures appropriately
-                       (qc/execute-circuit circuit-plus (qs/zero-state (:num-qubits circuit-plus)))))
+                       (circuit/execute-circuit circuit-plus (state/zero-state (:num-qubits circuit-plus)))))
 
 
-        state-minus (let [result (qb/execute-circuit backend circuit-minus options)]
+        state-minus (let [result (backend/execute-circuit backend circuit-minus options)]
                       (if (= (:job-status result) :completed)
                         (:final-state result)
                         ;; TODO: no fallback, handle backend failures appropriately
-                        (qc/execute-circuit circuit-minus (qs/zero-state (:num-qubits circuit-minus)))))
+                        (circuit/execute-circuit circuit-minus (state/zero-state (:num-qubits circuit-minus)))))
                     
         ;; Compute derivative as (|ψ⁺⟩ - |ψ⁻⟩) / 2
         amplitudes-plus (:amplitudes state-plus)
@@ -500,11 +665,11 @@
         
         ;; Get current state |ψ(θ)⟩
         current-circuit (ansatz-fn parameters)
-        current-state (let [result (qb/execute-circuit backend current-circuit options)]
+        current-state (let [result (backend/execute-circuit backend current-circuit options)]
                         (if (= (:job-status result) :completed)
                           (:final-state result)
                           ;; TODO: no fallback, handle backend failures appropriately
-                          (qc/execute-circuit current-circuit (qs/zero-state (:num-qubits current-circuit)))))
+                          (circuit/execute-circuit current-circuit (state/zero-state (:num-qubits current-circuit)))))
         
         ;; Compute all state derivatives |∂ψ/∂θᵢ⟩
         state-derivatives (mapv #(compute-state-derivative ansatz-fn backend parameters % options)

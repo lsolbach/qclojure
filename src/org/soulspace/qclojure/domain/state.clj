@@ -297,9 +297,15 @@
   Example:
   (one-state)
   ;=> {:state-vector [0+0i, 1+0i], :num-qubits 1}"
-  []
-  {:state-vector [(fc/complex 0 0) (fc/complex 1 0)]
-   :num-qubits 1})
+  ([]
+   {:state-vector [(fc/complex 0 0) (fc/complex 1 0)]
+    :num-qubits 1})
+  ([n]
+   {:pre [(pos-int? n)]}
+   (let [size (bit-shift-left 1 n)
+         state-vector (into [] (concat (repeat (- size 1) (fc/complex 0 0)) [(fc/complex 1 0)]))]
+     {:state-vector state-vector
+      :num-qubits n})))
 
 (defn plus-state
   "Create the |+⟩ superposition state.
@@ -319,10 +325,17 @@
   Example:
   (plus-state)
   ;=> {:state-vector [0.707+0i, 0.707+0i], :num-qubits 1}"
-  []
-  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
-    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
-     :num-qubits 1}))
+  ([]
+   (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
+     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
+      :num-qubits 1}))
+  ([n]
+   {:pre [(pos-int? n)]}
+   (let [size (bit-shift-left 1 n)
+         amplitude (/ 1 (fm/sqrt size))
+         state-vector (vec (repeat size (fc/complex amplitude 0)))]
+     {:state-vector state-vector
+      :num-qubits n})))
 
 (defn minus-state
   "Create the |-⟩ superposition state.
@@ -343,10 +356,18 @@
   Example:
   (minus-state)
   ;=> {:state-vector [0.707+0i, -0.707+0i], :num-qubits 1}"
-  []
-  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
-    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
-     :num-qubits 1}))
+  ([]
+   (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
+     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
+      :num-qubits 1}))
+  ([n]
+   {:pre [(pos-int? n)]}
+   (let [size (bit-shift-left 1 n)
+         amplitude (/ 1 (fm/sqrt size))
+         state-vector (vec (concat [(fc/complex amplitude 0)]
+                                   (repeat (- size 1) (fc/complex (- amplitude) 0))))]
+     {:state-vector state-vector
+      :num-qubits n})))
 
 (defn plus-i-state
   "Create the |+i⟩ = (|0⟩ + i|1⟩)/√2 superposition state.
@@ -366,10 +387,18 @@
   Example:
   (plus-i-state)
   ;=> {:state-vector [0.707+0i, 0+0.707i], :num-qubits 1}"
-  []
-  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
-    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 sqrt2-inv)]
-     :num-qubits 1}))
+  ([]
+   (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
+     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 sqrt2-inv)]
+      :num-qubits 1}))
+  ([n]
+   {:pre [(pos-int? n)]}
+   (let [size (bit-shift-left 1 n)
+         amplitude (/ 1 (fm/sqrt size))
+         state-vector (vec (concat [(fc/complex amplitude 0)]
+                                   (repeat (- size 1) (fc/complex 0 amplitude))))]
+     {:state-vector state-vector
+      :num-qubits n})))
 
 (defn minus-i-state
   "Create the |-i⟩ = (|0⟩ - i|1⟩)/√2 superposition state.
@@ -389,10 +418,18 @@
   Example:
   (minus-i-state)
   ;=> {:state-vector [0.707+0i, 0-0.707i], :num-qubits 1}"
-  []
-  (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
-    {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 (- sqrt2-inv))]
-     :num-qubits 1}))
+  ([]
+   (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
+     {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 (- sqrt2-inv))]
+      :num-qubits 1}))
+  ([n]
+   {:pre [(pos-int? n)]}
+   (let [size (bit-shift-left 1 n)
+         amplitude (/ 1 (fm/sqrt size))
+         state-vector (vec (concat [(fc/complex amplitude 0)]
+                                   (repeat (- size 1) (fc/complex 0 (- amplitude)) )))]
+     {:state-vector state-vector
+      :num-qubits n})))
 
 (defn computational-basis-state
   "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
@@ -668,37 +705,37 @@
    (let [n (count trajectories)
          first-state (first trajectories)
          num-qubits (:num-qubits first-state)
-         
+
          ;; Validate all trajectories have same number of qubits
          _ (when-not (every? #(= (:num-qubits %) num-qubits) trajectories)
              (throw (ex-info "All trajectories must have the same number of qubits"
-                            {:expected num-qubits
-                             :found (mapv :num-qubits trajectories)})))
-         
+                             {:expected num-qubits
+                              :found (mapv :num-qubits trajectories)})))
+
          ;; Validate all trajectories are normalized (within tolerance)
          eps (cla/current-tolerance)
          _ (doseq [state trajectories]
              (let [norm-sq (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector state)))]
                (when (> (fm/abs (- norm-sq 1.0)) eps)
                  (throw (ex-info "All trajectories must be normalized quantum states"
-                                {:norm-squared norm-sq :tolerance eps})))))
-         
+                                 {:norm-squared norm-sq :tolerance eps})))))
+
          ;; Normalize weights to sum to 1.0
          raw-weights (or weights (repeat n (/ 1.0 n)))
          weight-sum (reduce + raw-weights)
          normalized-weights (if (> (fm/abs weight-sum) eps)
-                             (mapv #(/ % weight-sum) raw-weights)
-                             raw-weights)
-         
+                              (mapv #(/ % weight-sum) raw-weights)
+                              raw-weights)
+
          ;; Create weighted projectors using state-projector function
          projectors (map (fn [state weight]
                            (cla/scale (state-projector state) weight))
                          trajectories normalized-weights)
-         
+
          ;; Sum all weighted projectors
          density-matrix (reduce cla/add (first projectors) (rest projectors))
          trace (cla/trace density-matrix)]
-     
+
      {:density-matrix density-matrix
       :num-qubits num-qubits
       :trace (fc/re trace)
@@ -962,15 +999,15 @@
           (if (= trace-qubit 1)
             ;; Trace out second qubit: |00⟩ + |01⟩ -> |0⟩, |10⟩ + |11⟩ -> |1⟩
             (let [amp0 (fm/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
-                                  (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
+                                   (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))))
                   amp1 (fm/sqrt (+ (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))
-                                  (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
+                                   (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)])
             ;; Trace out first qubit: |00⟩ + |10⟩ -> |0⟩, |01⟩ + |11⟩ -> |1⟩  
             (let [amp0 (fm/sqrt (+ (* (fc/abs (nth amplitudes 0)) (fc/abs (nth amplitudes 0)))
-                                  (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
+                                   (* (fc/abs (nth amplitudes 2)) (fc/abs (nth amplitudes 2)))))
                   amp1 (fm/sqrt (+ (* (fc/abs (nth amplitudes 1)) (fc/abs (nth amplitudes 1)))
-                                  (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
+                                   (* (fc/abs (nth amplitudes 3)) (fc/abs (nth amplitudes 3)))))]
               [(fc/complex amp0 0) (fc/complex amp1 0)]))
           ;; For higher dimensions, use a simplified approach
           ;; This is a placeholder - full implementation would handle general case

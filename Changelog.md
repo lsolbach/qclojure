@@ -1,6 +1,6 @@
 # Changelog
 
-## Version (NEXT)
+## Version 0.24.0
 * added multi-qubit arities for state constructor functions
 * added SPSA optimization method
 * added quantum metrics like classical/quantum fisher matrix calculations

@@ -286,17 +286,22 @@
 (defn one-state
   "Create the |1⟩ computational basis state.
   
-  Creates a single-qubit quantum state |1⟩ = [0, 1] where there is
-  100% probability of measuring the qubit in the excited state.
+   Creates a single-qubit quantum state |1⟩ = [0, 1] where there is
+   100% probability of measuring the qubit in the excited state.
   
-  Parameters: None
+   Parameters:
+   - (no args): Creates single-qubit |1⟩ state
+   - n: (optional) Number of qubits for multi-qubit |11...1⟩ state
   
-  Returns:
-  Single-qubit quantum state map representing |1⟩
+   Returns:
+   Quantum state map representing the |1⟩^⊗n state
   
-  Example:
-  (one-state)
-  ;=> {:state-vector [0+0i, 1+0i], :num-qubits 1}"
+   Example:
+   (one-state)
+   ;=> {:state-vector [0+0i, 1+0i], :num-qubits 1}
+   
+   (one-state 3)
+   ;=> 3-qubit state |111⟩"
   ([]
    {:state-vector [(fc/complex 0 0) (fc/complex 1 0)]
     :num-qubits 1})
@@ -310,21 +315,26 @@
 (defn plus-state
   "Create the |+⟩ superposition state.
   
-  Creates the |+⟩ = (|0⟩ + |1⟩)/√2 state, which is an equal superposition
-  of the computational basis states. This state has 50% probability of
-  measuring either 0 or 1, representing true quantum superposition.
+   Creates the |+⟩ = (|0⟩ + |1⟩)/√2 state, which is an equal superposition
+   of the computational basis states. This state has 50% probability of
+   measuring either 0 or 1, representing true quantum superposition.
   
-  The |+⟩ state is an eigenstate of the Pauli-X operator and is commonly
-  used in quantum algorithms and quantum information protocols.
+   The |+⟩ state is an eigenstate of the Pauli-X operator and is commonly
+   used in quantum algorithms and quantum information protocols.
   
-  Parameters: None
+   Parameters:
+   - (no args): Creates single-qubit |+⟩ state
+   - n: (optional) Number of qubits for multi-qubit |+⟩^⊗n state
   
-  Returns:
-  Single-qubit quantum state map representing |+⟩
+   Returns:
+   Quantum state map representing the |+⟩^⊗n state
   
-  Example:
-  (plus-state)
-  ;=> {:state-vector [0.707+0i, 0.707+0i], :num-qubits 1}"
+   Example:
+   (plus-state)
+   ;=> {:state-vector [0.707+0i, 0.707+0i], :num-qubits 1}
+   
+   (plus-state 3)
+   ;=> 3-qubit state |+++⟩"
   ([]
    (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
      {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex sqrt2-inv 0)]
@@ -340,22 +350,27 @@
 (defn minus-state
   "Create the |-⟩ superposition state.
   
-  Creates the |-⟩ = (|0⟩ - |1⟩)/√2 state, which is an equal superposition
-  of the computational basis states with a relative phase of π between them.
-  This state also has 50% probability of measuring either 0 or 1, but the
-  negative amplitude creates different interference patterns.
+   Creates the |-⟩ = (|0⟩ - |1⟩)/√2 state, which is an equal superposition
+   of the computational basis states with a relative phase of π between them.
+   This state also has 50% probability of measuring either 0 or 1, but the
+   negative amplitude creates different interference patterns.
   
-  The |-⟩ state is an eigenstate of the Pauli-X operator (with eigenvalue -1)
-  and demonstrates quantum phase relationships.
+   The |-⟩ state is an eigenstate of the Pauli-X operator (with eigenvalue -1)
+   and demonstrates quantum phase relationships.
   
-  Parameters: None
+   Parameters:
+   - (no args): Creates single-qubit |-⟩ state
+   - n: (optional) Number of qubits for multi-qubit |-⟩^⊗n state
   
-  Returns:
-  Single-qubit quantum state map representing |-⟩
+   Returns:
+   Quantum state map representing the |-⟩^⊗n state
   
-  Example:
-  (minus-state)
-  ;=> {:state-vector [0.707+0i, -0.707+0i], :num-qubits 1}"
+   Example:
+   (minus-state)
+   ;=> {:state-vector [0.707+0i, -0.707+0i], :num-qubits 1}
+   
+   (minus-state 3)
+   ;=> 3-qubit state |---⟩"
   ([]
    (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
      {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex (- sqrt2-inv) 0)]
@@ -372,21 +387,26 @@
 (defn plus-i-state
   "Create the |+i⟩ = (|0⟩ + i|1⟩)/√2 superposition state.
   
-  This state is a superposition with a phase factor of i, commonly used in quantum algorithms.
-  The |+i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
-  that introduces interference effects.
+   This state is a superposition with a phase factor of i, commonly used in quantum algorithms.
+   The |+i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
+   that introduces interference effects.
 
-  The |+i⟩ state is an eigenstate of the Pauli-Y operator and is useful for
-  demonstrating quantum phase relationships.
+   The |+i⟩ state is an eigenstate of the Pauli-Y operator and is useful for
+   demonstrating quantum phase relationships.
 
-  Parameters: None
-   
-  Returns:
-  Single-qubit quantum state map representing |+i⟩
+   Parameters:
+   - (no args): Creates single-qubit |+i⟩ state
+   - n: (optional) Number of qubits for multi-qubit |+i⟩^⊗n state
+
+   Returns:
+   Quantum state map representing the |+i⟩^⊗n state
   
-  Example:
-  (plus-i-state)
-  ;=> {:state-vector [0.707+0i, 0+0.707i], :num-qubits 1}"
+   Example:
+   (plus-i-state)
+   ;=> {:state-vector [0.707+0i, 0+0.707i], :num-qubits 1}
+   
+   (plus-i-state 3)
+   ;=> 3-qubit state |+i+i+i⟩"
   ([]
    (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
      {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 sqrt2-inv)]
@@ -403,21 +423,26 @@
 (defn minus-i-state
   "Create the |-i⟩ = (|0⟩ - i|1⟩)/√2 superposition state.
   
-  This state is a superposition with a phase factor of -i, commonly used in quantum algorithms.
-  The |-i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
-  that introduces interference effects.
+   This state is a superposition with a phase factor of -i, commonly used in quantum algorithms.
+   The |-i⟩ state has equal probability amplitudes for |0⟩ and |1⟩, but with a complex phase
+   that introduces interference effects.
   
-  The |-i⟩ state is an eigenstate of the Pauli-Y operator (with eigenvalue -1) and is useful for
-  demonstrating quantum phase relationships.
+   The |-i⟩ state is an eigenstate of the Pauli-Y operator (with eigenvalue -1) and is useful for
+   demonstrating quantum phase relationships.
 
-  Parameters: None
+   Parameters:
+   - (no args): Creates single-qubit |-i⟩ state
+   - n: (optional) Number of qubits for multi-qubit |-i⟩^⊗n state
   
-  Returns:
-  Single-qubit quantum state map representing |-i⟩
+   Returns:
+   Quantum state map representing the |-i⟩^⊗n state
   
-  Example:
-  (minus-i-state)
-  ;=> {:state-vector [0.707+0i, 0-0.707i], :num-qubits 1}"
+   Example:
+   (minus-i-state)
+   ;=> {:state-vector [0.707+0i, 0-0.707i], :num-qubits 1}
+   
+   (minus-i-state 3)
+   ;=> 3-qubit state |-i-i-i⟩"
   ([]
    (let [sqrt2-inv (/ 1 (fm/sqrt 2))]
      {:state-vector [(fc/complex sqrt2-inv 0) (fc/complex 0 (- sqrt2-inv))]
@@ -427,7 +452,7 @@
    (let [size (bit-shift-left 1 n)
          amplitude (/ 1 (fm/sqrt size))
          state-vector (vec (concat [(fc/complex amplitude 0)]
-                                   (repeat (- size 1) (fc/complex 0 (- amplitude)) )))]
+                                   (repeat (- size 1) (fc/complex 0 (- amplitude)))))]
      {:state-vector state-vector
       :num-qubits n})))
 

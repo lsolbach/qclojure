@@ -132,13 +132,13 @@
 ;; `project.clj` file:
 ;;
 ;; ```clojure
-;; [org.soulspace/qclojure "0.23.0"]
+;; [org.soulspace/qclojure "0.24.0"]
 ;; ```
 ;;
 ;; If you are using Clojure CLI, add the following to your `deps.edn` file:
 ;;
 ;; ```clojure
-;; {:deps {org.soulspace/qclojure {:mvn/version "0.23.0"}}}
+;; {:deps {org.soulspace/qclojure {:mvn/version "0.24.0"}}}
 ;; ```
 ;;
 ;; ### Imports

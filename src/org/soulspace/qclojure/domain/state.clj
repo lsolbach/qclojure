@@ -431,6 +431,31 @@
      {:state-vector state-vector
       :num-qubits n})))
 
+(comment
+  (single-qubit-state (fc/complex 0.707 0))
+
+  (multi-qubit-state [(fc/complex 0.707 0) (fc/complex 0 0)
+                      (fc/complex 0 0) (fc/complex 0.707 0)])
+
+  (zero-state)
+  (zero-state 3)
+
+  (one-state)
+  (one-state 3)
+
+  (plus-state)
+  (plus-state 3)
+
+  (minus-state)
+  (minus-state 3)
+
+  (plus-i-state)
+  (plus-i-state 3)
+
+  (minus-i-state)
+  (minus-i-state 3)
+  )
+
 (defn computational-basis-state
   "Create a computational basis state |b₀b₁...bₙ₋₁⟩ from a vector of bits.
   

@@ -660,3 +660,234 @@
   (test-basic-states)
   (test-tensor-product)
   (test-measurement))
+
+;;
+;; Multi-qubit state creation tests
+;;
+(deftest test-multi-qubit-one-state
+  (testing "Multi-qubit one-state creation"
+    (let [|11⟩ (qs/one-state 2)
+          |111⟩ (qs/one-state 3)]
+      
+      ;; Check number of qubits
+      (is (= (:num-qubits |11⟩) 2))
+      (is (= (:num-qubits |111⟩) 3))
+      
+      ;; Check state vector size
+      (is (= (count (:state-vector |11⟩)) 4))
+      (is (= (count (:state-vector |111⟩)) 8))
+      
+      ;; For |11⟩, only the last amplitude (index 3) should be 1
+      (is (= (nth (:state-vector |11⟩) 3) (fc/complex 1 0)))
+      (is (every? #(= % (fc/complex 0 0)) (take 3 (:state-vector |11⟩))))
+      
+      ;; For |111⟩, only the last amplitude (index 7) should be 1
+      (is (= (nth (:state-vector |111⟩) 7) (fc/complex 1 0)))
+      (is (every? #(= % (fc/complex 0 0)) (take 7 (:state-vector |111⟩))))
+      
+      ;; Test probabilities
+      (is (= (qs/probability |11⟩ 3) 1.0))
+      (is (= (qs/probability |111⟩ 7) 1.0))
+      
+      ;; All states should be normalized
+      (let [norm-11 (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |11⟩)))
+            norm-111 (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |111⟩)))]
+        (is (< (abs (- norm-11 1.0)) 1e-10))
+        (is (< (abs (- norm-111 1.0)) 1e-10))))))
+
+(deftest test-multi-qubit-plus-state
+  (testing "Multi-qubit plus-state creation"
+    (let [|++⟩ (qs/plus-state 2)
+          |+++⟩ (qs/plus-state 3)]
+      
+      ;; Check number of qubits
+      (is (= (:num-qubits |++⟩) 2))
+      (is (= (:num-qubits |+++⟩) 3))
+      
+      ;; Check state vector size
+      (is (= (count (:state-vector |++⟩)) 4))
+      (is (= (count (:state-vector |+++⟩)) 8))
+      
+      ;; For |++⟩, all amplitudes should be equal (1/2)
+      (let [expected-amp (/ 1 (fm/sqrt 4))]
+        (doseq [amp (:state-vector |++⟩)]
+          (is (< (abs (- (fc/re amp) expected-amp)) 1e-10))
+          (is (< (abs (fc/im amp)) 1e-10))))
+      
+      ;; For |+++⟩, all amplitudes should be equal (1/√8)
+      (let [expected-amp (/ 1 (fm/sqrt 8))]
+        (doseq [amp (:state-vector |+++⟩)]
+          (is (< (abs (- (fc/re amp) expected-amp)) 1e-10))
+          (is (< (abs (fc/im amp)) 1e-10))))
+      
+      ;; Test equal probabilities for all basis states
+      (doseq [i (range 4)]
+        (is (< (abs (- (qs/probability |++⟩ i) 0.25)) 1e-10)))
+      
+      (doseq [i (range 8)]
+        (is (< (abs (- (qs/probability |+++⟩ i) 0.125)) 1e-10)))
+      
+      ;; All states should be normalized
+      (let [norm-++ (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |++⟩)))
+            norm-+++ (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |+++⟩)))]
+        (is (< (abs (- norm-++ 1.0)) 1e-10))
+        (is (< (abs (- norm-+++ 1.0)) 1e-10))))))
+
+(deftest test-multi-qubit-minus-state
+  (testing "Multi-qubit minus-state creation"
+    (let [|--⟩ (qs/minus-state 2)
+          |---⟩ (qs/minus-state 3)]
+      
+      ;; Check number of qubits
+      (is (= (:num-qubits |--⟩) 2))
+      (is (= (:num-qubits |---⟩) 3))
+      
+      ;; Check state vector size
+      (is (= (count (:state-vector |--⟩)) 4))
+      (is (= (count (:state-vector |---⟩)) 8))
+      
+      ;; For |--⟩, first amplitude should be positive, rest negative
+      (let [expected-amp (/ 1 (fm/sqrt 4))
+            [a0 a1 a2 a3] (:state-vector |--⟩)]
+        (is (< (abs (- (fc/re a0) expected-amp)) 1e-10))
+        (is (< (abs (+ (fc/re a1) expected-amp)) 1e-10))
+        (is (< (abs (+ (fc/re a2) expected-amp)) 1e-10))
+        (is (< (abs (+ (fc/re a3) expected-amp)) 1e-10)))
+      
+      ;; Test equal probabilities despite phase differences
+      (doseq [i (range 4)]
+        (is (< (abs (- (qs/probability |--⟩ i) 0.25)) 1e-10)))
+      
+      (doseq [i (range 8)]
+        (is (< (abs (- (qs/probability |---⟩ i) 0.125)) 1e-10)))
+      
+      ;; All states should be normalized
+      (let [norm--- (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |--⟩)))
+            norm---- (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |---⟩)))]
+        (is (< (abs (- norm--- 1.0)) 1e-10))
+        (is (< (abs (- norm---- 1.0)) 1e-10))))))
+
+(deftest test-multi-qubit-plus-i-state
+  (testing "Multi-qubit plus-i-state creation"
+    (let [|+i+i⟩ (qs/plus-i-state 2)
+          |+i+i+i⟩ (qs/plus-i-state 3)]
+      
+      ;; Check number of qubits
+      (is (= (:num-qubits |+i+i⟩) 2))
+      (is (= (:num-qubits |+i+i+i⟩) 3))
+      
+      ;; Check state vector size
+      (is (= (count (:state-vector |+i+i⟩)) 4))
+      (is (= (count (:state-vector |+i+i+i⟩)) 8))
+      
+      ;; For |+i+i⟩, first amplitude real, rest imaginary
+      (let [expected-amp (/ 1 (fm/sqrt 4))
+            [a0 a1 a2 a3] (:state-vector |+i+i⟩)]
+        ;; First amplitude should be real
+        (is (< (abs (- (fc/re a0) expected-amp)) 1e-10))
+        (is (< (abs (fc/im a0)) 1e-10))
+        
+        ;; Rest should be imaginary (positive imaginary part)
+        (is (< (abs (fc/re a1)) 1e-10))
+        (is (< (abs (- (fc/im a1) expected-amp)) 1e-10))
+        (is (< (abs (fc/re a2)) 1e-10))
+        (is (< (abs (- (fc/im a2) expected-amp)) 1e-10))
+        (is (< (abs (fc/re a3)) 1e-10))
+        (is (< (abs (- (fc/im a3) expected-amp)) 1e-10)))
+      
+      ;; Test equal probabilities
+      (doseq [i (range 4)]
+        (is (< (abs (- (qs/probability |+i+i⟩ i) 0.25)) 1e-10)))
+      
+      (doseq [i (range 8)]
+        (is (< (abs (- (qs/probability |+i+i+i⟩ i) 0.125)) 1e-10)))
+      
+      ;; All states should be normalized
+      (let [norm-+i (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |+i+i⟩)))
+            norm-+i+i (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |+i+i+i⟩)))]
+        (is (< (abs (- norm-+i 1.0)) 1e-10))
+        (is (< (abs (- norm-+i+i 1.0)) 1e-10))))))
+
+(deftest test-multi-qubit-minus-i-state
+  (testing "Multi-qubit minus-i-state creation"
+    (let [|-i-i⟩ (qs/minus-i-state 2)
+          |-i-i-i⟩ (qs/minus-i-state 3)]
+      
+      ;; Check number of qubits
+      (is (= (:num-qubits |-i-i⟩) 2))
+      (is (= (:num-qubits |-i-i-i⟩) 3))
+      
+      ;; Check state vector size
+      (is (= (count (:state-vector |-i-i⟩)) 4))
+      (is (= (count (:state-vector |-i-i-i⟩)) 8))
+      
+      ;; For |-i-i⟩, first amplitude real, rest negative imaginary
+      (let [expected-amp (/ 1 (fm/sqrt 4))
+            [a0 a1 a2 a3] (:state-vector |-i-i⟩)]
+        ;; First amplitude should be real
+        (is (< (abs (- (fc/re a0) expected-amp)) 1e-10))
+        (is (< (abs (fc/im a0)) 1e-10))
+        
+        ;; Rest should be imaginary (negative imaginary part)
+        (is (< (abs (fc/re a1)) 1e-10))
+        (is (< (abs (+ (fc/im a1) expected-amp)) 1e-10))
+        (is (< (abs (fc/re a2)) 1e-10))
+        (is (< (abs (+ (fc/im a2) expected-amp)) 1e-10))
+        (is (< (abs (fc/re a3)) 1e-10))
+        (is (< (abs (+ (fc/im a3) expected-amp)) 1e-10)))
+      
+      ;; Test equal probabilities
+      (doseq [i (range 4)]
+        (is (< (abs (- (qs/probability |-i-i⟩ i) 0.25)) 1e-10)))
+      
+      (doseq [i (range 8)]
+        (is (< (abs (- (qs/probability |-i-i-i⟩ i) 0.125)) 1e-10)))
+      
+      ;; All states should be normalized
+      (let [norm--i (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |-i-i⟩)))
+            norm--i-i (reduce + (map #(* (fc/abs %) (fc/abs %)) (:state-vector |-i-i-i⟩)))]
+        (is (< (abs (- norm--i 1.0)) 1e-10))
+        (is (< (abs (- norm--i-i 1.0)) 1e-10))))))
+
+(deftest test-multi-qubit-state-consistency
+  (testing "Multi-qubit states should be consistent with tensor products"
+    ;; |++⟩ should equal |+⟩ ⊗ |+⟩
+    (let [|+⟩ (qs/plus-state)
+          |++⟩-tensor (qs/tensor-product |+⟩ |+⟩)
+          |++⟩-direct (qs/plus-state 2)]
+      
+      ;; Compare state vectors
+      (doseq [i (range 4)]
+        (let [amp-tensor (nth (:state-vector |++⟩-tensor) i)
+              amp-direct (nth (:state-vector |++⟩-direct) i)]
+          (is (< (abs (- (fc/re amp-tensor) (fc/re amp-direct))) 1e-10))
+          (is (< (abs (- (fc/im amp-tensor) (fc/im amp-direct))) 1e-10)))))
+    
+    ;; |11⟩ should equal |1⟩ ⊗ |1⟩
+    (let [|1⟩ (qs/one-state)
+          |11⟩-tensor (qs/tensor-product |1⟩ |1⟩)
+          |11⟩-direct (qs/one-state 2)]
+      
+      (doseq [i (range 4)]
+        (let [amp-tensor (nth (:state-vector |11⟩-tensor) i)
+              amp-direct (nth (:state-vector |11⟩-direct) i)]
+          (is (< (abs (- (fc/re amp-tensor) (fc/re amp-direct))) 1e-10))
+          (is (< (abs (- (fc/im amp-tensor) (fc/im amp-direct))) 1e-10)))))))
+
+(deftest test-multi-qubit-measurement-outcomes
+  (testing "Multi-qubit state measurements produce valid outcomes"
+    ;; |11⟩ should always measure to 3 (binary 11)
+    (let [|11⟩ (qs/one-state 2)]
+      (dotimes [_ 5]
+        (let [measurement (qs/measure-state |11⟩)]
+          (is (= (:outcome measurement) 3)))))
+    
+    ;; |++⟩ should measure to all outcomes with equal probability
+    (let [|++⟩ (qs/plus-state 2)
+          measurements (repeatedly 100 #(:outcome (qs/measure-state |++⟩)))
+          outcome-set (set measurements)]
+      ;; Should see multiple different outcomes
+      (is (> (count outcome-set) 1))
+      ;; All outcomes should be in valid range
+      (is (every? #(< % 4) measurements))
+      (is (every? #(>= % 0) measurements)))))

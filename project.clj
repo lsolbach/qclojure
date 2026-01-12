@@ -1,12 +1,12 @@
-(defproject org.soulspace/qclojure "0.24.0"
+(defproject org.soulspace/qclojure "0.25.0-SNAPSHOT"
   :description "QClojure is a library to implement and simulate quantum and hybrid algorithms in idiomatic Clojure."
   :license {:name "Eclipse Public License 1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.3"]
-                 [org.clojure/data.json "2.5.1"]
-                 [org.clojure/spec.alpha "0.5.238"]
-                 [org.clojure/test.check "1.1.2"]
-                 [org.clojure/core.memoize "1.1.266"]
+  :dependencies [[org.clojure/clojure "1.12.4"]
+                 [org.clojure/data.json "2.5.2"]
+                 [org.clojure/spec.alpha "0.6.249"]
+                 [org.clojure/test.check "1.1.3"]
+                 [org.clojure/core.memoize "1.1.273"]
                  [generateme/fastmath "3.0.0-alpha4"]
                  [hiccup/hiccup "2.0.0"]
                  [instaparse/instaparse "1.5.0"]]
@@ -17,7 +17,7 @@
                                     "-XX:+AlwaysPreTouch"]}
              :container {:jvm-opts ["-XX:InitialRAMPercentage=2.0"
                                     "-XX:MaxRAMPercentage=60.0"]}
-             :clay {:dependencies [[org.scicloj/clay "2.0.0"]]
+             :clay {:dependencies [[org.scicloj/clay "2.0.5"]]
                     :source-paths ["src" "notebooks"]}}
 
   :scm {:name "git" :url "https://github.com/lsolbach/qclojure"}

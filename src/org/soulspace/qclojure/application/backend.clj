@@ -216,10 +216,15 @@
   - backend: An implementation of QuantumBackend protocol
   - circuit: Quantum circuit to execute
   - options: Execution options (defaults: {:shots 128})
+   
+  The options map can include:
+  - :shots (positive integer): Number of measurement shots
+  - :initial-state (state map): Initial quantum state
+  - :result-specs (map): Specifications for desired results
 
   Returns: Job result map with measurement outcomes"
   ([backend circuit]
-   (execute-circuit backend circuit{:shots 128}))
+   (execute-circuit backend circuit {:shots 128}))
   ([backend circuit options]
    {:pre [(satisfies? QuantumBackend backend)
           (s/valid? ::circuit/circuit circuit)

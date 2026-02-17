@@ -221,6 +221,7 @@
   - :shots (positive integer): Number of measurement shots
   - :initial-state (state map): Initial quantum state
   - :result-specs (map): Specifications for desired results
+  - :timeout-seconds (positive integer): Maximum time to wait for job completion
 
   Returns: Job result map with measurement outcomes"
   ([backend circuit]
@@ -234,6 +235,7 @@
      {:job-status :failed
       :error-message "Backend is not available"}
 
+     ; TODO use timeout and async execution instead of blocking loop
      (let [job-id (submit-circuit backend circuit options)]
        ;(println "Waiting for job" job-id "to complete...")
        (loop [max-retries 600

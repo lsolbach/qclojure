@@ -9,6 +9,7 @@
                  [org.clojure/core.memoize "1.2.273"]
                  [generateme/fastmath "3.0.0-alpha4"]
                  [hiccup/hiccup "2.0.0"]
+                 [zprint/zprint "1.3.0"]
                  [instaparse/instaparse "1.5.0"]]
 
   :profiles {:dev [:user {}]
